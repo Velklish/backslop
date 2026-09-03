@@ -6,7 +6,8 @@ import { mkdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { loadProject } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
-import { cleanup, cli, makeProject, put } from './helpers.mjs';
+import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
+import { TOOL_VERSION } from '../lib/version.js';
 
 function seedGreen(root) {
   put(root, 'docs/README.md', [
@@ -28,7 +29,8 @@ function seedGreen(root) {
   put(root, 'README.md', 'См. [docs](docs/README.md)\n');
 }
 
-const problems = (root) => lintProject(loadProject(root)).map((p) => `${p.file}: ${p.msg}`);
+const problems = (root) => lintProject(loadProject(root)).errors.map((p) => `${p.file}: ${p.msg}`);
+const warnings = (root) => lintProject(loadProject(root)).warnings.map((p) => `${p.file}: ${p.msg}`);
 
 function probe(name, mutate, expect) {
   test(`lint: ${name}`, () => {
@@ -93,6 +95,34 @@ probe('7. дубль заголовка записи в секции CHANGELOG',
 probe('8. ADR без строки в таблице', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Сирота\n'), /adr-002-orphan\.md: нет строки/);
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
+
+test('lint: предупреждения о версии не красят гейт', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
+    assert.ok(warnings(root).some((w) => /backslop\.json: нет штампа версии/.test(w)), warnings(root).join(' | '));
+    setConfig({ version: '0.0.1' });
+    assert.ok(warnings(root).some((w) => /скелет старее инструмента: v0\.0\.1 </.test(w)), warnings(root).join(' | '));
+    setConfig({ version: TOOL_VERSION, cli: 'npx github:me/proj#v0.0.1' });
+    assert.ok(warnings(root).some((w) => /пин в cli v0\.0\.1 расходится со штампом/.test(w)), warnings(root).join(' | '));
+    setConfig({ version: TOOL_VERSION, cli: `npx github:me/proj#v${TOOL_VERSION}` });
+    assert.deepEqual(warnings(root), []);
+    setConfig({ version: '9.9.9' });
+    assert.ok(warnings(root).some((w) => /штамп новее инструмента: v9\.9\.9 >/.test(w)), warnings(root).join(' | '));
+    setConfig({ version: TOOL_VERSION, cli: 'npx github:me/proj' });
+    assert.ok(warnings(root).some((w) => /cli без пина тянет HEAD/.test(w)), warnings(root).join(' | '));
+    setConfig({ version: TOOL_VERSION, cli: 'backslop' });
+    assert.deepEqual(warnings(root), [], 'глобальная установка пина не несёт и не предупреждает');
+    setConfig({ version: '0.0.1', cli: 'backslop' });
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /⚠ backslop\.json: скелет старее инструмента/);
+    assert.match(r.out, /ошибок нет, предупреждений 1/);
+  } finally {
+    cleanup(root);
+  }
+});
 
 test('lint: CLI печатает каждую ошибку и выходит единицей', () => {
   const root = makeProject({ git: false });

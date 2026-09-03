@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, put, read } from './helpers.mjs';
+import { TOOL_VERSION } from '../lib/version.js';
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
@@ -33,7 +34,10 @@ test('init: раскладка, lint зелёный, сквозной цикл �
     assert.equal(r.code, 0, r.err);
     for (const rel of EXPECTED) assert.ok(existsSync(path.join(root, rel)), `нет ${rel}`);
     const cfg = JSON.parse(read(root, 'backslop.json'));
-    assert.deepEqual(cfg, { prefix: 'BS', docs: 'docs', cli: 'npx github:Velklish/backslop', gates: ['npx github:Velklish/backslop lint'] });
+    assert.deepEqual(cfg, {
+      prefix: 'BS', docs: 'docs', cli: `npx github:Velklish/backslop#v${TOOL_VERSION}`,
+      gates: [`npx github:Velklish/backslop#v${TOOL_VERSION} lint`], version: TOOL_VERSION,
+    });
     assert.match(read(root, 'docs/README.md'), /^# Документация demo-app\n/);
     assert.match(read(root, 'docs/adr/adr-001-process.md'), /\*\*Date:\*\* \d{4}-\d{2}-\d{2}\n/);
     assert.doesNotMatch(read(root, 'docs/backlog/README.md'), /\{\{/);
@@ -41,7 +45,7 @@ test('init: раскладка, lint зелёный, сквозной цикл �
     assert.equal(read(root, 'CLAUDE.md'), '@AGENTS.md\n');
     const agents = read(root, 'AGENTS.md');
     assert.equal((agents.match(/<!-- backslop:start -->/g) ?? []).length, 1);
-    assert.match(agents, /npx github:Velklish\/backslop status/);
+    assert.match(agents, /npx github:Velklish\/backslop#v\d+\.\d+\.\d+ status/);
 
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err + r.out);
@@ -139,6 +143,38 @@ test('init: CLAUDE.md-симлинк на AGENTS.md не считается пр
     assert.match(r.out, /симлинк на AGENTS\.md/);
     assert.equal(JSON.parse(read(root, 'backslop.json')).docs, 'docs');
     assert.doesNotMatch(read(root, 'AGENTS.md'), /docs\/\//);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init повторно: штамп версии переставляется, расхождение с пином в cli называется', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, version: '0.0.1', cli: 'npx github:Velklish/backslop#v0.0.1' }, null, 2)}\n`);
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /штамп версии: v0\.0\.1 → v\d+\.\d+\.\d+/);
+    assert.match(r.err, /пин в cli — v0\.0\.1, а раскладку сделала v/);
+    const after = JSON.parse(read(root, 'backslop.json'));
+    assert.equal(after.version, TOOL_VERSION);
+    assert.equal(after.cli, 'npx github:Velklish/backslop#v0.0.1', 'пин init не трогает — это ход upgrade');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init на проекте со своим docs/README.md: ADR-001 создан, строка в таблицу — подсказкой', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'docs/README.md', '# Мои доки\n');
+    const r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /docs\/README\.md уже был: добавь в таблицу строку/);
+    assert.equal(read(root, 'docs/README.md'), '# Мои доки\n');
   } finally {
     cleanup(root);
   }

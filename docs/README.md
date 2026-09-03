@@ -12,6 +12,7 @@
 | [adr/adr-001-process.md](adr/adr-001-process.md) | Задачи и решения ведутся по backslop | Accepted |
 | [adr/adr-002-status-is-directory.md](adr/adr-002-status-is-directory.md) | Статус задачи — каталог, приоритет — поле «Порядок»; индекса в git нет | Accepted |
 | [adr/adr-003-node-stdlib-npx.md](adr/adr-003-node-stdlib-npx.md) | Node без зависимостей, доставка `npx github:` | Accepted |
+| [adr/adr-004-version-pin-upgrade.md](adr/adr-004-version-pin-upgrade.md) | Пин версии в проекте и обновление командой `upgrade` | Accepted |
 
 ## Сквозные принципы
 

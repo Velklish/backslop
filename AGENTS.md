@@ -6,10 +6,12 @@
 
 Гейты: `npm test` и `node bin/backslop.js lint` зелёные. Проверку гейта `lint` подтверждай красной пробой в `test/lint.test.mjs`.
 
+Фаза разработки: работа идёт прямо в `main`, без веток и MR; в `origin` каждая задача уезжает одним коммитом `BS-N: …` — промежуточные коммиты схлопываются перед пушем. Релиз — тег `vX.Y.Z`, запушенный одним ходом с `main` (`git push --atomic origin main vX.Y.Z`): окно между ними ломает `upgrade` у проектов.
+
 <!-- backslop:start -->
 ## Задачи и решения — backslop
 
-Трекер задач и журнал решений живут в `docs/` и ведутся командой `node bin/backslop.js` (конфиг — `backslop.json`, префикс задач — `BS`). Списка задач в файлах нет: очередь, работу, отложенное и triage печатает `node bin/backslop.js status`. Правила ведения — `docs/backlog/README.md`, термины — `docs/GLOSSARY.md`.
+Трекер задач и журнал решений живут в `docs/` и ведутся командой `node bin/backslop.js` (конфиг — `backslop.json`, префикс задач — `BS`). Списка задач в файлах нет: очередь, работу, отложенное и triage печатает `node bin/backslop.js status`. Правила ведения — `docs/backlog/README.md`, термины — `docs/GLOSSARY.md`. Версия раскладки — поле `version` в `backslop.json`; обновление backslop — `node bin/backslop.js upgrade`, по своему решению, а не по чужому коммиту.
 
 **Скиллы:** `backslop-task` — цикл одной задачи; `backslop-batch` — заход worker'ами по track'ам; `backslop-seed` — наполнение документации после установки.
 

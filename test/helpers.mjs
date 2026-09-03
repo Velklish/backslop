@@ -35,8 +35,8 @@ export function gitAll(root, message = 'снимок') {
   run(root, ['commit', '-qm', message]);
 }
 
-export function cli(root, args, { cwd = root } = {}) {
-  const r = spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+export function cli(root, args, { cwd = root, env = {} } = {}) {
+  const r = spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', ...env } });
   return { code: r.status, out: r.stdout ?? '', err: r.stderr ?? '' };
 }
 

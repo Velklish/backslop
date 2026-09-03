@@ -16,7 +16,8 @@
 - приоритет очереди — поле «Порядок» в файле; номера считает `{{cli}} new` по каталогам, находки получают `N.k` без координации;
 - решения — ADR в `{{docs}}/adr/` со строкой в таблице `{{docs}}/README.md`; принятое решение не правится, а заменяется новым;
 - процедура изменения и роли worker/approver — блок backslop в `AGENTS.md`; детали — скиллы `backslop-task` и `backslop-batch`, наполнение документации — `backslop-seed`;
-- гейты — `{{cli}} lint` плюс `gates` из `backslop.json`.
+- гейты — `{{cli}} lint` плюс `gates` из `backslop.json`;
+- версия инструмента фиксируется пином в `backslop.json` (`cli` с тегом, штамп `version`); обновление — `{{cli}} upgrade`, формат файлов при смене версии переводит `migrate`.
 
 ## Consequences
 

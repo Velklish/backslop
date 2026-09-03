@@ -27,6 +27,10 @@
 | оркестратор | orchestrator | Сессия, ведущая заход worker'ами: режет очередь, пишет брифы, принимает; под оркестрацией — approver | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
 | reviewer | reviewer | Изолированная read-only сессия со свежим контекстом: смотрит дифф и не чинит | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
 | ADR | ADR | Запись архитектурного решения `adr-NNN-<slug>.md` со строкой в таблице `docs/README.md` | [lib/adr.js](../lib/adr.js) |
+| пин | pin | Тег версии в поле `cli` (`npx github:owner/repo#vX.Y.Z`): какой версией проект зовёт backslop; переставляет `upgrade` | [lib/config.js](../lib/config.js), `parseCli` |
+| штамп | stamp | Поле `version` в `backslop.json`: какая версия делала раскладку; ставят `init` и `migrate`, читают `lint` и `upgrade` | [lib/init.js](../lib/init.js) |
+| источник релизов | release source | Git-репозиторий с тегами `vX.Y.Z`, откуда `upgrade` берёт версии: поле `source` или адрес из формы `cli` | [lib/upgrade.js](../lib/upgrade.js), `listReleaseTags` |
+| выжимка CHANGELOG | changelog excerpt | Секции CHANGELOG backslop между двумя версиями, которые печатает `changelog` и `upgrade` | [lib/changelog.js](../lib/changelog.js) |
 | harness | harness | Среда, в которой работает агент и которая даёт транспорт для worker'ов: субагенты, сессии, шина | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
 | мутационная проба | mutation probe | Проверка теста порчей кода: тест обязан покраснеть; делается после коммита, чтобы откат мутации не снёс правку | [templates/skills/backslop-task/SKILL.md](../templates/skills/backslop-task/SKILL.md) |
 | review round | review round | Итерация ревью: замечания → правки → проверка закрытия; пределы кругов — норма скилла захода | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |

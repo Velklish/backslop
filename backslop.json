@@ -4,5 +4,6 @@
   "cli": "node bin/backslop.js",
   "gates": [
     "node bin/backslop.js lint"
-  ]
+  ],
+  "version": "0.2.0"
 }

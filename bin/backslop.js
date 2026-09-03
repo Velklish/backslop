@@ -2,11 +2,11 @@
 // Точка входа CLI: первый аргумент — команда, остальное уходит модулю команды.
 // Модули лежат в lib/<команда>.js и экспортируют `run(argv, { cwd })`; отказ —
 // исключение CliError с текстом для человека, любое другое исключение — ошибка кода.
-import { readFileSync } from 'node:fs';
 import process from 'node:process';
 import { CliError, bad } from '../lib/util.js';
+import { TOOL_VERSION } from '../lib/version.js';
 
-const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint'];
+const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'upgrade', 'migrate', 'changelog'];
 
 const HELP = `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
@@ -20,17 +20,15 @@ const HELP = `backslop — бэклог для слопа: задачи файл
   adr <slug> [--title "…"]                            завести ADR со следующим номером
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage
   lint                                                восемь гейтов: ссылки, номера, раскладка бэклога, поля статусов,
-                                                      архив, упоминания, CHANGELOG, таблица ADR
+                                                      архив, упоминания, CHANGELOG, таблица ADR; предупреждения о версии
+  upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli и gates, migrate и init новой версией
+  migrate [--dry-run]                                 миграция формата файлов и штамп версии
+  changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями
   version                                             версия backslop
   help                                                эта справка
 
-Запуск без установки: npx github:Velklish/backslop <команда>
+Запуск без установки: npx github:Velklish/backslop#v${TOOL_VERSION} <команда>
 `;
-
-function version() {
-  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  return `${pkg.name} ${pkg.version}\n`;
-}
 
 async function main(argv) {
   const [name, ...rest] = argv;
@@ -39,7 +37,7 @@ async function main(argv) {
     return 0;
   }
   if (name === 'version' || name === '--version' || name === '-v') {
-    process.stdout.write(version());
+    process.stdout.write(`backslop ${TOOL_VERSION}\n`);
     return 0;
   }
   if (!COMMANDS.includes(name)) throw new CliError(`неизвестная команда «${name}»; список — backslop help`);
