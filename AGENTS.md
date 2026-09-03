@@ -2,18 +2,20 @@
 
 Здесь живёт сам backslop: CLI (`bin/`, `lib/`), шаблоны всего, что он кладёт в проекты (`templates/`), тесты (`test/`) и документация устройства (`docs/`). Свой бэклог репозиторий ведёт тем же инструментом — команда здесь `node bin/backslop.js`.
 
-Правило одно на весь репозиторий: **шаблоны — источник, `docs/` и `.claude/` — результат.** Правило процесса меняется в `templates/skills/**` или `templates/docs/**`, после чего `node bin/backslop.js init` переписывает скиллы здесь; править `.claude/skills/backslop-*` напрямую бесполезно. Меняется поведение команды — тем же ходом справочник `docs/reference/`, README и CHANGELOG; меняется контракт (форматы файлов, команды, состав `status --json`) — новый ADR.
+Правило одно на весь репозиторий: **шаблоны — источник, adapter outputs — локальный generated результат.** Правило процесса меняется в `templates/skills/**` или `templates/docs/**`; английский близнец — в `templates/en/` с тем же составом. Self-host держит `tools: []` в `backslop.json`, поэтому `init` здесь не создаёт `.claude/`, `.cursor/` и `.agents/skills/`. Править generated skills и rules напрямую бесполезно. Меняется поведение команды — тем же ходом справочник `docs/reference/`, README и CHANGELOG; меняется контракт (форматы файлов, команды, состав `status --json`) — новый ADR.
 
 Гейты: `npm test` и `node bin/backslop.js lint` зелёные. Проверку гейта `lint` подтверждай красной пробой в `test/lint.test.mjs`.
 
-Фаза разработки: работа идёт прямо в `main`, без веток и MR; в `origin` каждая задача уезжает одним коммитом `BS-N: …` — промежуточные коммиты схлопываются перед пушем. Релиз — тег `vX.Y.Z`, запушенный одним ходом с `main` (`git push --atomic origin main vX.Y.Z`): окно между ними ломает `upgrade` у проектов.
+Фаза разработки: работа идёт прямо в `main`, без веток и MR; в `origin` каждая задача уезжает одним коммитом `BS-N: …` — промежуточные коммиты схлопываются перед пушем.
+
+**Релиз.** Default `cli` до первой публикации в npm — GitHub-форма. Релиз — `npm run release -- X.Y.Z` из чистого `main`: версия в `package.json` совпадает с аргументом, локальный `main` — fast-forward от `origin/main`, гейты зелёные, `pack --dry-run` не пачкает дерево, локальный тег, `push --dry-run`, `npm publish`, atomic push `main` и тега. Сбой после тега — смотри сообщение скрипта, не выдумывай следующий шаг. Этот скрипт сам не меняет версию `package.json`. Фактическая публикация и смена default CLI — задача [BS-2.1](docs/backlog/deferred/BS-2.1-npm-publish.md).
 
 <!-- backslop:start -->
 ## Задачи и решения — backslop
 
 Трекер задач и журнал решений живут в `docs/` и ведутся командой `node bin/backslop.js` (конфиг — `backslop.json`, префикс задач — `BS`). Списка задач в файлах нет: очередь, работу, отложенное и triage печатает `node bin/backslop.js status`. Правила ведения — `docs/backlog/README.md`, термины — `docs/GLOSSARY.md`. Версия раскладки — поле `version` в `backslop.json`; обновление backslop — `node bin/backslop.js upgrade`, по своему решению, а не по чужому коммиту.
 
-**Скиллы:** `backslop-task` — цикл одной задачи; `backslop-batch` — заход worker'ами по track'ам; `backslop-seed` — наполнение документации после установки.
+**Скиллы (если выбран adapter):** `backslop-task` — цикл одной задачи; `backslop-batch` — заход worker'ами по track'ам; `backslop-seed` — наполнение документации после установки.
 
 **Процедура изменения.** Роли две: worker правит и проверяет (шаги 1–4), approver принимает и закрывает (5–7); одиночный агент совмещает обе и идёт по шагам подряд.
 

@@ -59,9 +59,41 @@ test('lint: зелёный проект без ошибок, CLI выходит 
   }
 });
 
+test('lint: EN project accepts RU metadata and reports errors in English', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"en","tools":[]}\n');
+    put(root, 'docs/archive/BS-4-e/result.md', '# Result\n\n[TODO]\n');
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /result is incomplete/);
+    assert.doesNotMatch(r.err, /[А-Яа-яЁё]/);
+  } finally { cleanup(root); }
+});
+
 probe('1. битая ссылка в docs', (root) => put(root, 'docs/note.md', '[нет](reference/none.md)\n'), /docs\/note\.md: битая ссылка reference\/none\.md/);
 probe('1. битая ссылка в корневом README', (root) => put(root, 'README.md', '[нет](docs/none.md)\n'), /README\.md: битая ссылка/);
-probe('1. битая ссылка в скилле backslop', (root) => put(root, '.claude/skills/backslop-task/SKILL.md', '[нет](../none.md)\n'), /SKILL\.md: битая ссылка/);
+probe('1. битая ссылка в скилле backslop', (root) => {
+  assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+  put(root, '.claude/skills/backslop-task/SKILL.md', '[нет](../none.md)\n');
+}, /SKILL\.md: битая ссылка/);
+probe('adapter: нет Claude stub', (root) => {
+  const cfg = JSON.parse(read(root, 'backslop.json'));
+  put(root, 'backslop.json', `${JSON.stringify({ ...cfg, tools: ['claude'] }, null, 2)}\n`);
+}, /CLAUDE\.md: нет Claude stub/);
+probe('template parity: гейт подключён к lintProject', (root) => {
+  put(root, 'templates/skills/backslop-task/SKILL.md', '{{cli}}\n');
+  put(root, 'templates/en/skills/backslop-task/SKILL.md', '{{project}}\n');
+}, /templates\/en\/skills\/backslop-task\/SKILL\.md placeholders differ/);
+probe('1. битая ссылка в Cursor rule проверяется отдельно', (root) => {
+  assert.equal(cli(root, ['init', '--tools', 'cursor']).code, 0);
+  put(root, '.cursor/rules/backslop-task.mdc', '[missing](backslop-task/references/none.md)\n');
+}, /backslop-task\.mdc: битая ссылка/);
+probe('adapter output отсутствует', (root) => {
+  assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+  rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
+}, /generated output для adapter claude/);
 probe('2. номер занят дважды', (root) => put(root, 'docs/backlog/triage/BS-1-dup.md', '# BS-1 · Дубль\n'), /номер BS-1 уже занят/);
 probe('2. заголовок не совпадает с именем', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', '# BS-8 · Не тот\n'), /заголовок называет BS-8/);
 probe('2. заголовок не по форме', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', 'Без заголовка\n'), /первая строка не/);
@@ -111,7 +143,11 @@ test('lint: предупреждения о версии не красят ге�
     setConfig({ version: '9.9.9' });
     assert.ok(warnings(root).some((w) => /штамп новее инструмента: v9\.9\.9 >/.test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: 'npx github:me/proj' });
-    assert.ok(warnings(root).some((w) => /cli без пина тянет HEAD/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => /cli без пина тянет свежую версию/.test(w)), warnings(root).join(' | '));
+    setConfig({ version: TOOL_VERSION, cli: 'npx backslop' });
+    assert.ok(warnings(root).some((w) => /cli без пина тянет свежую версию/.test(w)), warnings(root).join(' | '));
+    setConfig({ version: TOOL_VERSION, cli: 'npx backslop@latest' });
+    assert.ok(warnings(root).some((w) => /cli без пина тянет свежую версию/.test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: 'backslop' });
     assert.deepEqual(warnings(root), [], 'глобальная установка пина не несёт и не предупреждает');
     setConfig({ version: '0.0.1', cli: 'backslop' });

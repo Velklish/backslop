@@ -127,6 +127,24 @@ test('status: сводка и --json в одном составе', () => {
   }
 });
 
+test('status: EN human output, JSON contract unchanged, RU metadata accepted', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"en","tools":[]}\n');
+    put(root, 'docs/backlog/active/BS-1-mixed.md', '# BS-1 · Mixed\n\n- **Создана:** 2026-09-01\n- **Взята:** 2026-09-02\n');
+    const human = cli(root, ['status']);
+    assert.equal(human.code, 0, human.err);
+    assert.match(human.out, /^Active \(1\)/);
+    assert.match(human.out, /Queue \(0\)/);
+    assert.match(human.out, /Archive: 0/);
+    assert.doesNotMatch(human.out, /[А-Яа-яЁё]/);
+    const json = JSON.parse(cli(root, ['status', '--json']).out);
+    assert.deepEqual(json.active[0], {
+      id: 'BS-1', title: 'Mixed', file: 'docs/backlog/active/BS-1-mixed.md', created: '2026-09-01', taken: '2026-09-02',
+    });
+  } finally { cleanup(root); }
+});
+
 test('adr: следующий номер и напоминание про таблицу', () => {
   const root = makeProject();
   try {
@@ -147,9 +165,32 @@ test('команды вне проекта отказывают с подска�
     const r = cli(root, ['status'], { cwd: path.dirname(root) });
     assert.equal(r.code, 1);
     assert.match(r.err, /backslop init/);
+    const help = cli(root, ['help'], { cwd: path.dirname(root) }).out;
+    assert.match(help, /Commands:/);
+    assert.match(help, /Команды:/);
+    assert.match(help, /adapter outputs/);
+    assert.match(help, /равенство шаблонов/);
   } finally {
     cleanup(root);
   }
+});
+
+test('release-related CLI messages follow project lang without changing their flow', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","cli":"node bin/backslop.js","gates":[],"lang":"en","tools":[]}\n');
+    let r = cli(root, ['migrate', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /nothing to migrate/);
+    assert.doesNotMatch(r.out + r.err, /[А-Яа-яЁё]/);
+    r = cli(root, ['changelog', '--since', 'v99.0.0']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /no entries after v99\.0\.0/);
+    r = cli(root, ['upgrade']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /there is nothing to update/);
+    assert.doesNotMatch(r.err, /[А-Яа-яЁё]/);
+  } finally { cleanup(root); }
 });
 
 test('mv: входящие ссылки на задачу переписываются, как при archive', () => {
@@ -167,6 +208,21 @@ test('mv: входящие ссылки на задачу переписываю
     assert.match(read(root, 'docs/ROADMAP.md'), /\(backlog\/active\/BS-1-a\.md\)/);
     assert.match(read(root, 'docs/backlog/triage/BS-2-b.md'), /\(\.\.\/active\/BS-1-a\.md#контекст\)/);
     assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: generated adapter outputs исключены из repository-wide relink', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']);
+    const generated = '[BS-1](../../../docs/backlog/queue/BS-1-a.md)\n';
+    put(root, '.agents/skills/backslop-task/SKILL.md', generated);
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, '.agents/skills/backslop-task/SKILL.md'), generated);
   } finally {
     cleanup(root);
   }

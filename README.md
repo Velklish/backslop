@@ -1,100 +1,104 @@
 # backslop
 
-Бэклог для слопа: трекер задач и журнал решений файлами рядом с кодом, плюс скиллы процесса для агентов. Разворачивается в любой проект одной командой.
+A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command.
 
 ```bash
 npx github:Velklish/backslop init
 ```
 
-Нужны Node 20+ и git. Зависимостей у пакета нет.
+Requires Node 20+ and git. The package has no dependencies.
 
-## Что это
+[Russian version](README.ru.md)
 
-Агенты производят много работы, и ей нужен трекер, который живёт в репозитории, читается агентом без внешних сервисов и не даёт конфликтов при параллельной работе в ветках. backslop держит всё файлами:
+## What it is
 
-- **задача — файл** `BS-N-<slug>.md`; **статус — каталог**, в котором файл лежит: `triage/`, `queue/`, `active/`, `deferred/`; закрытые уезжают в `archive/` парой `task.md` + `result.md`;
-- **приоритет — поле «Порядок»** в файле, а не строка общего списка; списка задач в git нет вовсе — сводку печатает `status`;
-- **находка — файл** с номером `N.k`, который заводит нашедший в своей ветке без координации;
-- **решения — ADR**, **термины — глоссарий**, **устройство — справочник** по подсистемам;
-- **процесс — скиллы**: цикл одной задачи с ролями worker и approver, заход worker'ами по track'ам с брифами и гейтом ревью, наполнение документации после установки.
+Agents produce a lot of work, and it needs a tracker that lives in the repository, can be read by an agent without external services, and does not create conflicts during parallel branch work. backslop keeps everything as files:
 
-## Что появится в проекте
+- **a task is a file** `BS-N-<slug>.md`; **status is the directory** containing it: `triage/`, `queue/`, `active/`, or `deferred/`; closed tasks move to `archive/` as `task.md` + `result.md`;
+- **priority is the “Order” field** in the file, not a line in a shared list; there is no task list in git — `status` prints the summary;
+- **a finding is a file** numbered `N.k`, created by its finder in their branch without coordination;
+- **decisions are ADRs**, **terms are a glossary**, and **structure is a subsystem reference**;
+- **the process is skills**: a one-task lifecycle with worker and approver roles, a worker run by tracks with briefs and a review gate, and documentation population after installation.
+
+## What appears in a project
 
 ```
-backslop.json                    prefix, docs, cli (с пином версии), gates, version (штамп)
-AGENTS.md                        блок с процедурой изменения между <!-- backslop:start --> и <!-- backslop:end -->
-CLAUDE.md                        @AGENTS.md, если файла не было
-.claude/skills/backslop-task/    цикл одной задачи
-.claude/skills/backslop-batch/   заход worker'ами: track'и, бриф, гейт ревью, приёмка
-.claude/skills/backslop-seed/    наполнение скелета: инвентаризация → опрос → глоссарий, ADR, справочник
-docs/README.md                   индекс документации и таблица ADR
-docs/GLOSSARY.md  docs/ROADMAP.md  docs/reference/README.md
-docs/adr/adr-001-process.md      первый ADR — решение вести задачи и решения так
-docs/backlog/README.md           правила ведения
-docs/backlog/{triage,queue,active,deferred}/
-docs/archive/README.md
+backslop.json                    prefix, docs, cli (with version pin), gates, version, lang, tools
+AGENTS.md                        procedure section between <!-- backslop:start --> and <!-- backslop:end -->
+docs/…                           documentation skeleton, backlog, archive, first ADR
 ```
 
-Существующие файлы `docs/` повторный `init` не трогает; скиллы и блок в `AGENTS.md` обновляет. Флаги: `--dir <каталог>` вместо `docs`, `--prefix <KEY>` вместо `BS` (в рабочей зоне с многими репозиториями свой ключ на проект снимает неоднозначность номеров), `--cli <команда>` — как звать backslop из проекта.
+Adapters are written only when selected: `init --tools claude,cursor,codex`. Default `tools` is `[]`. A legacy config without `tools` preserves Claude when the old canonical `.claude/skills/backslop-task/SKILL.md` exists; otherwise it remains adapter-free. An explicit `tools: []` or `--tools none` always wins.
 
-Скелет готов — скажи агенту «заполни docs по backslop»: скилл `backslop-seed` прочитает репозиторий, задаст несколько вопросов и наполнит глоссарий, первые ADR и справочник, ничего не выдумывая без улики.
-
-## Команды
-
-| Команда | Что делает |
+| Adapter | Output |
 |---|---|
-| `init [--dir docs] [--prefix BS] [--cli …]` | разложить скелет; повторно — обновить скиллы и блок AGENTS.md |
-| `new <slug> [--title "…"] [--queue [--top]] [--parent N]` | завести задачу в `triage/` или сразу в очередь; `--parent N` — находка `N.k` |
-| `mv <N> <triage\|queue\|active\|deferred> [--top \| --after M]` | сменить статус: `git mv` плюс поля, которые статус ведёт за собой |
-| `archive <N> [--dry-run]` | закрыть: переезд в `archive/`, перепись ссылок по репозиторию, заготовка `result.md` |
-| `adr <slug> [--title "…"]` | новый ADR со следующим номером |
-| `status [--json]` | в работе, очередь по порядку, отложено, triage; `--json` — для оркестраторов и скриптов |
-| `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | обновить проект: пин в `cli` и `gates`, `migrate` и `init` новой версией, выжимка CHANGELOG |
-| `migrate [--dry-run]` | миграция формата файлов и штамп версии; пока форматы не менялись — только штамп |
-| `changelog [--since X.Y.Z] [--to X.Y.Z]` | выжимка CHANGELOG backslop между версиями |
-| `version`, `help` | версия и справка |
-| `lint` | восемь гейтов: ссылки, номера, раскладка бэклога, поля статусов, архив, упоминания номеров, CHANGELOG, таблица ADR |
+| `claude` | `.claude/skills/backslop-*` and a `CLAUDE.md` stub (`@AGENTS.md`) if the file did not exist |
+| `cursor` | `.cursor/rules/backslop-*.mdc` and namespaced references |
+| `codex` | `.agents/skills/backslop-*` |
 
-Без публикации в npm команда длинная, поэтому в проекте она записана в `backslop.json` полем `cli` и оттуда подставляется в скиллы и блок `AGENTS.md`. Установил глобально (`npm i -g github:Velklish/backslop#v0.2.0`) — поменяй `cli` на `backslop`.
+A repeated `init` does not touch existing `docs/` files; it updates selected adapter outputs and the section in `AGENTS.md`. `--tools none` clears the list and removes only backslop-owned files. Flags: `--dir <directory>` instead of `docs`, `--prefix <KEY>` instead of `BS`, `--cli <command>`, `--lang ru|en`.
 
-## Обновление
+Once the skeleton is ready, ask an agent to “populate docs using backslop”: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs, and reference without inventing anything without evidence.
 
-`init` записывает в `backslop.json` пин версии, которая делала раскладку: `cli` — `npx github:Velklish/backslop#v0.2.0`, `version` — штамп. Форма без тега тянет HEAD ветки `main` при каждом запуске, поэтому для `cli` проекта она не годится: поведение менялось бы чужим коммитом. Проект обновляется, когда решил сам:
+## Commands
+
+| Command | What it does |
+|---|---|
+| `init [--dir docs] [--prefix BS] [--cli …] [--lang ru\|en] [--tools <CSV\|none>]` | lay out the skeleton; on repeat, update selected adapters and the AGENTS.md section |
+| `new <slug> [--title "…"] [--queue [--top]] [--parent N]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k` |
+| `mv <N> <triage\|queue\|active\|deferred> [--top \| --after M]` | change status: `git mv` plus fields that follow status |
+| `archive <N> [--dry-run]` | close: move to `archive/`, rewrite task links throughout the repository, create `result.md` stub |
+| `adr <slug> [--title "…"]` | create the next-numbered ADR |
+| `status [--json]` | active work, ordered queue, deferred work, triage; `--json` is for orchestrators and scripts |
+| `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update a project: CLI and gate pins, `migrate` and `init` with the new version, CHANGELOG summary |
+| `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp |
+| `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
+| `version`, `help` | version and help |
+| `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity |
+
+Before publishing to npm the command is long, so projects record it in the `cli` field of `backslop.json`; skills and the `AGENTS.md` section substitute it from there. If installed globally (`npm i -g github:Velklish/backslop#v0.2.0`), change `cli` to `backslop`.
+
+## Updating
+
+`init` records the version pin that created the layout in `backslop.json`: `cli` is `npx github:Velklish/backslop#v0.2.0`, and `version` is its stamp. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else’s commit. Update a project only when you choose to:
 
 ```bash
 npx github:Velklish/backslop upgrade
 ```
 
-`upgrade` берёт последний тег из репозитория (или `--to X.Y.Z`), пробно запускает новую версию, переставляет пин в `cli` и `gates`, запускает `migrate` и `init` уже новой версией и печатает выжимку CHANGELOG между версиями. Звать его можно и командой проекта — `<cli> upgrade` работает с любой версии не ниже 0.2.0, — и беспиновой формой выше: она всегда берёт свежий backslop, а обновляет проект всё равно на последний тег. `--dry-run` показывает план, `--pin-only` только переставляет пин. Понижение версии не поддерживается: старая версия не знает формата файлов новой. Файлы `docs/` и задачи `upgrade` не трогает; смена формата, если она случится, живёт в `migrate`. `lint` предупреждает, когда `cli` без пина, штамп старее инструмента или расходится с пином, но гейт от этого не краснеет.
+`upgrade` takes the latest repository tag (or `--to X.Y.Z`), test-runs the new version, moves pins in `cli` and `gates`, runs `migrate` and `init` with that new version, and prints a CHANGELOG summary between versions. You can call it through the project command — `<cli> upgrade` works from any version 0.2.0 or later — or by the unpinned form above: it always takes fresh backslop, but still updates the project to the latest tag. `--dry-run` prints the plan; `--pin-only` only moves the pin. Downgrades are unsupported because an old version does not know a newer file format. `upgrade` does not touch `docs/` or task files; any future format change belongs to `migrate`. `lint` warns when `cli` lacks a pin, its stamp is older than the tool, or the stamp and pin differ, but the gate does not fail.
 
-Глобальная установка (`cli: "backslop"`) пина не несёт: укажи в `backslop.json` поле `source` — адрес репозитория с тегами релизов, — и `upgrade` обновит раскладку через установленную команду, а сам пакет обновляешь ты.
+A global install (`cli: "backslop"`) or an npm pin (`cli: "npx backslop@X.Y.Z"`) has no GitHub-derived source: set the `source` field in `backslop.json` to the repository URL with release tags. `upgrade` then updates the pin and layout; you still update a globally installed package yourself.
 
-## Как идёт работа
+## How work proceeds
 
-1. Агент берёт первую задачу по `status` и переводит её в работу: `mv N active`.
-2. Правит, обновляет документацию тем же ходом, гоняет гейты из `backslop.json` — среди них `lint`.
-3. Approver принимает: `archive N`, дописывает `result.md` (пока в нём `[TODO]`, `lint` красный), разбирает `triage/` — каждой записи ход.
-4. Несколько задач в непересекающихся подсистемах — заход worker'ами по скиллу `backslop-batch`: track на подсистему, самодостаточный бриф, worker правит только свою ветку и статусы не трогает, reviewer поднимается на дифф контракта, приёмка — squash по задаче.
+1. An agent takes the first task from `status` and starts it with `mv N active`.
+2. It changes code, updates documentation in the same pass, and runs gates from `backslop.json` — including `lint`.
+3. The approver accepts work: `archive N`, completes `result.md` (while it contains `[TODO]`, `lint` fails), and reviews `triage/` so every entry has a next step.
+4. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a worker changes only its branch and does not move statuses, a reviewer is raised for contract diffs, and acceptance squashes by task.
 
-Граница ролей одна и та же в одиночной работе и под оркестрацией: worker свою работу принятой не объявляет, файлы задач между каталогами не двигает, находки заводит `new --parent N`.
+The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move task files between directories; they create findings with `new --parent N`.
 
-## Для оркестраторов
+## For orchestrators
 
-Оркестратор любого harness — субагенты в worktree, отдельные сессии, шина — работает через файлы и CLI: `status --json` читает очередь, `mv` раздаёт, `archive` закрывает. Транспорт worker'ов — слот в `backslop-batch`; новый транспорт подключается страницей с вариантом для этого слота, в CLI ничего не меняется.
+An orchestrator on any harness — subagents in worktrees, separate sessions, or a bus — operates through files and CLI: `status --json` reads the queue, `mv` assigns work, and `archive` closes it. Worker transport is a slot in `backslop-batch`; a new transport adds a page with an option for that slot, without CLI changes.
 
-## Ограничения
+## Limitations
 
-- Скиллы лежат в `.claude/skills/` и видны Claude Code; другим инструментам достаются блок в `AGENTS.md` и `docs/`.
-- Тексты на русском; английский слой и публикация в npm — в очереди самого backslop.
-- Префикс, совпадающий с обычным словом (`API`, `RFC`), даёт ложные срабатывания гейта упоминаний на строках вида `API-2.0` — выбирай префикс, которого нет в текстах проекта.
+- Skills appear only for selected `tools`. Without `--tools`, a project gets the `AGENTS.md` section and `docs/`.
+- English and Russian template layers are provided. Changing `lang` does not translate existing docs.
+- Publishing to npm is prepared (`npx backslop@X.Y.Z` pins work; `npm run release`) but the default CLI stays on GitHub until the first publish.
+- A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-reference gate on lines such as `API-2.0`; choose a prefix absent from project text.
 
-## Разработка
+## Development
 
 ```bash
 npm test                      # node --test
-node bin/backslop.js lint     # гейты на собственном docs/
+node bin/backslop.js lint     # gates against this repository's docs/
 ```
 
-Источник всего, что кладётся в проект, — `templates/`; `docs/` репозитория ведётся тем же инструментом. Устройство — в `docs/reference/`.
+`templates/` is the source of everything installed into a project; the repository’s own `docs/` are managed with the same tool. See `docs/reference/` for the structure.
 
-Лицензия MIT.
+License: MIT.
+
+[Russian version](README.ru.md)

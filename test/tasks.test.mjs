@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FIELD_ORDER, FIELD_TAKEN, appendSection, formatId, idMentionRe, nextNumber, nextSub, parseId, placeInQueue,
-  readFields, readTitle, removeField, sectionBody, setField, taskDirRe, taskFileRe,
+  FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, formatId, getField, idMentionRe,
+  nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
 
 test('имя файла задачи: номер, sub-ID и slug', () => {
@@ -64,12 +64,26 @@ test('шапка: поле вставляется в файл без полей 
     '# BS-3 · Без пустой\n\n- **Порядок:** 10\n\n## Контекст\n');
 });
 
+test('шапка: RU и EN metadata читаются вместе, новые labels выбирает lang', () => {
+  const mixed = '# BS-4 · Mixed\n\n- **Created:** 2026-09-03\n- **Порядок:** 10\n- **Taken:** 2026-09-04\n\n## Deferred\n\nreason\n';
+  assert.equal(getField(mixed, FIELD_CREATED), '2026-09-03');
+  assert.equal(getField(mixed, FIELD_ORDER), '10');
+  assert.equal(getField(mixed, FIELD_TAKEN), '2026-09-04');
+  assert.equal(sectionBody(mixed, SECTION_DEFERRED), 'reason');
+  assert.match(setField(mixed, FIELD_ORDER, '20', 'en'), /- \*\*Order:\*\* 20/);
+  assert.match(appendSection('# BS-5 · English\n', SECTION_DEFERRED, 'reason', 'en'), /## Deferred/);
+});
+
 test('разделы: тело до следующего заголовка и дописывание в конец', () => {
   assert.equal(sectionBody(HEADER, 'Контекст'), 'текст');
   assert.equal(sectionBody(HEADER, 'Отложено'), null);
   const withDeferred = appendSection(HEADER, 'Отложено', '- **Причина:** нет раннера');
   assert.equal(sectionBody(withDeferred, 'Отложено'), '- **Причина:** нет раннера');
   assert.equal(sectionBody(withDeferred, 'Контекст'), 'текст');
+  const indented = '# BS-6 · Отступ\n\n  ## Отложено\n\n- **Причина:** нет раннера\n\n  ## Контекст\n\nтекст\n';
+  assert.equal(sectionBody(indented, 'Отложено'), '- **Причина:** нет раннера');
+  assert.equal(sectionBody(indented, 'Контекст'), 'текст');
+  assert.equal(sectionBody('# BS-7 · Код\n\n    ## Отложено\n\n    не раздел\n', 'Отложено'), null);
 });
 
 const row = (num, rank) => ({ task: { num, sub: null, file: `f${num}` }, rank });

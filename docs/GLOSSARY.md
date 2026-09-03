@@ -17,7 +17,9 @@
 | шапка | header | Список полей после заголовка задачи: Порядок, Область, Создана, Взята, Зависимости | [lib/tasks.js](../lib/tasks.js), `FIELD_*` |
 | улика | evidence | Путь к файлу или вывод команды, подтверждающие утверждение; без улики утверждение — предположение | [templates/skills/backslop-seed/SKILL.md](../templates/skills/backslop-seed/SKILL.md) |
 | гейт | gate | Команда из `gates` в `backslop.json`, которая должна быть зелёной до сдачи; `lint` — один из гейтов | [lib/config.js](../lib/config.js) |
-| скелет | skeleton | Файлы, которые кладёт `init`: конфиг, docs, скиллы, блок в AGENTS.md | [lib/init.js](../lib/init.js) |
+| скелет | skeleton | Файлы, которые кладёт `init`: конфиг, docs, блок в AGENTS.md; adapters — только при выбранных `tools` | [lib/init.js](../lib/init.js) |
+| adapter | adapter | Рендер скиллов в каталог конкретного harness: Claude, Cursor или Codex | [lib/adapters.js](../lib/adapters.js), [ADR-006](adr/adr-006-adapter-ownership.md) |
+| owned output | owned output | Generated файл adapter'а: маркер `<!-- backslop:generated -->` в позиции `markGenerated` на пути adapter'а или путь из legacy-набора; только его `init` переписывает и снимает | [lib/adapter-ownership.js](../lib/adapter-ownership.js) |
 | посев | seed | Наполнение скелета содержанием проекта по скиллу `backslop-seed` | [templates/skills/backslop-seed/SKILL.md](../templates/skills/backslop-seed/SKILL.md) |
 | заход | run | Пакет работы по бэклогу одной сессии: соло или worker'ами | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
 | track | track | Направление внутри захода, не пересекающееся с соседними по файлам; один worker — один track | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
@@ -27,7 +29,7 @@
 | оркестратор | orchestrator | Сессия, ведущая заход worker'ами: режет очередь, пишет брифы, принимает; под оркестрацией — approver | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
 | reviewer | reviewer | Изолированная read-only сессия со свежим контекстом: смотрит дифф и не чинит | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
 | ADR | ADR | Запись архитектурного решения `adr-NNN-<slug>.md` со строкой в таблице `docs/README.md` | [lib/adr.js](../lib/adr.js) |
-| пин | pin | Тег версии в поле `cli` (`npx github:owner/repo#vX.Y.Z`): какой версией проект зовёт backslop; переставляет `upgrade` | [lib/config.js](../lib/config.js), `parseCli` |
+| пин | pin | Точная версия в поле `cli`: `npx github:owner/repo#vX.Y.Z` или `npx backslop@X.Y.Z`; переставляет `upgrade` | [lib/config.js](../lib/config.js), `parseCli` |
 | штамп | stamp | Поле `version` в `backslop.json`: какая версия делала раскладку; ставят `init` и `migrate`, читают `lint` и `upgrade` | [lib/init.js](../lib/init.js) |
 | источник релизов | release source | Git-репозиторий с тегами `vX.Y.Z`, откуда `upgrade` берёт версии: поле `source` или адрес из формы `cli` | [lib/upgrade.js](../lib/upgrade.js), `listReleaseTags` |
 | выжимка CHANGELOG | changelog excerpt | Секции CHANGELOG backslop между двумя версиями, которые печатает `changelog` и `upgrade` | [lib/changelog.js](../lib/changelog.js) |

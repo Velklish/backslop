@@ -11,12 +11,14 @@
     "lib",
     "templates",
     "README.md",
+    "README.ru.md",
     "LICENSE",
     "CHANGELOG.md"
   ],
   "scripts": {
     "test": "node --test",
-    "lint": "node bin/backslop.js lint"
+    "lint": "node bin/backslop.js lint",
+    "release": "node scripts/release.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -32,6 +34,8 @@
     "tasks",
     "agents",
     "claude-code",
+    "cursor",
+    "codex",
     "docs-as-code",
     "markdown"
   ],

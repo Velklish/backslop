@@ -25,7 +25,6 @@ test('repoMarkdown: корень и каталоги вглубь, без .git, 
     put(sb, '.claude/skills/backslop-task/SKILL.md');
     const rels = repoMarkdown(sb).map(([rel]) => rel).sort();
     assert.deepEqual(rels, [
-      '.claude/skills/backslop-task/SKILL.md',
       'README.md',
       'docs/README.md',
       'docs/backlog/queue/BS-1-a.md',

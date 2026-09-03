@@ -13,6 +13,10 @@
 | [adr/adr-002-status-is-directory.md](adr/adr-002-status-is-directory.md) | Статус задачи — каталог, приоритет — поле «Порядок»; индекса в git нет | Accepted |
 | [adr/adr-003-node-stdlib-npx.md](adr/adr-003-node-stdlib-npx.md) | Node без зависимостей, доставка `npx github:` | Accepted |
 | [adr/adr-004-version-pin-upgrade.md](adr/adr-004-version-pin-upgrade.md) | Пин версии в проекте и обновление командой `upgrade` | Accepted |
+| [adr/adr-005-localization.md](adr/adr-005-localization.md) | Язык раскладки: поле `lang` и второй комплект шаблонов | Accepted |
+| [adr/adr-006-adapter-ownership.md](adr/adr-006-adapter-ownership.md) | Выбор harness и владение generated outputs | Superseded in part by ADR-008 (legacy-default) |
+| [adr/adr-007-npm-pin.md](adr/adr-007-npm-pin.md) | Точный npm-пин и релизный чеклист без смены default CLI | Accepted |
+| [adr/adr-008-legacy-claude-adapter.md](adr/adr-008-legacy-claude-adapter.md) | Сохранение Claude adapter в legacy-проектах | Accepted |
 
 ## Сквозные принципы
 
@@ -20,6 +24,6 @@
 2. **Принятое решение не правится — заменяется.** Новое решение по тому же вопросу — новый ADR; в заменяемом остаётся пометка «заменён ADR-NNN».
 3. **Термины — только из глоссария.** Нужного имени нет — предложи владельцу, молча не выдумывай.
 4. **Улика сильнее ощущения.** Число, путь к файлу или вывод команды — в постановке, результате и ADR; непроверенное пишется как предположение.
-5. **Шаблоны — источник, docs/ и .claude/ — результат.** Правило процесса меняется в `templates/`, а свой скелет репозиторий получает повторным `init`; править `.claude/skills/backslop-*` напрямую бесполезно — следующий `init` перепишет.
+5. **Шаблоны — источник, adapter outputs — локальный generated результат.** Правило процесса меняется в `templates/`; `init` материализует выбранные adapters. Править `.claude/skills/backslop-*`, `.cursor/rules/backslop-*` или `.agents/skills/backslop-*` напрямую бесполезно — следующий `init` перепишет owned файлы.
 
 Новый ADR — `node bin/backslop.js adr <slug>` **и строка в таблицу выше**: без строки `lint` красный.

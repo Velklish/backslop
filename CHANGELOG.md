@@ -1,5 +1,16 @@
 # Changelog
 
+## Не выпущено
+
+- **`lang`** — поле в `backslop.json` и флаг `init --lang ru|en`; английский слой шаблонов в `templates/en/`, README на английском, русский текст в `README.ru.md`.
+- **`tools`** — выбор adapters `claude`, `cursor`, `codex`; умолчание — пустой список; legacy-конфиг сохраняет Claude при наличии прежнего canonical skill; `--tools none` снимает набор и удаляет только owned outputs.
+- **Harness-neutral self-host** — generated `.claude/`, `.cursor/rules/backslop-*`, `.agents/skills/backslop-*` и `CLAUDE.md` не хранятся в git; `templates/` — единственный источник.
+- **npm-пин** — форма `npx backslop@X.Y.Z` в `parseCli` и `upgrade`; источник тегов по-прежнему git через `source`. Default `cli` не меняется.
+- **`npm run release`** — preflight, гейты, сверка fast-forward с `origin/main`, локальный тег, `push --dry-run`, `npm publish`, atomic push; сбой печатает состояние и следующую команду.
+- **Владение adapter output** — маркер `<!-- backslop:generated -->` только в позиции `markGenerated` и только на путях `.claude/skills/`, `.cursor/rules/`, `.agents/skills/`; цитата маркера в docs не выкидывает файл из `repoMarkdown`.
+- **`parseCli`** — `npx backslop` и `npx backslop@latest` распознаются как форма без пина; `lint` предупреждает так же, как на GitHub-форме без тега.
+- **Финализация контрактов** — блок AGENTS.md условно называет скиллы, RU-help перечисляет дополнительные lint-проверки, task-формат документирует RU/EN aliases, `templateParity` сравнивает множества placeholders, а заголовок раздела принимает только 0–3 пробела отступа.
+
 ## v0.2.0 — 2026-09-03
 
 - **`upgrade`** — обновление проекта по своему решению: последний тег из источника релизов (или `--to`), пин в `cli` и `gates`, затем `migrate` и `init` уже новой версией и выжимка CHANGELOG; `--dry-run` и `--pin-only`.

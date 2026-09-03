@@ -35,7 +35,7 @@ function setConfig(root, patch) {
 
 const config = (root) => JSON.parse(read(root, 'backslop.json'));
 
-test('parseCli: форма npx github с пином и без; другие формы пина не несут', () => {
+test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; другие формы пина не несут', () => {
   const pinned = parseCli('npx github:me/proj#v0.1.0');
   assert.equal(pinned.pin, '0.1.0');
   assert.equal(pinned.repoUrl, 'https://github.com/me/proj.git');
@@ -44,10 +44,39 @@ test('parseCli: форма npx github с пином и без; другие фо
   assert.equal(parseCli('npx github:me/proj.git#1.0.0').pin, '1.0.0');
   assert.equal(parseCli('backslop'), null);
   assert.equal(parseCli('node bin/backslop.js'), null);
-  assert.equal(parseCli('npx backslop@0.1.0'), null);
+  const npm = parseCli('npx --yes -q backslop@01.2.3');
+  assert.equal(npm.pin, '1.2.3');
+  assert.equal(npm.repoUrl, null, 'npm-форма не выдумывает источник тегов');
+  assert.equal(npm.withPin('v2.0.0'), 'npx --yes -q backslop@2.0.0');
+  assert.equal(parseCli('npx backslop').pin, null);
+  assert.equal(parseCli('npx backslop').repoUrl, null);
+  assert.equal(parseCli('npx backslop').withPin('0.2.0'), 'npx backslop@0.2.0');
+  assert.equal(parseCli('npx --yes backslop@latest').pin, null);
+  assert.equal(parseCli('npx --yes backslop@latest').withPin('2.0.0'), 'npx --yes backslop@2.0.0');
   const flagged = parseCli('npx --yes -q github:me/proj#v01.2.3');
   assert.equal(flagged.pin, '1.2.3', 'пин нормализуется');
   assert.equal(flagged.withPin('v0.2.0'), 'npx --yes -q github:me/proj#v0.2.0', 'флаги npx сохраняются');
+});
+
+test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.2.0', 'v0.3.0']);
+  try {
+    setConfig(root, { cli: 'npx --yes -q backslop@0.2.0', gates: ['npx --yes -q backslop@0.2.0 lint', 'npm test'], version: '0.2.0' });
+    let r = cli(root, ['upgrade', '--pin-only']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /источник релизов .*source/);
+    assert.equal(config(root).cli, 'npx --yes -q backslop@0.2.0');
+
+    setConfig(root, { source: src });
+    r = cli(root, ['upgrade', '--pin-only']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(config(root).cli, 'npx --yes -q backslop@0.3.0');
+    assert.deepEqual(config(root).gates, ['npx --yes -q backslop@0.3.0 lint', 'npm test']);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+  }
 });
 
 test('rewriteGates: меняется только команда, начинающаяся со старого cli', () => {
@@ -120,7 +149,7 @@ test('upgrade целиком: migrate и init новой версией, шта�
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   try {
-    setConfig(root, { cli: `node "${BIN}"`, gates: [`node "${BIN}" lint`], version: '0.0.9', source: src });
+    setConfig(root, { cli: `node "${BIN}"`, gates: [`node "${BIN}" lint`], version: '0.0.9', source: src, tools: ['claude'] });
     rmSync(path.join(root, 'docs', 'README.md'));
     const r = cli(root, ['upgrade']);
     assert.equal(r.code, 0, r.err);
@@ -183,7 +212,7 @@ test('upgrade по форме npx: пробный запуск до пина, п
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
   try {
-    setConfig(root, { cli: 'npx github:me/proj', gates: ['npx github:me/proj lint', 'npm test'], source: src });
+    setConfig(root, { cli: 'npx github:me/proj', gates: ['npx github:me/proj lint', 'npm test'], source: src, tools: ['claude'] });
     rmSync(path.join(root, 'docs', 'README.md'));
     const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
     let r = cli(root, ['upgrade'], { env });
