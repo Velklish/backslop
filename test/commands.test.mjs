@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { cleanup, cli, gitAll, makeProject, read } from './helpers.mjs';
+import { cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
 
 test('new: задача в triage по умолчанию, в очередь с порядком, находка с sub-ID', () => {
   const root = makeProject();
@@ -147,6 +147,26 @@ test('команды вне проекта отказывают с подска�
     const r = cli(root, ['status'], { cwd: path.dirname(root) });
     assert.equal(r.code, 1);
     assert.match(r.err, /backslop init/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: входящие ссылки на задачу переписываются, как при archive', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue', '--title', 'А']);
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗадача [BS-1](backlog/queue/BS-1-a.md).\n');
+    put(root, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · Б\n\nСм. [BS-1](../queue/BS-1-a.md#контекст).\n');
+    put(root, 'README.md', 'В работе [BS-1](docs/backlog/queue/BS-1-a.md)\n');
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /ссылки на задачу поправлены: README\.md, docs\/ROADMAP\.md, docs\/backlog\/triage\/BS-2-b\.md/);
+    assert.match(read(root, 'README.md'), /\(docs\/backlog\/active\/BS-1-a\.md\)/);
+    assert.match(read(root, 'docs/ROADMAP.md'), /\(backlog\/active\/BS-1-a\.md\)/);
+    assert.match(read(root, 'docs/backlog/triage/BS-2-b.md'), /\(\.\.\/active\/BS-1-a\.md#контекст\)/);
+    assert.equal(cli(root, ['lint']).code, 0);
   } finally {
     cleanup(root);
   }
