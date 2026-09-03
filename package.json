@@ -1,0 +1,38 @@
+{
+  "name": "backslop",
+  "version": "0.1.0",
+  "description": "Бэклог для слопа: задачи файлами в каталогах статусов, архив, ADR, глоссарий и скиллы процесса для агентов — одной командой",
+  "type": "module",
+  "bin": {
+    "backslop": "bin/backslop.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "node bin/backslop.js lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Velklish/backslop.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "backlog",
+    "adr",
+    "tasks",
+    "agents",
+    "claude-code",
+    "docs-as-code",
+    "markdown"
+  ],
+  "homepage": "https://github.com/Velklish/backslop#readme"
+}

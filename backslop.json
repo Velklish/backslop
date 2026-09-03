@@ -1,0 +1,8 @@
+{
+  "prefix": "BS",
+  "docs": "docs",
+  "cli": "node bin/backslop.js",
+  "gates": [
+    "node bin/backslop.js lint"
+  ]
+}
