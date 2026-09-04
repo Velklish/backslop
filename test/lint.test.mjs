@@ -173,3 +173,17 @@ test('lint: CLI печатает каждую ошибку и выходит е�
     cleanup(root);
   }
 });
+
+test('lint: номер с ведущими нулями — форма файла сохраняется, сравнение числовое', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
+    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+    put(root, 'docs/ROADMAP.md', 'Сделано в BS-007, она же BS-7.\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+probe('2. номер занят дважды в разных формах записи', (root) => put(root, 'docs/backlog/triage/BS-004-e2.md', '# BS-004 · Дубль\n'), /номер BS-004 уже занят: docs\/archive\/BS-4-e\/task\.md/);

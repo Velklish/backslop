@@ -227,3 +227,21 @@ test('mv: generated adapter outputs исключены из repository-wide reli
     cleanup(root);
   }
 });
+
+test('new и mv на номере с ведущими нулями: находка наследует форму родителя, аргумент разбирается числом', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-007-padded.md', '# BS-007 · С нулями\n\n- **Порядок:** 10\n');
+    let r = cli(root, ['new', 'finding', '--parent', '7']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/triage/BS-007.1-finding.md'), /^# BS-007\.1 · finding\n[\s\S]*Находка при работе над BS-007/);
+    r = cli(root, ['mv', '7', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-007-padded.md')));
+    r = cli(root, ['new', 'next', '--queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-8-next.md')));
+  } finally {
+    cleanup(root);
+  }
+});
