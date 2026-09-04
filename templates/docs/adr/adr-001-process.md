@@ -1,4 +1,4 @@
-# ADR-001: Задачи и решения ведутся по backslop
+# ADR-{{adrNumber}}: Задачи и решения ведутся по backslop
 
 **Status:** Accepted
 **Date:** {{date}}

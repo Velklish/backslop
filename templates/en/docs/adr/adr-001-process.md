@@ -1,4 +1,4 @@
-# ADR-001: Tasks and decisions are managed with backslop
+# ADR-{{adrNumber}}: Tasks and decisions are managed with backslop
 
 **Status:** Accepted
 **Date:** {{date}}

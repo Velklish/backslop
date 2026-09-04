@@ -8,7 +8,7 @@
   AGENTS.md                        блок между <!-- backslop:start --> и <!-- backslop:end -->
   docs/README.md                   индекс документации и таблица ADR
   docs/ROADMAP.md  docs/GLOSSARY.md  docs/reference/README.md
-  docs/adr/adr-001-process.md      первый ADR: решение вести задачи и решения по backslop
+  docs/adr/adr-001-process.md      ADR процесса: решение вести задачи и решения по backslop; в проекте со своими ADR — следующий свободный номер
   docs/backlog/README.md           правила ведения; списка задач нет
   docs/backlog/{triage,queue,active,deferred}/.gitkeep
   docs/archive/README.md

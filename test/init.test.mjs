@@ -316,3 +316,34 @@ test('init на проекте со своим docs/README.md: ADR-001 созд�
     cleanup(root);
   }
 });
+
+test('init в проекте со своими ADR: ADR процесса получает следующий номер, повтор не дублирует', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'docs/adr/adr-001-architecture.md', '# ADR-001: Архитектура\n\n**Status:** Accepted\n');
+    put(root, 'docs/adr/adr-002-storage.md', '# ADR-002: Хранилище\n\n**Status:** Accepted\n');
+    put(root, 'docs/README.md', '# Документация\n\n| Документ | Тема | Статус |\n|---|---|---|\n');
+    let r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(!existsSync(path.join(root, 'docs/adr/adr-001-process.md')));
+    assert.match(read(root, 'docs/adr/adr-003-process.md'), /^# ADR-003: Задачи и решения ведутся по backslop\n/);
+    assert.match(r.out, /adr\/adr-003-process\.md/);
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(!existsSync(path.join(root, 'docs/adr/adr-004-process.md')));
+    assert.doesNotMatch(r.out, /adr-004/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init в пустом проекте: строка таблицы docs/README.md называет тот же ADR, что создан', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/README.md'), /\[adr\/adr-001-process\.md\]\(adr\/adr-001-process\.md\)/);
+  } finally {
+    cleanup(root);
+  }
+});

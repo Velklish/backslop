@@ -9,7 +9,7 @@
 | [ROADMAP.md](ROADMAP.md) | Направление и цели; задачи — в бэклоге | Живой |
 | [backlog/](backlog/README.md) | Трекер задач: файл на задачу, статус — каталог, сводка — `{{cli}} status` | Живой |
 | [archive/](archive/README.md) | Закрытые задачи: постановка и результат раздельными файлами | Живой |
-| [adr/adr-001-process.md](adr/adr-001-process.md) | Задачи и решения ведутся по backslop | Accepted |
+| [adr/adr-{{adrNumber}}-process.md](adr/adr-{{adrNumber}}-process.md) | Задачи и решения ведутся по backslop | Accepted |
 
 ## Сквозные принципы
 

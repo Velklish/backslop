@@ -9,7 +9,7 @@ The canonical project documentation. For current work, use `{{cli}} status`; for
 | [ROADMAP.md](ROADMAP.md) | Direction and goals; tasks are in the backlog | Living |
 | [backlog/](backlog/README.md) | Task tracker: one file per task, status is the directory, summary is `{{cli}} status` | Living |
 | [archive/](archive/README.md) | Closed tasks: task definition and result in separate files | Living |
-| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |
+| [adr/adr-{{adrNumber}}-process.md](adr/adr-{{adrNumber}}-process.md) | Tasks and decisions are managed with backslop | Accepted |
 
 ## Cross-cutting principles
 
