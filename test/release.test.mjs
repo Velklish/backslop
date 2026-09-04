@@ -177,7 +177,10 @@ test('packed tarball installs locally and its bin passes version, init and lint'
     const bin = process.platform === 'win32' ? path.join(project, 'node_modules/.bin/backslop.cmd') : path.join(project, 'node_modules/.bin/backslop');
     let r = spawnSync(bin, ['version'], { cwd: project, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /backslop 0\.2\.0/);
+    // Версия берётся из манифеста: зашитый литерал делает этот вердикт релиз-блокером
+    // на каждом бампе — он краснел на 0.3.0, хотя предмет проверки от версии не зависит.
+    const expected = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
+    assert.match(r.stdout, new RegExp(`backslop ${expected.replace(/\./g, '\\.')}`));
     r = spawnSync(bin, ['init'], { cwd: project, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     r = spawnSync(bin, ['lint'], { cwd: project, encoding: 'utf8' });

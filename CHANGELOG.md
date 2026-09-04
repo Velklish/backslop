@@ -1,7 +1,8 @@
 # Changelog
 
-## Не выпущено
+## v0.3.0 — 2026-09-04
 
+- **Приёмочный вердикт по tarball больше не зашивает версию** — ожидаемая строка `backslop X.Y.Z` читается из манифеста. Литерал делал вердикт релиз-блокером на каждом бампе: на `0.3.0` он краснел, хотя предмет проверки от версии не зависит.
 - **`lang`** — поле в `backslop.json` и флаг `init --lang ru|en`; английский слой шаблонов в `templates/en/`, README на английском, русский текст в `README.ru.md`.
 - **`tools`** — выбор adapters `claude`, `cursor`, `codex`; умолчание — пустой список; legacy-конфиг сохраняет Claude при наличии прежнего canonical skill; `--tools none` снимает набор и удаляет только owned outputs.
 - **Harness-neutral self-host** — generated `.claude/`, `.cursor/rules/backslop-*`, `.agents/skills/backslop-*` и `CLAUDE.md` не хранятся в git; `templates/` — единственный источник.
