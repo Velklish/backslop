@@ -1,9 +1,9 @@
 # BS-12 · backslop-batch: правило слияния общих файлов track'ов вместо -X theirs и владение находками до слияния
 
-- **Порядок:** 40
 - **Область:** [templates/skills/backslop-batch](../../../templates/skills/backslop-batch/SKILL.md)
 - **Создана:** 2026-09-05
-- **Зависимости:** [BS-11](../../archive/BS-11-new-numbers-across-worktrees/task.md)
+- **Зависимости:** [BS-11](../BS-11-new-numbers-across-worktrees/task.md)
+- **Взята:** 2026-09-05
 
 ## Контекст
 
