@@ -3,7 +3,7 @@
 - **Порядок:** 40
 - **Область:** [templates/skills/backslop-batch](../../../templates/skills/backslop-batch/SKILL.md)
 - **Создана:** 2026-09-05
-- **Зависимости:** [BS-11](../queue/BS-11-new-numbers-across-worktrees.md)
+- **Зависимости:** [BS-11](../../archive/BS-11-new-numbers-across-worktrees/task.md)
 
 ## Контекст
 

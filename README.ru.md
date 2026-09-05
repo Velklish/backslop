@@ -45,7 +45,7 @@ Adapters пишутся только по выбору: `init --tools claude,cur
 | Команда | Что делает |
 |---|---|
 | `init [--dir docs] [--prefix BS] [--cli …] [--lang ru\|en] [--tools <CSV\|none>]` | разложить скелет; повторно — обновить выбранные adapters и блок AGENTS.md |
-| `new <slug> [--title "…"] [--queue [--top]] [--parent N]` | завести задачу в `triage/` или сразу в очередь; `--parent N` — находка `N.k` |
+| `new <slug> [--title "…"] [--queue [--top]] [--parent N]` | завести задачу в `triage/` или сразу в очередь; `--parent N` — находка `N.k`; номер обходит занятые в других worktree и локальных ветках |
 | `mv <N> <triage\|queue\|active\|deferred> [--top \| --after M]` | сменить статус: `git mv` плюс поля, которые статус ведёт за собой; задаче, уже стоящей в `queue/`, `--top` или `--after M` меняет только «Порядок» |
 | `archive <N> [--dry-run]` | закрыть: переезд в `archive/`, перепись ссылок по репозиторию, заготовка `result.md` |
 | `adr <slug> [--title "…"]` | новый ADR со следующим номером |

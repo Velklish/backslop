@@ -1,7 +1,9 @@
 // Команды new, mv, status, adr настоящим процессом во временном проекте.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
 
@@ -38,6 +40,65 @@ test('new: задача в triage по умолчанию, в очередь с 
     assert.match(r.err, /slug/);
     r = cli(root, ['new', 'x', '--top']);
     assert.equal(r.code, 1);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new: номер и sub-ID учитывают файлы чужого worktree и коммиты чужой ветки, вывод называет источник', () => {
+  const root = makeProject();
+  const wt = path.join(mkdtempSync(path.join(os.tmpdir(), 'backslop-wt-')), 'worker');
+  const git = (...args) => spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+  try {
+    cli(root, ['new', 'a', '--queue']);
+    gitAll(root);
+    assert.equal(git('worktree', 'add', '-q', wt, '-b', 'worker').status, 0);
+
+    // Файлы в чужом worktree ещё не закоммичены — считаются по диску.
+    let r = cli(root, ['new', 'b'], { cwd: wt });
+    assert.equal(r.code, 0, r.err);
+    r = cli(root, ['new', 'f', '--parent', '1'], { cwd: wt });
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(wt, 'docs/backlog/triage/BS-1.1-f.md')));
+    r = cli(root, ['new', 'c']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-3-c.md')), 'BS-2 занят worktree');
+    assert.match(r.out, /BS-2 занят: worktree .*worker \(worker\)/);
+    r = cli(root, ['new', 'g', '--parent', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-1.2-g.md')), 'BS-1.1 занят worktree');
+    assert.match(r.out, /BS-1\.1 занят: worktree/);
+
+    // Worktree убран, ветка осталась — считаются по дереву ветки.
+    spawnSync('git', ['-C', wt, 'add', '-A'], { encoding: 'utf8' });
+    spawnSync('git', ['-C', wt, 'commit', '-qm', 'worker'], { encoding: 'utf8' });
+    assert.equal(git('worktree', 'remove', '--force', wt).status, 0);
+    rmSync(path.join(root, 'docs/backlog/triage/BS-3-c.md'));
+    rmSync(path.join(root, 'docs/backlog/triage/BS-1.2-g.md'));
+    r = cli(root, ['new', 'd']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-3-d.md')), 'BS-2 занят веткой');
+    assert.match(r.out, /BS-2 занят: ветка worker/);
+    r = cli(root, ['new', 'h', '--parent', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-1.2-h.md')), 'BS-1.1 занят веткой');
+    // Свободный номер без чужих — без сообщения об источнике.
+    r = cli(root, ['new', 'e']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-4-e.md')));
+    assert.doesNotMatch(r.out, /занят/);
+  } finally {
+    cleanup(root);
+    rmSync(path.dirname(wt), { recursive: true, force: true });
+  }
+});
+
+test('new: без git номер считается по текущему дереву', () => {
+  const root = makeProject({ git: false });
+  try {
+    const r = cli(root, ['new', 'a']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-1-a.md')));
   } finally {
     cleanup(root);
   }
