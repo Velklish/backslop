@@ -58,8 +58,18 @@ test('mv: очередь → работа ставит «Взята» и сни�
     assert.match(active, /- \*\*Взята:\*\* \d{4}-\d{2}-\d{2}\n/);
     assert.doesNotMatch(active, /Порядок/);
 
-    r = cli(root, ['mv', 'BS-3', 'queue', '--after', '2']);
-    assert.equal(r.code, 1, 'задача уже в очереди');
+    // Задача уже в очереди: --top/--after только меняют «Порядок», файл не двигается.
+    r = cli(root, ['mv', 'BS-3', 'queue', '--top']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /BS-3: queue\/ «Порядок» 10/);
+    assert.match(read(root, 'docs/backlog/queue/BS-3-c.md'), /- \*\*Порядок:\*\* 10\n/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-3-c.md')));
+    r = cli(root, ['mv', '3', 'queue']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /уже в queue\/; место — --top или --after M/);
+    r = cli(root, ['mv', '3', 'queue', '--after', '3']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /после самой себя/);
     r = cli(root, ['mv', '3', 'triage']);
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['mv', '3', 'queue', '--after', '2']);
@@ -98,6 +108,25 @@ test('mv: --top на тесной очереди перенумеровывае�
     assert.match(r.out, /перенумерована/);
     const ranks = ['5-e', '4-d', '3-c', '2-b', '1-a'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/Порядок:\*\* (\d+)/)[1]);
     assert.deepEqual(ranks, ['10', '20', '30', '40', '50']);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: --top на задаче из тесной очереди перенумеровывает соседей без переноса файла', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']); // 10
+    cli(root, ['new', 'b', '--queue', '--top']); // 5
+    cli(root, ['new', 'c', '--queue', '--top']); // 2
+    cli(root, ['new', 'd', '--queue', '--top']); // 1
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'queue', '--top']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /перенумерована/);
+    const ranks = ['1-a', '4-d', '3-c', '2-b'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/Порядок:\*\* (\d+)/)[1]);
+    assert.deepEqual(ranks, ['10', '20', '30', '40']);
+    assert.equal(cli(root, ['lint']).code, 0);
   } finally {
     cleanup(root);
   }

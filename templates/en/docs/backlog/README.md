@@ -19,7 +19,7 @@ The operational tracker for {{project}}: **one task is one file**, and **status 
 - A verifiable claim in an entry — a number, “covered by a test”, “printed by three commands” — must include evidence: the command or file and line that produced it. If unverified, write it as a hypothesis. A definition with an incorrect fact gives the implementer wrong boundaries, and a failing test in someone else’s work is what turns it into truth.
 - **Numbers are sequential** and never reused after closure; `{{cli}} new` assigns them across directories. Two parallel creations can take the same number; `{{cli}} lint` catches this at merge time, and the loser recreates the file.
 - **Status = directory** is the only place status lives. A task file holds the definition, scope (a link to [reference/](../reference/README.md)), dates, and current state.
-- **Priority = the “Order” field** in `queue/`. Reorder with `{{cli}} mv N queue --top`, `--after M`, or by editing the number manually.
+- **Priority = the “Order” field** in `queue/`. Reorder with `{{cli}} mv N queue --top` or `--after M`, including a task already in the queue: the file stays, only the number changes. Two files with one “Order” is a `lint` error.
 - **Closure** — completed, rejected, or merged — uses `{{cli}} archive N`: the file moves to the archive as `task.md`, alongside a dated `result.md`. The approver completes the outcome and result; while `result.md` contains `[TODO]`, `lint` fails.
 - A deferred task gets a “Deferred” section with its reason and return condition; without them, `lint` fails.
 - A task that becomes an architectural decision moves to an [ADR](../README.md); the task file keeps a link.
