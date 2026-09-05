@@ -343,6 +343,39 @@ test('mv: входящие ссылки на задачу переписываю
   }
 });
 
+test('mv: файл из плоского docs/backlog/ переезжает в каталог статуса с пересчётом исходящих ссылок', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    cli(root, ['new', 'a', '--queue']);
+    put(root, 'docs/backlog/BS-5-flat.md', '# BS-5 · Плоская\n\n- **Область:** [x](../reference/README.md)\n\nСм. [BS-1](queue/BS-1-a.md) и [архив](../archive/README.md).\n');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](backlog/BS-5-flat.md)\n');
+    gitAll(root);
+    assert.equal(cli(root, ['lint']).code, 1, 'плоский файл — ошибка раскладки');
+    const r = cli(root, ['mv', '5', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /BS-5: backlog\/ → queue\/ \(docs\/backlog\/queue\/BS-5-flat\.md\)/);
+    assert.match(r.out, /исходящие ссылки пересчитаны/);
+    const moved = read(root, 'docs/backlog/queue/BS-5-flat.md');
+    assert.match(moved, /\(\.\.\/\.\.\/reference\/README\.md\)/);
+    assert.match(moved, /\[BS-1\]\(BS-1-a\.md\)/);
+    assert.match(moved, /\(\.\.\/\.\.\/archive\/README\.md\)/);
+    assert.match(moved, /- \*\*Порядок:\*\* 20\n/);
+    assert.match(read(root, 'docs/ROADMAP.md'), /\(backlog\/queue\/BS-5-flat\.md\)/);
+    assert.equal(cli(root, ['lint']).code, 0);
+    // Между каталогами статусов глубина та же: `../../reference/…` не меняется, а ссылка на
+    // соседа из прежнего каталога получает `../queue/`.
+    const again = cli(root, ['mv', '5', 'active']);
+    assert.equal(again.code, 0, again.err);
+    const active = read(root, 'docs/backlog/active/BS-5-flat.md');
+    assert.match(active, /\(\.\.\/\.\.\/reference\/README\.md\)/);
+    assert.match(active, /\[BS-1\]\(\.\.\/queue\/BS-1-a\.md\)/);
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv: generated adapter outputs исключены из repository-wide relink', () => {
   const root = makeProject();
   try {
