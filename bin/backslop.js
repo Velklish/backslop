@@ -32,6 +32,9 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   version                                             версия backslop
   help                                                эта справка
 
+Значение флага, начинающееся с дефиса, — формой с «=»: --title="--…". Без «=» оно принимается,
+если не совпадает с именем флага этой команды.
+
 Запуск без установки: npx github:Velklish/backslop#v${TOOL_VERSION} <команда>
 `;
 
@@ -54,6 +57,9 @@ Commands:
   changelog [--since X.Y.Z] [--to X.Y.Z]              print backslop CHANGELOG entries between versions
   version                                             print the backslop version
   help                                                show this help
+
+A flag value that starts with a dash goes in the “=” form: --title="--…". Without “=” it is
+accepted unless it matches a flag name of that command.
 
 Run without installing: npx github:Velklish/backslop#v${TOOL_VERSION} <command>
 `;

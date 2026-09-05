@@ -93,6 +93,30 @@ test('new: номер и sub-ID учитывают файлы чужого workt
   }
 });
 
+test('new/adr: значение --title с ведущим дефисом принимается, имя известного флага — отказ с подсказкой --title=', () => {
+  const root = makeProject();
+  try {
+    let r = cli(root, ['new', 'strategy-flag', '--title', '--strategy on spawn and review', '--queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/queue/BS-1-strategy-flag.md'), /^# BS-1 · --strategy on spawn and review\n/);
+    r = cli(root, ['new', 'dash', '--title', '-x']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/triage/BS-2-dash.md'), /^# BS-2 · -x\n/);
+    r = cli(root, ['adr', 'flag', '--title', '--flag as a title']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/adr/adr-001-flag.md'), /^# ADR-001: --flag as a title\n/);
+    r = cli(root, ['new', 'ambiguous', '--title', '--queue']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--title=/);
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/triage/BS-3-ambiguous.md')));
+    r = cli(root, ['new', 'explicit', '--title=--queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/triage/BS-3-explicit.md'), /^# BS-3 · --queue\n/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('new: без git номер считается по текущему дереву', () => {
   const root = makeProject({ git: false });
   try {
@@ -260,6 +284,8 @@ test('команды вне проекта отказывают с подска�
     assert.match(help, /Команды:/);
     assert.match(help, /adapter outputs/);
     assert.match(help, /равенство шаблонов/);
+    assert.match(help, /--title="--…"/);
+    assert.match(help, /starts with a dash/);
   } finally {
     cleanup(root);
   }
