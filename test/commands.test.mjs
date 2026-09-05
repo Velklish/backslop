@@ -117,6 +117,20 @@ test('new/adr: значение --title с ведущим дефисом при�
   }
 });
 
+test('new: даты — локальная календарная дата машины, не UTC', () => {
+  const root = makeProject({ git: false });
+  try {
+    assert.equal(cli(root, ['new', 'east'], { env: { TZ: 'Etc/GMT-14' } }).code, 0);
+    assert.equal(cli(root, ['new', 'west'], { env: { TZ: 'Etc/GMT+12' } }).code, 0);
+    const east = read(root, 'docs/backlog/triage/BS-1-east.md').match(/Создана:\*\* (\S+)/)[1];
+    const west = read(root, 'docs/backlog/triage/BS-2-west.md').match(/Создана:\*\* (\S+)/)[1];
+    assert.match(east, /^\d{4}-\d{2}-\d{2}$/);
+    assert.notEqual(east, west, 'UTC+14 и UTC−12 разнесены на 26 часов и никогда не в одном дне');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('new: без git номер считается по текущему дереву', () => {
   const root = makeProject({ git: false });
   try {
