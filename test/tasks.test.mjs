@@ -74,6 +74,17 @@ test('шапка: RU и EN metadata читаются вместе, новые la
   assert.match(appendSection('# BS-5 · English\n', SECTION_DEFERRED, 'reason', 'en'), /## Deferred/);
 });
 
+test('шапка: чтение и запись дубля поля используют первое вхождение и схлопывают алиасы', () => {
+  const duplicate = '# BS-6 · Duplicate\n\n- **Order:** 30\n- **Порядок:** 25\n- **Order:** 20\n';
+  assert.equal(readFields(duplicate).get('Order'), '30');
+  assert.equal(getField(duplicate, FIELD_ORDER), '30');
+  const changed = setField(duplicate, FIELD_ORDER, '5');
+  assert.equal(getField(changed, FIELD_ORDER), '5');
+  assert.equal((changed.match(/^- \*\*[^*]+:\*\*/gm) ?? []).length, 1);
+  assert.doesNotMatch(changed, /Order:\*\* 25|Order:\*\* 20|Порядок:\*\* 25|Порядок:\*\* 20/);
+  assert.doesNotMatch(removeField(duplicate, FIELD_ORDER), /Order|Порядок/);
+});
+
 test('разделы: тело до следующего заголовка и дописывание в конец', () => {
   assert.equal(sectionBody(HEADER, 'Контекст'), 'текст');
   assert.equal(sectionBody(HEADER, 'Отложено'), null);

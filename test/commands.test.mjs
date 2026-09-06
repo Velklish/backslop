@@ -194,6 +194,37 @@ test('mv: очередь → работа ставит «Взята» и сни�
   }
 });
 
+test('mv: дублированное поле читается первым, queue --top схлопывает его, active снимает целиком', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-duplicate.md', '# BS-1 · Дубль\n\n- **Порядок:** 30\n- **Order:** 25\n');
+    put(root, 'docs/backlog/queue/BS-2-second.md', '# BS-2 · Вторая\n\n- **Порядок:** 10\n');
+    put(root, 'docs/backlog/queue/BS-3-third.md', '# BS-3 · Третья\n\n- **Порядок:** 20\n');
+    gitAll(root);
+
+    let r = cli(root, ['status']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /\n\s+30  BS-1 · Дубль/);
+    assert.equal(cli(root, ['lint']).code, 1, 'lint должен ловить дубль до команды');
+
+    r = cli(root, ['mv', '1', 'queue', '--top']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /BS-1: queue\/ «Порядок» 5/);
+    assert.match(read(root, 'docs/backlog/queue/BS-1-duplicate.md'), /^# BS-1 · Дубль\n\n- \*\*Порядок:\*\* 5\n$/);
+    r = cli(root, ['status']);
+    assert.match(r.out, /\n\s+5  BS-1 · Дубль/);
+    assert.equal(cli(root, ['lint']).code, 0);
+
+    r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    const active = read(root, 'docs/backlog/active/BS-1-duplicate.md');
+    assert.doesNotMatch(active, /(?:Order|Порядок):/);
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv: --top на тесной очереди перенумеровывает соседей', () => {
   const root = makeProject();
   try {
