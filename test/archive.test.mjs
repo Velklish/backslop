@@ -81,3 +81,28 @@ test('archive: находка с sub-ID уезжает в каталог с то
     cleanup(root);
   }
 });
+
+test('archive: файл из плоского docs/backlog/ переезжает с переписью исходящих и входящих ссылок', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    cli(root, ['new', 'a', '--queue']);
+    put(root, 'docs/backlog/BS-5-flat.md', '# BS-5 · Плоская\n\n- **Область:** [x](../reference/README.md)\n\nСм. [BS-1](queue/BS-1-a.md) и [архив](../archive/README.md).\n');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](backlog/BS-5-flat.md)\n');
+    gitAll(root);
+
+    const r = cli(root, ['archive', '5']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/BS-5-flat.md')));
+    const archived = read(root, 'docs/archive/BS-5-flat/task.md');
+    assert.match(archived, /\(\.\.\/\.\.\/reference\/README\.md\)/);
+    assert.match(archived, /\(\.\.\/\.\.\/backlog\/queue\/BS-1-a\.md\)/);
+    assert.match(archived, /\[архив\]\(\.\.\/README\.md\)/);
+    assert.match(read(root, 'docs/ROADMAP.md'), /\(archive\/BS-5-flat\/task\.md\)/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-5-flat/result.md')));
+    put(root, 'docs/archive/BS-5-flat/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-09-06.** Перенесено.\n');
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
