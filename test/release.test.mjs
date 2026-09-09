@@ -21,8 +21,16 @@ function fixture({ version = '0.2.0' } = {}) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-release-')));
   const bin = path.join(root, 'fake-bin');
   mkdirSync(bin);
-  copyFileSync(RELEASE, path.join(root, 'release.mjs'));
-  writeFileSync(path.join(root, 'package.json'), `${JSON.stringify({ name: 'backslop', version }, null, 2)}\n`);
+  // Скрипт лежит в scripts/ и рядом с ним настоящий lib/util.js: релиз берёт оттуда today()
+  // для заголовка секции CHANGELOG, и плоская копия в корне не нашла бы модуль.
+  mkdirSync(path.join(root, 'scripts'));
+  mkdirSync(path.join(root, 'lib'));
+  copyFileSync(RELEASE, path.join(root, 'scripts', 'release.mjs'));
+  copyFileSync(path.join(REPO, 'lib', 'util.js'), path.join(root, 'lib', 'util.js'));
+  copyFileSync(path.join(REPO, 'lib', 'version.js'), path.join(root, 'lib', 'version.js'));
+  // `type: module` — не украшение: без него node перечитывает скопированные lib/*.js как CJS,
+  // и предупреждение MODULE_TYPELESS_PACKAGE_JSON садится в stderr, который тесты сверяют.
+  writeFileSync(path.join(root, 'package.json'), `${JSON.stringify({ name: 'backslop', version, type: 'module' }, null, 2)}\n`);
   const shim = `#!${process.execPath}\nimport { appendFileSync, existsSync, writeFileSync } from 'node:fs';\nconst name = process.argv[1].split('/').pop();\nconst args = process.argv.slice(2);\nappendFileSync(process.env.RELEASE_LOG, [name, ...args].join(' ') + '\\n');\nif (name === 'git' && args[0] === 'branch') process.stdout.write(process.env.FAKE_BRANCH ?? 'main');\nif (name === 'npm' && args.join(' ') === 'pack --dry-run' && process.env.FAKE_GATE_DIRTY) writeFileSync('generated.txt', 'gate output\\n');\nif (name === 'git' && args[0] === 'status' && (process.env.FAKE_DIRTY || existsSync('generated.txt'))) process.stdout.write('?? generated.txt\\n');\nif (name === 'git' && args[0] === 'rev-parse') process.exit(process.env.FAKE_LOCAL_TAG ? 0 : 1);\nif (name === 'git' && args[0] === 'ls-remote') process.exit(process.env.FAKE_REMOTE_TAG ? 0 : 2);\nif (name === 'git' && args[0] === 'fetch') process.exit(process.env.FAKE_FETCH_FAIL ? 9 : 0);\nif (name === 'git' && args[0] === 'merge-base') process.exit(process.env.FAKE_DIVERGED ? 1 : 0);\nif (name === 'git' && args[0] === 'push' && args.includes('--dry-run')) process.exit(process.env.FAKE_PUSH_DRY_FAIL ? 8 : 0);\nif (name === 'npm' && process.env.FAKE_NPM_FAIL === args.join(' ')) process.exit(7);\nif (name === 'git' && process.env.FAKE_GIT_FAIL === args.join(' ')) process.exit(8);\n`;
   putExecutable(path.join(bin, 'git'), shim);
   putExecutable(path.join(bin, 'npm'), shim);
@@ -30,7 +38,7 @@ function fixture({ version = '0.2.0' } = {}) {
 }
 
 function runRelease(f, version = '0.2.0', env = {}) {
-  const r = spawnSync(process.execPath, ['release.mjs', version], {
+  const r = spawnSync(process.execPath, ['scripts/release.mjs', ...(Array.isArray(version) ? version : [version])], {
     cwd: f.root,
     encoding: 'utf8',
     env: { ...process.env, PATH: `${f.bin}${path.delimiter}${process.env.PATH}`, RELEASE_LOG: f.log, ...env },
@@ -91,11 +99,15 @@ test('release: argument, package version, branch, dirty tree и tag collision о
     { env: { FAKE_LOCAL_TAG: '1' }, match: /локальный тег v0\.2\.0 уже/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0'] },
     { env: { FAKE_REMOTE_TAG: '1' }, match: /тег v0\.2\.0 уже.*origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0'] },
     { env: { FAKE_FETCH_FAIL: '1' }, match: /git fetch origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin'] },
+    { version: ['0.2.0', '--nope'], match: /неизвестный флаг --nope/, log: [] },
+    { version: ['0.1.0', '--bump'], match: /bump идёт только вверх/, log: [] },
+    { version: ['0.3.0', '--bump'], setup: (f) => writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\nбез секций\n'), match: /нет ни одной секции/, log: [] },
     { env: { FAKE_DIVERGED: '1' }, match: /не является fast-forward от origin\/main/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin', 'git merge-base --is-ancestor refs/remotes/origin/main HEAD'] },
   ];
   for (const c of cases) {
     const f = fixture(c.fixture);
     try {
+      if (c.setup) c.setup(f);
       const r = runRelease(f, c.version, c.env);
       assert.equal(r.code, 1);
       assert.match(r.err, c.match);
@@ -240,5 +252,30 @@ test('packed tarball installs locally and its bin passes version, init and lint'
     runOk('backslop lint', bin, ['lint'], { cwd: project });
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('release --bump: версия, заголовок секции CHANGELOG и штамп через init; preflight и тег не трогаются', () => {
+  const f = fixture();
+  try {
+    // Шим node: bump зовёт `node bin/backslop.js init`, а самого CLI во временном дереве нет.
+    putExecutable(path.join(f.bin, 'node'), `#!${process.execPath}\nimport { appendFileSync } from 'node:fs';\nappendFileSync(process.env.RELEASE_LOG, ['node', ...process.argv.slice(2)].join(' ') + '\\n');\n`);
+    writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\n## Не выпущено\n\n- **Одно** — раз\n\n## v0.1.0 — 2026-09-01\n\n- **Прежнее** — было\n');
+    const r = runRelease(f, ['0.3.0', '--bump']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(readFileSync(path.join(f.root, 'package.json'), 'utf8')).version, '0.3.0');
+    const changelog = readFileSync(path.join(f.root, 'CHANGELOG.md'), 'utf8');
+    assert.match(changelog, /^## v0\.3\.0 — \d{4}-\d{2}-\d{2}$/m);
+    assert.doesNotMatch(changelog, /Не выпущено/);
+    assert.match(changelog, /^## v0\.1\.0 — 2026-09-01$/m);
+    assert.deepEqual(r.log.trim().split('\n'), ['node bin/backslop.js init']);
+
+    // Повторный bump переименовал бы уже выпущенную секцию — отказ до записи файлов.
+    const again = runRelease(f, ['0.4.0', '--bump']);
+    assert.equal(again.code, 1);
+    assert.match(again.err, /верхняя секция «## v0\.3\.0 — \d{4}-\d{2}-\d{2}» уже выпущена/);
+    assert.equal(JSON.parse(readFileSync(path.join(f.root, 'package.json'), 'utf8')).version, '0.3.0');
+  } finally {
+    cleanup(f);
   }
 });

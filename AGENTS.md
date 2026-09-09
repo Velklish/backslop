@@ -8,7 +8,7 @@
 
 Фаза разработки: работа идёт прямо в `main`, без веток и MR; в `origin` каждая задача уезжает одним коммитом `BS-N: …` — промежуточные коммиты схлопываются перед пушем.
 
-**Релиз.** Default `cli` до первой публикации в npm — GitHub-форма. Релиз — `npm run release -- X.Y.Z` из чистого `main`: версия в `package.json` совпадает с аргументом, локальный `main` — fast-forward от `origin/main`, гейты зелёные, `pack --dry-run` не пачкает дерево, локальный тег, `push --dry-run`, `npm publish`, atomic push `main` и тега. Сбой после тега — смотри сообщение скрипта, не выдумывай следующий шаг. Этот скрипт сам не меняет версию `package.json`. Фактическая публикация и смена default CLI — задача [BS-2.1](docs/backlog/deferred/BS-2.1-npm-publish.md).
+**Релиз.** Default `cli` до первой публикации в npm — GitHub-форма. Релиз — `npm run release -- X.Y.Z` из чистого `main`: версия в `package.json` совпадает с аргументом, локальный `main` — fast-forward от `origin/main`, гейты зелёные, `pack --dry-run` не пачкает дерево, локальный тег, `push --dry-run`, `npm publish`, atomic push `main` и тега. Сбой после тега — смотри сообщение скрипта, не выдумывай следующий шаг. Версию бампит отдельный ход того же скрипта, до релиза и до коммита: `npm run release -- X.Y.Z --bump` пишет `version` в `package.json`, переименовывает верхнюю секцию `CHANGELOG.md` в `## vX.Y.Z — <дата>` и ставит штамп `backslop.json` вызовом `init`; дифф проверяет и коммитит агент. Рассинхрон этих чисел и устаревший пин в прозе README красит одиннадцатый гейт `lint`. Фактическая публикация и смена default CLI — задача [BS-2.1](docs/backlog/deferred/BS-2.1-npm-publish.md).
 
 <!-- backslop:start -->
 ## Задачи и решения — backslop

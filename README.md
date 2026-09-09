@@ -56,11 +56,11 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 | `version`, `help` | version and help |
 | `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity |
 
-Before publishing to npm the command is long, so projects record it in the `cli` field of `backslop.json`; skills and the `AGENTS.md` section substitute it from there. If installed globally (`npm i -g github:Velklish/backslop#v0.2.0`), change `cli` to `backslop`.
+Before publishing to npm the command is long, so projects record it in the `cli` field of `backslop.json`; skills and the `AGENTS.md` section substitute it from there. If installed globally (`npm i -g github:Velklish/backslop#v<version>`), change `cli` to `backslop`.
 
 ## Updating
 
-`init` records the version pin that created the layout in `backslop.json`: `cli` is `npx github:Velklish/backslop#v0.2.0`, and `version` is its stamp. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else’s commit. Update a project only when you choose to:
+`init` records the version pin that created the layout in `backslop.json`: `cli` is `npx github:Velklish/backslop#v<version>` with the version that ran it, and `version` is its stamp. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else’s commit. Update a project only when you choose to:
 
 ```bash
 npx github:Velklish/backslop upgrade
