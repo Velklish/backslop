@@ -29,12 +29,25 @@ export function makeProject({ prefix = 'BS', docs = 'docs', git = true, stamp = 
     run(root, ['init', '-q', '-b', 'main']);
     run(root, ['config', 'user.email', 'test@example.com']);
     run(root, ['config', 'user.name', 'test']);
+    // Пин против глобального конфига машины: определение переименований у себя выключил —
+    // и `git mv` виден в status как пара D/A, неотличимо от renameSync; подпись коммитов
+    // включена без ключа — фикстура падает на первом же снимке.
+    run(root, ['config', 'status.renames', 'true']);
+    run(root, ['config', 'commit.gpgsign', 'false']);
   }
   return root;
 }
 
-function run(root, args) {
-  return spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+// Код возврата git проверяется: проглоченный отказ (нет git, сломанный конфиг, нечего
+// коммитить) оставлял бы файл вне индекса, и команда молча уходила бы на ветку renameSync —
+// проверка ветки `git mv` тихо становилась бы проверкой ветки fs.
+export function run(root, args) {
+  const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
+  if (r.status !== 0) {
+    const why = (r.stderr ?? '').trim() || (r.stdout ?? '').trim() || r.error?.message || `код ${r.status}`;
+    throw new Error(`git ${args.join(' ')}: ${why}`);
+  }
+  return r;
 }
 
 export function gitAll(root, message = 'снимок') {

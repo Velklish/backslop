@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
+import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 
 function seed(root) {
   put(root, 'docs/backlog/active/BS-1-a.md', [
@@ -116,6 +116,56 @@ test('archive: файл из плоского docs/backlog/ переезжает
     put(root, 'docs/archive/BS-5-flat/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-09-06.** Перенесено.\n');
     const lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Ветки moveFile (lib/tasks.js) по коду возврата команды неразличимы: обе дают 0. Различает их
+// след в индексе git — `git mv` ставит переезд переименованием, renameSync оставляет удаление и
+// неотслеживаемый файл — и предупреждение, которое печатает только вторая.
+test('archive: файл в индексе git переезжает через git mv, а не переименованием', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст\n');
+    gitAll(root);
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'снимок чист — переезд будет виден один');
+    const r = cli(root, ['archive', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(
+      run(root, ['status', '--porcelain']).stdout,
+      /^R.? +docs\/backlog\/active\/BS-1-a\.md -> docs\/archive\/BS-1-a\/task\.md$/m,
+    );
+    assert.equal(r.err, '', 'файл в индексе — про откат на renameSync не предупреждают');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('archive: некоммиченный файл в репозитории переезжает переименованием и предупреждает', () => {
+  const root = makeProject();
+  try {
+    // Репозиторий есть, а файла нет в индексе: `moveFile` ветвится по отслеживаемости файла,
+    // а не по наличию репозитория, и это частый случай — задача заведена и ещё не закоммичена.
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст\n');
+    const r = cli(root, ['archive', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /файл не в индексе git — перенесён без git mv/);
+    assert.equal(run(root, ['status', '--porcelain']).stdout.match(/^R/m), null, 'переименования в индексе нет');
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-a/task.md')));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('archive: файл вне репозитория git переезжает переименованием и предупреждает', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст\n');
+    const r = cli(root, ['archive', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /файл не в индексе git — перенесён без git mv/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-a/task.md')));
   } finally {
     cleanup(root);
   }
