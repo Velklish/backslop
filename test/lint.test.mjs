@@ -26,7 +26,11 @@ function seedGreen(root) {
   put(root, 'docs/backlog/deferred/BS-4.1-f.md', '# BS-4.1 · Е\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** ждёт раннера\n- **Условие возврата:** появится раннер\n');
   put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n');
   put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
-  put(root, 'docs/reference/README.md', '# Справочник\n');
+  put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — одно имя.\n\nПример:\n\n```\nбез фенса\n```\n');
+  put(root, 'docs/quoting.md', ['# Цитаты', '',
+    '<!-- quote:reference/README.md -->', '', '```', 'Одно понятие — одно имя.', '```', '', '<!-- /quote -->', '',
+    // Цитата куска документации: фенс внутри цитаты — часть текста, а не обёртка.
+    '<!-- quote:reference/README.md -->', '', 'Пример:', '', '```', 'без фенса', '```', '', '<!-- /quote -->', ''].join('\n'));
   put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — BS-4\n\n## v0.1.0\n\n- **Одно** — прежняя редакция\n');
   put(root, 'README.md', 'См. [docs](docs/README.md)\n');
 }
@@ -135,6 +139,10 @@ probe('8. ADR без строки в таблице', (root) => put(root, 'docs/
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
 probe('9. находка в triage/, а задача закрыта', (root) => {
+probe('10. второй маркер закрывает незакрытый блок ошибкой', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- /quote -->\n'), /quoting\.md: блок цитаты .* не закрыт/);
+probe('10. цитата разошлась с файлом', (root) => put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — два имени.\n'), /quoting\.md: цитата разошлась с reference\/README\.md/);
+probe('10. цитата ведёт на несуществующий файл', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\nтекст\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);
+probe('10. блок цитаты не закрыт', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n'), /quoting\.md: блок цитаты .* не закрыт/);
   put(root, 'docs/archive/BS-2-b/task.md', '# BS-2 · Б\n');
   put(root, 'docs/archive/BS-2-b/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
   rmSync(path.join(root, 'docs/backlog/active/BS-2-b.md'));
@@ -248,6 +256,20 @@ test('lint: 4. заглушка «Области» от new красит раз�
     const found = problems(root);
     assert.ok(found.some((p) => /queued\.md: «Область» не заполнена/.test(p)), found.join(' | ') || 'ничего');
     assert.ok(!found.some((p) => /triaged\.md: «Область»/.test(p)), `запись triage/ не разобрана — гейт молчит: ${found.join(' | ')}`);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 10. цитата в docs/archive — снимок момента, а показанная в фенсе — не блок', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    // Закрытая задача цитирует то, чего в файле давно нет: красить её нельзя.
+    put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\n<!-- quote:../reference/README.md -->\n\nчего в файле нет\n\n<!-- /quote -->\n');
+    // Форма блока, показанная внутри фенса, — пример, а не цитата.
+    put(root, 'docs/howto.md', ['# Как цитировать', '', '```markdown', '<!-- quote:reference/none.md -->', 'что угодно', '<!-- /quote -->', '```', ''].join('\n'));
+    assert.deepEqual(problems(root), []);
   } finally {
     cleanup(root);
   }
