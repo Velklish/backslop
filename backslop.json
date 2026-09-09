@@ -3,7 +3,8 @@
   "docs": "docs",
   "cli": "node bin/backslop.js",
   "gates": [
-    "node bin/backslop.js lint"
+    "node bin/backslop.js lint",
+    "npm test"
   ],
   "version": "0.4.0",
   "lang": "ru",
