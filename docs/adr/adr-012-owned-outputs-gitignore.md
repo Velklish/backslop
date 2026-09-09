@@ -1,4 +1,4 @@
-# ADR-017: Owned outputs не коммитятся: блок `.gitignore` пишет `init`
+# ADR-012: Owned outputs не коммитятся: блок `.gitignore` пишет `init`
 
 **Status:** Accepted
 **Date:** 2026-09-09

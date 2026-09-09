@@ -28,9 +28,10 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage
-  lint                                                восемь гейтов: ссылки, номера, раскладка бэклога, поля статусов,
-                                                      архив, упоминания, CHANGELOG, таблица ADR; adapter outputs,
-                                                      равенство шаблонов и предупреждения о версии
+  lint                                                одиннадцать гейтов: ссылки, номера, раскладка бэклога, поля,
+                                                      архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
+                                                      цитаты, версии релиза; adapter outputs, равенство шаблонов
+                                                      и предупреждения о версии
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       прогнать команды из gates: код каждой, счёт зелёных, снимок дерева
   tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
@@ -66,8 +67,9 @@ Commands:
   seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
                                                       “Reference: …” tasks from the reference/ table
   status [--json]                                     show active work, ordered queue, deferred tasks, and triage
-  lint                                                validate links, numbers, layout, status fields, archive,
-                                                      mentions, CHANGELOG, ADR index, and adapter outputs
+  lint                                                eleven gates: links, numbers, layout, fields, archive,
+                                                      mentions, CHANGELOG, ADR index, triage review, quotes, release
+                                                      versions; adapter outputs and template parity
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       run the gates list: exit code of each, green count, tree snapshot
   tracks [--json]                                     run worktrees and branches: merged or not, what is left, what is dirty

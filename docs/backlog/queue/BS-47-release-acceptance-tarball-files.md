@@ -1,6 +1,7 @@
 # BS-47 · Acceptance-тест релиза не проверяет состав tarball по `files` из package.json
 
-- **Область:** [TODO: раздел reference/]
+- **Порядок:** 80
+- **Область:** `test/release.test.mjs`, `scripts/release.mjs`, [02-cli](../../reference/02-cli.md)
 - **Создана:** 2026-09-09
 - **Зависимости:** нет
 

@@ -23,7 +23,7 @@ Adapters — только если выбраны в `tools` ([lib/adapters.js](
 | `cursor` | `.cursor/rules/backslop-*.mdc` и namespaced `references/` |
 | `codex` | `.agents/skills/backslop-*` |
 
-Owned outputs — локальный generated результат, и в git им делать нечего ([ADR-017](../adr/adr-017-owned-outputs-gitignore.md)): `init` держит для них блок в `.gitignore` между `# backslop:start` и `# backslop:end` — строка `<корень harness>/backslop-*` на каждый выбранный adapter и `/CLAUDE.md`, когда на диске лежит именно наш stub, а не пользовательский файл. Чужие строки файла сохраняются, заменяется только содержимое между маркерами. Проект без выбранных adapters `.gitignore` не получает: генерировать нечего, и заводить файл там, где его не было, `init` не станет; снятие всех adapters оставляет пустой блок с объяснением.
+Owned outputs — локальный generated результат, и в git им делать нечего ([ADR-012](../adr/adr-012-owned-outputs-gitignore.md)): `init` держит для них блок в `.gitignore` между `# backslop:start` и `# backslop:end` — строка `<корень harness>/backslop-*` на каждый выбранный adapter и `/CLAUDE.md`, когда на диске лежит именно наш stub, а не пользовательский файл. Чужие строки файла сохраняются, заменяется только содержимое между маркерами. Проект без выбранных adapters `.gitignore` не получает: генерировать нечего, и заводить файл там, где его не было, `init` не станет; снятие всех adapters оставляет пустой блок с объяснением.
 
 Состав adapters записан один раз — [lib/adapters-registry.js](../../lib/adapters-registry.js): `id`, корень каталога и имя canonical-скилла. Из него выводятся список `tools`, owned-пути, legacy-набор и признак adapter-пути; отдельной копии тройки путей в коде нет.
 

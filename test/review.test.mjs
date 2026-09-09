@@ -105,7 +105,7 @@ test('help, version, --help у команды, неизвестная коман
   try {
     let r = cli(root, ['help']);
     assert.equal(r.code, 0);
-    assert.match(r.out, /восемь гейтов/);
+    assert.match(r.out, /одиннадцать гейтов/);
     r = cli(root, ['version']);
     assert.match(r.out, /^backslop \d+\.\d+\.\d+\n$/);
     r = cli(root, ['new', '--help']);
