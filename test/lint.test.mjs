@@ -139,6 +139,11 @@ probe('8. ADR без строки в таблице', (root) => put(root, 'docs/
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
 probe('9. находка в triage/, а задача закрыта', (root) => {
+probe('9. закрытый родитель назван формой своего номера', (root) => {
+  put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
+  put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+  put(root, 'docs/backlog/triage/BS-007.1-x.md', '# BS-007.1 · Находка\n');
+}, /BS-007\.1-x\.md: находка BS-007\.1 лежит в triage\/, а задача BS-007 закрыта/);
 probe('10. второй маркер закрывает незакрытый блок ошибкой', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- /quote -->\n'), /quoting\.md: блок цитаты .* не закрыт/);
 probe('10. цитата разошлась с файлом', (root) => put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — два имени.\n'), /quoting\.md: цитата разошлась с reference\/README\.md/);
 probe('10. цитата ведёт на несуществующий файл', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\nтекст\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);

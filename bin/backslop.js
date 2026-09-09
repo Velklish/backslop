@@ -20,7 +20,8 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
                                                       завести задачу (по умолчанию в triage/) или находку задачи N
   mv <N> <triage|queue|active|deferred> [--top | --after M]
                                                       сменить статус: git mv между каталогами
-  archive <N> [--dry-run]                             закрыть задачу: переезд в archive/ с правкой ссылок
+  archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
+                                                      печатает доки, которых коснулся ход задачи
   adr <slug> [--title "…"]                            завести ADR со следующим номером
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage
   lint                                                восемь гейтов: ссылки, номера, раскладка бэклога, поля статусов,
@@ -49,7 +50,8 @@ Commands:
                                                       create a task (triage/ by default) or a finding for task N
   mv <N> <triage|queue|active|deferred> [--top | --after M]
                                                       change status with git mv between directories
-  archive <N> [--dry-run]                             close a task, move it to archive/, and update links
+  archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
+                                                      prints the documentation touched by the task
   adr <slug> [--title "…"]                            create the next numbered ADR
   status [--json]                                     show active work, ordered queue, deferred tasks, and triage
   lint                                                validate links, numbers, layout, status fields, archive,

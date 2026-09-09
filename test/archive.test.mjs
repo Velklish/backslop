@@ -40,7 +40,10 @@ test('archive: переезд с правкой исходящих и входя
     // Перечень, а не число: `for (const rel of changed) info(rel)` печатает пути с отступом,
     // и сравнение с составом seed() ловит и пропавший путь, и лишний. Порядок обхода markdown
     // зависит от файловой системы, поэтому сравниваются отсортированные списки.
-    const listed = dry.out.split('\n').filter((l) => l.startsWith('  ') && !l.includes('переезд:')).map((l) => l.slice(2));
+    // Блок тронутых доков команда печатает тем же отступом: режем вывод по его заголовку,
+    // иначе он попадёт в deepEqual, как только коммит seed назовётся `BS-1: …`.
+    const before = dry.out.split('доки, которых коснулся ход')[0];
+    const listed = before.split('\n').filter((l) => l.startsWith('  ') && !l.includes('переезд:')).map((l) => l.slice(2));
     assert.deepEqual(listed.sort(), [
       'CHANGELOG.md',
       'README.md',

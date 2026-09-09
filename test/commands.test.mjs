@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
+import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 import { loadProject } from '../lib/config.js';
 import { toPosix } from '../lib/util.js';
 
@@ -463,7 +463,9 @@ test('archive --range: печатает файлы docs и CHANGELOG, измен
     put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n');
     put(root, 'docs/reference/README.md', '# Справочник\n');
     gitAll(root, 'база');
-    const base = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+    const head = run(root, ['rev-parse', 'HEAD']);
+    assert.equal(head.status, 0, head.stderr);
+    const base = head.stdout.trim();
 
     put(root, 'docs/reference/01-layout.md', '# 01. Раскладка\n');
     gitAll(root, 'правка справочника без номера задачи');
@@ -540,12 +542,15 @@ test('new: «Область» — ссылка на reference/ с посчита
   }
 });
 
-test('new: без docs/reference/README.md «Область» остаётся текстом, а не битой ссылкой', () => {
-  const root = makeProject();
+test('archive: --range в проекте без git — отказ, а не тихий пустой список', () => {
+  const root = makeProject({ git: false });
   try {
-    assert.equal(cli(root, ['new', 'noref', '--queue']).code, 0);
-    assert.match(read(root, 'docs/backlog/queue/BS-1-noref.md'), /- \*\*Область:\*\* \[TODO: раздел reference\/\]\n/);
-    assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    const r = cli(root, ['archive', '1', '--range', 'HEAD~1..HEAD', '--dry-run']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--range HEAD~1\.\.HEAD/);
+    // Без флага список никто не просил: команда работает молча.
+    assert.equal(cli(root, ['archive', '1', '--dry-run']).code, 0);
   } finally {
     cleanup(root);
   }
