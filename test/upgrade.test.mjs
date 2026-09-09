@@ -169,7 +169,7 @@ test('upgrade целиком: migrate и init новой версией, шта�
 });
 
 test('upgrade без источника релизов отказывает; migrate и changelog в одиночку', () => {
-  const root = makeProject({ git: false });
+  const root = makeProject({ git: false, stamp: false });
   try {
     setConfig(root, { cli: 'node bin/backslop.js' });
     let r = cli(root, ['upgrade']);
@@ -208,7 +208,7 @@ function npxShim() {
 }
 
 test('upgrade по форме npx: пробный запуск до пина, пин и гейты, скиллы новой версией', { skip: process.platform === 'win32' }, () => {
-  const root = makeProject({ git: false });
+  const root = makeProject({ git: false, stamp: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
   try {

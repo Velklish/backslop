@@ -37,7 +37,19 @@ test('archive: переезд с правкой исходящих и входя
     assert.equal(dry.code, 0, dry.err);
     assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')), 'dry-run ничего не двигает');
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-a')));
-    assert.match(dry.out, /файлов с поправленными ссылками 6/);
+    // Перечень, а не число: `for (const rel of changed) info(rel)` печатает пути с отступом,
+    // и сравнение с составом seed() ловит и пропавший путь, и лишний. Порядок обхода markdown
+    // зависит от файловой системы, поэтому сравниваются отсортированные списки.
+    const listed = dry.out.split('\n').filter((l) => l.startsWith('  ') && !l.includes('переезд:')).map((l) => l.slice(2));
+    assert.deepEqual(listed.sort(), [
+      'CHANGELOG.md',
+      'README.md',
+      'docs/archive/BS-1-a/task.md',
+      'docs/archive/BS-3-c/task.md',
+      'docs/backlog/queue/BS-2-b.md',
+      'docs/reference/README.md',
+    ]);
+    assert.match(dry.out, new RegExp(`файлов с поправленными ссылками ${listed.length}`));
 
     const r = cli(root, ['archive', 'BS-1']);
     assert.equal(r.code, 0, r.err);
@@ -62,6 +74,7 @@ test('archive: переезд с правкой исходящих и входя
     assert.match(again.err, /уже в архиве/);
     const missing = cli(root, ['archive', '42']);
     assert.equal(missing.code, 1);
+    assert.match(missing.err, /нет ни в одном каталоге статуса/);
   } finally {
     cleanup(root);
   }
@@ -101,7 +114,8 @@ test('archive: файл из плоского docs/backlog/ переезжает
     assert.match(read(root, 'docs/ROADMAP.md'), /\(archive\/BS-5-flat\/task\.md\)/);
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-5-flat/result.md')));
     put(root, 'docs/archive/BS-5-flat/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-09-06.** Перенесено.\n');
-    assert.equal(cli(root, ['lint']).code, 0);
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
   } finally {
     cleanup(root);
   }

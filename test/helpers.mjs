@@ -6,12 +6,19 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TOOL_VERSION } from '../lib/version.js';
 
 export const BIN = fileURLToPath(new URL('../bin/backslop.js', import.meta.url));
 
-export function makeProject({ prefix = 'BS', docs = 'docs', git = true } = {}) {
+// stamp: false — проект без штампа версии, каким его застаёт lint у старой раскладки.
+// По умолчанию штамп стоит: иначе lint на любой проверке несёт постоянное предупреждение
+// «нет штампа версии», и ассерт на пустой stderr нельзя написать ни в одном тесте. Поле cli
+// не пишется — loadConfig подставит defaultCli() с пином на ту же TOOL_VERSION, и lint молчит.
+export function makeProject({ prefix = 'BS', docs = 'docs', git = true, stamp = true } = {}) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-proj-')));
-  writeFileSync(path.join(root, 'backslop.json'), `${JSON.stringify({ prefix, docs, gates: [] }, null, 2)}\n`);
+  const cfg = { prefix, docs, gates: [] };
+  if (stamp) cfg.version = TOOL_VERSION;
+  writeFileSync(path.join(root, 'backslop.json'), `${JSON.stringify(cfg, null, 2)}\n`);
   for (const d of ['backlog/triage', 'backlog/queue', 'backlog/active', 'backlog/deferred', 'archive', 'adr', 'reference']) {
     mkdirSync(path.join(root, docs, d), { recursive: true });
   }
@@ -36,7 +43,12 @@ export function gitAll(root, message = 'снимок') {
 }
 
 export function cli(root, args, { cwd = root, env = {} } = {}) {
-  const r = spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', ...env } });
+  // --no-warnings дочернему процессу: предупреждения самого Node (конфликт NO_COLOR с
+  // унаследованным FORCE_COLOR, Experimental/Deprecation из NODE_OPTIONS сессии) уходят в его
+  // stderr и красили бы ассерты на пустой stderr выводом, которого команда не писала.
+  // Унаследованное значение сохраняется — флаг дописывается к нему.
+  const nodeOptions = `${process.env.NODE_OPTIONS ?? ''} --no-warnings`.trim();
+  const r = spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', NODE_OPTIONS: nodeOptions, ...env } });
   return { code: r.status, out: r.stdout ?? '', err: r.stderr ?? '' };
 }
 

@@ -17,6 +17,7 @@ test('CRLF и BOM: заголовок читается, lint зелёный, mv 
     assert.equal(JSON.parse(r.out).queue[0].title, 'Виндовый файл');
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
+    assert.equal(r.err, '', 'зелёный lint молчит и в stderr');
     r = cli(root, ['mv', '1', 'deferred']);
     assert.equal(r.code, 0, r.err);
     const moved = read(root, 'docs/backlog/deferred/BS-1-crlf.md');
@@ -69,6 +70,7 @@ test('mv --after на чужую задачу отказывает до пере
     assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')));
     r = cli(root, ['new', 'f', '--parent', '1']);
     assert.equal(r.code, 1);
+    assert.match(r.err, /занят дважды/);
   } finally {
     cleanup(root);
   }

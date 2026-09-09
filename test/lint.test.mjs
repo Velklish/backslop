@@ -54,6 +54,7 @@ test('lint: зелёный проект без ошибок, CLI выходит 
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /ошибок нет/);
+    assert.equal(r.err, '', 'зелёный lint молчит и в stderr');
   } finally {
     cleanup(root);
   }
@@ -131,7 +132,7 @@ probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
 
 test('lint: предупреждения о версии не красят гейт', () => {
-  const root = makeProject({ git: false });
+  const root = makeProject({ git: false, stamp: false });
   try {
     seedGreen(root);
     const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
