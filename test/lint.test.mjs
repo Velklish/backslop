@@ -22,6 +22,8 @@ function seedGreen(root) {
   put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Взята:** 2026-09-01\n');
   put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
   put(root, 'docs/backlog/triage/BS-2.1-d.md', '# BS-2.1 · Г\n\nНаходка при работе над BS-2.\n');
+  // Находка BS-4.1 разобрана — уехала в deferred/; закрытый родитель BS-4 её не красит.
+  put(root, 'docs/backlog/deferred/BS-4.1-f.md', '# BS-4.1 · Е\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** ждёт раннера\n- **Условие возврата:** появится раннер\n');
   put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n');
   put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
   put(root, 'docs/reference/README.md', '# Справочник\n');
@@ -130,6 +132,11 @@ probe('7. дубль заголовка записи в секции CHANGELOG',
 probe('8. ADR без строки в таблице', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Сирота\n'), /adr-002-orphan\.md: нет строки/);
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
+probe('9. находка в triage/, а задача закрыта', (root) => {
+  put(root, 'docs/archive/BS-2-b/task.md', '# BS-2 · Б\n');
+  put(root, 'docs/archive/BS-2-b/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+  rmSync(path.join(root, 'docs/backlog/active/BS-2-b.md'));
+}, /BS-2\.1-d\.md: находка BS-2\.1 лежит в triage\/, а задача BS-2 закрыта/);
 
 test('lint: предупреждения о версии не красят гейт', () => {
   const root = makeProject({ git: false, stamp: false });

@@ -4,4 +4,4 @@ Every closed task is a `{{prefix}}-<number>-<slug>/` directory with two files: `
 
 Live tasks are in [backlog/](../backlog/README.md). Numbers are sequential and never reused; a missing number in the archive means that the task is still live or was never created.
 
-Move a task with `{{cli}} archive N`: it also rewrites task links throughout the repository and creates the `result.md` stub.
+Move a task with `{{cli}} archive N`: it also rewrites task links throughout the repository, creates the `result.md` stub, and prints the documentation files touched by the task — the draft of the “documentation updated” line.

@@ -439,3 +439,72 @@ test('new и mv на номере с ведущими нулями: находк
     cleanup(root);
   }
 });
+
+// Раздел списка тронутых доков: строку переезда команда печатает выше, в список она не входит.
+function touchedList(out) {
+  const at = out.indexOf('доки, которых коснулся ход');
+  return at === -1 ? '' : out.slice(at);
+}
+
+test('archive --range: печатает файлы docs и CHANGELOG, изменённые ходом задачи', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n');
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    gitAll(root, 'база');
+    const base = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
+
+    put(root, 'docs/reference/01-layout.md', '# 01. Раскладка\n');
+    gitAll(root, 'правка справочника без номера задачи');
+    put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — BS-1\n');
+    gitAll(root, 'BS-1: запись в CHANGELOG');
+    put(root, 'lib/x.js', '// код\n');
+    gitAll(root, 'BS-1: код мимо docs');
+    put(root, 'docs/backlog/triage/BS-1.1-finding.md', '# BS-1.1 · Находка\n');
+    gitAll(root, 'BS-1: находка файлом');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n');
+    gitAll(root, 'снимок захода\n\nBS-1: заголовок схлопнутого коммита в теле');
+
+    const r = cli(root, ['archive', '1', '--range', `${base}..HEAD`, '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(touchedList(r.out), /docs\/reference\/01-layout\.md/);
+    assert.match(touchedList(r.out), /CHANGELOG\.md/);
+    assert.doesNotMatch(touchedList(r.out), /lib\/x\.js/, 'вне docs и CHANGELOG — не печатается');
+    assert.doesNotMatch(touchedList(r.out), /docs\/backlog\//, 'карточки трекера — не «доки тем же ходом»');
+
+    // Без --range остаются только коммиты с префиксом задачи в заголовке.
+    const byPrefix = cli(root, ['archive', '1', '--dry-run']);
+    assert.equal(byPrefix.code, 0, byPrefix.err);
+    assert.match(touchedList(byPrefix.out), /CHANGELOG\.md/);
+    assert.doesNotMatch(touchedList(byPrefix.out), /docs\/reference\/01-layout\.md/);
+    assert.doesNotMatch(touchedList(byPrefix.out), /docs\/ROADMAP\.md/, 'заголовок схлопнутого коммита в теле — не заголовок');
+    assert.doesNotMatch(touchedList(byPrefix.out), /docs\/backlog\//, 'карточки трекера — не «доки тем же ходом»');
+
+    // Неразрешимая ревизия — отказ словами git, а не пустой список.
+    const broken = cli(root, ['archive', '1', '--range', 'nosuchref..HEAD', '--dry-run']);
+    assert.equal(broken.code, 1);
+    assert.match(broken.err, /--range nosuchref\.\.HEAD/);
+    assert.equal(cli(root, ['archive', '1', '--range=', '--dry-run']).code, 1);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('archive: выборка коммитов по номеру — числом, не формой записи в имени файла', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/active/BS-007-zero.md', '# BS-007 · Ноли\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    gitAll(root, 'база');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n');
+    gitAll(root, 'BS-7: правка справочника под задачей с нулями');
+    put(root, 'docs/GLOSSARY.md', '# Глоссарий\n');
+    gitAll(root, 'BS-007: та же задача, номер записан нулями');
+
+    const r = cli(root, ['archive', '7', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(touchedList(r.out), /docs\/ROADMAP\.md/, 'коммит BS-7 относится к файлу BS-007-…');
+    assert.match(touchedList(r.out), /docs\/GLOSSARY\.md/, '…и коммит BS-007 — к номеру 7');
+  } finally {
+    cleanup(root);
+  }
+});

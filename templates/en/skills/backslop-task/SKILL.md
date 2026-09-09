@@ -47,7 +47,7 @@ The worker does not push their branch or touch the repository’s main tree; the
 
 The approver has passed the review gate and accepted the work. **The skill does not decide who reviews a diff.** Under orchestration, the orchestrator chooses using `backslop-batch`. Alone, ask the user with a survey offering at least two choices: regular review (subagent or a project review skill) or isolated review (a separate session with fresh context); list your recommendation first. Keep the chosen method for the whole task. Then do **all actions together in one pass**:
 
-1. `backslop archive N` moves the file to `archive/<id>-<slug>/task.md`, rewrites links to it throughout the repository, and creates a `result.md` stub beside it.
+1. `backslop archive N [--range <base>..HEAD]` moves the file to `archive/<id>-<slug>/task.md`, rewrites links to it throughout the repository, and creates a `result.md` stub beside it; it also prints the documentation files touched by the task, which is where the “documentation updated” line comes from.
 2. Complete `result.md`: outcome (completed, rejected, or merged), exactly what was done, verification with numerical gates, mutation probe and live run, and documentation updated. While `[TODO]` remains, `backslop lint` fails — that is the reminder.
 3. `backslop lint` is green; the acceptance commit names what closed: `{{prefix}}-N: closed — <summary>`.
 
