@@ -22,3 +22,4 @@ CLI понимает точный npm-пин `npx [флаги] backslop@X.Y.Z` �
 - Проект на npm-пине обязан указать `source`, иначе `upgrade` отказывает.
 - Смена default CLI и первая публикация — [BS-2.1](../backlog/deferred/BS-2.1-npm-publish.md), не этот ADR.
 - `npx backslop` и `npx backslop@latest` точным пином не являются, но `parseCli` распознаёт их как npm-форму с `pin: null`; `lint` предупреждает, `upgrade` переставляет на точный пин из `source`.
+- ADR-004 заменён в части источника релизов при npm-форме; пин тегом git и остальные следствия ADR-004 остаются без изменений.
