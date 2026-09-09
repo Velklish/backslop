@@ -1,3 +1,6 @@
+// Проверки скрипта релиза. Файл не рассчитан на Windows: git и npm подменяются шимами с
+// shebang (putExecutable ниже), которые Windows не исполняет, а acceptance зовёт `npm` без
+// shell. Тесты, у которых от платформы зависит сам предмет проверки, помечены skip явно.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -160,6 +163,59 @@ test('release: push failure фиксирует published state и exact atomic r
   }
 });
 
+// Отказ запуска и ненулевой код запущенной команды — разные отказы, и assert.equal(status, 0)
+// их не различает: у несостоявшегося запуска status === null, причина лежит в error, а у снятого
+// сигналом — в signal. «null !== 0» не называет ни команды, ни причины, и приёмка сообщает про
+// дефект релиза там, где на машине просто нет npm или его снял sandbox.
+function describeRun(label, r) {
+  if (r.error) return `${label}: запуск не состоялся — ${r.error.code ?? r.error.message}`;
+  if (r.signal) return `${label}: снят сигналом ${r.signal}`;
+  if (r.status !== 0) return `${label}: код ${r.status}\n${(r.stderr ?? '').trim()}`;
+  return null;
+}
+
+function runOk(label, cmd, args, opts = {}) {
+  const r = spawnSync(cmd, args, { encoding: 'utf8', ...opts });
+  const why = describeRun(label, r);
+  if (why !== null) assert.fail(why);
+  return r;
+}
+
+// npm запускается со своим HOME, кэшем и обоими конфигами внутри каталога самой проверки:
+// иначе он читает ~/.npmrc с токеном реестра и лезет за учёткой в Keychain — под sandbox этот
+// запрос отклоняется, npm снимают, и приёмка релиза краснеет на окружении участника, а не на
+// релизе. Унаследованные npm_config_* выбрасываются целиком: родитель прогона — сам `npm test`,
+// и он выкладывает в окружение всю свою конфигурацию, включая globalconfig и userconfig.
+// Зависимостей у пакета нет, поэтому install идёт --offline и реестр не нужен вовсе.
+function npmEnv(home, cache) {
+  mkdirSync(home, { recursive: true });
+  writeFileSync(path.join(home, '.npmrc'), '');
+  writeFileSync(path.join(home, 'globalrc'), '');
+  const inherited = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('npm_config_')));
+  return {
+    ...inherited,
+    HOME: home,
+    USERPROFILE: home,
+    npm_config_cache: cache,
+    npm_config_userconfig: path.join(home, '.npmrc'),
+    npm_config_globalconfig: path.join(home, 'globalrc'),
+    npm_config_update_notifier: 'false',
+  };
+}
+
+test('acceptance-раннер различает несостоявшийся запуск, сигнал и ненулевой код', { skip: process.platform === 'win32' }, () => {
+  const missing = spawnSync(path.join(os.tmpdir(), 'backslop-такой-команды-нет'), [], { encoding: 'utf8' });
+  assert.match(describeRun('npm pack', missing), /^npm pack: запуск не состоялся — ENOENT$/);
+
+  const failed = spawnSync(process.execPath, ['-e', 'process.stderr.write("нет доступа к реестру"); process.exit(7)'], { encoding: 'utf8' });
+  assert.match(describeRun('npm pack', failed), /^npm pack: код 7\nнет доступа к реестру$/);
+
+  const killed = spawnSync(process.execPath, ['-e', 'process.kill(process.pid, "SIGKILL")'], { encoding: 'utf8' });
+  assert.equal(describeRun('npm pack', killed), 'npm pack: снят сигналом SIGKILL');
+
+  assert.equal(describeRun('npm pack', spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8' })), null);
+});
+
 test('packed tarball installs locally and its bin passes version, init and lint', { timeout: 60_000 }, () => {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-pack-')));
   const packDir = path.join(root, 'pack');
@@ -168,23 +224,20 @@ test('packed tarball installs locally and its bin passes version, init and lint'
   mkdirSync(packDir);
   mkdirSync(project);
   try {
-    const packed = spawnSync('npm', ['pack', REPO, '--json', '--pack-destination', packDir, '--cache', cache, '--ignore-scripts'], { encoding: 'utf8' });
-    assert.equal(packed.status, 0, packed.stderr);
+    const env = npmEnv(path.join(root, 'home'), cache);
+    const packed = runOk('npm pack', 'npm', ['pack', REPO, '--json', '--pack-destination', packDir, '--cache', cache, '--ignore-scripts'], { env });
     const tarball = path.join(packDir, JSON.parse(packed.stdout)[0].filename);
     writeFileSync(path.join(project, 'package.json'), '{"name":"acceptance","private":true}\n');
-    const installed = spawnSync('npm', ['install', tarball, '--ignore-scripts', '--no-audit', '--no-fund', '--cache', cache], { cwd: project, encoding: 'utf8' });
-    assert.equal(installed.status, 0, installed.stderr);
+    const manifest = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'));
+    assert.deepEqual(Object.keys(manifest.dependencies ?? {}), [], '--offline держится на отсутствии зависимостей');
+    runOk('npm install', 'npm', ['install', tarball, '--ignore-scripts', '--no-audit', '--no-fund', '--offline', '--cache', cache], { cwd: project, env });
     const bin = process.platform === 'win32' ? path.join(project, 'node_modules/.bin/backslop.cmd') : path.join(project, 'node_modules/.bin/backslop');
-    let r = spawnSync(bin, ['version'], { cwd: project, encoding: 'utf8' });
-    assert.equal(r.status, 0, r.stderr);
+    let r = runOk('backslop version', bin, ['version'], { cwd: project });
     // Версия берётся из манифеста: зашитый литерал делает этот вердикт релиз-блокером
     // на каждом бампе — он краснел на 0.3.0, хотя предмет проверки от версии не зависит.
-    const expected = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
-    assert.match(r.stdout, new RegExp(`backslop ${expected.replace(/\./g, '\\.')}`));
-    r = spawnSync(bin, ['init'], { cwd: project, encoding: 'utf8' });
-    assert.equal(r.status, 0, r.stderr);
-    r = spawnSync(bin, ['lint'], { cwd: project, encoding: 'utf8' });
-    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, new RegExp(`backslop ${manifest.version.replace(/\./g, '\\.')}`));
+    runOk('backslop init', bin, ['init'], { cwd: project });
+    runOk('backslop lint', bin, ['lint'], { cwd: project });
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
