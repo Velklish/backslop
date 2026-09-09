@@ -555,3 +555,14 @@ test('archive: --range в проекте без git — отказ, а не ти
     cleanup(root);
   }
 });
+
+test('new: без docs/reference/README.md «Область» остаётся текстом, а не битой ссылкой', () => {
+  const root = makeProject();
+  try {
+    assert.equal(cli(root, ['new', 'noref', '--queue']).code, 0);
+    assert.match(read(root, 'docs/backlog/queue/BS-1-noref.md'), /- \*\*Область:\*\* \[TODO: раздел reference\/\]\n/);
+    assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
+  } finally {
+    cleanup(root);
+  }
+});
