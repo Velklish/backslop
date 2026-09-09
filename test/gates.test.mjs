@@ -160,11 +160,15 @@ test('gates: исход различает код, сигнал и незапу�
     assert.equal(killed.code, null);
     assert.equal(killed.signal, 'SIGTERM');
 
+    // Команда идёт через оболочку, поэтому ненайденное имя — это код самой оболочки (127 у sh,
+    // 1 или 9009 у cmd.exe), а не `r.error`: ветка «не запустился» через shell недостижима и
+    // пробой не покрыта. Число не проверяем — оно от оболочки, а не от нас.
     withGates(root, ['такой-команды-нет-и-не-будет']);
     r = cli(root, ['gates', '--json']);
     assert.equal(r.code, 1);
     const missing = JSON.parse(r.out).gates[0];
     assert.notEqual(missing.code, 0, 'ненайденная команда не считается зелёной');
+    assert.equal(missing.error, null, 'через shell отказ приходит кодом оболочки, а не r.error');
   } finally {
     cleanup(root);
   }
@@ -180,6 +184,22 @@ test('gates: --dry-run вместе с --require-clean — отказ, а не �
     assert.equal(r.code, 1);
     assert.match(r.err, /--dry-run и --require-clean вместе бессмысленны/);
     assert.deepEqual(ran(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('gates: репозиторий без коммитов — снимок есть, коммита в нём нет', () => {
+  const root = makeProject();
+  try {
+    withGates(root, ['node -e "process.exit(0)"']);
+    const r = cli(root, ['gates', '--json']);
+    assert.equal(r.code, 0, r.err);
+    const tree = JSON.parse(r.out).tree;
+    assert.notEqual(tree, null, 'репозиторий есть, снимок обязан быть');
+    assert.equal(tree.head, null);
+    assert.equal(tree.clean, false);
+    assert.match(cli(root, ['gates']).out, /коммитов ещё нет/);
   } finally {
     cleanup(root);
   }

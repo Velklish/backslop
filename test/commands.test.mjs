@@ -451,6 +451,51 @@ test('new и mv на номере с ведущими нулями: находк
   }
 });
 
+test('mv: пакет номеров одним вызовом; отказ по любому — всё или ничего', () => {
+  const root = makeProject();
+  try {
+    for (const slug of ['a', 'b', 'c']) assert.equal(cli(root, ['new', slug, '--queue']).code, 0);
+    for (const n of [1, 2, 3]) fillArea(root, `docs/backlog/queue/BS-${n}-${'abc'[n - 1]}.md`);
+    gitAll(root, 'очередь');
+
+    // Отказ по несуществующему номеру в середине пакета не двигает ни один файл.
+    let r = cli(root, ['mv', '1', '99', '3', 'active']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /BS-99/);
+    for (const n of [1, 2, 3]) assert.ok(existsSync(path.join(root, `docs/backlog/queue/BS-${n}-${'abc'[n - 1]}.md`)), `BS-${n} тронут отказом`);
+
+    // --top при нескольких номерах — отказ: место для пакета не определено одним числом.
+    r = cli(root, ['mv', '1', '2', 'queue', '--top']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /место для пакета/);
+
+    r = cli(root, ['mv', '1', '2', '3', 'active']);
+    assert.equal(r.code, 0, r.err);
+    for (const n of [1, 2, 3]) {
+      const file = path.join(root, `docs/backlog/active/BS-${n}-${'abc'[n - 1]}.md`);
+      assert.ok(existsSync(file), `BS-${n} не переехал`);
+      assert.match(read(root, `docs/backlog/active/BS-${n}-${'abc'[n - 1]}.md`), /- \*\*Взята:\*\* \d{4}-\d{2}-\d{2}\n/);
+      assert.doesNotMatch(read(root, `docs/backlog/active/BS-${n}-${'abc'[n - 1]}.md`), /Порядок/);
+    }
+    assert.equal((r.out.match(/→ active\//g) ?? []).length, 3, 'строка ok на каждый номер');
+
+    // Обратно в очередь пакетом: порядок у каждого свой, дубля нет.
+    r = cli(root, ['mv', '1', '2', '3', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    const ranks = [1, 2, 3].map((n) => read(root, `docs/backlog/queue/BS-${n}-${'abc'[n - 1]}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]);
+    assert.equal(new Set(ranks).size, 3, `порядки совпали: ${ranks.join(', ')}`);
+    assert.equal(cli(root, ['lint']).code, 0);
+
+    // Один и тот же номер дважды в пакете — отказ до переноса.
+    r = cli(root, ['mv', '1', '1', 'active']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /дважды/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')));
+  } finally {
+    cleanup(root);
+  }
+});
+
 // Раздел списка тронутых доков: строку переезда команда печатает выше, в список она не входит.
 function touchedList(out) {
   const at = out.indexOf('доки, которых коснулся ход');

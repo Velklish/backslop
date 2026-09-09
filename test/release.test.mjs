@@ -100,6 +100,7 @@ test('release: argument, package version, branch, dirty tree и tag collision о
     { env: { FAKE_REMOTE_TAG: '1' }, match: /тег v0\.2\.0 уже.*origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0'] },
     { env: { FAKE_FETCH_FAIL: '1' }, match: /git fetch origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin'] },
     { version: ['0.2.0', '--nope'], match: /неизвестный флаг --nope/, log: [] },
+    { version: ['0.2.0', '--bump', '--no-publish'], match: /вместе бессмысленны/, log: [] },
     { version: ['0.1.0', '--bump'], match: /bump идёт только вверх/, log: [] },
     { version: ['0.3.0', '--bump'], setup: (f) => writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\nбез секций\n'), match: /нет ни одной секции/, log: [] },
     { env: { FAKE_DIVERGED: '1' }, match: /не является fast-forward от origin\/main/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin', 'git merge-base --is-ancestor refs/remotes/origin/main HEAD'] },
@@ -275,6 +276,42 @@ test('release --bump: версия, заголовок секции CHANGELOG и
     assert.equal(again.code, 1);
     assert.match(again.err, /верхняя секция «## v0\.3\.0 — \d{4}-\d{2}-\d{2}» уже выпущена/);
     assert.equal(JSON.parse(readFileSync(path.join(f.root, 'package.json'), 'utf8')).version, '0.3.0');
+  } finally {
+    cleanup(f);
+  }
+});
+
+test('release --no-publish: тег и atomic push без npm publish', () => {
+  const f = fixture();
+  try {
+    const r = runRelease(f, ['0.2.0', '--no-publish']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(r.log.trim().split('\n'), [
+      'git branch --show-current',
+      'git status --porcelain',
+      'git rev-parse --verify --quiet refs/tags/v0.2.0',
+      'git ls-remote --exit-code --tags origin refs/tags/v0.2.0',
+      'git fetch origin',
+      'git merge-base --is-ancestor refs/remotes/origin/main HEAD',
+      'npm test',
+      'npm run lint',
+      'npm pack --dry-run',
+      'git status --porcelain',
+      'git tag v0.2.0',
+      'git push --atomic --dry-run origin main v0.2.0',
+      'git push --atomic origin main v0.2.0',
+    ]);
+    assert.doesNotMatch(r.log, /npm publish/);
+    assert.match(r.out, /npm publish не запускался/);
+
+    // Отказ push после тега называет состояние без публикации, а не «опубликован».
+    const g = fixture();
+    try {
+      const failed = runRelease(g, ['0.2.0', '--no-publish'], { FAKE_GIT_FAIL: 'push --atomic origin main v0.2.0' });
+      assert.equal(failed.code, 1);
+      assert.match(failed.err, /npm publish не запускался \(--no-publish\)/);
+      assert.doesNotMatch(failed.err, /опубликован/);
+    } finally { cleanup(g); }
   } finally {
     cleanup(f);
   }

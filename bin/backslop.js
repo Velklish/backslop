@@ -18,8 +18,8 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
                                                       разложить скелет docs, adapters, блок в AGENTS.md, backslop.json
   new <slug> [--title "…"] [--queue [--top]] [--parent N]
                                                       завести задачу (по умолчанию в triage/) или находку задачи N
-  mv <N> <triage|queue|active|deferred> [--top | --after M]
-                                                      сменить статус: git mv между каталогами
+  mv <N…> <triage|queue|active|deferred> [--top | --after M]
+                                                      сменить статус: git mv между каталогами; номеров может быть несколько
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
                                                       печатает доки, которых коснулся ход задачи
   adr <slug> [--title "…"]                            завести ADR со следующим номером
@@ -56,8 +56,8 @@ Commands:
                                                       create docs, adapters, AGENTS.md block, and backslop.json
   new <slug> [--title "…"] [--queue [--top]] [--parent N]
                                                       create a task (triage/ by default) or a finding for task N
-  mv <N> <triage|queue|active|deferred> [--top | --after M]
-                                                      change status with git mv between directories
+  mv <N…> <triage|queue|active|deferred> [--top | --after M]
+                                                      change status with git mv between directories; several numbers allowed
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
                                                       prints the documentation touched by the task
   adr <slug> [--title "…"]                            create the next numbered ADR

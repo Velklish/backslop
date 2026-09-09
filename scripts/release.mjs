@@ -59,6 +59,8 @@ function bump(version) {
 
   // Проверки все до первой записи: отказ на середине оставил бы package.json бампнутым, а
   // CHANGELOG — со старым заголовком, и это ровно тот рассинхрон, который гейт 11 ловит.
+  // Третье действие, `init`, гарантией не покрыто: он ходит по диску и может отказать уже
+  // после двух записей. Его отказ ловит тот же гейт 11 — штамп останется на прежней версии.
   writeFileSync('package.json', bumped);
   writeFileSync('CHANGELOG.md', changelog.replace(heading[0], section));
   command('node', ['bin/backslop.js', 'init']);
@@ -69,16 +71,23 @@ function bump(version) {
 function main(argv) {
   const flags = argv.filter((a) => a.startsWith('-'));
   const positionals = argv.filter((a) => !a.startsWith('-'));
-  const unknown = flags.filter((f) => f !== '--bump');
-  if (unknown.length) throw new Error(`неизвестный флаг ${unknown[0]}: есть только --bump`);
+  const known = ['--bump', '--no-publish'];
+  const unknown = flags.filter((f) => !known.includes(f));
+  if (unknown.length) throw new Error(`неизвестный флаг ${unknown[0]}: есть ${known.join(' и ')}`);
   if (positionals.length !== 1 || !/^\d+\.\d+\.\d+$/.test(positionals[0])) {
-    throw new Error('нужен один аргумент в форме X.Y.Z: npm run release -- X.Y.Z [--bump]');
+    throw new Error('нужен один аргумент в форме X.Y.Z: npm run release -- X.Y.Z [--bump | --no-publish]');
   }
   const version = positionals[0];
+  if (flags.includes('--bump') && flags.includes('--no-publish')) {
+    throw new Error('--bump и --no-publish вместе бессмысленны: bump ничего не публикует и до релиза не доходит');
+  }
   if (flags.includes('--bump')) {
     bump(version);
     return;
   }
+  // Публикация в npm отложена владельцем (BS-2.1), а тег и atomic push нужны: это штатный
+  // путь релиза до первой публикации, а не обход скрипта.
+  const publish = !flags.includes('--no-publish');
   const tag = `v${version}`;
   const actualVersion = packageVersion();
   if (actualVersion !== version) throw new Error(`package.json: version ${actualVersion}, а релиз запрошен ${version}`);
@@ -107,18 +116,21 @@ function main(argv) {
     throw new Error(`${error.message}\nstate: локальный тег ${tag} создан; origin не изменён; npm registry не тронут\nnext: устрани отказ push (или удали локальный тег ${tag} и повтори release)`);
   }
 
-  try {
-    command('npm', ['publish']);
-  } catch (error) {
-    throw new Error(`${error.message}\nstate: локальный тег ${tag} создан; origin не изменён; состояние npm registry неизвестно\nnext: npm view backslop@${version} version\nif published: git push --atomic origin main ${tag}\nif E404: npm publish, затем git push --atomic origin main ${tag}`);
+  if (publish) {
+    try {
+      command('npm', ['publish']);
+    } catch (error) {
+      throw new Error(`${error.message}\nstate: локальный тег ${tag} создан; origin не изменён; состояние npm registry неизвестно\nnext: npm view backslop@${version} version\nif published: git push --atomic origin main ${tag}\nif E404: npm publish, затем git push --atomic origin main ${tag}`);
+    }
   }
 
+  const published = publish ? `backslop@${version} опубликован` : 'npm publish не запускался (--no-publish)';
   try {
     command('git', ['push', '--atomic', 'origin', 'main', tag]);
   } catch (error) {
-    throw new Error(`${error.message}\nstate: backslop@${version} опубликован; локальный тег ${tag} создан; atomic push не подтверждён\nnext: git push --atomic origin main ${tag}`);
+    throw new Error(`${error.message}\nstate: ${published}; локальный тег ${tag} создан; atomic push не подтверждён\nnext: git push --atomic origin main ${tag}`);
   }
-  process.stdout.write(`release: backslop@${version} опубликован, main и ${tag} атомарно отправлены\n`);
+  process.stdout.write(`release: ${published}, main и ${tag} атомарно отправлены\n`);
 }
 
 try {

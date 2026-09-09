@@ -8,7 +8,7 @@ The operational tracker for {{project}}: **one task is one file**, and **status 
 |---|---|---|
 | `triage/` | Unreviewed ideas and findings. The file is the entry | `{{cli}} new <slug> --title "…"`; a finding is `{{cli}} new <slug> --parent N` |
 | `queue/` | The queue; priority is the integer “Order” field, in steps of 10; lower comes first | `{{cli}} new <slug> --queue [--top]`, `{{cli}} mv N queue [--top \| --after M]` |
-| `active/` | Work in progress; “Taken” is the date it was started | `{{cli}} mv N active` by the person holding the queue |
+| `active/` | Work in progress; “Taken” is the date it was started | `{{cli}} mv N… active` by the person holding the queue |
 | `deferred/` | Deferred work; the “Deferred” section gives the reason and return condition | `{{cli}} mv N deferred`, then complete the section |
 | [`../archive/`](../archive/README.md) | Closed: `task.md` + `result.md` | `{{cli}} archive N`, then complete `result.md` |
 

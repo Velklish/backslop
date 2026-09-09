@@ -379,3 +379,39 @@ probe('3. каталога бэклога нет', (root) => rmSync(path.join(ro
 probe('5. посторонний файл в архиве', (root) => put(root, 'docs/archive/NOTES.txt', 'заметка\n'), /в архиве только каталоги задач и README\.md/);
 probe('5. каталог архива без task.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/task.md')), /нет task\.md — постановки/);
 probe('8. ADR есть, а индекса документации нет', (root) => rmSync(path.join(root, 'docs/README.md')), /нет индекса документации, а ADR есть/);
+
+test('lint: пин в прозе, расходящийся с cli, — предупреждение с файлом и строкой', () => {
+  const root = makeProject({ git: false });
+  const V = TOOL_VERSION;
+  try {
+    seedGreen(root);
+    const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
+    setConfig({ cli: `npx github:me/proj#v${V}`, version: V });
+    assert.deepEqual(warnings(root), []);
+
+    put(root, 'docs/archive/README.md', '# Архив\n\nПереезд делает `npx github:me/proj#v0.1.0 archive N`.\n');
+    assert.ok(warnings(root).some((w) => new RegExp(`docs/archive/README\\.md: строка 3: пин github:me/proj#v0\\.1\\.0 расходится с cli — ожидается github:me/proj#v${V.replace(/\./g, '\\.')}`).test(w)), warnings(root).join(' | '));
+
+    // Записи о моменте — не инструкция: их версии дрейфом не считаются.
+    put(root, 'docs/archive/README.md', '# Архив\n');
+    put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — было `npx github:me/proj#v0.1.0`\n');
+    put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Процесс\n\n**Status:** Accepted\n\nПри `npx github:me/proj#v0.1.0`.\n');
+    put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\nГнали `npx github:me/proj#v0.1.0 lint`.\n');
+    assert.deepEqual(warnings(root), []);
+
+    // Карточка задачи цитирует пин уликой момента — предупреждать не о чем.
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\nЗамер сделан на `npx github:me/proj#v0.1.0`.\n');
+    assert.deepEqual(warnings(root), []);
+
+    // npm-форма пина сверяется тем же способом.
+    setConfig({ cli: `npx backslop@${V}`, version: V });
+    put(root, 'docs/ROADMAP.md', 'Ставится `npx backslop@0.3.0`.\n');
+    assert.ok(warnings(root).some((w) => /docs\/ROADMAP\.md: строка 1: пин backslop@0\.3\.0 расходится с cli/.test(w)), warnings(root).join(' | '));
+
+    // cli без пина — сверять не с чем: self-host и глобальная установка молчат.
+    setConfig({ cli: 'node bin/backslop.js', version: V });
+    assert.deepEqual(warnings(root), []);
+  } finally {
+    cleanup(root);
+  }
+});

@@ -1,6 +1,10 @@
 // Обновление проекта: форма пина в cli, перепись гейтов, выжимка CHANGELOG, а также upgrade,
 // migrate и changelog настоящим процессом. Источник релизов — локальный git-репозиторий с
 // тегами: ls-remote читает его так же, как GitHub, а сеть тестам не нужна.
+// Сам `upgrade` на Windows не покрывается: пробный запуск новой версии подменяется шимом npx с
+// shebang `/bin/sh`, которого Windows не исполняет, поэтому все тесты, доходящие до пробы, —
+// включая обе формы `--pin-only`, — помечены skip. Разборы без запуска (parseCli, rewriteGates,
+// changelogSince, listReleaseTags) платформы не касаются и идут везде.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -58,24 +62,28 @@ test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; др�
   assert.equal(flagged.withPin('v0.2.0'), 'npx --yes -q github:me/proj#v0.2.0', 'флаги npx сохраняются');
 });
 
-test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', () => {
+test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.2.0', 'v0.3.0']);
+  const shim = npxShim();
   try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
     setConfig(root, { cli: 'npx --yes -q backslop@0.2.0', gates: ['npx --yes -q backslop@0.2.0 lint', 'npm test'], version: '0.2.0' });
-    let r = cli(root, ['upgrade', '--pin-only']);
+    let r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 1);
     assert.match(r.err, /источник релизов .*source/);
     assert.equal(config(root).cli, 'npx --yes -q backslop@0.2.0');
 
     setConfig(root, { source: src });
-    r = cli(root, ['upgrade', '--pin-only']);
+    r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /→ npx --yes -q backslop@0\.3\.0 version/, 'проба новой версии идёт и при --pin-only');
     assert.equal(config(root).cli, 'npx --yes -q backslop@0.3.0');
     assert.deepEqual(config(root).gates, ['npx --yes -q backslop@0.3.0 lint', 'npm test']);
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 
@@ -105,43 +113,46 @@ test('listReleaseTags: теги локального репозитория ка
   }
 });
 
-test('upgrade --dry-run показывает план и ничего не пишет; --pin-only переставляет пин, lint предупреждает', () => {
+test('upgrade --dry-run показывает план и ничего не пишет; --pin-only переставляет пин, lint предупреждает', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', 'v0.2.0']);
+  const shim = npxShim();
   try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
     setConfig(root, { cli: 'npx github:me/proj#v0.1.0', gates: ['npx github:me/proj#v0.1.0 lint', 'npm test'], version: '0.1.0', source: src });
     const before = read(root, 'backslop.json');
-    let r = cli(root, ['upgrade', '--dry-run']);
+    let r = cli(root, ['upgrade', '--dry-run'], { env });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /v0\.1\.0 → v0\.2\.0/);
     assert.match(r.out, /npx github:me\/proj#v0\.2\.0/);
     assert.equal(read(root, 'backslop.json'), before);
 
-    r = cli(root, ['upgrade', '--pin-only']);
+    r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
     const cfg = config(root);
     assert.equal(cfg.cli, 'npx github:me/proj#v0.2.0');
     assert.deepEqual(cfg.gates, ['npx github:me/proj#v0.2.0 lint', 'npm test']);
     assert.equal(cfg.version, '0.1.0', 'штамп ставит только новая версия через migrate/init');
 
-    r = cli(root, ['lint']);
+    r = cli(root, ['lint'], { env });
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /пин в cli v0\.2\.0 расходится со штампом v0\.1\.0/);
 
     setConfig(root, { version: '0.2.0' });
-    r = cli(root, ['upgrade']);
+    r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /уже на v0\.2\.0/);
-    r = cli(root, ['upgrade', '--to', 'v9.9.9']);
+    r = cli(root, ['upgrade', '--to', 'v9.9.9'], { env });
     assert.equal(r.code, 1);
     assert.match(r.err, /тега v9\.9\.9/);
-    r = cli(root, ['upgrade', '--to', 'v0.1.0']);
+    r = cli(root, ['upgrade', '--to', 'v0.1.0'], { env });
     assert.equal(r.code, 1);
     assert.match(r.err, /старше v0\.2\.0/);
     assert.equal(config(root).cli, 'npx github:me/proj#v0.2.0', 'отказ ничего не переставил');
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 
@@ -202,7 +213,9 @@ test('upgrade без источника релизов отказывает; mig
 function npxShim() {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
   const shim = path.join(dir, 'npx');
-  writeFileSync(shim, `#!/bin/sh\nshift\nexec "${process.execPath}" "${BIN}" "$@"\n`);
+  // Снимает флаги npx и спеку пакета, сколько бы их ни было: `npx --yes -q backslop@X version`
+  // и `npx github:me/proj#vX version` оба должны дойти до локального bin как `version`.
+  writeFileSync(shim, `#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in -*) shift ;; *) shift; break ;; esac; done\nexec "${process.execPath}" "${BIN}" "$@"\n`);
   chmodSync(shim, 0o755);
   return dir;
 }
@@ -280,5 +293,79 @@ test('changelog без --since: только секции до --to', () => {
     assert.match(cli(root, ['changelog', '--to', 'v0.0.1']).out, /^записей до v0\.0\.1 нет\n$/);
   } finally {
     cleanup(root);
+  }
+});
+
+// Пин живёт не только в конфиге: живая инструкция в docs зовёт его текстом команды.
+test('upgrade: пин в прозе docs переставляется, записи о моменте — нет', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const old = 'npx github:me/proj#v0.1.0';
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  const seed = () => {
+    setConfig(root, { cli: old, gates: [`${old} lint`], version: '0.1.0', source: src });
+    put(root, 'docs/archive/README.md', `# Архив\n\nПереезд делает \`${old} archive N\`.\n`);
+    put(root, 'docs/backlog/README.md', `# Backlog\n\nСводку печатает \`${old} status\`.\n`);
+    put(root, 'README.md', `Установка: \`${old} init\`.\n`);
+    put(root, 'CHANGELOG.md', `## Не выпущено\n\n- **Было** — \`${old}\`\n`);
+    put(root, 'docs/adr/adr-001-x.md', `# ADR-001: Х\n\nРешение принято при \`${old}\`.\n`);
+    put(root, 'docs/archive/BS-1-x/task.md', `# BS-1 · Х\n\nГнали \`${old} lint\`.\n`);
+    put(root, 'docs/backlog/queue/BS-2-card.md', `# BS-2 · Карточка\n\n- **Порядок:** 10\n\nПроверено на \`${old}\`.\n`);
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\nОпечатка в пине: `npx github:me/proj#v0.1.09`.\n');
+  };
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    seed();
+    let r = cli(root, ['upgrade', '--pin-only'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.ok(read(root, 'docs/archive/README.md').includes(old), '--pin-only прозу не трогает');
+
+    // Прозу чинит следующий полный upgrade, хотя пин в конфиге уже уехал: поиск идёт по
+    // спеке, а не по литералу прежнего cli — иначе отставшая на две версии проза не
+    // починилась бы уже никогда.
+    setConfig(root, { version: '0.1.0' });
+    r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /пин в прозе: 4 файлов/);
+    for (const rel of ['docs/archive/README.md', 'docs/backlog/README.md', 'README.md']) {
+      assert.ok(read(root, rel).includes(now), `${rel}: пин не переставлен`);
+      assert.ok(!read(root, rel).includes(old), `${rel}: остался старый пин`);
+    }
+    for (const rel of ['CHANGELOG.md', 'docs/adr/adr-001-x.md', 'docs/archive/BS-1-x/task.md', 'docs/backlog/queue/BS-2-card.md']) {
+      assert.ok(read(root, rel).includes(old), `${rel}: запись о моменте переписана, а не должна`);
+    }
+    // Номер захватывается целиком: из старого и нового не собирается мусорная версия.
+    const roadmap = read(root, 'docs/ROADMAP.md');
+    assert.ok(roadmap.includes(`npx github:me/proj#v${TOOL_VERSION}`), roadmap);
+    assert.ok(!/#v\d+\.\d+\.\d+\d/.test(roadmap), `собрана мусорная версия: ${roadmap}`);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+// Пин пишется только после того, как новая версия хоть раз запустилась. `--pin-only` сокращает
+// хвост — migrate, init, выжимку CHANGELOG, — но не пробу: иначе он оставлял бы проект с пином
+// на команду, которая не поднимается, и лечилось бы это правкой backslop.json руками.
+test('upgrade --pin-only: сбой пробного запуска не пишет пин и гейты', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', 'v0.2.0']);
+  const broken = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
+  writeFileSync(path.join(broken, 'npx'), '#!/bin/sh\nexit 3\n');
+  chmodSync(path.join(broken, 'npx'), 0o755);
+  try {
+    setConfig(root, { cli: 'npx github:me/proj#v0.1.0', gates: ['npx github:me/proj#v0.1.0 lint', 'npm test'], version: '0.1.0', source: src });
+    const r = cli(root, ['upgrade', '--pin-only'], { env: { PATH: `${broken}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1);
+    assert.match(r.err, /кодом 3/);
+    assert.match(r.err, /Пин и штамп не тронуты/);
+    assert.equal(config(root).cli, 'npx github:me/proj#v0.1.0');
+    assert.deepEqual(config(root).gates, ['npx github:me/proj#v0.1.0 lint', 'npm test']);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(broken, { recursive: true, force: true });
   }
 });

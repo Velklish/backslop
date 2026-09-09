@@ -8,7 +8,7 @@
 |---|---|---|
 | `triage/` | Неразобранное: идеи и находки до разбора. Файл и есть запись | `node bin/backslop.js new <slug> --title "…"`; находка — `node bin/backslop.js new <slug> --parent N` |
 | `queue/` | Очередь; приоритет — поле «Порядок»: целое, шаг 10, меньше — раньше | `node bin/backslop.js new <slug> --queue [--top]`, `node bin/backslop.js mv N queue [--top \| --after M]` |
-| `active/` | В работе; поле «Взята» — дата взятия | `node bin/backslop.js mv N active` — тот, кто держит очередь |
+| `active/` | В работе; поле «Взята» — дата взятия | `node bin/backslop.js mv N… active` — тот, кто держит очередь |
 | `deferred/` | Отложено; раздел «Отложено» — причина и условие возврата | `node bin/backslop.js mv N deferred`, затем заполнить раздел |
 | [`../archive/`](../archive/README.md) | Закрыто: `task.md` + `result.md` | `node bin/backslop.js archive N`, затем дописать `result.md` |
 

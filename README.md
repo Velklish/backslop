@@ -46,7 +46,7 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 |---|---|
 | `init [--dir docs] [--prefix BS] [--cli …] [--lang ru\|en] [--tools <CSV\|none>]` | lay out the skeleton; on repeat, update selected adapters and the AGENTS.md section |
 | `new <slug> [--title "…"] [--queue [--top]] [--parent N]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k`; the number skips those taken in other worktrees and local branches |
-| `mv <N> <triage\|queue\|active\|deferred> [--top \| --after M]` | change status: `git mv` plus fields that follow status; on a task already in `queue/`, `--top` or `--after M` only changes its Order |
+| `mv <N…> <triage\|queue\|active\|deferred> [--top \| --after M]` | change status of one or several tasks in one call: `git mv` plus fields that follow status; on a task already in `queue/`, `--top` or `--after M` only changes its Order |
 | `archive <N> [--dry-run]` | close: move to `archive/`, rewrite task links throughout the repository, create `result.md` stub |
 | `adr <slug> [--title "…"]` | create the next-numbered ADR |
 | `status [--json]` | active work, ordered queue, deferred work, triage; `--json` is for orchestrators and scripts |
