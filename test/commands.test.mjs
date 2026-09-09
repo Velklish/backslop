@@ -6,6 +6,8 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
+import { loadProject } from '../lib/config.js';
+import { toPosix } from '../lib/util.js';
 
 // Гейт 4 требует «Область» у задачи вне triage/: фикстуры, доводящие lint до зелёного,
 // заполняют заглушку от `new` этим хелпером.
@@ -513,6 +515,37 @@ test('archive: выборка коммитов по номеру — число�
     assert.equal(r.code, 0, r.err);
     assert.match(touchedList(r.out), /docs\/ROADMAP\.md/, 'коммит BS-7 относится к файлу BS-007-…');
     assert.match(touchedList(r.out), /docs\/GLOSSARY\.md/, '…и коммит BS-007 — к номеру 7');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new: «Область» — ссылка на reference/ с посчитанной от каталога статуса глубиной', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    assert.equal(cli(root, ['new', 'triaged']).code, 0);
+    assert.equal(cli(root, ['new', 'queued', '--queue']).code, 0);
+    const { dirs } = loadProject(root);
+    // Глубина берётся из раскладки, а не из сегодняшнего совпадения triage/ и queue/.
+    for (const [status, rel] of [['triage', 'docs/backlog/triage/BS-1-triaged.md'], ['queue', 'docs/backlog/queue/BS-2-queued.md']]) {
+      const area = read(root, rel).match(/^- \*\*Область:\*\* (.+)$/m)[1];
+      const href = area.match(/\(([^)]+)\)\s*$/)?.[1];
+      assert.equal(href, `${toPosix(path.relative(dirs.statusDir[status], dirs.reference))}/README.md`, `${rel}: «Область» = ${area}`);
+      assert.ok(existsSync(path.join(dirs.statusDir[status], ...href.split('/'))), `${rel}: ссылка ${href} должна вести к файлу`);
+    }
+    assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new: без docs/reference/README.md «Область» остаётся текстом, а не битой ссылкой', () => {
+  const root = makeProject();
+  try {
+    assert.equal(cli(root, ['new', 'noref', '--queue']).code, 0);
+    assert.match(read(root, 'docs/backlog/queue/BS-1-noref.md'), /- \*\*Область:\*\* \[TODO: раздел reference\/\]\n/);
+    assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
   } finally {
     cleanup(root);
   }
