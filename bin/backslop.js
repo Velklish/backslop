@@ -9,7 +9,7 @@ import { CliError, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { findRoot } from '../lib/config.js';
 
-const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'gates', 'upgrade', 'migrate', 'changelog'];
+const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'gates', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
 
 const HELP_RU = `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
@@ -32,6 +32,9 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli и gates, migrate и init новой версией
   migrate [--dry-run]                                 миграция формата файлов и штамп версии
   changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями
+  merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <файл>]
+                                                      слить две редакции CHANGELOG.md: записи секции невыпущенного
+                                                      по заголовку; результат в stdout или в --out, отчёт в stderr
   version                                             версия backslop
   help                                                эта справка
 
@@ -61,6 +64,9 @@ Commands:
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update the cli pin, migrate, and initialize the new version
   migrate [--dry-run]                                 migrate file formats and update the version stamp
   changelog [--since X.Y.Z] [--to X.Y.Z]              print backslop CHANGELOG entries between versions
+  merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]
+                                                      merge two CHANGELOG.md revisions: unreleased entries by
+                                                      heading; result on stdout or in --out, report on stderr
   version                                             print the backslop version
   help                                                show this help
 

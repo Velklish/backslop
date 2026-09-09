@@ -36,7 +36,7 @@ Adapters пишутся только по выбору: `init --tools claude,cur
 | `cursor` | `.cursor/rules/backslop-*.mdc` и namespaced references |
 | `codex` | `.agents/skills/backslop-*` |
 
-Существующие файлы `docs/` повторный `init` не трогает; выбранные adapter outputs и блок в `AGENTS.md` обновляет. `--tools none` очищает список и удаляет только owned-файлы. Флаги: `--dir <каталог>` вместо `docs`, `--prefix <KEY>` вместо `BS`, `--cli <команда>`, `--lang ru|en`.
+Существующие файлы `docs/` повторный `init` не трогает; выбранные adapter outputs и блок в `AGENTS.md` обновляет. `--tools none` очищает список и удаляет только owned-файлы. Adapter outputs — generated и не коммитятся: `init` держит для них блок в `.gitignore` между `# backslop:start` и `# backslop:end` — строка `<корень harness>/backslop-*` на каждый выбранный adapter и `/CLAUDE.md`, когда на диске лежит наш stub. Свои строки файла сохраняются; проект без adapters `.gitignore` не получает. Флаги: `--dir <каталог>` вместо `docs`, `--prefix <KEY>` вместо `BS`, `--cli <команда>`, `--lang ru|en`.
 
 Скелет готов — скажи агенту «заполни docs по backslop»: скилл `backslop-seed` прочитает репозиторий, задаст несколько вопросов и наполнит глоссарий, первые ADR и справочник, ничего не выдумывая без улики.
 

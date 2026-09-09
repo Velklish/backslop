@@ -1,12 +1,15 @@
 // init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cleanup, cli, put, read } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
+
+const REPO = fileURLToPath(new URL('..', import.meta.url));
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
@@ -344,6 +347,130 @@ test('init в пустом проекте: строка таблицы docs/READ
     const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     assert.match(read(root, 'docs/README.md'), /\[adr\/adr-001-process\.md\]\(adr\/adr-001-process\.md\)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Owned-путь adapter'а выводится из состава templates/skills/**, legacy-набор зашит в
+// lib/adapter-ownership.js. Разойтись они могут только сменой состава шаблонов, поэтому
+// проба меняет его в копии инструмента, а не в дереве репозитория.
+function toolCopy(mutate) {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-tool-')));
+  for (const rel of ['bin', 'lib', 'templates', 'package.json']) {
+    cpSync(path.join(REPO, rel), path.join(dir, rel), { recursive: true });
+  }
+  mutate(dir);
+  return dir;
+}
+
+function toolCli(tool, root, args) {
+  const r = spawnSync(process.execPath, [path.join(tool, 'bin', 'backslop.js'), ...args], {
+    cwd: root, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' },
+  });
+  return { code: r.status, out: r.stdout ?? '', err: r.stderr ?? '' };
+}
+
+test('init --tools none: файл без маркера на пути текущего шаблона остаётся и назван предупреждением', () => {
+  const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
+  const root = emptyRepo();
+  try {
+    assert.equal(toolCli(tool, root, ['init', '--tools', 'none']).code, 0);
+    put(root, '.claude/skills/backslop-task/references/extra.md', 'чужой файл\n');
+    put(root, '.claude/skills/backslop-task/mine.md', 'чужой файл\n');
+    const r = toolCli(tool, root, ['init', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, '.claude/skills/backslop-task/references/extra.md'), 'чужой файл\n');
+    assert.equal(read(root, '.claude/skills/backslop-task/mine.md'), 'чужой файл\n');
+    assert.match(r.err, /\.claude\/skills\/backslop-task\/references\/extra\.md/);
+  } finally {
+    cleanup(tool);
+    cleanup(root);
+  }
+});
+
+test('init --tools none: legacy-путь без маркера, выпавший из состава шаблонов, снимается', () => {
+  const legacy = '.claude/skills/backslop-batch/references/measurements.md';
+  const tool = toolCopy((dir) => rmSync(path.join(dir, 'templates', 'skills', 'backslop-batch', 'references', 'measurements.md')));
+  const root = emptyRepo();
+  try {
+    assert.equal(toolCli(tool, root, ['init', '--tools', 'none']).code, 0);
+    put(root, legacy, 'legacy без маркера\n');
+    const r = toolCli(tool, root, ['init', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(!existsSync(path.join(root, ...legacy.split('/'))), 'legacy-путь снимается по предикату владения');
+  } finally {
+    cleanup(tool);
+    cleanup(root);
+  }
+});
+
+test('init: symlink на корне harness — отказ до записи конфига, любые --tools', () => {
+  const root = emptyRepo();
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  try {
+    symlinkSync(shared, path.join(root, '.claude'));
+    for (const args of [['init', '--tools', 'claude'], ['init'], ['init', '--tools', 'none']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, args.join(' '));
+      assert.match(r.err, /adapter path содержит symlink: \.claude/);
+      assert.match(r.err, /--tools none/, 'отказ называет, что снятие adapters ситуацию не решает');
+      assert.ok(!existsSync(path.join(root, 'backslop.json')), `${args.join(' ')}: конфиг не записан`);
+      assert.ok(!existsSync(path.join(root, 'docs')), `${args.join(' ')}: скелет docs не разложен`);
+    }
+  } finally {
+    cleanup(shared);
+    cleanup(root);
+  }
+});
+
+test('init: блок .gitignore по выбранным adapters; tools none снимает состав, self-host файла не заводит', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(!existsSync(path.join(root, '.gitignore')), 'без adapters .gitignore не заводится');
+
+    r = cli(root, ['init', '--tools', 'claude,cursor']);
+    assert.equal(r.code, 0, r.err);
+    const block = read(root, '.gitignore');
+    assert.match(block, /^# backslop:start$/m);
+    assert.match(block, /^\.claude\/skills\/backslop-\*$/m);
+    assert.match(block, /^\.cursor\/rules\/backslop-\*$/m);
+    assert.doesNotMatch(block, /^\.agents\/skills\/backslop-\*$/m);
+    assert.match(block, /^\/CLAUDE\.md$/m);
+    assert.match(block, /^# backslop:end$/m);
+    assert.equal(block.startsWith('# backslop:start'), true, 'в пустом .gitignore блок и есть весь файл');
+
+    // Чужие строки сохраняются, блок заменяется на месте.
+    put(root, '.gitignore', `node_modules/\n\n${block}`);
+    r = cli(root, ['init', '--tools', 'codex']);
+    assert.equal(r.code, 0, r.err);
+    const next = read(root, '.gitignore');
+    assert.match(next, /^node_modules\/$/m);
+    assert.match(next, /^\.agents\/skills\/backslop-\*$/m);
+    assert.doesNotMatch(next, /^\.claude\/skills\/backslop-\*$/m);
+    assert.doesNotMatch(next, /^\/CLAUDE\.md$/m, 'stub снят вместе с adapter claude');
+    assert.equal((next.match(/# backslop:start/g) ?? []).length, 1);
+
+    r = cli(root, ['init', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(read(root, '.gitignore'), /backslop-\*/, 'снятые adapters уходят и из блока');
+    assert.match(read(root, '.gitignore'), /^node_modules\/$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init: пользовательский CLAUDE.md не попадает в .gitignore', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'CLAUDE.md', 'Свои инструкции\n');
+    const r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, '.gitignore'), /^\.claude\/skills\/backslop-\*$/m);
+    assert.doesNotMatch(read(root, '.gitignore'), /^\/CLAUDE\.md$/m);
+    assert.equal(read(root, 'CLAUDE.md'), 'Свои инструкции\n');
   } finally {
     cleanup(root);
   }

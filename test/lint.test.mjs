@@ -2,8 +2,11 @@
 // проекта; без неё гейт нечем отличить от холостого.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadProject } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
 import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
@@ -89,10 +92,6 @@ probe('adapter: нет Claude stub', (root) => {
   const cfg = JSON.parse(read(root, 'backslop.json'));
   put(root, 'backslop.json', `${JSON.stringify({ ...cfg, tools: ['claude'] }, null, 2)}\n`);
 }, /CLAUDE\.md: нет Claude stub/);
-probe('template parity: гейт подключён к lintProject', (root) => {
-  put(root, 'templates/skills/backslop-task/SKILL.md', '{{cli}}\n');
-  put(root, 'templates/en/skills/backslop-task/SKILL.md', '{{project}}\n');
-}, /templates\/en\/skills\/backslop-task\/SKILL\.md placeholders differ/);
 probe('1. битая ссылка в Cursor rule проверяется отдельно', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'cursor']).code, 0);
   put(root, '.cursor/rules/backslop-task.mdc', '[missing](backslop-task/references/none.md)\n');
@@ -213,44 +212,136 @@ test('lint: номер с ведущими нулями — форма файл�
 });
 probe('2. номер занят дважды в разных формах записи', (root) => put(root, 'docs/backlog/triage/BS-004-e2.md', '# BS-004 · Дубль\n'), /номер BS-004 уже занят: docs\/archive\/BS-4-e\/task\.md/);
 
-// 11. Гейт релиза живёт только в репозитории самого инструмента — маркером templates/skills,
-// тем же, что равенство шаблонов; у чужого проекта ни своего package.json, ни этих пинов нет.
-function seedSelfHost(root, { stamp = '1.2.3', version = stamp } = {}) {
-  put(root, 'templates/skills/backslop-task/SKILL.md', '{{cli}}\n');
-  put(root, 'templates/en/skills/backslop-task/SKILL.md', '{{cli}}\n');
-  put(root, 'package.json', `${JSON.stringify({ name: 'backslop', version }, null, 2)}\n`);
-  put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), version: stamp }, null, 2)}\n`);
-  put(root, 'CHANGELOG.md', `## Не выпущено\n\n- **Одно** — BS-4\n\n## v${version} — 2026-09-09\n\n- **Прежнее** — было\n`);
+// 11. Гейт релиза живёт только в дереве самого инструмента — тем же признаком, что равенство
+// шаблонов (тождество каталога templates/ с каталогом запущенного CLI). Поэтому его пробы,
+// как и пробы парности, идут на копии инструмента: у обычной фикстуры своей версии нет.
+function bumpPackage(dir, version) {
+  put(dir, 'package.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'package.json')), version }, null, 2)}\n`);
 }
 
-test('lint: 11. совпавшие версии, секция и пины — гейт релиза молчит', () => {
+test('lint: 11. свежая копия инструмента — гейт релиза молчит', () => {
+  let project;
+  try {
+    project = toolProject(() => {});
+    assert.equal(project.code, 0, project.err);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: 11. version package.json расходится со штампом', () => {
+  let project;
+  try {
+    project = toolProject((dir) => bumpPackage(dir, '9.9.9'));
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /версия package\.json v9\.9\.9 расходится со штампом backslop\.json v\d+\.\d+\.\d+/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: 11. нет секции CHANGELOG на выпускаемую версию', () => {
+  let project;
+  try {
+    project = toolProject((dir) => {
+      bumpPackage(dir, '9.9.9');
+      put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), version: '9.9.9' }, null, 2)}\n`);
+      put(dir, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Одно** — было\n');
+    });
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /нет секции «## v9\.9\.9»/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: 11. устаревший пин в прозе README', () => {
+  let project;
+  try {
+    project = toolProject((dir) => put(dir, 'README.md', 'Ставится `npx github:Velklish/backslop#v0.2.0`\n'));
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /README\.md: строка 1: пин github:Velklish\/backslop#v0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: 11. устаревший npm-пин в прозе AGENTS.md', () => {
+  let project;
+  try {
+    project = toolProject((dir) => put(dir, 'AGENTS.md', `${read(dir, 'AGENTS.md')}\nРелиз ставится как \`npx backslop@0.2.0\`.\n`));
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /AGENTS\.md: .*пин backslop@0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+// Гейт парности включается только в дереве самого инструмента: признак — тождество
+// `templates/` проекта с каталогом, из которого рендерит запущенный CLI. Поэтому проба идёт
+// на копии инструмента, а обычная фикстура с каталогом `templates/` гейт не будит.
+const REPO = fileURLToPath(new URL('..', import.meta.url));
+
+function toolProject(mutate) {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-tool-')));
+  for (const rel of ['bin', 'lib', 'templates', 'package.json']) {
+    cpSync(path.join(REPO, rel), path.join(dir, rel), { recursive: true });
+  }
+  const nodeOptions = `${process.env.NODE_OPTIONS ?? ''} --no-warnings`.trim();
+  const run = (...args) => spawnSync(process.execPath, [path.join(dir, 'bin', 'backslop.js'), ...args], {
+    cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', NODE_OPTIONS: nodeOptions },
+  });
+  assert.equal(run('init').status, 0, 'копия инструмента раскладывается сама собой');
+  mutate(dir);
+  const r = run('lint');
+  return { dir, code: r.status, err: r.stderr ?? '', out: r.stdout ?? '' };
+}
+
+test('lint: template parity: переименование canonical-скилла не выключает гейт', () => {
+  let project;
+  try {
+    project = toolProject((dir) => {
+      for (const layer of ['skills', 'en/skills']) {
+        renameSync(path.join(dir, 'templates', ...layer.split('/'), 'backslop-task'),
+          path.join(dir, 'templates', ...layer.split('/'), 'backslop-tsk'));
+      }
+    });
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /skills\/backslop-tsk\/SKILL\.md frontmatter name is backslop-task, expected backslop-tsk/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: 11. гейт релиза жив после переименования canonical-скилла', () => {
+  let project;
+  try {
+    project = toolProject((dir) => {
+      for (const layer of ['skills', 'en/skills']) {
+        renameSync(path.join(dir, 'templates', ...layer.split('/'), 'backslop-task'),
+          path.join(dir, 'templates', ...layer.split('/'), 'backslop-tsk'));
+      }
+      put(dir, 'package.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'package.json')), version: '9.9.9' }, null, 2)}\n`);
+    });
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /версия package\.json v9\.9\.9 расходится со штампом/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: template parity: пропавший английский слой — ошибка, а не тишина', () => {
+  let project;
+  try {
+    project = toolProject((dir) => rmSync(path.join(dir, 'templates', 'en'), { recursive: true }));
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /templates\/en\/ is missing/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: чужой проект получает ошибок парности не больше, чем каталогов templates/', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    seedSelfHost(root);
-    put(root, 'README.md', 'См. [docs](docs/README.md), ставится `npx github:Velklish/backslop#v1.2.3`\n');
+    // Каталога templates/ у потребителя нет вовсе: признак читает несуществующий путь и
+    // обязан тихо выключить гейт, а не уронить lint исключением.
+    let r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
     assert.deepEqual(problems(root), []);
-  } finally { cleanup(root); }
+    put(root, 'templates/skills/own-skill/SKILL.md', '{{cli}}\n');
+    r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
 });
-
-probe('11. version package.json расходится со штампом', (root) => {
-  seedSelfHost(root, { stamp: '1.2.3', version: '1.3.0' });
-}, /package\.json: версия package\.json v1\.3\.0 расходится со штампом backslop\.json v1\.2\.3/);
-
-probe('11. нет секции CHANGELOG на выпускаемую версию', (root) => {
-  seedSelfHost(root);
-  put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — BS-4\n');
-}, /CHANGELOG\.md: нет секции «## v1\.2\.3»/);
-
-probe('11. устаревший пин в прозе README', (root) => {
-  seedSelfHost(root);
-  put(root, 'README.md', 'См. [docs](docs/README.md)\n\nСтавится `npx github:Velklish/backslop#v0.2.0`\n');
-}, /README\.md: строка 3: пин github:Velklish\/backslop#v0\.2\.0 — инструмент на v1\.2\.3/);
-
-probe('11. устаревший npm-пин в прозе AGENTS.md', (root) => {
-  seedSelfHost(root);
-  put(root, 'AGENTS.md', 'Релиз ставится как `npx backslop@0.2.0`.\n');
-}, /AGENTS\.md: строка 1: пин backslop@0\.2\.0 — инструмент на v1\.2\.3/);
 
 test('lint: 4. заглушка «Области» от new красит разобранную задачу и молчит в triage/', () => {
   const root = makeProject({ git: false });
