@@ -1,9 +1,9 @@
 # BS-19 · Пять ветвей `lint` и четыре проверки `loadConfig` не покрыты красной пробой — их можно вырезать, и `npm test` останется зелёным
 
-- **Порядок:** 180
 - **Область:** `lib/lint.js`, `lib/config.js`, `test/lint.test.mjs`, `test/config.test.mjs`, [reference/03](../../reference/03-lint.md), [reference/01](../../reference/01-layout.md)
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

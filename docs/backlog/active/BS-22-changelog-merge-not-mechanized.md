@@ -1,9 +1,9 @@
 # BS-22 · Слияние CHANGELOG при приёмке track'а агент делает вручную из двух редакций — хотя разбор пунктов и секций для этого уже есть в коде backslop
 
-- **Порядок:** 260
 - **Область:** `lib/changelog.js`, `lib/lint.js`, `bin/backslop.js`, `templates/skills/backslop-batch/SKILL.md`, `templates/en/skills/backslop-batch/SKILL.md`, [reference/02](../../reference/02-cli.md)
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

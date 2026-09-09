@@ -1,9 +1,9 @@
 # BS-44 · `docs/backlog/README.md` и `docs/archive/README.md` — байт-в-байт рендер шаблона без гейта, а `AGENTS.md` называет местом правки процессного правила только шаблон
 
-- **Порядок:** 160
 - **Область:** [reference/01](../../reference/01-layout.md), [reference/03](../../reference/03-lint.md), `AGENTS.md`, `lib/init.js`, `lib/lint.js`, `lib/templates.js`, `templates/docs/backlog/README.md`, `templates/docs/archive/README.md`
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

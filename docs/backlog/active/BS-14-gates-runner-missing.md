@@ -1,10 +1,10 @@
 # BS-14 · В backslop нет команды-раннера для `gates` — worker гоняет их по одной вручную, и «N гейтов, M зелёных» вместе с неподвижностью дерева в брифе, отчёте и result.md держатся на его памяти
 
-- **Порядок:** 70
 - **Область:** `bin/backslop.js`, `lib/config.js`, `lib/upgrade.js`, новый `lib/gates.js`, [02-cli](../../reference/02-cli.md), [03-lint](../../reference/03-lint.md), `templates/skills/backslop-task/SKILL.md`, `templates/skills/backslop-batch/SKILL.md`, `templates/skills/backslop-batch/references/measurements.md`, `templates/result.md`
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
 - **Слито сюда:** BS-28 (та же команда, улика из promptobus)
+- **Взята:** 2026-09-09
 
 ## Контекст
 

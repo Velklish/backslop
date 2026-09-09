@@ -1,9 +1,9 @@
 # BS-31 · Бриф worker'у оркестратор набирает вручную, хотя семь из восьми обязательных пунктов — данные с диска и неизменный текст
 
-- **Порядок:** 270
 - **Область:** [reference/02](../../reference/02-cli.md), `lib/tasks.js`, `lib/config.js`, `lib/templates.js`, `templates/skills/backslop-batch/SKILL.md`, `templates/brief.md`, `templates/en/brief.md`
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

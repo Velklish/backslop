@@ -1,9 +1,9 @@
 # BS-15 · Тестовая оснастка backslop инертна к git: `run()` в `test/helpers.mjs` не проверяет код возврата, и ни один тест не отличает переезд через `git mv` от простого `renameSync` в `moveFile`
 
-- **Порядок:** 200
 - **Область:** `test/helpers.mjs`, `test/archive.test.mjs`, `lib/tasks.js`, `lib/util.js`, [02-cli](../../reference/02-cli.md)
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

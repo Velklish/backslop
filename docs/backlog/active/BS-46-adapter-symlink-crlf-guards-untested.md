@@ -1,9 +1,9 @@
 # BS-46 · Четыре ветви, объявленные комментариями кода — охрана `ownedPath` от записи сквозь symlink, следование по symlink в обходе markdown, терпимость owned-маркера к CRLF и откат `moveFile` на `renameSync` с предупреждением — не закреплены ни одним из 134 тестов
 
-- **Порядок:** 170
 - **Область:** [reference/01](../../reference/01-layout.md), `lib/adapters.js`, `lib/tasks.js`, `lib/mv.js`, `lib/archive.js`, `lib/adapter-ownership.js`, `lib/mdwalk.js`
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

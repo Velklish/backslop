@@ -1,9 +1,9 @@
 # BS-40 · Гейт `templateParity` сравнивает только состав файлов и подстановки, поэтому пустой `description` в EN-скилле и пропавший раздел проходят `lint` зелёным
 
-- **Порядок:** 150
 - **Область:** [reference/03](../../reference/03-lint.md), [reference/01](../../reference/01-layout.md), `lib/templates.js`, `lib/adapters.js`, `test/templates.test.mjs`
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 
