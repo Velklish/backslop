@@ -229,7 +229,7 @@ test('acceptance-раннер различает несостоявшийся з
   assert.equal(describeRun('npm pack', spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8' })), null);
 });
 
-test('packed tarball installs locally and its bin passes version, init and lint', { timeout: 60_000 }, () => {
+test('packed tarball matches files, installs locally and its bin passes version, init and lint', { timeout: 60_000 }, () => {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-pack-')));
   const packDir = path.join(root, 'pack');
   const project = path.join(root, 'project');
@@ -239,10 +239,25 @@ test('packed tarball installs locally and its bin passes version, init and lint'
   try {
     const env = npmEnv(path.join(root, 'home'), cache);
     const packed = runOk('npm pack', 'npm', ['pack', REPO, '--json', '--pack-destination', packDir, '--cache', cache, '--ignore-scripts'], { env });
-    const tarball = path.join(packDir, JSON.parse(packed.stdout)[0].filename);
+    const packInfo = JSON.parse(packed.stdout)[0];
+    const tarball = path.join(packDir, packInfo.filename);
     writeFileSync(path.join(project, 'package.json'), '{"name":"acceptance","private":true}\n');
     const manifest = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'));
     assert.deepEqual(Object.keys(manifest.dependencies ?? {}), [], '--offline держится на отсутствии зависимостей');
+
+    // Состав tarball: всё, что инструменту нужно, и ничего сверх. Три команды ниже выпадение
+    // `templates/` из `files` не поймают — self-host без adapters шаблонов скиллов не рендерит.
+    // Ожидаемое — отслеживаемые git файлы каталогов из `files`, а не содержимое каталогов на
+    // диске: `.DS_Store`, `._*`, `.gitignore` npm выбрасывает и внутри перечисленных каталогов,
+    // и обход диска красил бы гейт артефактом ОС без следа в `git status`.
+    const REQUIRED = ['bin', 'lib', 'templates', 'README.md', 'README.ru.md', 'LICENSE', 'CHANGELOG.md'];
+    assert.deepEqual(manifest.files, REQUIRED, 'поле files package.json — контракт состава tarball');
+    const packedPaths = new Set(packInfo.files.map((f) => f.path));
+    const tracked = runOk('git ls-files', 'git', ['-C', REPO, 'ls-files', '-z', '--', ...REQUIRED]).stdout.split('\0').filter(Boolean);
+    assert.ok(tracked.includes('templates/docs/backlog/README.md'), 'перечень отслеживаемых файлов — вглубь каталогов');
+    assert.deepEqual(tracked.filter((p) => !packedPaths.has(p)), [], 'отслеживаемые файлы из files, которых нет в tarball');
+    const stray = [...packedPaths].filter((p) => p !== 'package.json' && !REQUIRED.some((e) => p === e || p.startsWith(`${e}/`)));
+    assert.deepEqual(stray, [], 'в tarball только состав files и package.json');
     runOk('npm install', 'npm', ['install', tarball, '--ignore-scripts', '--no-audit', '--no-fund', '--offline', '--cache', cache], { cwd: project, env });
     const bin = process.platform === 'win32' ? path.join(project, 'node_modules/.bin/backslop.cmd') : path.join(project, 'node_modules/.bin/backslop');
     let r = runOk('backslop version', bin, ['version'], { cwd: project });

@@ -1,21 +1,23 @@
 # BS-47 · Acceptance-тест релиза не проверяет состав tarball по `files` из package.json
 
-- **Порядок:** 80
 - **Область:** `test/release.test.mjs`, `scripts/release.mjs`, [02-cli](../../reference/02-cli.md)
 - **Создана:** 2026-09-09
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Что сделать
 
-- [TODO]
+- В acceptance-тесте tarball (`test/release.test.mjs`) сверить состав из `npm pack --json` (`files[].path`) с полем `files` `package.json`: каждый отслеживаемый git файл под `bin`, `lib`, `templates` (`git ls-files`, а не обход диска — `.DS_Store` и подобное npm не пакует) и корневые `README.md`, `README.ru.md`, `LICENSE`, `CHANGELOG.md` упакован, сверх них — только `package.json`, а само поле `files` равно этому перечню.
 
 ## Не входит
 
-- [TODO]
+- Отдельный вызов `npm pack --dry-run`: перечень даёт уже существующий `npm pack --json` того же теста.
+- Содержимое файлов — сверяется только состав.
 
 ## Проверки
 
-- [TODO]
+- Мутация: убрать `templates` из `files` в `package.json` — тест красный.
+- `npm test` и `node bin/backslop.js lint` зелёные.
 
 ## Контекст
 
