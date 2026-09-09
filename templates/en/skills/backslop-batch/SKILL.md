@@ -45,18 +45,14 @@ Choose worker model capability from the complexity of the portion, not a fixed t
 
 ## Brief
 
-The first line is a 2–5 word track title; it becomes the worker session name so a person can identify the work. Then include all of the following:
+The brief text is assembled by a command: `{{cli}} brief <N…> --track "<title>" [--neighbour "path=track"] [--measurements]`. It takes task definitions from their files, `gates`, `prefix`, and `cli` from `backslop.json`, and the rest is fixed sections: definition of done, the request to commit with the prefix, the ban on status directories and `archive/` with its reason, findings as files, the mutation-probe order, and result contents. It prints to stdout; where the brief goes — a subagent prompt, a session’s first message, a bus — is yours to decide.
 
-- **task numbers with their definitions**, not only file links: the worker will read the files, but you know the run’s priority and boundaries;
-- **change boundaries** — which directories belong to the worker and which belong to others. Name a neighbouring track: “`test/` is not yours; worker `tests` is working there”;
-- **definition of done**: `backslop gates` is green by count (“gates N, green N”) and documentation changes in the same pass;
-- **an explicit request to commit to the worker branch** — do it immediately; commits are per task, prefixed `{{prefix}}-N:`, including review fixes and the task’s CHANGELOG entry, so acceptance can squash by task;
-- **a ban on status directories and `archive/`**, with the reason: the approver archives, the worker sends proposed result text. State the reason — without it, a worker tries to bypass the ban and reports a branch point;
-- **findings as files**: `backslop new <slug> --parent N` in the worker branch, with evidence;
-- **the mutation-probe order** as a condition: commit before the probe, probe afterwards — uncommitted means no probe; use the second probe for gates with early exits (`backslop-task`, step 4);
-- **result contents** from the `backslop-task` checklist, separately calling out open edges.
+Two decisions in the brief are yours, and the command does not invent them:
 
-The brief is self-contained: workers do not see your context or owner conversation.
+- **the track title** in 2–5 words (`--track`): it becomes the worker session name so a person can identify the work;
+- **change boundaries** (`--neighbour "path=track"`, repeatable): which directories belong to the worker and which belong to others. Name a neighbouring track — without the flag the section stays a `[TODO]` stub, which is your signal that the boundaries are not decided yet.
+
+Asking the worker to measure — add `--measurements`. The brief is self-contained: workers do not see your context or owner conversation, and whatever cannot be derived from the brief and the repository the worker must ask you rather than guess.
 
 ## Worker boundaries
 

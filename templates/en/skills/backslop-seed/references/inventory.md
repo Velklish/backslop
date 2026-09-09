@@ -2,6 +2,8 @@
 
 What to look for, where to look, and what counts as evidence. Read in phase 1 of `backslop-seed`. The result is four candidate lists; write nothing into documentation before collecting them.
 
+The first two lists — gates and subsystems — are collected mechanically by `{{cli}} seed --scan`: it walks the sources of both tables below and prints every entry with a path as evidence. A list is not a decision: the command enumerates, you select. Terms and decisions are not searched by the command; they are read by eye.
+
 ## Project gates
 
 | Where | What to take |

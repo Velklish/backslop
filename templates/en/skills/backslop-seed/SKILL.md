@@ -17,7 +17,7 @@ description: Populate the documentation skeleton after `backslop init` — inven
 
 ## Phase 1. Inventory — silent and read-only
 
-Do not write or ask until reading the repository. See [references/inventory.md](references/inventory.md) for what and where to inspect. The phase produces four candidate lists, each entry with evidence:
+Do not write or ask until reading the repository. The mechanical half of the first two lists is collected by `{{cli}} seed --scan` (`--json` for machine reading): it prints gate and subsystem candidates with paths as evidence from the sources in the table below. The command does not select: which entry is a real gate free of secrets, network, and databases, and which directory is a real subsystem, is for you and the owner. Terms and decisions are read by eye: see [references/inventory.md](references/inventory.md) for what and where to inspect. The phase produces four candidate lists, each entry with evidence:
 
 | List | Destination | Source |
 |---|---|---|
@@ -47,7 +47,7 @@ Work from the frame toward details; every item means editing `[TODO]` locations 
 1. **`{{docs}}/README.md`** — project name, discovered documents as table rows (existing READMEs, ARCHITECTURE, and others as links with “Living” status), and owner-provided principles.
 2. **`{{docs}}/GLOSSARY.md`** — 10–30 terms, each with an EN pair, one- or two-sentence definition, and evidence; disputed terms use `[?]` until the owner decides; retired terms go into the bottom table with their replacements. Format and inclusion criteria are in [references/glossary.md](references/glossary.md).
 3. **`{{docs}}/adr/`** — backfill selected decisions: `backslop adr <slug> --title "…"`, status `Accepted`, original date from history, and a “recorded retrospectively” note in Context; put the owner in the process ADR's Deciders (`adr-NNN-process.md`, written by `init`). Each ADR gets a row in `{{docs}}/README.md`. Rationale only with evidence; when history is sparse, say so in Context.
-4. **`{{docs}}/reference/README.md`** — a subsystem table with entry points from the inventory; do not write section bodies now, create tasks instead: `backslop new describe-<subsystem> --queue --title "Reference: <subsystem>"` (slug uses lowercase Latin letters and hyphens: `describe-orders-api`).
+4. **`{{docs}}/reference/README.md`** — a subsystem table with entry points from the inventory; do not write section bodies now, create tasks instead. Write the table with links to the future section files (`[Order intake](orders-api.md)`) and run `{{cli}} seed --queue-reference`: it queues `describe-<slug>` for every row whose file is not written yet, takes the slug from the target file name, and creates no duplicates on a repeat run. A row whose target yields no slug is named in the output — create that task by hand.
 5. **`{{docs}}/ROADMAP.md`** — goals from the survey; if there are none, use one sentence saying so instead of `[TODO]`.
 6. **`backslop.json`** — `gates` from discovered commands after owner confirmation; `backslop lint` remains in the list.
 7. **Queue and triage** — incomplete material and open questions: reference sections go in the queue; unanswered questions become `triage/` files (`backslop new <slug>` with the question and evidence).

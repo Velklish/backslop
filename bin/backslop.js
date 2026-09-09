@@ -9,7 +9,7 @@ import { CliError, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { findRoot } from '../lib/config.js';
 
-const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
+const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'brief', 'seed', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
 
 const HELP_RU = `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
@@ -23,6 +23,10 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
                                                       печатает доки, которых коснулся ход задачи
   adr <slug> [--title "…"]                            завести ADR со следующим номером
+  brief <N…> [--track "…"] [--neighbour "путь=track"] [--measurements]
+                                                      напечатать бриф worker'у по этим задачам
+  seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
+                                                      задачи «Справочник: …» по таблице reference/
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage
   lint                                                восемь гейтов: ссылки, номера, раскладка бэклога, поля статусов,
                                                       архив, упоминания, CHANGELOG, таблица ADR; adapter outputs,
@@ -57,6 +61,10 @@ Commands:
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
                                                       prints the documentation touched by the task
   adr <slug> [--title "…"]                            create the next numbered ADR
+  brief <N…> [--track "…"] [--neighbour "path=track"] [--measurements]
+                                                      print a worker brief for these tasks
+  seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
+                                                      “Reference: …” tasks from the reference/ table
   status [--json]                                     show active work, ordered queue, deferred tasks, and triage
   lint                                                validate links, numbers, layout, status fields, archive,
                                                       mentions, CHANGELOG, ADR index, and adapter outputs

@@ -18,6 +18,8 @@
 | [adr/adr-007-npm-pin.md](adr/adr-007-npm-pin.md) | Точный npm-пин и релизный чеклист без смены default CLI | Accepted |
 | [adr/adr-008-legacy-claude-adapter.md](adr/adr-008-legacy-claude-adapter.md) | Сохранение Claude adapter в legacy-проектах | Accepted |
 | [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
+| [adr/adr-013-brief-command.md](adr/adr-013-brief-command.md) | Бриф worker'у собирается командой `brief`, а не руками | Accepted |
+| [adr/adr-014-seed-scan-queue-reference.md](adr/adr-014-seed-scan-queue-reference.md) | Механика посева — команда `seed`, отбор кандидатов — агент и владелец | Accepted |
 | [adr/adr-017-owned-outputs-gitignore.md](adr/adr-017-owned-outputs-gitignore.md) | Owned outputs не коммитятся: блок `.gitignore` пишет `init` | Accepted |
 | [adr/adr-018-changelog-merge.md](adr/adr-018-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Accepted |
 | [adr/adr-019-tracks-observation-command.md](adr/adr-019-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |

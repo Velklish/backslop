@@ -542,15 +542,15 @@ test('new: «Область» — ссылка на reference/ с посчита
   }
 });
 
-test('archive: --range в проекте без git — отказ, а не тихий пустой список', () => {
-  const root = makeProject({ git: false });
+test('archive: отказ по битому --range наступает до переезда', () => {
+  const root = makeProject();
   try {
     put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
-    const r = cli(root, ['archive', '1', '--range', 'HEAD~1..HEAD', '--dry-run']);
+    gitAll(root, 'база');
+    const r = cli(root, ['archive', '1', '--range', 'nosuchref..HEAD']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /--range HEAD~1\.\.HEAD/);
-    // Без флага список никто не просил: команда работает молча.
-    assert.equal(cli(root, ['archive', '1', '--dry-run']).code, 0);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')), 'карточка осталась в своём каталоге');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-a')), 'каталог архива не заведён');
   } finally {
     cleanup(root);
   }
@@ -562,6 +562,20 @@ test('new: без docs/reference/README.md «Область» остаётся �
     assert.equal(cli(root, ['new', 'noref', '--queue']).code, 0);
     assert.match(read(root, 'docs/backlog/queue/BS-1-noref.md'), /- \*\*Область:\*\* \[TODO: раздел reference\/\]\n/);
     assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('archive: --range в проекте без git — отказ, а не тихий пустой список', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    const r = cli(root, ['archive', '1', '--range', 'HEAD~1..HEAD', '--dry-run']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--range HEAD~1\.\.HEAD/);
+    // Без флага список никто не просил: команда работает молча.
+    assert.equal(cli(root, ['archive', '1', '--dry-run']).code, 0);
   } finally {
     cleanup(root);
   }
