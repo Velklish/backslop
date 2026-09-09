@@ -1,7 +1,7 @@
 // init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -388,18 +388,53 @@ test('init --tools none: legacy-путь без маркера, выпавший
   }
 });
 
-test('init: symlink на корне harness — отказ до записи конфига, любые --tools', () => {
+// ADR-016: на symlink проверяются только корни выбранных adapter'ов — туда backslop пишет и
+// оттуда снимает; корни невыбранных не проверяются и не чистятся. Куда ведёт ссылка — наружу
+// или внутрь проекта — не различается: ссылка на выбранном корне остаётся отказом.
+test('init: symlink на корне harness — отказ только для выбранного adapter\'а, до первой записи', () => {
   const root = emptyRepo();
   const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
   try {
     symlinkSync(shared, path.join(root, '.claude'));
-    for (const args of [['init', '--tools', 'claude'], ['init'], ['init', '--tools', 'none']]) {
-      const r = cli(root, args);
-      assert.equal(r.code, 1, args.join(' '));
-      assert.match(r.err, /adapter path содержит symlink: \.claude/);
-      assert.match(r.err, /--tools none/, 'отказ называет, что снятие adapters ситуацию не решает');
-      assert.ok(!existsSync(path.join(root, 'backslop.json')), `${args.join(' ')}: конфиг не записан`);
-      assert.ok(!existsSync(path.join(root, 'docs')), `${args.join(' ')}: скелет docs не разложен`);
+    put(shared, 'skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n# за ссылкой\n');
+    const r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /adapter path содержит symlink: \.claude/);
+    assert.match(r.err, /сними adapter claude/, 'отказ называет лечение — снять adapter');
+    assert.ok(!existsSync(path.join(root, 'backslop.json')), 'конфиг не записан');
+    assert.ok(!existsSync(path.join(root, 'docs')), 'скелет docs не разложен');
+
+    // Невыбранный adapter за ссылкой: init проходит, файл за ссылкой не снимается.
+    for (const args of [['init'], ['init', '--tools', 'none'], ['init', '--tools', 'cursor']]) {
+      const ok = cli(root, args);
+      assert.equal(ok.code, 0, `${args.join(' ')}: ${ok.err}`);
+    }
+    assert.equal(read(shared, 'skills/backslop-task/SKILL.md'), '<!-- backslop:generated -->\n# за ссылкой\n', 'сквозь ссылку backslop не снимает');
+    assert.ok(existsSync(path.join(root, '.cursor/rules/backslop-task.mdc')));
+
+    // Ссылка внутрь проекта на выбранном корне — тот же отказ: цель ссылки не различается.
+    unlinkSync(path.join(root, '.claude'));
+    mkdirSync(path.join(root, 'inner'));
+    symlinkSync(path.join(root, 'inner'), path.join(root, '.claude'));
+    const inner = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(inner.code, 1, inner.out);
+    assert.match(inner.err, /adapter path содержит symlink: \.claude/);
+    assert.deepEqual(JSON.parse(read(root, 'backslop.json')).tools, ['cursor'], 'отказ до записи конфига');
+
+    // Существующий конфиг с claude в tools: голый init состав не меняет и не лечит — лечит --tools.
+    const root2 = emptyRepo();
+    const shared2 = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+    try {
+      assert.equal(cli(root2, ['init', '--tools', 'claude']).code, 0);
+      rmSync(path.join(root2, '.claude'), { recursive: true, force: true });
+      symlinkSync(shared2, path.join(root2, '.claude'));
+      const bare = cli(root2, ['init']);
+      assert.equal(bare.code, 1, bare.out);
+      assert.match(bare.err, /--tools без него/);
+      assert.equal(cli(root2, ['init', '--tools', 'none']).code, 0);
+    } finally {
+      cleanup(shared2);
+      cleanup(root2);
     }
   } finally {
     cleanup(shared);

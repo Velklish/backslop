@@ -24,6 +24,7 @@
 | [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Accepted |
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
 | [adr/adr-015-adapter-write-preserves-foreign.md](adr/adr-015-adapter-write-preserves-foreign.md) | Запись adapter outputs не переписывает чужой файл на owned-пути | Accepted |
+| [adr/adr-016-selected-adapter-roots-symlink.md](adr/adr-016-selected-adapter-roots-symlink.md) | Symlink проверяется только на корнях выбранных adapter'ов | Accepted |
 
 ## Сквозные принципы
 

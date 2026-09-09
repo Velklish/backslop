@@ -1,6 +1,6 @@
 # ADR-006: Выбор harness и владение generated outputs
 
-**Status:** Superseded in part by [ADR-008](adr-008-legacy-claude-adapter.md) (legacy-default); refined by [ADR-015](adr-015-adapter-write-preserves-foreign.md) (владение читается и при записи)
+**Status:** Superseded in part by [ADR-008](adr-008-legacy-claude-adapter.md) (legacy-default); refined by [ADR-015](adr-015-adapter-write-preserves-foreign.md) (владение читается и при записи) and [ADR-016](adr-016-selected-adapter-roots-symlink.md) (охрана symlink на корнях — только у выбранных adapter'ов)
 **Date:** 2026-09-03
 **Deciders:** Velklish
 
