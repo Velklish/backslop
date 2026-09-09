@@ -46,3 +46,19 @@ test('mdFiles: симлинк на предка не зацикливает об
     rmSync(sb, { recursive: true, force: true });
   }
 });
+
+// Комментарий lib/mdwalk.js:33-34 объявляет следование по ссылке намеренным: от петли держит
+// набор пройденных настоящих путей, а не отказ идти по symlink. Тест выше проверяет петлю,
+// этот — что за ссылкой файл действительно находится.
+test('mdFiles: файл за симлинком на каталог попадает в обход', { skip: process.platform === 'win32' }, () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
+  try {
+    put(sb, 'docs/a.md');
+    put(sb, 'outside/b.md');
+    symlinkSync(path.join(sb, 'outside'), path.join(sb, 'docs', 'link'));
+    const rels = mdFiles(path.join(sb, 'docs'), 'docs').map(([rel]) => rel).sort();
+    assert.deepEqual(rels, ['docs/a.md', 'docs/link/b.md']);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});

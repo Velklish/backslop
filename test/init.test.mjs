@@ -1,7 +1,7 @@
 // init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -343,6 +343,23 @@ test('init в пустом проекте: строка таблицы docs/READ
     const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     assert.match(read(root, 'docs/README.md'), /\[adr\/adr-001-process\.md\]\(adr\/adr-001-process\.md\)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Охрана ownedPath (lib/adapters.js): единственное, что держит init и cleanupAdapters от записи
+// и удаления файлов по ту сторону ссылки. Symlink в init.test.mjs выше — про сохранение
+// CLAUDE.md при tools: [], adapter-путь через него не проходит.
+test('init: adapter path через symlink — отказ, за ссылку ничего не пишется', { skip: process.platform === 'win32' }, () => {
+  const root = emptyRepo();
+  try {
+    mkdirSync(path.join(root, 'elsewhere'));
+    symlinkSync('elsewhere', path.join(root, '.claude'));
+    const r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /adapter path содержит symlink: \.claude/);
+    assert.ok(!existsSync(path.join(root, 'elsewhere', 'skills')), 'за ссылку ничего не записано');
   } finally {
     cleanup(root);
   }

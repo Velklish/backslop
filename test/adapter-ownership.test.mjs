@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
@@ -59,6 +59,21 @@ test('repoMarkdown: docs с цитатой маркера остаются в о
     put(dir, '.claude/skills/backslop-task/SKILL.md', markGenerated('# skill\n'));
     const rels = repoMarkdown(dir).map(([rel]) => rel).sort();
     assert.deepEqual(rels, ['docs/GLOSSARY.md']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('hasGeneratedMarker: маркер терпит CRLF, в том числе после CRLF-фронтматтера', () => {
+  const dir = scratch();
+  try {
+    const plain = put(dir, 'crlf.md', markGenerated('# skill\r\n\r\nтекст\r\n'));
+    const cursor = put(dir, 'crlf.mdc', markGenerated('---\r\ndescription: "x"\r\nalwaysApply: false\r\n---\r\n\r\n# rule\r\n'));
+    assert.equal(hasGeneratedMarker(plain), true);
+    assert.equal(hasGeneratedMarker(cursor), true);
+    // Маркер лёг после CRLF-фронтматтера, а не перед ним: перед ним он владел бы файлом,
+    // стоя не в своей позиции, и cursor rule уехал бы с испорченной шапкой.
+    assert.match(readFileSync(cursor, 'utf8'), /^---\r\n[\s\S]*?\r\n---\r\n<!-- backslop:generated -->/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
