@@ -112,4 +112,4 @@ The signal in the right column is not finding severity but whether the correctio
 
 ## End of the run
 
-Report to the owner what closed, what remains, and where decisions are needed. Ensure no live sessions or run worktrees remain.
+Report to the owner what closed, what remains, and where decisions are needed. `{{cli}} tracks` prints the run worktrees and branches: make sure the list is empty — a non-empty one names the path, the branch, task commits not in HEAD, and uncommitted work. The command does not see live sessions; check those the way the harness provides.

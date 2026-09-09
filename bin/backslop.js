@@ -9,7 +9,7 @@ import { CliError, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { findRoot } from '../lib/config.js';
 
-const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'gates', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
+const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
 
 const HELP_RU = `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
@@ -29,6 +29,7 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
                                                       равенство шаблонов и предупреждения о версии
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       прогнать команды из gates: код каждой, счёт зелёных, снимок дерева
+  tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli и gates, migrate и init новой версией
   migrate [--dry-run]                                 миграция формата файлов и штамп версии
   changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями
@@ -61,6 +62,7 @@ Commands:
                                                       mentions, CHANGELOG, ADR index, and adapter outputs
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       run the gates list: exit code of each, green count, tree snapshot
+  tracks [--json]                                     run worktrees and branches: merged or not, what is left, what is dirty
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update the cli pin, migrate, and initialize the new version
   migrate [--dry-run]                                 migrate file formats and update the version stamp
   changelog [--since X.Y.Z] [--to X.Y.Z]              print backslop CHANGELOG entries between versions

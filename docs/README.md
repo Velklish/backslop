@@ -20,6 +20,7 @@
 | [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
 | [adr/adr-017-owned-outputs-gitignore.md](adr/adr-017-owned-outputs-gitignore.md) | Owned outputs не коммитятся: блок `.gitignore` пишет `init` | Accepted |
 | [adr/adr-018-changelog-merge.md](adr/adr-018-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Accepted |
+| [adr/adr-019-tracks-observation-command.md](adr/adr-019-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
 
 ## Сквозные принципы
 
