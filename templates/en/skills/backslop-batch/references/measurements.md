@@ -10,6 +10,6 @@ Wall-clock time in a live run measures neighbours rather than the subject: worke
 
 **A call count without parsing argv does not define a task boundary.** Count not “how often it was called” but “how often what the check names was called”. **Grep treats text as flat:** “found in a comment” is a hypothesis until language scopes are parsed.
 
-**A gate run on a tree that is not byte-for-byte the commit proves nothing about the commit.** A test stand — container, clone, copy — is built from the whole tree; equality means `diff -r` is empty or `git status` in the stand is clean.
+**A gate run on a tree that is not byte-for-byte the commit proves nothing about the commit.** A test stand — container, clone, copy — is built from the whole tree; equality means `diff -r` is empty or `git status` in the stand is clean. For project gates `backslop gates` does the same accounting: `--require-clean` refuses on a dirty tree before the first command, and the closing snapshot names the commit and the tree state after the run.
 
 When asking a worker to measure, put this rule in their brief: only the orchestrator reads this file.

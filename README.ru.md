@@ -55,6 +55,7 @@ Adapters пишутся только по выбору: `init --tools claude,cur
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | выжимка CHANGELOG backslop между версиями |
 | `version`, `help` | версия и справка |
 | `lint` | гейты трекера, adapter outputs и, в этом репозитории, равенство языковых шаблонов |
+| `gates [--keep-going] [--json] [--require-clean] [--dry-run]` | прогнать команды из `gates`: код каждой, «гейтов N, зелёных M», снимок дерева |
 
 Без публикации в npm команда длинная, поэтому в проекте она записана в `backslop.json` полем `cli` и оттуда подставляется в скиллы и блок `AGENTS.md`. Установил глобально (`npm i -g github:Velklish/backslop#v<версия>`) — поменяй `cli` на `backslop`.
 

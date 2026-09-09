@@ -49,7 +49,7 @@ The first line is a 2–5 word track title; it becomes the worker session name s
 
 - **task numbers with their definitions**, not only file links: the worker will read the files, but you know the run’s priority and boundaries;
 - **change boundaries** — which directories belong to the worker and which belong to others. Name a neighbouring track: “`test/` is not yours; worker `tests` is working there”;
-- **definition of done**: gates from `backslop.json` are green and documentation changes in the same pass;
+- **definition of done**: `backslop gates` is green by count (“gates N, green N”) and documentation changes in the same pass;
 - **an explicit request to commit to the worker branch** — do it immediately; commits are per task, prefixed `{{prefix}}-N:`, including review fixes and the task’s CHANGELOG entry, so acceptance can squash by task;
 - **a ban on status directories and `archive/`**, with the reason: the approver archives, the worker sends proposed result text. State the reason — without it, a worker tries to bypass the ban and reports a branch point;
 - **findings as files**: `backslop new <slug> --parent N` in the worker branch, with evidence;

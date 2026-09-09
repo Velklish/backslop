@@ -17,6 +17,7 @@
 | [adr/adr-006-adapter-ownership.md](adr/adr-006-adapter-ownership.md) | Выбор harness и владение generated outputs | Superseded in part by ADR-008 (legacy-default) |
 | [adr/adr-007-npm-pin.md](adr/adr-007-npm-pin.md) | Точный npm-пин и релизный чеклист без смены default CLI | Accepted |
 | [adr/adr-008-legacy-claude-adapter.md](adr/adr-008-legacy-claude-adapter.md) | Сохранение Claude adapter в legacy-проектах | Accepted |
+| [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
 
 ## Сквозные принципы
 

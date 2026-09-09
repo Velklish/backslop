@@ -55,6 +55,7 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
 | `version`, `help` | version and help |
 | `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity |
+| `gates [--keep-going] [--json] [--require-clean] [--dry-run]` | run the commands from `gates`: exit code of each, “gates N, green M”, tree snapshot |
 
 Before publishing to npm the command is long, so projects record it in the `cli` field of `backslop.json`; skills and the `AGENTS.md` section substitute it from there. If installed globally (`npm i -g github:Velklish/backslop#v<version>`), change `cli` to `backslop`.
 

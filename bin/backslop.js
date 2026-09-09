@@ -9,7 +9,7 @@ import { CliError, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { findRoot } from '../lib/config.js';
 
-const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'upgrade', 'migrate', 'changelog'];
+const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'status', 'lint', 'gates', 'upgrade', 'migrate', 'changelog'];
 
 const HELP_RU = `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
@@ -26,6 +26,8 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   lint                                                восемь гейтов: ссылки, номера, раскладка бэклога, поля статусов,
                                                       архив, упоминания, CHANGELOG, таблица ADR; adapter outputs,
                                                       равенство шаблонов и предупреждения о версии
+  gates [--keep-going] [--json] [--require-clean] [--dry-run]
+                                                      прогнать команды из gates: код каждой, счёт зелёных, снимок дерева
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli и gates, migrate и init новой версией
   migrate [--dry-run]                                 миграция формата файлов и штамп версии
   changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями
@@ -52,6 +54,8 @@ Commands:
   status [--json]                                     show active work, ordered queue, deferred tasks, and triage
   lint                                                validate links, numbers, layout, status fields, archive,
                                                       mentions, CHANGELOG, ADR index, and adapter outputs
+  gates [--keep-going] [--json] [--require-clean] [--dry-run]
+                                                      run the gates list: exit code of each, green count, tree snapshot
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update the cli pin, migrate, and initialize the new version
   migrate [--dry-run]                                 migrate file formats and update the version stamp
   changelog [--since X.Y.Z] [--to X.Y.Z]              print backslop CHANGELOG entries between versions
