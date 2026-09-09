@@ -1,15 +1,13 @@
 // init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { cleanup, cli, put, read } from './helpers.mjs';
+import { cleanup, cli, put, read, toolCli, toolCopy } from './helpers.mjs';
+import { isOwnedAdapterFile } from '../lib/adapter-ownership.js';
 import { TOOL_VERSION } from '../lib/version.js';
-
-const REPO = fileURLToPath(new URL('..', import.meta.url));
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
@@ -354,31 +352,16 @@ test('init в пустом проекте: строка таблицы docs/READ
 
 // Owned-путь adapter'а выводится из состава templates/skills/**, legacy-набор зашит в
 // lib/adapter-ownership.js. Разойтись они могут только сменой состава шаблонов, поэтому
-// проба меняет его в копии инструмента, а не в дереве репозитория.
-function toolCopy(mutate) {
-  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-tool-')));
-  for (const rel of ['bin', 'lib', 'templates', 'package.json']) {
-    cpSync(path.join(REPO, rel), path.join(dir, rel), { recursive: true });
-  }
-  mutate(dir);
-  return dir;
-}
-
-function toolCli(tool, root, args) {
-  const r = spawnSync(process.execPath, [path.join(tool, 'bin', 'backslop.js'), ...args], {
-    cwd: root, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' },
-  });
-  return { code: r.status, out: r.stdout ?? '', err: r.stderr ?? '' };
-}
+// проба меняет его в копии инструмента (toolCopy), а не в дереве репозитория.
 
 test('init --tools none: файл без маркера на пути текущего шаблона остаётся и назван предупреждением', () => {
   const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
   const root = emptyRepo();
   try {
-    assert.equal(toolCli(tool, root, ['init', '--tools', 'none']).code, 0);
+    assert.equal(toolCli(tool, ['init', '--tools', 'none'], { cwd: root }).code, 0);
     put(root, '.claude/skills/backslop-task/references/extra.md', 'чужой файл\n');
     put(root, '.claude/skills/backslop-task/mine.md', 'чужой файл\n');
-    const r = toolCli(tool, root, ['init', '--tools', 'none']);
+    const r = toolCli(tool, ['init', '--tools', 'none'], { cwd: root });
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, '.claude/skills/backslop-task/references/extra.md'), 'чужой файл\n');
     assert.equal(read(root, '.claude/skills/backslop-task/mine.md'), 'чужой файл\n');
@@ -394,9 +377,9 @@ test('init --tools none: legacy-путь без маркера, выпавший
   const tool = toolCopy((dir) => rmSync(path.join(dir, 'templates', 'skills', 'backslop-batch', 'references', 'measurements.md')));
   const root = emptyRepo();
   try {
-    assert.equal(toolCli(tool, root, ['init', '--tools', 'none']).code, 0);
+    assert.equal(toolCli(tool, ['init', '--tools', 'none'], { cwd: root }).code, 0);
     put(root, legacy, 'legacy без маркера\n');
-    const r = toolCli(tool, root, ['init', '--tools', 'none']);
+    const r = toolCli(tool, ['init', '--tools', 'none'], { cwd: root });
     assert.equal(r.code, 0, r.err);
     assert.ok(!existsSync(path.join(root, ...legacy.split('/'))), 'legacy-путь снимается по предикату владения');
   } finally {
@@ -488,6 +471,90 @@ test('init: adapter path через symlink — отказ, за ссылку н
     assert.equal(r.code, 1);
     assert.match(r.err, /adapter path содержит symlink: \.claude/);
     assert.ok(!existsSync(path.join(root, 'elsewhere', 'skills')), 'за ссылку ничего не записано');
+  } finally {
+    cleanup(root);
+  }
+});
+
+// BS-36.1: маркер под корнем harness признаётся по любому пути — снятие и предикат владения
+// читают одно правило; фильтр «первый сегмент backslop-*» у снятия оставлял такой файл навсегда,
+// хотя mv, archive и lint его уже не видели.
+test('init: файл с маркером вне backslop-* под корнем harness — owned и для предиката, и для снятия', () => {
+  const root = emptyRepo();
+  try {
+    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+    const marked = '.claude/skills/other/note.md';
+    const plain = '.claude/skills/other/mine.md';
+    put(root, marked, '<!-- backslop:generated -->\n# чужим путём, наш маркер\n');
+    put(root, plain, '# без маркера\n');
+    assert.equal(isOwnedAdapterFile(marked, path.join(root, marked)), true);
+    assert.equal(isOwnedAdapterFile(plain, path.join(root, plain)), false);
+    const r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(existsSync(path.join(root, marked)), false, 'owned по маркеру — снят');
+    assert.equal(read(root, plain), '# без маркера\n', 'без маркера и вне путей шаблонов — не кандидат, остаётся молча');
+    assert.doesNotMatch(r.err, /other\/mine\.md/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// BS-36.2 / ADR-015: запись читает владение тем же предикатом, что снятие, — чужой файл без
+// маркера на пути owned output не переписывается и назван предупреждением; legacy-путь
+// маркера не требует и переписывается, как раньше.
+// Состав шаблонов сегодня совпадает с legacy-набором файл в файл, и на текущем дереве чужой
+// файл на owned-пути всегда legacy — то есть owned и переписывается. Не-legacy owned-путь
+// даёт копия инструмента с лишним шаблоном, как в пробах BS-36.
+test('init --tools claude: чужой файл без маркера на пути owned output не переписывается и назван предупреждением', () => {
+  const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
+  const root = emptyRepo();
+  try {
+    assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0);
+    const rel = '.claude/skills/backslop-task/references/extra.md';
+    assert.match(read(root, rel), /<!-- backslop:generated -->/);
+    put(root, rel, '# мой файл на этом пути\n');
+    const r = toolCli(tool, ['init', '--tools', 'claude'], { cwd: root });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, rel), '# мой файл на этом пути\n', 'файл без маркера — не owned, не переписан');
+    assert.match(r.err, /не переписаны: \.claude\/skills\/backslop-task\/references\/extra\.md/);
+    const lint = toolCli(tool, ['lint'], { cwd: root });
+    assert.equal(lint.code, 1);
+    assert.match(lint.err, /extra\.md: на пути adapter output claude чужой файл без маркера/);
+
+    // Legacy-путь owned без маркера — переписывается, как раньше.
+    const legacy = '.claude/skills/backslop-batch/references/measurements.md';
+    put(root, legacy, 'без маркера, но legacy-путь\n');
+    assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0);
+    assert.match(read(root, legacy), /<!-- backslop:generated -->/, 'legacy-путь owned без маркера — переписан');
+  } finally {
+    cleanup(tool);
+    cleanup(root);
+  }
+});
+
+// Каталог на owned-пути: запись в него — отказ словами, как у снятия, а не стек EISDIR.
+test('init --tools claude: каталог на пути owned output — отказ без стека', () => {
+  const root = emptyRepo();
+  try {
+    mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'), { recursive: true });
+    const r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /owned adapter output не является файлом: \.claude\/skills\/backslop-task\/SKILL\.md/);
+    assert.doesNotMatch(r.err, /EISDIR|node:fs/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Файл на компоненте пути owned output — отказ словами, а не стек ENOTDIR из mkdirSync.
+test('init --tools claude: файл на компоненте пути owned output — отказ без стека', () => {
+  const root = emptyRepo();
+  try {
+    put(root, '.claude/skills/backslop-task', 'файл вместо каталога\n');
+    const r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /на пути adapter output файл вместо каталога: \.claude\/skills\/backslop-task\//);
+    assert.doesNotMatch(r.err, /ENOTDIR|EISDIR|node:fs/);
   } finally {
     cleanup(root);
   }

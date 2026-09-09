@@ -1,9 +1,9 @@
 # BS-32.1 · Разбор `git worktree list --porcelain` повторён в `lib/tracks.js` и внутри `foreignTaskIds`
 
-- **Порядок:** 70
 - **Область:** `lib/tasks.js`, `lib/tracks.js`, [02-cli](../../reference/02-cli.md)
 - **Создана:** 2026-09-09
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

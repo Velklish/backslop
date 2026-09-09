@@ -1,21 +1,24 @@
 # BS-48 · Оснастка «копия инструмента» продублирована в test/init.test.mjs и test/lint.test.mjs — вынести в helpers.mjs
 
-- **Порядок:** 60
 - **Область:** `test/helpers.mjs`, `test/init.test.mjs`, `test/lint.test.mjs`, [03-lint](../../reference/03-lint.md)
 - **Создана:** 2026-09-09
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Что сделать
 
-- [TODO]
+- Вынести копию инструмента в `test/helpers.mjs`: `toolCopy(mutate)` — `bin`, `lib`, `templates`, `package.json` в `mkdtemp`, `mutate` правит копию до первого запуска; `toolCli(tool, args, { cwd })` — команда копийным bin с тем же окружением, что у `cli` (без цвета, без предупреждений Node в stderr).
+- `test/init.test.mjs` и `test/lint.test.mjs` берут оснастку оттуда; `toolProject` в lint.test остаётся тонкой обёрткой «init в копии → мутация → lint».
 
 ## Не входит
 
-- [TODO]
+- Предмет самих проб — не меняется; меняется только, откуда берётся копия.
+- Копия `CHANGELOG.md`: пробы, которым он нужен, кладут его сами, как раньше.
 
 ## Проверки
 
-- [TODO]
+- `grep -n "cpSync(path.join(REPO" test/*.mjs` — совпадение только в `helpers.mjs`.
+- `npm test` и `node bin/backslop.js lint` зелёные; число тестов не меняется.
 
 ## Контекст
 

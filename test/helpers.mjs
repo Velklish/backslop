@@ -2,13 +2,14 @@
 // статусов, собранный руками, — независимо от `init`, чтобы дефект init не красил чужие
 // проверки. Команды гоняются настоящим процессом через bin/backslop.js.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOOL_VERSION } from '../lib/version.js';
 
 export const BIN = fileURLToPath(new URL('../bin/backslop.js', import.meta.url));
+export const REPO = fileURLToPath(new URL('..', import.meta.url));
 
 // stamp: false — проект без штампа версии, каким его застаёт lint у старой раскладки.
 // По умолчанию штамп стоит: иначе lint на любой проверке несёт постоянное предупреждение
@@ -56,13 +57,37 @@ export function gitAll(root, message = 'снимок') {
 }
 
 export function cli(root, args, { cwd = root, env = {} } = {}) {
-  // --no-warnings дочернему процессу: предупреждения самого Node (конфликт NO_COLOR с
-  // унаследованным FORCE_COLOR, Experimental/Deprecation из NODE_OPTIONS сессии) уходят в его
-  // stderr и красили бы ассерты на пустой stderr выводом, которого команда не писала.
-  // Унаследованное значение сохраняется — флаг дописывается к нему.
+  return runBin(BIN, args, cwd, env);
+}
+
+// --no-warnings дочернему процессу: предупреждения самого Node (конфликт NO_COLOR с
+// унаследованным FORCE_COLOR, Experimental/Deprecation из NODE_OPTIONS сессии) уходят в его
+// stderr и красили бы ассерты на пустой stderr выводом, которого команда не писала.
+// Унаследованное значение сохраняется — флаг дописывается к нему.
+function runBin(bin, args, cwd, env) {
   const nodeOptions = `${process.env.NODE_OPTIONS ?? ''} --no-warnings`.trim();
-  const r = spawnSync(process.execPath, [BIN, ...args], { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', NODE_OPTIONS: nodeOptions, ...env } });
+  const r = spawnSync(process.execPath, [bin, ...args], { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', NODE_OPTIONS: nodeOptions, ...env } });
   return { code: r.status, out: r.stdout ?? '', err: r.stderr ?? '' };
+}
+
+// Копия инструмента — bin, lib, templates, package.json в mkdtemp. Нужна пробам, которым нужен
+// self-host (гейт парности шаблонов и гейт 11 включаются только там, где `templates/` проекта —
+// каталог запущенного инструмента) или состав шаблонов, отличный от дерева репозитория
+// (не-legacy owned-путь). CHANGELOG.md копия не несёт — пробы кладут его сами. `mutate` правит
+// копию до первого запуска.
+export function toolCopy(mutate = () => {}) {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-tool-')));
+  for (const rel of ['bin', 'lib', 'templates', 'package.json']) {
+    cpSync(path.join(REPO, rel), path.join(dir, rel), { recursive: true });
+  }
+  mutate(dir);
+  return dir;
+}
+
+// Команда копии инструмента `tool`; `cwd` — проект, в котором она запускается, по умолчанию
+// сама копия (self-host). Окружение то же, что у `cli`.
+export function toolCli(tool, args, { cwd = tool, env = {} } = {}) {
+  return runBin(path.join(tool, 'bin', 'backslop.js'), args, cwd, env);
 }
 
 export function read(root, rel) {

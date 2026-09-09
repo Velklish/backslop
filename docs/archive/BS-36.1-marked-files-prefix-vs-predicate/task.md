@@ -1,9 +1,9 @@
 # BS-36.1 · `markedFiles` видит только `backslop-*` первого сегмента, а `isOwnedAdapterFile` — любой маркер под корнем adapter'а
 
-- **Порядок:** 40
 - **Область:** `lib/adapters.js`, `lib/adapter-ownership.js`, `lib/mdwalk.js`, [01-layout](../../reference/01-layout.md)
 - **Создана:** 2026-09-09
 - **Зависимости:** нет
+- **Взята:** 2026-09-09
 
 ## Контекст
 

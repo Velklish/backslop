@@ -2,14 +2,11 @@
 // проекта; без неё гейт нечем отличить от холостого.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import os from 'node:os';
+import { mkdirSync, renameSync, rmSync, symlinkSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { loadProject } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
-import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
+import { cleanup, cli, makeProject, put, read, toolCli, toolCopy } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
 
 function seedGreen(root) {
@@ -86,7 +83,7 @@ probe('1. битая ссылка в docs', (root) => put(root, 'docs/note.md', 
 probe('1. битая ссылка в корневом README', (root) => put(root, 'README.md', '[нет](docs/none.md)\n'), /README\.md: битая ссылка/);
 probe('1. битая ссылка в скилле backslop', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
-  put(root, '.claude/skills/backslop-task/SKILL.md', '[нет](../none.md)\n');
+  put(root, '.claude/skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n[нет](../none.md)\n');
 }, /SKILL\.md: битая ссылка/);
 probe('adapter: нет Claude stub', (root) => {
   const cfg = JSON.parse(read(root, 'backslop.json'));
@@ -94,12 +91,13 @@ probe('adapter: нет Claude stub', (root) => {
 }, /CLAUDE\.md: нет Claude stub/);
 probe('1. битая ссылка в Cursor rule проверяется отдельно', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'cursor']).code, 0);
-  put(root, '.cursor/rules/backslop-task.mdc', '[missing](backslop-task/references/none.md)\n');
+  put(root, '.cursor/rules/backslop-task.mdc', '<!-- backslop:generated -->\n[missing](backslop-task/references/none.md)\n');
 }, /backslop-task\.mdc: битая ссылка/);
 probe('adapter output отсутствует', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
   rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
 }, /generated output для adapter claude/);
+
 probe('2. номер занят дважды', (root) => put(root, 'docs/backlog/triage/BS-1-dup.md', '# BS-1 · Дубль\n'), /номер BS-1 уже занят/);
 probe('2. заголовок не совпадает с именем', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', '# BS-8 · Не тот\n'), /заголовок называет BS-8/);
 probe('2. заголовок не по форме', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', 'Без заголовка\n'), /первая строка не/);
@@ -227,6 +225,30 @@ test('lint: 11. свежая копия инструмента — гейт ре
   } finally { if (project) cleanup(project.dir); }
 });
 
+probe('adapter output — каталог на owned-пути, на котором init отказывает', (root) => {
+  assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+  rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
+  mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
+}, /SKILL\.md: owned adapter output не является файлом/);
+// ADR-015: чужой файл без маркера на owned-пути init не переписывает — скилл не установлен, и
+// lint это называет. Не-legacy owned-путь есть только у копии инструмента с лишним шаблоном
+// (состав шаблонов совпадает с legacy-набором); в копии работает и гейт парности — лишний
+// шаблон кладётся в оба слоя.
+test('lint: adapter output без маркера — чужой файл на owned-пути выбранного adapter\'а', () => {
+  let project;
+  try {
+    project = toolProject((dir) => {
+      put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n');
+      put(dir, 'templates/en/skills/backslop-task/references/extra.md', '# extra\n');
+      const r = toolCli(dir, ['init', '--tools', 'claude']);
+      assert.equal(r.code, 0, r.err);
+      put(dir, '.claude/skills/backslop-task/references/extra.md', '# мой файл на этом пути\n');
+    });
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /extra\.md: на пути adapter output claude чужой файл без маркера/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
 test('lint: 11. version package.json расходится со штампом', () => {
   let project;
   try {
@@ -269,22 +291,12 @@ test('lint: 11. устаревший npm-пин в прозе AGENTS.md', () => 
 
 // Гейт парности включается только в дереве самого инструмента: признак — тождество
 // `templates/` проекта с каталогом, из которого рендерит запущенный CLI. Поэтому проба идёт
-// на копии инструмента, а обычная фикстура с каталогом `templates/` гейт не будит.
-const REPO = fileURLToPath(new URL('..', import.meta.url));
-
+// на копии инструмента (toolCopy), а обычная фикстура с каталогом `templates/` гейт не будит.
 function toolProject(mutate) {
-  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-tool-')));
-  for (const rel of ['bin', 'lib', 'templates', 'package.json']) {
-    cpSync(path.join(REPO, rel), path.join(dir, rel), { recursive: true });
-  }
-  const nodeOptions = `${process.env.NODE_OPTIONS ?? ''} --no-warnings`.trim();
-  const run = (...args) => spawnSync(process.execPath, [path.join(dir, 'bin', 'backslop.js'), ...args], {
-    cwd: dir, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', NODE_OPTIONS: nodeOptions },
-  });
-  assert.equal(run('init').status, 0, 'копия инструмента раскладывается сама собой');
+  const dir = toolCopy();
+  assert.equal(toolCli(dir, ['init']).code, 0, 'копия инструмента раскладывается сама собой');
   mutate(dir);
-  const r = run('lint');
-  return { dir, code: r.status, err: r.stderr ?? '', out: r.stdout ?? '' };
+  return { dir, ...toolCli(dir, ['lint']) };
 }
 
 test('lint: template parity: переименование canonical-скилла не выключает гейт', () => {
@@ -372,13 +384,34 @@ test('lint: 10. цитата в docs/archive — снимок момента, а
 });
 
 // BS-19: пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
-// Имя каталога не по шаблону задачи: каталог, названный как файл задачи, до этого гейта не
-// доезжает — scanTasks читает его как файл и падает EISDIR (находка BS-19.1).
 probe('2. каталог вместо файла задачи в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), /каталог внутри каталога статуса/);
+// Каталог, названный как файл задачи: scanTasks читал его как файл и падал EISDIR раньше гейта (BS-19.1).
+probe('2. каталог, названный как файл задачи, в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md')), /BS-9-sub\.md: каталог внутри каталога статуса/);
+probe('2. symlink на каталог с именем файла задачи — та же диагностика', (root) => {
+  mkdirSync(path.join(root, 'docs/shared'));
+  symlinkSync(path.join(root, 'docs/shared'), path.join(root, 'docs/backlog/queue/BS-9-sub.md'));
+}, /BS-9-sub\.md: каталог внутри каталога статуса/);
+probe('2. битая ссылка с именем файла задачи в каталоге статуса', (root) => {
+  symlinkSync(path.join(root, 'docs/nowhere.md'), path.join(root, 'docs/backlog/queue/BS-9-sub.md'));
+}, /BS-9-sub\.md: битая ссылка в каталоге статуса/);
 probe('3. каталога бэклога нет', (root) => rmSync(path.join(root, 'docs/backlog'), { recursive: true }), /каталога бэклога нет/);
 probe('5. посторонний файл в архиве', (root) => put(root, 'docs/archive/NOTES.txt', 'заметка\n'), /в архиве только каталоги задач и README\.md/);
 probe('5. каталог архива без task.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/task.md')), /нет task\.md — постановки/);
 probe('8. ADR есть, а индекса документации нет', (root) => rmSync(path.join(root, 'docs/README.md')), /нет индекса документации, а ADR есть/);
+
+test('lint: каталог с именем файла задачи — диагностика гейта 2 в stderr, а не стек EISDIR', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    mkdirSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md'));
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /BS-9-sub\.md: каталог внутри каталога статуса/);
+    assert.doesNotMatch(r.err, /EISDIR|node:fs/);
+  } finally {
+    cleanup(root);
+  }
+});
 
 test('lint: пин в прозе, расходящийся с cli, — предупреждение с файлом и строкой', () => {
   const root = makeProject({ git: false });

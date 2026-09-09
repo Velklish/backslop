@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -361,6 +361,23 @@ test('release-related CLI messages follow project lang without changing their fl
     assert.match(r.err, /there is nothing to update/);
     assert.doesNotMatch(r.err, /[А-Яа-яЁё]/);
   } finally { cleanup(root); }
+});
+
+// BS-19.1: каталог с именем файла задачи в плоском docs/backlog/ — не задача и для findFlatTask:
+// иначе mv сначала переносил каталог, а потом падал на чтении — дерево тронуто, откат руками.
+test('mv: каталог с именем файла задачи в плоском docs/backlog/ — отказ без переноса и без стека', () => {
+  const root = makeProject();
+  try {
+    mkdirSync(path.join(root, 'docs/backlog/BS-9-sub.md'));
+    const r = cli(root, ['mv', '9', 'queue']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /задачи BS-9 нет ни в одном каталоге статуса/);
+    assert.doesNotMatch(r.err, /EISDIR|node:fs/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/BS-9-sub.md')), 'каталог остался на месте');
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md')));
+  } finally {
+    cleanup(root);
+  }
 });
 
 test('mv: входящие ссылки на задачу переписываются, как при archive', () => {

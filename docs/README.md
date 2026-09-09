@@ -23,6 +23,7 @@
 | [adr/adr-012-owned-outputs-gitignore.md](adr/adr-012-owned-outputs-gitignore.md) | Owned outputs не коммитятся: блок `.gitignore` пишет `init` | Accepted |
 | [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Accepted |
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
+| [adr/adr-015-adapter-write-preserves-foreign.md](adr/adr-015-adapter-write-preserves-foreign.md) | Запись adapter outputs не переписывает чужой файл на owned-пути | Accepted |
 
 ## Сквозные принципы
 
