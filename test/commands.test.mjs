@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -502,6 +502,13 @@ function touchedList(out) {
   return at === -1 ? '' : out.slice(at);
 }
 
+// Состав списка целиком, отсортированный: сверка «есть три пути» пропускала бы лишнее —
+// путь от toplevel, строку патча. Список — последнее в stdout только под `--dry-run`: без него
+// ниже печатается строка «допиши … result.md», и она попала бы в состав.
+function touchedPaths(out) {
+  return touchedList(out).split('\n').slice(1).map((l) => l.trim()).filter(Boolean).sort();
+}
+
 test('archive --range: печатает файлы docs и CHANGELOG, изменённые ходом задачи', () => {
   const root = makeProject();
   try {
@@ -543,6 +550,94 @@ test('archive --range: печатает файлы docs и CHANGELOG, измен
     assert.equal(broken.code, 1);
     assert.match(broken.err, /--range nosuchref\.\.HEAD/);
     assert.equal(cli(root, ['archive', '1', '--range=', '--dry-run']).code, 1);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Проект в подкаталоге репозитория: toplevel git и корень проекта — разные каталоги, и
+// `git log --name-only` печатает пути от toplevel (`sub/docs/…`). Merge-коммит здесь же:
+// его combined diff флаг `--relative` не учитывает, поэтому префикс срезает сама команда.
+test('archive --range: проект в подкаталоге репозитория — пути от корня проекта, и у merge-коммита тоже', () => {
+  const top = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-nested-')));
+  try {
+    run(top, ['init', '-q', '-b', 'main']);
+    run(top, ['config', 'user.email', 'test@example.com']);
+    run(top, ['config', 'user.name', 'test']);
+    run(top, ['config', 'commit.gpgsign', 'false']);
+    // Кириллическое имя в фикстуре: без пина имя ушло бы в NFD на машине с выключенной
+    // нормализацией, и deepEqual с NFC-литералом покраснел бы не по предмету теста.
+    run(top, ['config', 'core.precomposeunicode', 'true']);
+    const root = path.join(top, 'sub');
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [] }, null, 2)}\n`);
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n');
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(top, 'docs/reference/outer.md', '# вне проекта\n');
+    gitAll(top, 'база');
+    const base = run(top, ['rev-parse', 'HEAD']).stdout.trim();
+    run(top, ['checkout', '-q', '-b', 'feat']);
+    put(root, 'docs/reference/branch-only.md', '# из ветки\n');
+    gitAll(top, 'BS-1: правка в ветке');
+    run(top, ['checkout', '-q', 'main']);
+    put(root, 'docs/reference/01-layout.md', '# 01. Раскладка\n');
+    // Не-ASCII имя: git закавычивает такие пути (`core.quotePath`), и без явного выключения
+    // префикс оказывался бы внутри кавычек, а в списке — восьмеричные последовательности.
+    put(root, 'docs/reference/справка.md', '# справка\n');
+    put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — BS-1\n');
+    // Карточка трекера внутри диапазона: отбор держится на pathspec с префиксом cwd.
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n\nправка карточки\n');
+    put(top, 'docs/reference/outer.md', '# вне проекта, правка\n');
+    gitAll(top, 'BS-1: доки проекта, карточка и файл вне него');
+    run(top, ['merge', '-q', '--no-ff', '--no-commit', 'feat']);
+    put(root, 'docs/reference/merge-only.md', '# правка при слиянии\n');
+    gitAll(top, 'Merge feat');
+
+    const r = cli(root, ['archive', '1', '--range', `${base}..HEAD`, '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(touchedPaths(r.out), [
+      'CHANGELOG.md',
+      'docs/reference/01-layout.md',
+      'docs/reference/branch-only.md',
+      'docs/reference/merge-only.md',
+      'docs/reference/справка.md',
+    ], 'пути от корня проекта, не-ASCII имя как есть, карточка и файл вне проекта не названы, у merge-коммита префикс срезан');
+  } finally {
+    cleanup(top);
+  }
+});
+
+// Merge-коммит: файл ветки приходит через её коммит в диапазоне, а правка, сделанная самим
+// слиянием, — только через `--cc`; без него `git log --name-only` для merge молчит.
+test('archive --range: merge-коммит — файл из ветки и файл, изменённый только слиянием, названы оба', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n');
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    gitAll(root, 'база');
+    const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+    run(root, ['checkout', '-q', '-b', 'feat']);
+    put(root, 'docs/reference/branch-only.md', '# из ветки\n');
+    gitAll(root, 'BS-1: правка в ветке');
+    run(root, ['checkout', '-q', 'main']);
+    put(root, 'docs/reference/main-side.md', '# в main\n');
+    gitAll(root, 'работа в main');
+    run(root, ['merge', '-q', '--no-ff', '--no-commit', 'feat']);
+    put(root, 'docs/reference/merge-only.md', '# правка при слиянии\n');
+    gitAll(root, 'Merge feat');
+
+    const r = cli(root, ['archive', '1', '--range', `${base}..HEAD`, '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(touchedPaths(r.out), [
+      'docs/reference/branch-only.md',
+      'docs/reference/main-side.md',
+      'docs/reference/merge-only.md',
+    ], 'файл ветки — через её коммит в диапазоне; merge-only — правка самого слияния; лишнего нет');
+
+    // Без --range — только коммиты с заголовком BS-N: правка самого слияния сюда не попадает,
+    // потому что заголовок merge-коммита её не называет.
+    const byPrefix = cli(root, ['archive', '1', '--dry-run']);
+    assert.equal(byPrefix.code, 0, byPrefix.err);
+    assert.deepEqual(touchedPaths(byPrefix.out), ['docs/reference/branch-only.md']);
   } finally {
     cleanup(root);
   }
