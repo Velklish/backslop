@@ -279,3 +279,12 @@ test('lint: 10. цитата в docs/archive — снимок момента, а
     cleanup(root);
   }
 });
+
+// BS-19: пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
+// Имя каталога не по шаблону задачи: каталог, названный как файл задачи, до этого гейта не
+// доезжает — scanTasks читает его как файл и падает EISDIR (находка BS-19.1).
+probe('2. каталог вместо файла задачи в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), /каталог внутри каталога статуса/);
+probe('3. каталога бэклога нет', (root) => rmSync(path.join(root, 'docs/backlog'), { recursive: true }), /каталога бэклога нет/);
+probe('5. посторонний файл в архиве', (root) => put(root, 'docs/archive/NOTES.txt', 'заметка\n'), /в архиве только каталоги задач и README\.md/);
+probe('5. каталог архива без task.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/task.md')), /нет task\.md — постановки/);
+probe('8. ADR есть, а индекса документации нет', (root) => rmSync(path.join(root, 'docs/README.md')), /нет индекса документации, а ADR есть/);
