@@ -100,6 +100,7 @@ test('archive: файл из плоского docs/backlog/ переезжает
   try {
     put(root, 'docs/reference/README.md', '# Справочник\n');
     cli(root, ['new', 'a', '--queue']);
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · a\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n');
     put(root, 'docs/backlog/BS-5-flat.md', '# BS-5 · Плоская\n\n- **Область:** [x](../reference/README.md)\n\nСм. [BS-1](queue/BS-1-a.md) и [архив](../archive/README.md).\n');
     put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](backlog/BS-5-flat.md)\n');
     gitAll(root);

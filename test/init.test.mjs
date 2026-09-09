@@ -99,6 +99,7 @@ test('init: свой префикс и каталог, существующий 
 
     r = cli(root, ['new', 'x', '--queue']);
     assert.ok(existsSync(path.join(root, 'doc/backlog/queue/DFL-1-x.md')));
+    put(root, 'doc/backlog/queue/DFL-1-x.md', read(root, 'doc/backlog/queue/DFL-1-x.md').replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../reference/README.md)'));
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
 

@@ -19,8 +19,8 @@ function seedGreen(root) {
   ].join('\n'));
   put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Процесс\n\n**Status:** Accepted\n');
   put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n');
-  put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Взята:** 2026-09-01\n');
-  put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
+  put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n');
+  put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
   put(root, 'docs/backlog/triage/BS-2.1-d.md', '# BS-2.1 · Г\n\nНаходка при работе над BS-2.\n');
   // Находка BS-4.1 разобрана — уехала в deferred/; закрытый родитель BS-4 её не красит.
   put(root, 'docs/backlog/deferred/BS-4.1-f.md', '# BS-4.1 · Е\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** ждёт раннера\n- **Условие возврата:** появится раннер\n');
@@ -109,6 +109,8 @@ probe('4. очередь без порядка', (root) => put(root, 'docs/backl
 probe('4. порядок не число', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** высокий\n'), /не целое число/);
 probe('4. два файла очереди с одним порядком', (root) => put(root, 'docs/backlog/queue/BS-5-f.md', '# BS-5 · Е\n\n- **Порядок:** 10\n'), /BS-5-f\.md: «Порядок» 10 уже у docs\/backlog\/queue\/BS-1-a\.md/);
 probe('4. дубль поля в одном файле с RU/EN алиасами', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Order:** 20\n'), /BS-1-a\.md: поле «Порядок» повторяется в строках 3, 4/);
+probe('4. разобранная задача без «Области»', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n'), /BS-1-a\.md: без поля «Область»/);
+probe('4. «Область» пуста', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:**\n- **Взята:** 2026-09-01\n'), /BS-2-b\.md: «Область» пуста/);
 probe('4. в работе без даты', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n'), /без даты «Взята/);
 probe('4. отложена без раздела', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n'), /без раздела «## Отложено»/);
 probe('4. отложена с [TODO]', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n## Отложено\n\n- **Причина:** [TODO]\n'), /не заполнен: остался \[TODO\]/);
@@ -236,3 +238,17 @@ probe('11. устаревший npm-пин в прозе AGENTS.md', (root) => {
   seedSelfHost(root);
   put(root, 'AGENTS.md', 'Релиз ставится как `npx backslop@0.2.0`.\n');
 }, /AGENTS\.md: строка 1: пин backslop@0\.2\.0 — инструмент на v1\.2\.3/);
+
+test('lint: 4. заглушка «Области» от new красит разобранную задачу и молчит в triage/', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    assert.equal(cli(root, ['new', 'queued', '--queue']).code, 0);
+    assert.equal(cli(root, ['new', 'triaged']).code, 0);
+    const found = problems(root);
+    assert.ok(found.some((p) => /queued\.md: «Область» не заполнена/.test(p)), found.join(' | ') || 'ничего');
+    assert.ok(!found.some((p) => /triaged\.md: «Область»/.test(p)), `запись triage/ не разобрана — гейт молчит: ${found.join(' | ')}`);
+  } finally {
+    cleanup(root);
+  }
+});

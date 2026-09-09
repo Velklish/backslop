@@ -7,6 +7,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
 
+// Гейт 4 требует «Область» у задачи вне triage/: фикстуры, доводящие lint до зелёного,
+// заполняют заглушку от `new` этим хелпером.
+function fillArea(root, rel) {
+  put(root, rel, read(root, rel).replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../README.md)'));
+}
+
 test('new: задача в triage по умолчанию, в очередь с порядком, находка с sub-ID', () => {
   const root = makeProject();
   try {
@@ -197,9 +203,9 @@ test('mv: очередь → работа ставит «Взята» и сни�
 test('mv: дублированное поле читается первым, queue --top схлопывает его, active снимает целиком', () => {
   const root = makeProject();
   try {
-    put(root, 'docs/backlog/queue/BS-1-duplicate.md', '# BS-1 · Дубль\n\n- **Порядок:** 30\n- **Order:** 25\n');
-    put(root, 'docs/backlog/queue/BS-2-second.md', '# BS-2 · Вторая\n\n- **Порядок:** 10\n');
-    put(root, 'docs/backlog/queue/BS-3-third.md', '# BS-3 · Третья\n\n- **Порядок:** 20\n');
+    put(root, 'docs/backlog/queue/BS-1-duplicate.md', '# BS-1 · Дубль\n\n- **Порядок:** 30\n- **Order:** 25\n- **Область:** [x](../../README.md)\n');
+    put(root, 'docs/backlog/queue/BS-2-second.md', '# BS-2 · Вторая\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n');
+    put(root, 'docs/backlog/queue/BS-3-third.md', '# BS-3 · Третья\n\n- **Порядок:** 20\n- **Область:** [x](../../README.md)\n');
     gitAll(root);
 
     let r = cli(root, ['status']);
@@ -210,7 +216,7 @@ test('mv: дублированное поле читается первым, que
     r = cli(root, ['mv', '1', 'queue', '--top']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /BS-1: queue\/ «Порядок» 5/);
-    assert.match(read(root, 'docs/backlog/queue/BS-1-duplicate.md'), /^# BS-1 · Дубль\n\n- \*\*Порядок:\*\* 5\n$/);
+    assert.match(read(root, 'docs/backlog/queue/BS-1-duplicate.md'), /^# BS-1 · Дубль\n\n- \*\*Порядок:\*\* 5\n- \*\*Область:\*\* \[x\]\(\.\.\/\.\.\/README\.md\)\n$/);
     r = cli(root, ['status']);
     assert.match(r.out, /\n\s+5  BS-1 · Дубль/);
     assert.equal(cli(root, ['lint']).code, 0);
@@ -250,6 +256,7 @@ test('mv: --top на задаче из тесной очереди перену�
     cli(root, ['new', 'b', '--queue', '--top']); // 5
     cli(root, ['new', 'c', '--queue', '--top']); // 2
     cli(root, ['new', 'd', '--queue', '--top']); // 1
+    for (const n of ['1-a', '2-b', '3-c', '4-d']) fillArea(root, `docs/backlog/queue/BS-${n}.md`);
     gitAll(root);
     const r = cli(root, ['mv', '1', 'queue', '--top']);
     assert.equal(r.code, 0, r.err);
@@ -358,6 +365,7 @@ test('mv: входящие ссылки на задачу переписываю
   const root = makeProject();
   try {
     cli(root, ['new', 'a', '--queue', '--title', 'А']);
+    fillArea(root, 'docs/backlog/queue/BS-1-a.md');
     put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗадача [BS-1](backlog/queue/BS-1-a.md).\n');
     put(root, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · Б\n\nСм. [BS-1](../queue/BS-1-a.md#контекст).\n');
     put(root, 'README.md', 'В работе [BS-1](docs/backlog/queue/BS-1-a.md)\n');
@@ -379,6 +387,7 @@ test('mv: файл из плоского docs/backlog/ переезжает в �
   try {
     put(root, 'docs/reference/README.md', '# Справочник\n');
     cli(root, ['new', 'a', '--queue']);
+    fillArea(root, 'docs/backlog/queue/BS-1-a.md');
     put(root, 'docs/backlog/BS-5-flat.md', '# BS-5 · Плоская\n\n- **Область:** [x](../reference/README.md)\n\nСм. [BS-1](queue/BS-1-a.md) и [архив](../archive/README.md).\n');
     put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](backlog/BS-5-flat.md)\n');
     gitAll(root);

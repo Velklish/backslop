@@ -10,7 +10,7 @@ import { BIN, cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs
 test('CRLF и BOM: заголовок читается, lint зелёный, mv сохраняет переводы строк', () => {
   const root = makeProject();
   try {
-    put(root, 'docs/backlog/queue/BS-1-crlf.md', '﻿# BS-1 · Виндовый файл\r\n\r\n- **Порядок:** 10\r\n\r\n## Контекст\r\n\r\nтекст\r\n');
+    put(root, 'docs/backlog/queue/BS-1-crlf.md', '﻿# BS-1 · Виндовый файл\r\n\r\n- **Порядок:** 10\r\n- **Область:** [x](../../README.md)\r\n\r\n## Контекст\r\n\r\nтекст\r\n');
     put(root, 'docs/README.md', '# Документация\r\n\r\n| Документ | Тема | Статус |\r\n|---|---|---|\r\n');
     gitAll(root);
     let r = cli(root, ['status', '--json']);
@@ -34,7 +34,7 @@ test('lint: корневая ссылка резолвится от корня �
   const root = makeProject();
   try {
     put(root, 'docs/note.md', 'См. [индекс](/docs/README.md) и сноску[^1].\n\n[^1]: Пояснение сноски.\n');
-    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n\n[корень](/docs/README.md)\n');
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n\n[корень](/docs/README.md)\n');
     gitAll(root);
     let r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
