@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { TEMPLATES_DIR, templateParity } from '../lib/templates.js';
+import { TEMPLATES_DIR, renderTemplate, templateParity, templateSlots } from '../lib/templates.js';
 import { cleanup, put } from './helpers.mjs';
 
 test('template parity: состав и placeholders совпадают', () => {
@@ -59,4 +59,38 @@ test('template parity: кириллица в файле английского �
     'task.md': '# Задача\n',
     'en/task.md': '# Task\n\nОписание\n',
   }), ['templates/en/task.md contains Cyrillic']);
+});
+
+// Слоты: пара «плейсхолдер в шаблоне ↔ ключ в vars». Фикстура частичная, поэтому обратная
+// половина правила (объявленный ключ без места) шумит по чужим строкам реестра — она
+// проверяется отдельной пробой ниже.
+test('template slots: реестр и шаблоны инструмента сходятся', () => {
+  assert.deepEqual(templateSlots(), []);
+});
+
+test('template slots: имя без ключа и шаблон вне реестра', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
+  try {
+    put(root, 'adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
+    put(root, 'stray.md', '{{cli}}\n');
+    put(root, 'en/adr.md', '{{date}} {{number}} {{title}}\n');
+    assert.deepEqual(templateSlots(root).filter((m) => !m.startsWith('TEMPLATE_KEYS:')).sort(), [
+      'templates/adr.md placeholder {{budget}} has no key in vars',
+      'templates/stray.md has placeholders but no TEMPLATE_KEYS row',
+    ]);
+  } finally { cleanup(root); }
+});
+
+test('template slots: объявленный ключ, которому не нашлось места в шаблоне', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
+  try {
+    put(root, 'adr.md', '{{date}} {{number}}\n');
+    put(root, 'en/adr.md', '{{date}} {{number}}\n');
+    assert.ok(templateSlots(root).includes('TEMPLATE_KEYS: title is declared but no template uses it'));
+  } finally { cleanup(root); }
+});
+
+test('renderTemplate: подстановка без ключа — отказ, а не буквальный {{…}} читателю', () => {
+  assert.throws(() => renderTemplate('adr.md', { number: 1, title: 'x' }),
+    /adr\.md: подстановке \{\{date\}\} не передан ключ date/);
 });

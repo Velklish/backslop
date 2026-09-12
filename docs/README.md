@@ -25,6 +25,8 @@
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
 | [adr/adr-015-adapter-write-preserves-foreign.md](adr/adr-015-adapter-write-preserves-foreign.md) | Запись adapter outputs не переписывает чужой файл на owned-пути | Accepted |
 | [adr/adr-016-selected-adapter-roots-symlink.md](adr/adr-016-selected-adapter-roots-symlink.md) | Symlink проверяется только на корнях выбранных adapter'ов | Accepted |
+| [adr/adr-017-gates-step-follows-the-pin.md](adr/adr-017-gates-step-follows-the-pin.md) | Шаг гейтов в брифе идёт по пинованной версии, а не по запущенной | Accepted |
+| [adr/adr-018-brief-decision-slots.md](adr/adr-018-brief-decision-slots.md) | Решения оркестратора в брифе — слоты, и пара «слот ↔ ключ» под гейтом | Accepted |
 
 ## Сквозные принципы
 

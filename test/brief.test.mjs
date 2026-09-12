@@ -128,3 +128,53 @@ test('brief: архивная задача без task.md — отказ сло�
     cleanup(root);
   }
 });
+
+test('brief: три слота решения оркестратора — заготовка без флага, значение с флагом', () => {
+  const root = makeProject();
+  try {
+    seed(root);
+    const bare = cli(root, ['brief', '3']);
+    assert.equal(bare.code, 0, bare.err);
+    for (const re of [/## Точка входа/, /## Что решаешь сам/, /## Форма сдачи/]) assert.match(bare.out, re);
+    assert.match(bare.out, /\[TODO: где лежит предмет и с чего начинать чтение/);
+    assert.match(bare.out, /\[TODO: что участник закрывает своим решением/);
+    assert.match(bare.out, /\[TODO: протокол гейта и шапка отчёта/);
+    // Слот без ключа уехал бы читателю буквально; на постановке без `{{` в тексте их ноль.
+    assert.doesNotMatch(bare.out, /\{\{/);
+
+    const full = cli(root, ['brief', '3',
+      '--entry', 'lib/guard.js, затем справочник',
+      '--autonomy', 'формулировки твои, схема — нет',
+      '--handover', 'запись гейта артефактом']);
+    assert.equal(full.code, 0, full.err);
+    assert.match(full.out, /lib\/guard\.js, затем справочник/);
+    assert.match(full.out, /формулировки твои, схема — нет/);
+    assert.match(full.out, /запись гейта артефактом/);
+    assert.doesNotMatch(full.out, /\[TODO: где лежит предмет/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('brief: шаг гейтов — по тому, что умеет пинованная версия, а не запущенная', () => {
+  const root = makeProject();
+  try {
+    seed(root);
+    // Пин 1.2.3 старше v0.5.0, где появился раннер: блок зовёт команду.
+    const fresh = cli(root, ['brief', '3']);
+    assert.equal(fresh.code, 0, fresh.err);
+    assert.match(fresh.out, /`npx backslop@1\.2\.3 gates` печатает итог «гейтов N, зелёных N»/);
+
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    const old = { ...cfg, cli: 'npx backslop@0.4.0', gates: ['npm test', 'npx backslop@0.4.0 lint'] };
+    put(root, 'backslop.json', `${JSON.stringify(old, null, 2)}\n`);
+    const stale = cli(root, ['brief', '3']);
+    assert.equal(stale.code, 0, stale.err);
+    assert.doesNotMatch(stale.out, /`npx backslop@0\.4\.0 gates`/, 'неисполнимую команду блок не называет');
+    assert.match(stale.out, /Раннера `gates` в пинованной версии нет \(команда появилась в v0\.5\.0\)/);
+    assert.match(stale.out, /`npm test`, `npx backslop@0\.4\.0 lint`/);
+    assert.match(stale.out, /Сводку «гейтов N, зелёных N» не выдумывай/);
+  } finally {
+    cleanup(root);
+  }
+});

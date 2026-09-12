@@ -23,15 +23,16 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
                                                       печатает доки, которых коснулся ход задачи
   adr <slug> [--title "…"]                            завести ADR со следующим номером
-  brief <N…> [--track "…"] [--neighbour "путь=track"] [--measurements]
+  brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"]
+        [--autonomy "…"] [--handover "…"] [--measurements]
                                                       напечатать бриф worker'у по этим задачам
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage
-  lint                                                одиннадцать гейтов: ссылки, номера, раскладка бэклога, поля,
+  lint                                                двенадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
-                                                      цитаты, версии релиза; adapter outputs, равенство шаблонов
-                                                      и предупреждения о версии
+                                                      цитаты, версии релиза, слоты шаблонов; adapter outputs,
+                                                      равенство шаблонов и предупреждения о версии
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       прогнать команды из gates: код каждой, счёт зелёных, снимок дерева
   tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
@@ -62,14 +63,15 @@ Commands:
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
                                                       prints the documentation touched by the task
   adr <slug> [--title "…"]                            create the next numbered ADR
-  brief <N…> [--track "…"] [--neighbour "path=track"] [--measurements]
+  brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"]
+        [--autonomy "…"] [--handover "…"] [--measurements]
                                                       print a worker brief for these tasks
   seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
                                                       “Reference: …” tasks from the reference/ table
   status [--json]                                     show active work, ordered queue, deferred tasks, and triage
-  lint                                                eleven gates: links, numbers, layout, fields, archive,
+  lint                                                twelve gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
-                                                      versions; adapter outputs and template parity
+                                                      versions, template slots; adapter outputs and template parity
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       run the gates list: exit code of each, green count, tree snapshot
   tracks [--json]                                     run worktrees and branches: merged or not, what is left, what is dirty

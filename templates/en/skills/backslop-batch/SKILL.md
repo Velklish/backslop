@@ -45,12 +45,15 @@ Choose worker model capability from the complexity of the portion, not a fixed t
 
 ## Brief
 
-The brief text is assembled by a command: `{{cli}} brief <N…> --track "<title>" [--neighbour "path=track"] [--measurements]`. It takes task definitions from their files, `gates`, `prefix`, and `cli` from `backslop.json`, and the rest is fixed sections: definition of done, the request to commit with the prefix, the ban on status directories and `archive/` with its reason, findings as files, the mutation-probe order, and result contents. It prints to stdout; where the brief goes — a subagent prompt, a session’s first message, a bus — is yours to decide.
+The brief text is assembled by a command: `{{cli}} brief <N…> --track "<title>" [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]`. It takes task definitions from their files, `gates`, `prefix`, and `cli` from `backslop.json`, and the rest is fixed sections: definition of done, the request to commit with the prefix, the ban on status directories and `archive/` with its reason, findings as files, the mutation-probe order, and result contents. It prints to stdout; where the brief goes — a subagent prompt, a session’s first message, a bus — is yours to decide.
 
-Two decisions in the brief are yours, and the command does not invent them:
+Five decisions in the brief are yours, and the command does not invent them:
 
 - **the track title** in 2–5 words (`--track`): it becomes the worker session name so a person can identify the work;
-- **change boundaries** (`--neighbour "path=track"`, repeatable): which directories belong to the worker and which belong to others. Name a neighbouring track — without the flag the section stays a `[TODO]` stub, which is your signal that the boundaries are not decided yet.
+- **change boundaries** (`--neighbour "path=track"`, repeatable): which directories belong to the worker and which belong to others. Name a neighbouring track — without the flag the section stays a `[TODO]` stub, which is your signal that the boundaries are not decided yet;
+- **the entry point** (`--entry`): where the subject lives and what to read first. Without it the worker does its own recon, and recon eats the start of the session;
+- **what it decides itself** (`--autonomy`): which forks it closes by its own decision and what it brings to you. Without the list every fork comes back to you as a question while the worker waits for the answer;
+- **the hand-off form** (`--handover`): which gate protocol and which report header are required on the way out. The slot is parameterised — the template holds the structure, you supply the content.
 
 Asking the worker to measure — add `--measurements`. The brief is self-contained: workers do not see your context or owner conversation, and whatever cannot be derived from the brief and the repository the worker must ask you rather than guess.
 

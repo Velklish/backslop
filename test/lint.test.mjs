@@ -328,6 +328,35 @@ test('lint: 11. гейт релиза жив после переименован
   } finally { if (project) cleanup(project.dir); }
 });
 
+// 12. Слоты шаблонов: плейсхолдер без ключа в vars. Проба в обе стороны — иначе гейт не
+// отличить от холостого: красное без зелёного доказывает только то, что он умеет ругаться.
+function withSlot(dir, name) {
+  for (const rel of ['templates/brief.md', 'templates/en/brief.md']) {
+    put(dir, rel, `${read(dir, rel)}\n{{${name}}}\n`);
+  }
+}
+
+test('lint: 12. слот шаблона без ключа в vars красит гейт, с ключом — нет', () => {
+  let red;
+  let green;
+  try {
+    red = toolProject((dir) => withSlot(dir, 'budget'));
+    assert.equal(red.code, 1, red.out);
+    assert.match(red.err, /templates\/brief\.md placeholder \{\{budget\}\} has no key in vars/);
+    assert.match(red.err, /templates\/en\/brief\.md placeholder \{\{budget\}\} has no key in vars/);
+
+    green = toolProject((dir) => {
+      withSlot(dir, 'budget');
+      put(dir, 'lib/templates.js', read(dir, 'lib/templates.js')
+        .replace("[/^brief\\.md$/, ['autonomy',", "[/^brief\\.md$/, ['autonomy', 'budget',"));
+    });
+    assert.equal(green.code, 0, green.err);
+  } finally {
+    if (red) cleanup(red.dir);
+    if (green) cleanup(green.dir);
+  }
+});
+
 test('lint: template parity: пропавший английский слой — ошибка, а не тишина', () => {
   let project;
   try {
