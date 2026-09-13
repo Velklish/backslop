@@ -1,6 +1,6 @@
 # BS-53 · `upgrade` и `lint` не выходят за markdown, поэтому пин в `package.json` и в файлах CI молча отстаёт
 
-- **Порядок:** 30
+- **Порядок:** 5
 - **Область:** `cli/lib/upgrade.js` (`rewriteProsePins`, `rewriteGates`), `cli/lib/mdwalk.js` (`liveMarkdown`), `cli/lib/lint.js` (сверка пинов)
 - **Создана:** 2026-09-12
 - **Зависимости:** нет
