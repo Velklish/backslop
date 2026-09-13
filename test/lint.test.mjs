@@ -115,6 +115,42 @@ probe('4. «Область» пуста', (root) => put(root, 'docs/backlog/acti
 probe('4. в работе без даты', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n'), /без даты «Взята/);
 probe('4. отложена без раздела', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n'), /без раздела «## Отложено»/);
 probe('4. отложена с [TODO]', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n## Отложено\n\n- **Причина:** [TODO]\n'), /не заполнен: остался \[TODO\]/);
+probe('4. второй раздел «Отложено»', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** готово\n- **Условие возврата:** готово\n\n## Отложено\n\n- **Причина:** второй\n- **Условие возврата:** второй\n'), /раздел «Отложено» повторяется 2 раза/);
+probe('4. заглушка в любом файле backlog', (root) => put(root, 'docs/backlog/triage/BS-5-todo.md', '# BS-5 · Заглушка\n\n- [TODO]\n'), /docs\/backlog\/triage\/BS-5-todo\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('4. каноническая улика находки', (root) => put(root, 'docs/backlog/triage/BS-5-finding.md', '# BS-5 · Находка\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\nЦитату файла оборачивай в блок.\n'), /BS-5-finding\.md: строка 4: осталась заглушка \[TODO\]/);
+probe('4. поле с двоеточием вне жирного', (root) => put(root, 'docs/backlog/triage/BS-6-reason.md', '# BS-6 · Причина\n\n- **Reason**: [TODO]\n'), /BS-6-reason\.md: строка 3: осталась заглушка \[TODO\]/);
+
+test('lint: текст о TODO внутри заполненного значения не красит backlog', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** заполнено; проверка [TODO] не должна искать подстроку\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+test('lint: заголовок секции внутри fenced-примера не считается дублем', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: fenced-only заголовок секции не заменяет раздел', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n');
+    assert.match(problems(root).join('\n'), /без раздела «## Отложено»/);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('5. архив без result.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/result.md')), /нет result\.md/);
 probe('5. результат не дописан', (root) => put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** [TODO: исход]\n'), /результат не дописан/);
 probe('5. каталог архива не по шаблону', (root) => put(root, 'docs/archive/old-stuff/task.md', '# x\n'), /old-stuff: имя не по шаблону/);
@@ -413,6 +449,27 @@ test('lint: 10. цитата в docs/archive — снимок момента, а
     // Форма блока, показанная внутри фенса, — пример, а не цитата.
     put(root, 'docs/howto.md', ['# Как цитировать', '', '```markdown', '<!-- quote:reference/none.md -->', 'что угодно', '<!-- /quote -->', '```', ''].join('\n'));
     assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+test('lint: 10. quote:before сохраняет снимок до правки, но не скрывает ошибки блока', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/quoting.md', [
+      '# Цитаты', '',
+      '<!-- quote:before:reference/README.md -->', '',
+      'состояние до правки', '',
+      '<!-- /quote -->', '',
+    ].join('\n'));
+    let r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(problems(root), []);
+    put(root, 'docs/quoting.md', '<!-- quote:before:reference/missing.md -->\n\nсостояние до правки\n\n<!-- /quote -->\n');
+    r = cli(root, ['lint']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /missing\.md/);
   } finally {
     cleanup(root);
   }

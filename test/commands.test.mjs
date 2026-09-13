@@ -10,9 +10,12 @@ import { loadProject } from '../lib/config.js';
 import { toPosix } from '../lib/util.js';
 
 // Гейт 4 требует «Область» у задачи вне triage/: фикстуры, доводящие lint до зелёного,
-// заполняют заглушку от `new` этим хелпером.
+// заполняют заглушки от `new` этим хелпером: гейт BS-49 видит их во всём backlog.
 function fillArea(root, rel) {
-  put(root, rel, read(root, rel).replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../README.md)'));
+  const text = read(root, rel).replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../README.md)');
+  put(root, rel, text
+    .replace(/^\s*-\s*\[TODO[^\]]*\](?:\([^)]*\))?\s*$/gm, '- готово')
+    .replace(/^\s*\[TODO[^\]]*\]\s*$/gm, 'готово'));
 }
 
 test('new: задача в triage по умолчанию, в очередь с порядком, находка с sub-ID', () => {
@@ -63,7 +66,14 @@ test('new: дробный parent принимает находку и сохра
     const child = read(root, 'docs/backlog/triage/BS-007.2-child.md');
     assert.match(child, /^# BS-007\.2 · child\n/);
     assert.match(child, /- \*\*Родитель:\*\* BS-007\.1\n/);
-    const lint = cli(root, ['lint']);
+    assert.match(child, /Находка при работе над BS-007\.1\.\nУлика: \[TODO: путь к файлу или команда с выводом\]\n/);
+    fillArea(root, 'docs/backlog/triage/BS-007.2-child.md');
+    let lint = cli(root, ['lint']);
+    assert.equal(lint.code, 1, 'незаполненная улика находки должна красить lint');
+    assert.match(lint.err, /BS-007\.2-child\.md: строка \d+: осталась заглушка \[TODO\]/);
+    put(root, 'docs/backlog/triage/BS-007.2-child.md', read(root, 'docs/backlog/triage/BS-007.2-child.md')
+      .replace('Улика: [TODO: путь к файлу или команда с выводом]', 'Улика: вывод проверки'));
+    lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
   } finally {
     cleanup(root);
@@ -214,6 +224,37 @@ test('mv: очередь → работа ставит «Взята» и сни�
     r = cli(root, ['mv', '7', 'queue']);
     assert.equal(r.code, 1);
     assert.match(r.err, /нет ни в одном/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: готовый раздел «Отложено» не дублируется и подсказывает проверить его', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-ready.md', '# BS-1 · Готово\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n\n## Отложено\n\n- **Причина:** уже разобрано\n- **Условие возврата:** вернуть после проверки\n');
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'deferred']);
+    assert.equal(r.code, 0, r.err);
+    const moved = read(root, 'docs/backlog/deferred/BS-1-ready.md');
+    assert.equal((moved.match(/^## Отложено$/gm) ?? []).length, 1);
+    assert.match(moved, /Причина:\*\* уже разобрано/);
+    assert.match(r.out, /раздел есть, проверь причину и условие возврата/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: fenced-only заголовок секции не заменяет настоящий раздел', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-fenced.md', '# BS-1 · Fenced\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n');
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'deferred']);
+    assert.equal(r.code, 0, r.err);
+    const moved = read(root, 'docs/backlog/deferred/BS-1-fenced.md');
+    assert.equal((moved.match(/^## Отложено$/gm) ?? []).length, 2);
+    assert.match(moved, /## Отложено\n\n- \*\*Отложена:\*\*/);
   } finally {
     cleanup(root);
   }

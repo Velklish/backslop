@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, formatId, getField, idMentionRe,
-  nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, setField, taskDirRe, taskFileRe,
+  nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
 
 test('имя файла задачи: номер, sub-ID и slug', () => {
@@ -96,6 +96,13 @@ test('разделы: тело до следующего заголовка и �
   assert.equal(sectionBody(indented, 'Контекст'), 'текст');
   assert.equal(sectionBody('# BS-7 · Код\n\n    ## Отложено\n\n    не раздел\n', 'Отложено'), null);
 });
+test('разделы: заголовок внутри fenced-примера не считается повтором', () => {
+  const text = `${HEADER}\n## Отложено\n\nпример\n\`\`\`markdown\n## Отложено\n\`\`\`\n`;
+  assert.equal(sectionOccurrences(text, SECTION_DEFERRED), 1);
+  assert.equal(sectionOccurrences(text.replace('## Отложено\n\nпример\n', ''), SECTION_DEFERRED), 0);
+  assert.equal(sectionBody(text.replace('## Отложено\n\nпример\n', ''), SECTION_DEFERRED), null);
+});
+
 
 const row = (num, rank) => ({ task: { num, sub: null, file: `f${num}` }, rank });
 

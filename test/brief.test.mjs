@@ -53,6 +53,10 @@ test('brief: заголовок track’а, постановки задач с �
       /Находки — файлом/, /Мутационная проба — после коммита/, /## Состав результата/]) {
       assert.match(r.out, re);
     }
+    assert.match(r.out, /закрытие и правку текста файлов в каталогах статусов и `archive\/` делает approver/);
+    assert.match(r.out, /worker присылает формулировку в результате/);
+    assert.match(r.out, /Единственное исключение — новая находка: worker заводит её отдельным файлом командой `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` в своей ветке/);
+    assert.match(r.out, /уже созданную карточку worker не правит/);
   } finally {
     cleanup(root);
   }
@@ -110,6 +114,10 @@ test('brief: EN project renders the English twin', () => {
     assert.match(r.out, /## Track tasks, in this order/);
     assert.match(r.out, /\*\*Work to do\*\*/, 'RU-разделы карточки читаются в EN-проекте');
     assert.doesNotMatch(r.out, /## Как работать/, 'русская редакция брифа в EN-проект не попадает');
+    assert.match(r.out, /the approver closes tasks and edits file text in those directories; the worker sends the wording in the result\./);
+    assert.match(r.out, /Moving a file between status directories or `archive\/` is not the worker’s move\./);
+    assert.match(r.out, /The only exception is a new finding: the worker creates it as a separate file with `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` on their branch/);
+    assert.match(r.out, /the worker does not edit an existing card/);
   } finally {
     cleanup(root);
   }

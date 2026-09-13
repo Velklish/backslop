@@ -71,3 +71,26 @@ test('config: prefix, docs, cli и gates проверяются формой', (
     assert.throws(() => loadConfig(root), /gates — список строк-команд/);
   } finally { cleanup(root); }
 });
+
+test('config: переопределения шагов AGENTS.md проверяются формой', () => {
+  const root = makeProject({ git: false });
+  const setConfig = (agents) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], agents }, null, 2)}\n`);
+  try {
+    setConfig({ stepOverrides: { '4': 'свой текст' } });
+    assert.deepEqual(loadConfig(root).agents, { stepOverrides: { '4': 'свой текст' } });
+    setConfig({ stepOverrides: [] });
+    assert.throws(() => loadConfig(root), /agents\.stepOverrides/);
+    setConfig({ stepOverrides: { '8': 'не тот шаг' } });
+    assert.throws(() => loadConfig(root), /номер шага от 1 до 7/);
+    setConfig({ stepOverrides: { '4': '   ' } });
+    assert.throws(() => loadConfig(root), /непустой текст/);
+    for (const text of ['текст\n5.\n   **ложный шаг**', 'текст\r\n5. ложный шаг', 'текст\u2028ещё']) {
+      setConfig({ stepOverrides: { '4': text } });
+      assert.throws(() => loadConfig(root), /однострочный текст/);
+    }
+    for (const text of ['текст <!-- backslop:start -->', 'текст <script>']) {
+      setConfig({ stepOverrides: { '4': text } });
+      assert.throws(() => loadConfig(root), /inline-текст/);
+    }
+  } finally { cleanup(root); }
+});

@@ -84,6 +84,87 @@ test('init: раскладка, lint зелёный, сквозной цикл �
   }
 });
 
+test('init: agents.stepOverrides заменяет шаг в RU и EN блоке и сохраняется при повторе', () => {
+  for (const [lang, override, oldStep] of [
+    ['ru', 'Проверяй гейты командой `npm run probe` и сохраняй снимок дерева.', /4\. \*\*Гейты до отчёта\./],
+    ['en', 'Run gates with `npm run probe` and keep the tree snapshot.', /4\. \*\*Gates before reporting\./],
+  ]) {
+    const root = emptyRepo();
+    try {
+      let r = cli(root, ['init', '--lang', lang]);
+      assert.equal(r.code, 0, r.err);
+      const cfg = JSON.parse(read(root, 'backslop.json'));
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
+
+      r = cli(root, ['init']);
+      assert.equal(r.code, 0, r.err);
+      const generated = read(root, 'AGENTS.md');
+      assert.ok(generated.includes(`4. ${override}`));
+      assert.doesNotMatch(generated, oldStep);
+
+      r = cli(root, ['init']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(read(root, 'AGENTS.md'), generated, `${lang}: повторный init не теряет переопределение`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+test('init: stepOverrides отклоняет переводы строк и сохраняет границы при повторе', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    const before = read(root, 'AGENTS.md');
+    for (const override of [
+      'свой текст\n5. ложный шаг',
+      'свой текст\n 5. ложный шаг',
+      'свой текст\n5) ложный шаг',
+      'свой текст\n5.\n   **ложный шаг**',
+      'свой текст\n5)\n   **ложный шаг**',
+      'свой текст\r\n5.\r\n   **ложный шаг**',
+      'свой текст\r\n5)\r\n   **ложный шаг**',
+      'свой текст\n\n   ```markdown\n5. ложный шаг',
+      'свой текст\r\n\r\n   ```markdown\r\n5. ложный шаг',
+      "свой текст\nГраницы worker'а: чужая граница",
+      'свой текст\nWorker boundaries: чужая граница',
+      'свой текст\n<!-- backslop:start -->',
+      'свой текст\n<!-- backslop:end -->',
+    ]) {
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
+      r = cli(root, ['init']);
+      assert.equal(r.code, 1);
+      assert.match(r.err, /однострочный текст/);
+      assert.equal(read(root, 'AGENTS.md'), before, 'отказ не меняет managed-блок');
+    }
+    for (const override of ['свой текст <!-- backslop:end -->', 'свой текст <script>']) {
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
+      r = cli(root, ['init']);
+      assert.equal(r.code, 1);
+      assert.match(r.err, /inline-текст/);
+      const after = read(root, 'AGENTS.md');
+      assert.equal(after, before, 'отказ не меняет managed-блок');
+      assert.match(after, /^5\. \*\*Приёмка и архив\*\*/m);
+      assert.match(after, /^Границы worker'а:/m);
+    }
+
+    const override = 'свой текст — допустимая однострочная замена';
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const generated = read(root, 'AGENTS.md');
+    assert.equal((generated.match(/<!-- backslop:start -->/g) ?? []).length, 1);
+    assert.equal((generated.match(/<!-- backslop:end -->/g) ?? []).length, 1);
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'AGENTS.md'), generated, 'повторный init не дублирует границы');
+  } finally {
+    cleanup(root);
+  }
+});
+
+
 test('init: свой префикс и каталог, существующий AGENTS.md сохраняется, конфликт флагов с конфигом — отказ', () => {
   const root = emptyRepo();
   try {
@@ -100,7 +181,7 @@ test('init: свой префикс и каталог, существующий 
 
     r = cli(root, ['new', 'x', '--queue']);
     assert.ok(existsSync(path.join(root, 'doc/backlog/queue/DFL-1-x.md')));
-    put(root, 'doc/backlog/queue/DFL-1-x.md', read(root, 'doc/backlog/queue/DFL-1-x.md').replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../reference/README.md)'));
+    put(root, 'doc/backlog/queue/DFL-1-x.md', read(root, 'doc/backlog/queue/DFL-1-x.md').replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../reference/README.md)').replace(/\[TODO[^\]]*\]/g, 'готово'));
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
 

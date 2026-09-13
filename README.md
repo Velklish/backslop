@@ -23,12 +23,14 @@ Agents produce a lot of work, and it needs a tracker that lives in the repositor
 ## What appears in a project
 
 ```
-backslop.json                    prefix, docs, cli (with version pin), gates, version, lang, tools
+backslop.json                    prefix, docs, cli (with version pin), gates, version, lang, tools, agents.stepOverrides
 AGENTS.md                        procedure section between <!-- backslop:start --> and <!-- backslop:end -->
 docs/…                           documentation skeleton, backlog, archive, first ADR
 ```
 
 Adapters are written only when selected: `init --tools claude,cursor,codex`. Default `tools` is `[]`. A legacy config without `tools` preserves Claude when the old canonical `.claude/skills/backslop-task/SKILL.md` exists; otherwise it remains adapter-free. An explicit `tools: []` or `--tools none` always wins.
+
+To adapt a numbered step in the managed `AGENTS.md` block, set `agents.stepOverrides` in `backslop.json`: a string key `"1"` through `"7"` replaces that step's text on `init` while its number and the other steps stay managed. The value must be a single non-empty line without `<`. It is inline text; markup that can open a block or raw HTML is not allowed. `init` rejects invalid values before writing the managed block; the step number, the other steps, and the worker boundary remain managed.
 
 | Adapter | Output |
 |---|---|
@@ -46,7 +48,7 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 |---|---|
 | `init [--dir docs] [--prefix BS] [--cli …] [--lang ru\|en] [--tools <CSV\|none>]` | lay out the skeleton; on repeat, update selected adapters and the AGENTS.md section |
 | `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M]]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k`; `--parent N.M` accepts a finding parent, creates the next free `N.k`, and records the `Parent` field; the number skips those taken in other worktrees and local branches |
-| `mv <N…> <triage\|queue\|active\|deferred> [--top \| --after M]` | change status of one or several tasks in one call: `git mv` plus fields that follow status; on a task already in `queue/`, `--top` or `--after M` only changes its Order |
+| `mv <N…> <triage\|queue\|active\|deferred> [--top \| --after M]` | change the status of one or several tasks in one call: `git mv` plus fields that follow status; in `deferred/`, an existing section is not duplicated and the command prompts you to check its reason and return condition; a heading inside a fenced example does not count as an existing section; on a task already in `queue/`, `--top` or `--after M` only changes its Order |
 | `archive <N> [--dry-run]` | close: move to `archive/`, rewrite task links throughout the repository, create `result.md` stub |
 | `adr <slug> [--title "…"]` | create the next-numbered ADR |
 | `status [--json]` | active work, ordered queue, deferred work, triage; `--json` is for orchestrators and scripts |
@@ -54,7 +56,7 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 | `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
 | `version`, `help` | version and help |
-| `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity |
+| `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity; a standalone placeholder line or a field whose entire value is a `[TODO…]` placeholder in any markdown file under `docs/backlog/**` fails the gate, while `[TODO]` inside explanatory text is not a placeholder; `quote:before:<path>` stores a pre-change snapshot, regular `quote:<path>` guards an invariant |
 | `gates [--keep-going] [--json] [--require-clean] [--dry-run]` | run the commands from `gates`: exit code of each, “gates N, green M”, tree snapshot |
 
 Before publishing to npm the command is long, so projects record it in the `cli` field of `backslop.json`; skills and the `AGENTS.md` section substitute it from there. If installed globally (`npm i -g github:Velklish/backslop#v<version>`), change `cli` to `backslop`.
@@ -75,10 +77,10 @@ A global install (`cli: "backslop"`) or an npm pin (`cli: "npx backslop@X.Y.Z"`)
 
 1. An agent takes the first task from `status` and starts it with `mv N active`.
 2. It changes code, updates documentation in the same pass, and runs gates from `backslop.json` — including `lint`.
-3. The approver accepts work: `archive N`, completes `result.md` (while it contains `[TODO]`, `lint` fails), and reviews `triage/` so every entry has a next step.
+3. The approver accepts work: `archive N`, completes `result.md` (while it contains `[TODO]`, `lint` fails), and reviews `triage/` so every entry has a next step. The approver also edits task-file text in status directories and the archive; the worker sends the wording in the result. The only exception is a new finding: the worker creates it as a separate file with `new --parent N[.M]` on their branch; the worker does not edit an existing card.
 4. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a worker changes only its branch and does not move statuses, a reviewer is raised for contract diffs, and acceptance squashes by task.
 
-The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move task files between directories; they create findings with `new --parent N[.M]`.
+The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move existing task files between directories; they create a new finding as a separate file with `new --parent N[.M]` on their branch and do not edit an existing card.
 
 ## For orchestrators
 

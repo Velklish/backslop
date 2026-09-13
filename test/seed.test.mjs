@@ -92,14 +92,14 @@ test('seed --queue-reference: задача на строку без раздел
     assert.deepEqual(queue, ['BS-1-describe-orders-api.md'], 'готовый раздел и внешняя ссылка пропущены');
     assert.match(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md'), /^# BS-1 · Справочник: Приём заказов\n/);
 
-    // Область заводимой задачи известна — это раздел строки; заглушка оставила бы гейт 4 красным.
+    // Область заводимой задачи известна, но оставшиеся поля пока ждут автора и красны по гейту BS-49.
     assert.match(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md'), /- \*\*Область:\*\* \[Приём заказов\]\(\.\.\/\.\.\/reference\/README\.md\) — раздел `orders-api\.md` ещё не написан\n/);
     const lint = cli(root, ['lint']);
-    assert.doesNotMatch(lint.err, /BS-1-describe-orders-api/, 'посеянная задача гейтов не красит');
-    // Единственная ошибка — ссылка самой таблицы на ещё не написанный раздел: она и есть
+    assert.match(lint.err, /BS-1-describe-orders-api/, 'общий гейт видит незаполненные поля посеянной задачи');
+    // Одна из ошибок — ссылка самой таблицы на ещё не написанный раздел: она и есть
     // причина задачи, и гасит её тот, кто раздел напишет.
     assert.match(lint.err, /docs\/reference\/README\.md: битая ссылка orders-api\.md/);
-    assert.match(lint.err, /lint: ошибок 1/);
+    assert.match(lint.err, /lint: ошибок 5/);
 
     const again = cli(root, ['seed', '--queue-reference']);
     assert.equal(again.code, 0, again.err);

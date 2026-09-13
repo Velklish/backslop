@@ -9,7 +9,7 @@ The operational tracker for {{project}}: **one task is one file**, and **status 
 | `triage/` | Unreviewed ideas and findings. The file is the entry | `{{cli}} new <slug> --title "…"`; a finding is `{{cli}} new <slug> --parent N[.M]` |
 | `queue/` | The queue; priority is the integer “Order” field, in steps of 10; lower comes first | `{{cli}} new <slug> --queue [--top]`, `{{cli}} mv N queue [--top \| --after M]` |
 | `active/` | Work in progress; “Taken” is the date it was started | `{{cli}} mv N… active` by the person holding the queue |
-| `deferred/` | Deferred work; the “Deferred” section gives the reason and return condition | `{{cli}} mv N deferred`, then complete the section |
+| `deferred/` | Deferred work; the “Deferred” section gives the reason and return condition | `{{cli}} mv N deferred`; if the section is already present, the command does not append it and prints “section exists; check the reason and return condition” |
 | [`../archive/`](../archive/README.md) | Closed: `task.md` + `result.md` | `{{cli}} archive N`, then complete `result.md` |
 
 ## How to maintain it
@@ -20,10 +20,11 @@ The operational tracker for {{project}}: **one task is one file**, and **status 
 - A finding under a closed parent may remain in `triage/`: `lint` warns the approver but does not fail the gate.
 - **Numbers are sequential** and never reused after closure; `{{cli}} new` assigns them across the directories of the current tree, the repository’s other worktrees, and all local branches — a worker in a worktree and the orchestrator in the main tree get different numbers, and the command names the foreign number it skipped. A collision remains possible with a clone or an unfetched remote branch; `{{cli}} lint` catches it at merge time, and the loser recreates the file.
 - **Status = directory** is the only place status lives. A task file holds the definition, scope (a link to [reference/](../reference/README.md)), dates, and current state.
-- **“Scope”** links to a [reference/](../reference/README.md) section: in `queue/`, `active/`, and `deferred/` an empty field or the `[TODO]` placeholder left by `{{cli}} new` is a `lint` error; in `triage/` the field is not checked — it is filled in during review.
+- **“Scope”** links to a [reference/](../reference/README.md) section: in `queue/`, `active/`, and `deferred/` an empty field or a field whose entire value is a `[TODO…]` placeholder left by `{{cli}} new` is a `lint` error; in `triage/` the field is not checked — it is filled in during review. A standalone `[TODO…]` placeholder line in any markdown file under `docs/backlog/**` also fails `lint`; `[TODO]` inside explanatory text, as part of a larger value, is not a placeholder.
 - **Priority = the “Order” field** in `queue/`. Reorder with `{{cli}} mv N queue --top` or `--after M`, including a task already in the queue: the file stays, only the number changes. Two files with one “Order” is a `lint` error.
 - **Closure** — completed, rejected, or merged — uses `{{cli}} archive N`: the file moves to the archive as `task.md`, alongside a dated `result.md`, and the output names the documentation files touched by the task (`--range <base>..HEAD` widens the selection with the range's commits). The approver completes the outcome and result; while `result.md` contains `[TODO]`, `lint` fails.
-- A deferred task gets a “Deferred” section with its reason and return condition; without them, `lint` fails.
+- **Quote** — a regular `quote:<path>` block guards a file invariant. A `quote:before:<path>` block stores a pre-change snapshot: content drift does not fail `lint`, but the target and closing marker remain required.
+- A deferred task gets a “Deferred” section with its reason and return condition; if the section is already present, `{{cli}} mv N deferred` does not append it and prints “section exists; check the reason and return condition”; without completed fields, `lint` fails.
 - A task that becomes an architectural decision moves to an [ADR](../README.md); the task file keeps a link.
 - Project gates are the `gates` field in `backslop.json`; `{{cli}} lint` is among them.
 
