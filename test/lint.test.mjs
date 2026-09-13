@@ -135,20 +135,26 @@ probe('7. дубль заголовка записи в секции CHANGELOG',
 probe('8. ADR без строки в таблице', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Сирота\n'), /adr-002-orphan\.md: нет строки/);
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
-probe('9. находка в triage/, а задача закрыта', (root) => {
-probe('9. закрытый родитель назван формой своего номера', (root) => {
-  put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
-  put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
-  put(root, 'docs/backlog/triage/BS-007.1-x.md', '# BS-007.1 · Находка\n');
-}, /BS-007\.1-x\.md: находка BS-007\.1 лежит в triage\/, а задача BS-007 закрыта/);
-probe('10. второй маркер закрывает незакрытый блок ошибкой', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- /quote -->\n'), /quoting\.md: блок цитаты .* не закрыт/);
-probe('10. цитата разошлась с файлом', (root) => put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — два имени.\n'), /quoting\.md: цитата разошлась с reference\/README\.md/);
-probe('10. цитата ведёт на несуществующий файл', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\nтекст\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);
-probe('10. блок цитаты не закрыт', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n'), /quoting\.md: блок цитаты .* не закрыт/);
-  put(root, 'docs/archive/BS-2-b/task.md', '# BS-2 · Б\n');
-  put(root, 'docs/archive/BS-2-b/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
-  rmSync(path.join(root, 'docs/backlog/active/BS-2-b.md'));
-}, /BS-2\.1-d\.md: находка BS-2\.1 лежит в triage\/, а задача BS-2 закрыта/);
+test('lint: находка под закрытым родителем остаётся предупреждением для approver', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/archive/BS-2-b/task.md', '# BS-2 · Б\n');
+    put(root, 'docs/archive/BS-2-b/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+    put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
+    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+    put(root, 'docs/backlog/triage/BS-007.1-x.md', '# BS-007.1 · Находка\n');
+    rmSync(path.join(root, 'docs/backlog/active/BS-2-b.md'));
+    assert.deepEqual(problems(root), []);
+    assert.ok(warnings(root).some((w) => /BS-007\.1-x\.md: находка BS-007\.1 лежит в triage\/, а задача BS-007 закрыта — разбери её \(approver\)/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => /BS-2\.1-d\.md: находка BS-2\.1 лежит в triage\/, а задача BS-2 закрыта — разбери её \(approver\)/.test(w)), warnings(root).join(' | '));
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /разбери её \(approver\)/);
+  } finally {
+    cleanup(root);
+  }
+});
 
 test('lint: предупреждения о версии не красят гейт', () => {
   const root = makeProject({ git: false, stamp: false });
@@ -412,6 +418,11 @@ test('lint: 10. цитата в docs/archive — снимок момента, а
   }
 });
 
+probe('10. второй маркер закрывает незакрытый блок ошибкой', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- /quote -->\n'), /quoting\.md: блок цитаты .* не закрыт/);
+probe('10. цитата разошлась с файлом', (root) => put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — два имени.\n'), /quoting\.md: цитата разошлась с reference\/README\.md/);
+probe('10. цитата ведёт на несуществующий файл', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\nтекст\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);
+probe('10. блок цитаты не закрыт', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n'), /quoting\.md: блок цитаты .* не закрыт/);
+
 // BS-19: пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
 probe('2. каталог вместо файла задачи в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), /каталог внутри каталога статуса/);
 // Каталог, названный как файл задачи: scanTasks читал его как файл и падал EISDIR раньше гейта (BS-19.1).
@@ -442,7 +453,7 @@ test('lint: каталог с именем файла задачи — диаг�
   }
 });
 
-test('lint: пин в прозе, расходящийся с cli, — предупреждение с файлом и строкой', () => {
+test('lint: живой пин, расходящийся с cli, — ошибка с файлом и строкой', () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
   try {
@@ -450,28 +461,36 @@ test('lint: пин в прозе, расходящийся с cli, — пред�
     const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
     setConfig({ cli: `npx github:me/proj#v${V}`, version: V });
     assert.deepEqual(warnings(root), []);
+    put(root, 'package.json', `{"scripts":{"lint:backslop":"npx github:me/proj#v0.1.0 lint"}}\n`);
+    put(root, '.github/workflows/ci.yml', `steps:\n  - run: npx github:me/proj#v0.1.0 init\n`);
+    assert.ok(problems(root).some((p) => p.startsWith('package.json:')), problems(root).join(' | '));
+    assert.ok(problems(root).some((p) => p.startsWith('.github/workflows/ci.yml:')), problems(root).join(' | '));
+    put(root, 'package.json', `{"scripts":{"lint:backslop":"npx github:me/proj#v${V} lint"}}\n`);
+    put(root, '.github/workflows/ci.yml', `steps:\n  - run: npx github:me/proj#v${V} init\n`);
+    assert.deepEqual(problems(root), []);
 
     put(root, 'docs/archive/README.md', '# Архив\n\nПереезд делает `npx github:me/proj#v0.1.0 archive N`.\n');
-    assert.ok(warnings(root).some((w) => new RegExp(`docs/archive/README\\.md: строка 3: пин github:me/proj#v0\\.1\\.0 расходится с cli — ожидается github:me/proj#v${V.replace(/\./g, '\\.')}`).test(w)), warnings(root).join(' | '));
+    assert.ok(problems(root).some((p) => p.includes('docs/archive/README.md: строка 3: пин github:me/proj#v0.1.0 расходится с cli')), problems(root).join(' | '));
 
     // Записи о моменте — не инструкция: их версии дрейфом не считаются.
     put(root, 'docs/archive/README.md', '# Архив\n');
     put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — было `npx github:me/proj#v0.1.0`\n');
     put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Процесс\n\n**Status:** Accepted\n\nПри `npx github:me/proj#v0.1.0`.\n');
     put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\nГнали `npx github:me/proj#v0.1.0 lint`.\n');
-    assert.deepEqual(warnings(root), []);
+    assert.deepEqual(problems(root), []);
 
     // Карточка задачи цитирует пин уликой момента — предупреждать не о чем.
     put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\nЗамер сделан на `npx github:me/proj#v0.1.0`.\n');
-    assert.deepEqual(warnings(root), []);
+    assert.deepEqual(problems(root), []);
 
     // npm-форма пина сверяется тем же способом.
     setConfig({ cli: `npx backslop@${V}`, version: V });
     put(root, 'docs/ROADMAP.md', 'Ставится `npx backslop@0.3.0`.\n');
-    assert.ok(warnings(root).some((w) => /docs\/ROADMAP\.md: строка 1: пин backslop@0\.3\.0 расходится с cli/.test(w)), warnings(root).join(' | '));
+    assert.ok(problems(root).some((p) => /docs\/ROADMAP\.md: строка 1: пин backslop@0\.3\.0 расходится с cli/.test(p)), problems(root).join(' | '));
 
     // cli без пина — сверять не с чем: self-host и глобальная установка молчат.
     setConfig({ cli: 'node bin/backslop.js', version: V });
+    assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
   } finally {
     cleanup(root);

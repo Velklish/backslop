@@ -6,7 +6,7 @@ The operational tracker for {{project}}: **one task is one file**, and **status 
 
 | Directory | Contents | How it gets there |
 |---|---|---|
-| `triage/` | Unreviewed ideas and findings. The file is the entry | `{{cli}} new <slug> --title "…"`; a finding is `{{cli}} new <slug> --parent N` |
+| `triage/` | Unreviewed ideas and findings. The file is the entry | `{{cli}} new <slug> --title "…"`; a finding is `{{cli}} new <slug> --parent N[.M]` |
 | `queue/` | The queue; priority is the integer “Order” field, in steps of 10; lower comes first | `{{cli}} new <slug> --queue [--top]`, `{{cli}} mv N queue [--top \| --after M]` |
 | `active/` | Work in progress; “Taken” is the date it was started | `{{cli}} mv N… active` by the person holding the queue |
 | `deferred/` | Deferred work; the “Deferred” section gives the reason and return condition | `{{cli}} mv N deferred`, then complete the section |
@@ -15,8 +15,9 @@ The operational tracker for {{project}}: **one task is one file**, and **status 
 ## How to maintain it
 
 - When an idea appears, put a one- or two-line file in `triage/`, without analysis or polish. Review is a separate pass.
-- A finding from review, a worker, or a live run that this pass will not close becomes a file immediately with `--parent N`: it gets an `N.k` number and requires no coordination with neighbours. It will be lost in chat. Do not duplicate the current task.
+- A finding from review, a worker, or a live run that this pass will not close becomes a file immediately with `--parent N` or `--parent N.M`: the first gets an `N.k` number; the second gets the next free `N.k` and stores the exact finding in the `Parent` field. It will be lost in chat. Do not duplicate the current task.
 - A verifiable claim in an entry — a number, “covered by a test”, “printed by three commands” — must include evidence: the command or file and line that produced it. If unverified, write it as a hypothesis. A definition with an incorrect fact gives the implementer wrong boundaries, and a failing test in someone else’s work is what turns it into truth.
+- A finding under a closed parent may remain in `triage/`: `lint` warns the approver but does not fail the gate.
 - **Numbers are sequential** and never reused after closure; `{{cli}} new` assigns them across the directories of the current tree, the repository’s other worktrees, and all local branches — a worker in a worktree and the orchestrator in the main tree get different numbers, and the command names the foreign number it skipped. A collision remains possible with a clone or an unfetched remote branch; `{{cli}} lint` catches it at merge time, and the loser recreates the file.
 - **Status = directory** is the only place status lives. A task file holds the definition, scope (a link to [reference/](../reference/README.md)), dates, and current state.
 - **“Scope”** links to a [reference/](../reference/README.md) section: in `queue/`, `active/`, and `deferred/` an empty field or the `[TODO]` placeholder left by `{{cli}} new` is a `lint` error; in `triage/` the field is not checked — it is filled in during review.

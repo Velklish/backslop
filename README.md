@@ -45,12 +45,12 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 | Command | What it does |
 |---|---|
 | `init [--dir docs] [--prefix BS] [--cli …] [--lang ru\|en] [--tools <CSV\|none>]` | lay out the skeleton; on repeat, update selected adapters and the AGENTS.md section |
-| `new <slug> [--title "…"] [--queue [--top]] [--parent N]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k`; the number skips those taken in other worktrees and local branches |
+| `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M]]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k`; `--parent N.M` accepts a finding parent, creates the next free `N.k`, and records the `Parent` field; the number skips those taken in other worktrees and local branches |
 | `mv <N…> <triage\|queue\|active\|deferred> [--top \| --after M]` | change status of one or several tasks in one call: `git mv` plus fields that follow status; on a task already in `queue/`, `--top` or `--after M` only changes its Order |
 | `archive <N> [--dry-run]` | close: move to `archive/`, rewrite task links throughout the repository, create `result.md` stub |
 | `adr <slug> [--title "…"]` | create the next-numbered ADR |
 | `status [--json]` | active work, ordered queue, deferred work, triage; `--json` is for orchestrators and scripts |
-| `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update a project: CLI and gate pins, `migrate` and `init` with the new version, CHANGELOG summary |
+| `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update a project: CLI, gate, and live-file pins, `migrate` and `init` with the new version, CHANGELOG summary |
 | `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
 | `version`, `help` | version and help |
@@ -67,7 +67,7 @@ Before publishing to npm the command is long, so projects record it in the `cli`
 npx github:Velklish/backslop upgrade
 ```
 
-`upgrade` takes the latest repository tag (or `--to X.Y.Z`), test-runs the new version, moves pins in `cli` and `gates`, runs `migrate` and `init` with that new version, and prints a CHANGELOG summary between versions. You can call it through the project command — `<cli> upgrade` works from any version 0.2.0 or later — or by the unpinned form above: it always takes fresh backslop, but still updates the project to the latest tag. `--dry-run` prints the plan; `--pin-only` only moves the pin. Downgrades are unsupported because an old version does not know a newer file format. `upgrade` does not touch `docs/` or task files; any future format change belongs to `migrate`. `lint` warns when `cli` lacks a pin, its stamp is older than the tool, or the stamp and pin differ, but the gate does not fail.
+`upgrade` takes the latest repository tag (or `--to X.Y.Z`), test-runs the new version, and moves pins in `cli`, `gates`, and live files: markdown under `docs/**` and root `*.md` with historical exceptions, every file named `package.json`, and known CI files. It then runs `migrate`, `init`, and prints a CHANGELOG summary between versions. You can call it through the project command — `<cli> upgrade` works from any version 0.2.0 or later — or by the unpinned form above: it always takes fresh backslop, but still updates the project to the latest tag. `--dry-run` prints the plan; `--pin-only` changes only configuration and gates, not live files; after manual `migrate` and `init`, repeat the full `upgrade` to find and rewrite them even when there is no newer tag. Downgrades are unsupported because an old version does not know a newer file format. `lint` keeps layout-version warnings advisory, but an old pin in a live file is an error; historical files stay green.
 
 A global install (`cli: "backslop"`) or an npm pin (`cli: "npx backslop@X.Y.Z"`) has no GitHub-derived source: set the `source` field in `backslop.json` to the repository URL with release tags. `upgrade` then updates the pin and layout; you still update a globally installed package yourself.
 
@@ -78,7 +78,7 @@ A global install (`cli: "backslop"`) or an npm pin (`cli: "npx backslop@X.Y.Z"`)
 3. The approver accepts work: `archive N`, completes `result.md` (while it contains `[TODO]`, `lint` fails), and reviews `triage/` so every entry has a next step.
 4. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a worker changes only its branch and does not move statuses, a reviewer is raised for contract diffs, and acceptance squashes by task.
 
-The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move task files between directories; they create findings with `new --parent N`.
+The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move task files between directories; they create findings with `new --parent N[.M]`.
 
 ## For orchestrators
 

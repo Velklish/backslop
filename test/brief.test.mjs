@@ -45,7 +45,7 @@ test('brief: заголовок track’а, постановки задач с �
     // gates, prefix и cli — из backslop.json проекта, не из умолчаний инструмента.
     assert.match(r.out, /`npm test`, `npx backslop@1\.2\.3 lint`/);
     assert.match(r.out, /префиксом `BL-N:`/);
-    assert.match(r.out, /`npx backslop@1\.2\.3 new <slug> --parent N`/);
+    assert.match(r.out, /`npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]`/);
 
     // Семь неизменных пунктов брифа.
     for (const re of [/## Границы правки/, /## Критерий готовности/, /Доки — тем же ходом/,

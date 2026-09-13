@@ -1,6 +1,6 @@
 # ADR-001: Задачи и решения ведутся по backslop
 
-**Status:** Accepted
+**Status:** Superseded in part by [ADR-019](adr-019-live-pins-and-findings.md) (дробный `--parent` и связь находки с закрытым родителем)
 **Date:** 2026-09-03
 **Deciders:** Velklish
 
@@ -13,7 +13,7 @@
 Задачи и решения ведутся по backslop:
 
 - задача — файл `BS-<номер>-<slug>.md`; статус — каталог `docs/backlog/{triage,queue,active,deferred}/`; закрытые — `docs/archive/<id>-<slug>/` с `task.md` и `result.md`;
-- приоритет очереди — поле «Порядок» в файле; номера считает `node bin/backslop.js new` по каталогам, находки получают `N.k` без координации;
+- приоритет очереди — поле «Порядок» в файле; номера считает `node bin/backslop.js new` по каталогам, находки получают `N.k` без координации; для `--parent N.M` связь хранится отдельным полем — [ADR-019](adr-019-live-pins-and-findings.md);
 - решения — ADR в `docs/adr/` со строкой в таблице `docs/README.md`; принятое решение не правится, а заменяется новым;
 - процедура изменения и роли worker/approver — блок backslop в `AGENTS.md`; детали — скиллы `backslop-task` и `backslop-batch`, наполнение документации — `backslop-seed`;
 - гейты — `node bin/backslop.js lint` плюс `gates` из `backslop.json`.

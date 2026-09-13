@@ -53,6 +53,23 @@ test('new: задача в triage по умолчанию, в очередь с 
   }
 });
 
+test('new: дробный parent принимает находку и сохраняет связь в поле Родитель', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/triage/BS-007-root.md', '# BS-007 · Корень\n');
+    put(root, 'docs/backlog/triage/BS-007.1-finding.md', '# BS-007.1 · Находка\n');
+    const r = cli(root, ['new', 'child', '--parent', '7.1']);
+    assert.equal(r.code, 0, r.err);
+    const child = read(root, 'docs/backlog/triage/BS-007.2-child.md');
+    assert.match(child, /^# BS-007\.2 · child\n/);
+    assert.match(child, /- \*\*Родитель:\*\* BS-007\.1\n/);
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('new: номер и sub-ID учитывают файлы чужого worktree и коммиты чужой ветки, вывод называет источник', () => {
   const root = makeProject();
   const wt = path.join(mkdtempSync(path.join(os.tmpdir(), 'backslop-wt-')), 'worker');

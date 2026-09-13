@@ -27,6 +27,7 @@
 | [adr/adr-016-selected-adapter-roots-symlink.md](adr/adr-016-selected-adapter-roots-symlink.md) | Symlink проверяется только на корнях выбранных adapter'ов | Accepted |
 | [adr/adr-017-gates-step-follows-the-pin.md](adr/adr-017-gates-step-follows-the-pin.md) | Шаг гейтов в брифе идёт по пинованной версии, а не по запущенной | Accepted |
 | [adr/adr-018-brief-decision-slots.md](adr/adr-018-brief-decision-slots.md) | Решения оркестратора в брифе — слоты, и пара «слот ↔ ключ» под гейтом | Accepted |
+| [adr/adr-019-live-pins-and-findings.md](adr/adr-019-live-pins-and-findings.md) | Живые пины в `upgrade`/`lint` и связь находки с родителем | Accepted |
 
 ## Сквозные принципы
 

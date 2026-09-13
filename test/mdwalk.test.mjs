@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { mdFiles, repoMarkdown } from '../lib/mdwalk.js';
+import { livePinFiles, mdFiles, repoMarkdown } from '../lib/mdwalk.js';
 
 function put(root, rel, text = '# x\n') {
   const abs = path.join(root, ...rel.split('/'));
@@ -86,6 +86,40 @@ test('mdFiles: файл за симлинком на каталог попада
     symlinkSync(path.join(sb, 'outside'), path.join(sb, 'docs', 'link'));
     const rels = mdFiles(path.join(sb, 'docs'), 'docs').map(([rel]) => rel).sort();
     assert.deepEqual(rels, ['docs/a.md', 'docs/link/b.md']);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('livePinFiles: markdown и исполняемые package/CI входят, история и служебные каталоги исключены', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
+  try {
+    put(sb, 'README.md');
+    put(sb, 'CHANGELOG.md');
+    put(sb, 'docs/live.md');
+    put(sb, 'docs/adr/adr-001.md');
+    put(sb, 'docs/archive/BS-1-old/task.md');
+    put(sb, 'docs/backlog/queue/BS-2-card.md');
+    put(sb, 'package.json');
+    put(sb, 'packages/app/package.json');
+    put(sb, 'old-package.json');
+    put(sb, 'packages/app/fixture-package.json');
+    put(sb, 'node_modules/dep/package.json');
+    put(sb, '.gitlab-ci.yml');
+    put(sb, '.github/workflows/ci.yml');
+    put(sb, '.github/actions/check.yaml');
+    put(sb, '.circleci/config.yml');
+    const rels = livePinFiles(sb, 'docs', 'BS').map(([rel]) => rel).sort();
+    assert.deepEqual(rels, [
+      '.circleci/config.yml',
+      '.github/actions/check.yaml',
+      '.github/workflows/ci.yml',
+      '.gitlab-ci.yml',
+      'README.md',
+      'docs/live.md',
+      'package.json',
+      'packages/app/package.json',
+    ]);
   } finally {
     rmSync(sb, { recursive: true, force: true });
   }

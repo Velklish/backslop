@@ -31,7 +31,7 @@ One worker equals one subsystem, not one task. Tasks within a track share contex
 
 After distributing briefs, **move every assigned task to active work** in one call: `backslop mv N M K active`. You hold directories; workers do not touch them at all. When the run ends and you have not accepted work, return it to the queue with `backslop mv N queue --top` or `--after M` so it does not lose its position.
 
-**Until integration, findings under task N are created only by the worker of its track** — `backslop new <slug> --parent N` in the worker branch. Do not create findings under the same parent before integration: `new` counts `N.k` across neighbouring worktrees and local branches, but not across a separate clone or a worker branch not yet fetched, and two identical `N.k` meet only in `lint` at integration. Record your own observation about task N before integration in the acceptance notes or as a task without a parent.
+**Until integration, findings under task N are created only by the worker of its track** — `backslop new <slug> --parent N[.M]` in the worker branch. With `--parent N.M`, the command assigns the next free `N.k` and stores the `Parent` field; with `--parent N`, it keeps the `N.k` numbering. Do not create findings under the same parent before integration: `new` counts `N.k` across neighbouring worktrees and local branches, but not across a separate clone or a worker branch not yet fetched, and two identical `N.k` meet only in `lint` at integration. Record your own observation about task N before integration in the acceptance notes or as a task without a parent.
 
 ## How to raise a worker
 

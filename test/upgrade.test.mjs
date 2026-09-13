@@ -308,6 +308,9 @@ test('upgrade: пин в прозе docs переставляется, запи�
     put(root, 'docs/archive/README.md', `# Архив\n\nПереезд делает \`${old} archive N\`.\n`);
     put(root, 'docs/backlog/README.md', `# Backlog\n\nСводку печатает \`${old} status\`.\n`);
     put(root, 'README.md', `Установка: \`${old} init\`.\n`);
+    put(root, 'package.json', '{"scripts":{"lint:backslop":"' + old + ' lint"}}\n');
+    put(root, 'fixture-package.json', '{"scripts":{"lint:backslop":"' + old + ' lint"}}\n');
+    put(root, '.github/workflows/ci.yml', 'steps:\n  - run: ' + old + ' init\n');
     put(root, 'CHANGELOG.md', `## Не выпущено\n\n- **Было** — \`${old}\`\n`);
     put(root, 'docs/adr/adr-001-x.md', `# ADR-001: Х\n\nРешение принято при \`${old}\`.\n`);
     put(root, 'docs/archive/BS-1-x/task.md', `# BS-1 · Х\n\nГнали \`${old} lint\`.\n`);
@@ -319,19 +322,28 @@ test('upgrade: пин в прозе docs переставляется, запи�
     seed();
     let r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /затем .* upgrade для живых пинов/);
     assert.ok(read(root, 'docs/archive/README.md').includes(old), '--pin-only прозу не трогает');
 
     // Прозу чинит следующий полный upgrade, хотя пин в конфиге уже уехал: поиск идёт по
     // спеке, а не по литералу прежнего cli — иначе отставшая на две версии проза не
     // починилась бы уже никогда.
-    setConfig(root, { version: '0.1.0' });
+    r = cli(root, ['migrate'], { env });
+    assert.equal(r.code, 0, r.err);
+    r = cli(root, ['init'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(config(root).version, TOOL_VERSION);
+    r = cli(root, ['lint'], { env });
+    assert.equal(r.code, 1, r.err);
+    assert.match(r.err, /пин .*расходится с cli/);
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /пин в прозе: 4 файлов/);
-    for (const rel of ['docs/archive/README.md', 'docs/backlog/README.md', 'README.md']) {
+    assert.match(r.out, /пин в прозе: 6 файлов/);
+    for (const rel of ['docs/archive/README.md', 'docs/backlog/README.md', 'README.md', 'package.json', '.github/workflows/ci.yml']) {
       assert.ok(read(root, rel).includes(now), `${rel}: пин не переставлен`);
       assert.ok(!read(root, rel).includes(old), `${rel}: остался старый пин`);
     }
+    assert.ok(read(root, 'fixture-package.json').includes(old), 'fixture-package.json не является живым манифестом');
     for (const rel of ['CHANGELOG.md', 'docs/adr/adr-001-x.md', 'docs/archive/BS-1-x/task.md', 'docs/backlog/queue/BS-2-card.md']) {
       assert.ok(read(root, rel).includes(old), `${rel}: запись о моменте переписана, а не должна`);
     }

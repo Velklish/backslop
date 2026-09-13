@@ -16,8 +16,8 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
 Команды:
   init [--dir docs] [--prefix BS] [--cli <команда>] [--lang ru|en] [--tools <CSV|none>]
                                                       разложить скелет docs, adapters, блок в AGENTS.md, backslop.json
-  new <slug> [--title "…"] [--queue [--top]] [--parent N]
-                                                      завести задачу (по умолчанию в triage/) или находку задачи N
+  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M]]
+                                                      завести задачу (по умолчанию в triage/) или находку задачи N / N.M
   mv <N…> <triage|queue|active|deferred> [--top | --after M]
                                                       сменить статус: git mv между каталогами; номеров может быть несколько
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
@@ -32,11 +32,11 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   lint                                                двенадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
                                                       цитаты, версии релиза, слоты шаблонов; adapter outputs,
-                                                      равенство шаблонов и предупреждения о версии
+                                                      равенство шаблонов и предупреждения о версии и закрытом родителе
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       прогнать команды из gates: код каждой, счёт зелёных, снимок дерева
   tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
-  upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli и gates, migrate и init новой версией
+  upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli, gates и живых файлах, migrate и init новой версией
   migrate [--dry-run]                                 миграция формата файлов и штамп версии
   changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями
   merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <файл>]
@@ -56,8 +56,8 @@ const HELP_EN = `backslop — a file-based backlog with an archive, ADRs, and pr
 Commands:
   init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru|en] [--tools <CSV|none>]
                                                       create docs, adapters, AGENTS.md block, and backslop.json
-  new <slug> [--title "…"] [--queue [--top]] [--parent N]
-                                                      create a task (triage/ by default) or a finding for task N
+  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M]]
+                                                      create a task (triage/ by default) or a finding for task N / N.M
   mv <N…> <triage|queue|active|deferred> [--top | --after M]
                                                       change status with git mv between directories; several numbers allowed
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
@@ -71,11 +71,11 @@ Commands:
   status [--json]                                     show active work, ordered queue, deferred tasks, and triage
   lint                                                twelve gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
-                                                      versions, template slots; adapter outputs and template parity
+                                                      versions, template slots; adapter outputs, template parity, and closed-parent warnings
   gates [--keep-going] [--json] [--require-clean] [--dry-run]
                                                       run the gates list: exit code of each, green count, tree snapshot
   tracks [--json]                                     run worktrees and branches: merged or not, what is left, what is dirty
-  upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update the cli pin, migrate, and initialize the new version
+  upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update cli, gate, and live-file pins, migrate, and initialize the new version
   migrate [--dry-run]                                 migrate file formats and update the version stamp
   changelog [--since X.Y.Z] [--to X.Y.Z]              print backslop CHANGELOG entries between versions
   merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]

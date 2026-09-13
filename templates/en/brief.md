@@ -32,7 +32,7 @@ Documentation goes in the same pass: the reference for the subsystem you touched
 
 - **Commit to your branch immediately**, without waiting for acceptance: one commit per task, prefixed `{{prefix}}-N:` — including review fixes and your task's CHANGELOG entry. That is how acceptance squashes by task. Nothing may be uncommitted when you report.
 - **Do not touch status directories or `archive/`**: closing is the approver's move, you send the text of the outcome. Moving a file between directories and `archive` is not yours.
-- **Findings become files**: `{{cli}} new <slug> --parent N` on your branch, with evidence. A finding left in the conversation is lost.
+- **Findings become files**: `{{cli}} new <slug> --parent N[.M]` on your branch, with evidence. A finding left in the conversation is lost.
 - **The mutation probe comes after the commit**: commit first, then break the code. Uncommitted means no probe: reverting the mutation would take your fix with it. A probe that fails to turn a test red is a hole in the test, not excess caution.
 {{measurements}}
 ## What the result contains
