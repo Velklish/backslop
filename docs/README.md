@@ -28,7 +28,8 @@
 | [adr/adr-017-gates-step-follows-the-pin.md](adr/adr-017-gates-step-follows-the-pin.md) | Шаг гейтов в брифе идёт по пинованной версии, а не по запущенной | Accepted |
 | [adr/adr-018-brief-decision-slots.md](adr/adr-018-brief-decision-slots.md) | Решения оркестратора в брифе — слоты, и пара «слот ↔ ключ» под гейтом | Accepted |
 | [adr/adr-019-live-pins-and-findings.md](adr/adr-019-live-pins-and-findings.md) | Живые пины в `upgrade`/`lint` и связь находки с родителем | Accepted |
-| [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Proposed |
+| [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
+| [adr/adr-021-probe-command-field.md](adr/adr-021-probe-command-field.md) | Команда мутационной пробы объявляется полем `probe` | Accepted |
 
 ## Сквозные принципы
 

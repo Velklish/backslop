@@ -23,14 +23,16 @@ Agents produce a lot of work, and it needs a tracker that lives in the repositor
 ## What appears in a project
 
 ```
-backslop.json                    prefix, docs, cli (with version pin), gates, version, lang, tools, agents.stepOverrides
+backslop.json                    prefix, docs, cli (with version pin), gates, probe, version, lang, tools, agents.stepOverrides
 AGENTS.md                        procedure section between <!-- backslop:start --> and <!-- backslop:end -->
 docs/…                           documentation skeleton, backlog, archive, first ADR
 ```
 
 Adapters are written only when selected: `init --tools claude,cursor,codex`. Default `tools` is `[]`. A legacy config without `tools` preserves Claude when the old canonical `.claude/skills/backslop-task/SKILL.md` exists; otherwise it remains adapter-free. An explicit `tools: []` or `--tools none` always wins.
 
-To adapt a numbered step in the managed `AGENTS.md` block, set `agents.stepOverrides` in `backslop.json`: a string key `"1"` through `"7"` replaces that step's text on `init` while its number and the other steps stay managed. The value must be a single non-empty line without `<`. It is inline text; markup that can open a block or raw HTML is not allowed. `init` rejects invalid values before writing the managed block; the step number, the other steps, and the worker boundary remain managed.
+Step 4 of the managed block demands a mutation probe only where there is something to run it with: the command comes from the `probe` field in `backslop.json` — a single-line command without a backtick and without the `backslop:start`/`backslop:end` markers: the template puts the value in a code span, and the block bounds are found in raw text. When the field is declared, the step names the command; when it is missing, the probe sentence is absent from the block — a rule nothing can execute costs more than no rule at all. `init` says so on its output (“probe is not declared in backslop.json…”) instead of dropping the requirement silently. A repository without the field describes its own probe in a section outside the managed block, and that section survives `init`.
+
+To adapt a numbered step in the managed `AGENTS.md` block, set `agents.stepOverrides` in `backslop.json`: a string key `"1"` through `"7"` replaces that step's text on `init` while its number and the other steps stay managed. The value must be a single non-empty line without `<`; `init` rejects invalid values before writing the managed block. Whatever passes is substituted escaped: every CommonMark ASCII punctuation character is backslashed, so the value stays text and never becomes markup — a link reference definition such as `[label]: /target`, whose scope is the whole document, cannot open inside it. Brackets without a link definition remain a legal value: escaping disarms rather than rejects. The step number, the other steps, and the worker boundary remain managed.
 
 | Adapter | Output |
 |---|---|

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { TEMPLATES_DIR, renderTemplate, templateParity, templateSlots } from '../lib/templates.js';
@@ -36,6 +36,14 @@ function parity(files) {
     return templateParity(root);
   } finally { cleanup(root); }
 }
+
+test('templates: agents-probe.md держит {{probe}} в код-спане — на этом стоит форма поля probe', () => {
+  for (const rel of ['agents-probe.md', 'en/agents-probe.md']) {
+    const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
+    assert.equal((text.match(/`/g) ?? []).length, 2, `${rel}: обратных кавычек ровно две — пара код-спана`);
+    assert.match(text, /`\{\{probe\}\}`/, `${rel}: значение стоит внутри код-спана`);
+  }
+});
 
 test('template parity: пустой description и чужое name в SKILL.md', () => {
   assert.deepEqual(parity({

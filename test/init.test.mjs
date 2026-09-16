@@ -85,9 +85,9 @@ test('init: раскладка, lint зелёный, сквозной цикл �
 });
 
 test('init: agents.stepOverrides заменяет шаг в RU и EN блоке и сохраняется при повторе', () => {
-  for (const [lang, override, oldStep] of [
-    ['ru', 'Проверяй гейты командой `npm run probe` и сохраняй снимок дерева.', /4\. \*\*Гейты до отчёта\./],
-    ['en', 'Run gates with `npm run probe` and keep the tree snapshot.', /4\. \*\*Gates before reporting\./],
+  for (const [lang, override, escaped, oldStep] of [
+    ['ru', 'Проверяй гейты командой `npm run probe` и сохраняй снимок дерева.', 'Проверяй гейты командой \\`npm run probe\\` и сохраняй снимок дерева\\.', /4\. \*\*Гейты до отчёта\./],
+    ['en', 'Run gates with `npm run probe` and keep the tree snapshot.', 'Run gates with \\`npm run probe\\` and keep the tree snapshot\\.', /4\. \*\*Gates before reporting\./],
   ]) {
     const root = emptyRepo();
     try {
@@ -99,7 +99,7 @@ test('init: agents.stepOverrides заменяет шаг в RU и EN блоке 
       r = cli(root, ['init']);
       assert.equal(r.code, 0, r.err);
       const generated = read(root, 'AGENTS.md');
-      assert.ok(generated.includes(`4. ${override}`));
+      assert.ok(generated.includes(`4. ${escaped}`), `${lang}: значение подставлено экранированным текстом`);
       assert.doesNotMatch(generated, oldStep);
 
       r = cli(root, ['init']);
@@ -110,6 +110,64 @@ test('init: agents.stepOverrides заменяет шаг в RU и EN блоке 
     }
   }
 });
+
+test('init: probe обрезается по краям — пробелы не уезжают в код-спан', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, probe: '  npm run probe  ' }, null, 2)}\n`);
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'AGENTS.md'), /потом проба — `npm run probe`\.$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init: значение переопределения остаётся текстом — определение ссылки не открывается', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    // Цель ссылки за пределами блока: переопределение внутри блока не должно её сдвинуть.
+    put(root, 'AGENTS.md', `# Проект\n\nПолитика описана в [policy].\n\n[policy]: /original\n\n${read(root, 'AGENTS.md')}`);
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': '[policy]: /changed', '5': '[policy]' } } }, null, 2)}\n`);
+
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const agents = read(root, 'AGENTS.md');
+    const block = agents.slice(agents.indexOf('<!-- backslop:start -->'), agents.indexOf('<!-- backslop:end -->'));
+    assert.match(block, /^4\. \\\[policy\\\]\\: \\\/changed$/m, 'текст шага остался видимым текстом');
+    assert.match(block, /^5\. \\\[policy\\\]$/m, 'соседний шаг не стал ссылкой');
+    // Маркер пункта списка блоком не является, поэтому снимается перед сверкой: без этого
+    // проверка смотрела бы на строки, которые с «[» не начинаются никогда (ADR-020).
+    const defs = agents.split('\n')
+      .map((l) => l.replace(/^ {0,3}(?:[-*+]|\d{1,9}[.)]) +/, ''))
+      .filter((l) => /^ {0,3}\[[^\]\\]*\]:/.test(l));
+    assert.deepEqual(defs, ['[policy]: /original'], 'в блоке определения ссылки не появилось, внешнее не изменилось');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init: скобки без определения ссылки остаются законным значением переопределения', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': 'см. таблицу [гейтов] и поле gates' } } }, null, 2)}\n`);
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err, 'скобки без признаков определения ссылки не отвергаются');
+    assert.match(read(root, 'AGENTS.md'), /^4\. см\\\. таблицу \\\[гейтов\\\] и поле gates$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('init: stepOverrides отклоняет переводы строк и сохраняет границы при повторе', () => {
   const root = emptyRepo();
   try {
@@ -164,6 +222,37 @@ test('init: stepOverrides отклоняет переводы строк и со
   }
 });
 
+
+test('init: шаг 4 называет команду из probe, без поля требование не остаётся молча', () => {
+  for (const [lang, named, duty, missing] of [
+    ['ru', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
+    ['en', 'then run the probe — `npm run probe`.', /mutation probe/, /probe is not declared in backslop\.json/],
+  ]) {
+    const root = emptyRepo();
+    try {
+      let r = cli(root, ['init', '--lang', lang]);
+      assert.equal(r.code, 0, r.err);
+      assert.doesNotMatch(read(root, 'AGENTS.md'), duty, `${lang}: обязанности без инструмента в блоке нет`);
+      assert.match(r.out, missing, `${lang}: init называет выпавшее требование, а не молчит`);
+
+      const cfg = JSON.parse(read(root, 'backslop.json'));
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, probe: 'npm run probe' }, null, 2)}\n`);
+      r = cli(root, ['init']);
+      assert.equal(r.code, 0, r.err);
+      const generated = read(root, 'AGENTS.md');
+      assert.match(generated, duty, `${lang}: с объявленной пробой требование возвращается`);
+      assert.ok(generated.includes(named), `${lang}: шаг 4 называет команду пробы`);
+      assert.doesNotMatch(r.out, missing, `${lang}: объявленная проба пропажей не называется`);
+      assert.equal(JSON.parse(read(root, 'backslop.json')).probe, 'npm run probe', 'повторный init сохраняет поле');
+      r = cli(root, ['init']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(read(root, 'AGENTS.md'), generated, `${lang}: второй init с probe не растит файл`);
+      assert.equal((read(root, 'AGENTS.md').match(/<!-- backslop:end -->/g) ?? []).length, 1, `${lang}: метка конца блока одна`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
 
 test('init: свой префикс и каталог, существующий AGENTS.md сохраняется, конфликт флагов с конфигом — отказ', () => {
   const root = emptyRepo();
