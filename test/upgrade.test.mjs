@@ -189,7 +189,7 @@ test('upgrade без источника релизов отказывает; mig
 
     r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /мигрировать нечего/);
+    assert.match(r.out, /миграция до v0\.9\.0: каталог статуса minor\/ \(--dry-run\)/, 'без штампа проект считается старше любой миграции');
     assert.equal(config(root).version, undefined);
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);

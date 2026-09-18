@@ -16,19 +16,21 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
 Команды:
   init [--dir docs] [--prefix BS] [--cli <команда>] [--lang ru|en] [--tools <CSV|none>]
                                                       разложить скелет docs, adapters, блок в AGENTS.md, backslop.json
-  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M]]
-                                                      завести задачу (по умолчанию в triage/) или находку задачи N / N.M
-  mv <N…> <triage|queue|active|deferred> [--top | --after M]
+  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor [--cost <уровень>] [--hypothesis]]]
+                                                      завести задачу (по умолчанию в triage/) или находку задачи N / N.M;
+                                                      --minor — minor-находка или гипотеза в minor/, с полем «Цена»
+  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M]
                                                       сменить статус: git mv между каталогами; номеров может быть несколько
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
                                                       печатает доки, которых коснулся ход задачи
+  archive <N.k> --into <M> [--dry-run]                закрыть minor-запись пачкой M: переезд в archive/<M>-<slug>/minor/ без своего result.md
   adr <slug> [--title "…"]                            завести ADR со следующим номером
   brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"]
         [--autonomy "…"] [--handover "…"] [--measurements]
                                                       напечатать бриф worker'у по этим задачам
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/
-  status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage
+  status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage, minor по областям
   lint                                                двенадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
                                                       цитаты, версии релиза, слоты шаблонов; adapter outputs,
@@ -56,19 +58,21 @@ const HELP_EN = `backslop — a file-based backlog with an archive, ADRs, and pr
 Commands:
   init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru|en] [--tools <CSV|none>]
                                                       create docs, adapters, AGENTS.md block, and backslop.json
-  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M]]
-                                                      create a task (triage/ by default) or a finding for task N / N.M
-  mv <N…> <triage|queue|active|deferred> [--top | --after M]
+  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor [--cost <level>] [--hypothesis]]]
+                                                      create a task (triage/ by default) or a finding for task N / N.M;
+                                                      --minor — a minor finding or hypothesis in minor/, with a Cost field
+  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M]
                                                       change status with git mv between directories; several numbers allowed
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
                                                       prints the documentation touched by the task
+  archive <N.k> --into <M> [--dry-run]                close a minor entry by batch M: move it to archive/<M>-<slug>/minor/ without a result.md of its own
   adr <slug> [--title "…"]                            create the next numbered ADR
   brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"]
         [--autonomy "…"] [--handover "…"] [--measurements]
                                                       print a worker brief for these tasks
   seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
                                                       “Reference: …” tasks from the reference/ table
-  status [--json]                                     show active work, ordered queue, deferred tasks, and triage
+  status [--json]                                     show active work, ordered queue, deferred tasks, triage, and minor entries by scope
   lint                                                twelve gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
                                                       versions, template slots; adapter outputs, template parity, and closed-parent warnings

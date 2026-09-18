@@ -9,12 +9,14 @@
 | В тексте | EN | Определение | Улика |
 |---|---|---|---|
 | задача | task | Единица работы: файл `<префикс>-N-<slug>.md`, лежащий ровно в одном каталоге статуса | [lib/tasks.js](../lib/tasks.js) |
-| находка | finding | Побочное открытие мимо текущей задачи; заводится файлом с номером `N.k` в `triage/` тем, кто нашёл | [lib/new.js](../lib/new.js), флаг `--parent` |
-| статус | status | Каталог, в котором лежит файл задачи: `triage`, `queue`, `active`, `deferred`; закрытые — в `archive/` | [lib/config.js](../lib/config.js), `STATUSES` |
+| находка | finding | Побочное открытие мимо текущей задачи; заводится файлом с номером `N.k` тем, кто нашёл: `major` вне области текущей задачи — в `triage/`, `minor` и гипотеза — в `minor/` | [lib/new.js](../lib/new.js), флаги `--parent`, `--minor` |
+| цена находки | cost | Метка `critical`, `major` или `minor` по шкале reviewer'а — что ломается или остаётся непроверенным, если не чинить; поле «Цена» в `minor/`, гипотеза — с пометкой `(гипотеза)` | [lib/tasks.js](../lib/tasks.js), `parseCost`; [ADR-022](adr/adr-022-cost-decides-finding-fate.md) |
+| пачка | batch | Обычная карточка со списком minor-записей одной области; её закрытие закрывает записи `archive N.k --into M` | [lib/archive.js](../lib/archive.js), `archiveInto` |
+| статус | status | Каталог, в котором лежит файл задачи: `triage`, `queue`, `active`, `deferred`, `minor`; закрытые — в `archive/` | [lib/config.js](../lib/config.js), `STATUSES` |
 | порядок | rank | Поле «Порядок» в шапке задачи в `queue/`: целое, шаг 10, меньше — раньше | [lib/tasks.js](../lib/tasks.js), `placeInQueue` |
 | triage | triage | Каталог неразобранного: идеи и находки до разбора; файл и есть запись | [templates/docs/backlog/README.md](../templates/docs/backlog/README.md) |
 | архив | archive | Каталог закрытых задач: `<id>-<slug>/task.md` и `result.md` | [lib/archive.js](../lib/archive.js) |
-| шапка | header | Список полей после заголовка задачи: Порядок, Область, Создана, Взята, Зависимости | [lib/tasks.js](../lib/tasks.js), `FIELD_*` |
+| шапка | header | Список полей после заголовка задачи: Порядок, Область, Создана, Взята, Зависимости, Родитель, Цена | [lib/tasks.js](../lib/tasks.js), `FIELD_*` |
 | улика | evidence | Путь к файлу или вывод команды, подтверждающие утверждение; без улики утверждение — предположение | [templates/skills/backslop-seed/SKILL.md](../templates/skills/backslop-seed/SKILL.md) |
 | гейт | gate | Команда из `gates` в `backslop.json`, которая должна быть зелёной до сдачи; `lint` — один из гейтов | [lib/config.js](../lib/config.js) |
 | скелет | skeleton | Файлы, которые кладёт `init`: конфиг, docs, блок в AGENTS.md; adapters — только при выбранных `tools` | [lib/init.js](../lib/init.js) |

@@ -21,6 +21,8 @@ A worker run is justified when the queue splits into **tracks** — directions t
 
 **Review triage in full before the run.** Review on task closure (`backslop-task`) does not replace this; it complements it. Entries from the previous run belong exactly to the subsystems you are about to split and can join this run’s tracks at no extra cost. Skip them and you hand them to the next run, which will visit the same files again. Rules are in `{{docs}}/backlog/README.md`.
 
+**Minor batches are cut at the same point.** `backslop status` prints `minor/` by scope: fill in the empty “Scope” fields and assemble one batch card per scope — the scope the run touches anyway, or one with ten or more entries. A batch is an ordinary card, `backslop new <slug> --queue`, listing the numbers under “Work to do”, and it joins a track like any task of that scope. The owner may order a batch at any time. Closing batch M at acceptance: first `backslop archive M`, then `backslop archive N.k --into M` for each entry, and their outcomes as lines in the batch's `result.md` — an entry has no `result.md` of its own.
+
 **Also check the queue for consolidation.** Neighbouring tasks often prove to be one: the symptom is shared, causes differ, and the solution is one. Merge with `backslop archive N`, recording “merged into M” in `result.md`, and copy the content into the receiving task in full.
 
 **A merge and a track are different.** A track groups tasks that change the same files while remaining distinct subjects: each has its own `result.md` and decision. Merge only when the subject is one. Tasks merged “for company” leave one archive report for two decisions, and after a month it no longer says what was done.
@@ -31,7 +33,7 @@ One worker equals one subsystem, not one task. Tasks within a track share contex
 
 After distributing briefs, **move every assigned task to active work** in one call: `backslop mv N M K active`. You hold directories; workers do not touch them at all. When the run ends and you have not accepted work, return it to the queue with `backslop mv N queue --top` or `--after M` so it does not lose its position.
 
-**Until integration, findings under task N are created only by the worker of its track** — `backslop new <slug> --parent N[.M]` in the worker branch. With `--parent N.M`, the command assigns the next free `N.k` and stores the `Parent` field; with `--parent N`, it keeps the `N.k` numbering. Do not create findings under the same parent before integration: `new` counts `N.k` across neighbouring worktrees and local branches, but not across a separate clone or a worker branch not yet fetched, and two identical `N.k` meet only in `lint` at integration. Record your own observation about task N before integration in the acceptance notes or as a task without a parent.
+**Until integration, findings under task N are created only by the worker of its track** — `backslop new <slug> --parent N[.M]` in the worker branch, with `--minor` for minors and hypotheses; the worker fixes `critical` within their boundaries and messages you at once about one in another track's files. With `--parent N.M`, the command assigns the next free `N.k` and stores the `Parent` field; with `--parent N`, it keeps the `N.k` numbering. Do not create findings under the same parent before integration: `new` counts `N.k` across neighbouring worktrees and local branches, but not across a separate clone or a worker branch not yet fetched, and two identical `N.k` meet only in `lint` at integration. Record your own observation about task N before integration in the acceptance notes or as a task without a parent.
 
 ## How to raise a worker
 
@@ -61,7 +63,7 @@ Asking the worker to measure — add `--measurements`. The brief is self-contain
 
 - Changes are only in the worker’s worktree; the main tree and pushing are always forbidden.
 - The worker does not close tasks and does not touch status directories or archive.
-- Findings are created as files in `triage/` in the worker branch and named in the result.
+- Findings are created as files in the worker branch — `major` outside the worker's scope in `triage/`, `minor` and hypotheses in `minor/` — and named in the result; the worker fixes `critical` within their boundaries and messages you at once about one in another track's files.
 - The worker does not approach the owner directly: decision points go through you.
 
 ## Measurements during the run

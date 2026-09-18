@@ -409,7 +409,7 @@ test('release-related CLI messages follow project lang without changing their fl
     put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","cli":"node bin/backslop.js","gates":[],"lang":"en","tools":[]}\n');
     let r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /nothing to migrate/);
+    assert.match(r.out, /migration through v0\.9\.0: status directory minor\/ \(--dry-run\)/);
     assert.doesNotMatch(r.out + r.err, /[А-Яа-яЁё]/);
     r = cli(root, ['changelog', '--since', 'v99.0.0']);
     assert.equal(r.code, 0, r.err);
@@ -791,6 +791,154 @@ test('archive: --range в проекте без git — отказ, а не ти
     assert.match(r.err, /--range HEAD~1\.\.HEAD/);
     // Без флага список никто не просил: команда работает молча.
     assert.equal(cli(root, ['archive', '1', '--dry-run']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new --minor: файл N.k в minor/ с ценой и родителем, пустая область; отказы флагов', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'base', '--queue', '--title', 'База']);
+    let r = cli(root, ['new', 'leak', '--parent', '1', '--minor', '--title', 'Мелкая течь']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /minor\/ до пачки/);
+    const minor = read(root, 'docs/backlog/minor/BS-1.1-leak.md');
+    assert.match(minor, /^# BS-1\.1 · Мелкая течь\n/);
+    assert.match(minor, /- \*\*Область:\*\* \n/);
+    assert.match(minor, /- \*\*Родитель:\*\* BS-1\n/);
+    assert.match(minor, /- \*\*Цена:\*\* minor\n/);
+    assert.match(minor, /## Улика\n\nНаходка при работе над BS-1\./);
+    assert.doesNotMatch(minor, /Что сделать/);
+
+    r = cli(root, ['new', 'guess', '--parent', '1', '--minor', '--cost', 'major', '--hypothesis']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/minor/BS-1.2-guess.md'), /- \*\*Цена:\*\* major \(гипотеза\)\n/);
+
+    r = cli(root, ['new', 'a', '--minor']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /нужен --parent/);
+    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--queue']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--minor и --queue/);
+    r = cli(root, ['new', 'a', '--parent', '1', '--cost', 'major']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /только вместе с --minor/);
+    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--cost', 'major']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--cost major без --hypothesis/);
+    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--cost', 'huge']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /уровни — critical, major, minor/);
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/minor/BS-1.3-a.md')));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor дописывает «Цена: minor»; status печатает minor по областям и отдаёт их в JSON', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'base', '--queue', '--title', 'База']);
+    cli(root, ['new', 'idea', '--title', 'Идея']);
+    let r = cli(root, ['mv', '2', 'minor']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /«Цена: minor» дописана/);
+    assert.match(read(root, 'docs/backlog/minor/BS-2-idea.md'), /- \*\*Цена:\*\* minor\n/);
+    r = cli(root, ['mv', '2', 'minor']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /уже в minor\//);
+
+    cli(root, ['new', 'late', '--parent', '1', '--minor', '--title', 'Поздняя']);
+    put(root, 'docs/backlog/minor/BS-1.1-late.md', '# BS-1.1 · Поздняя\n\n- **Область:** [02. CLI](../../reference/02-cli.md)\n- **Создана:** 2026-09-18\n- **Родитель:** BS-1\n- **Цена:** minor\n');
+    cli(root, ['new', 'early', '--parent', '1', '--minor', '--title', 'Ранняя']);
+    put(root, 'docs/backlog/minor/BS-1.2-early.md', '# BS-1.2 · Ранняя\n\n- **Область:** [01. Раскладка](../../reference/01-layout.md)\n- **Создана:** 2026-09-18\n- **Родитель:** BS-1\n- **Цена:** major (гипотеза)\n');
+    r = cli(root, ['status']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /Minor \(3\)\n  \[01\. Раскладка\] BS-1\.2 · Ранняя — major \(гипотеза\)\n  \[02\. CLI\] BS-1\.1 · Поздняя — minor\n  \[без области\] BS-2 · Идея — minor\nАрхив: 0/);
+    const s = JSON.parse(cli(root, ['status', '--json']).out);
+    assert.deepEqual(s.minor.map((m) => [m.id, m.area, m.cost]), [
+      ['BS-1.2', '[01. Раскладка](../../reference/01-layout.md)', 'major (гипотеза)'],
+      ['BS-1.1', '[02. CLI](../../reference/02-cli.md)', 'minor'],
+      ['BS-2', null, 'minor'],
+    ]);
+    assert.equal(s.minor[2].file, 'docs/backlog/minor/BS-2-idea.md');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate до v0.9.0 создаёт каталог minor/ в проекте со старым штампом', () => {
+  const root = makeProject({ git: false });
+  try {
+    rmSync(path.join(root, 'docs/backlog/minor'), { recursive: true });
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"version":"0.8.0"}\n');
+    let r = cli(root, ['lint']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /docs\/backlog\/minor: каталога статуса нет/);
+    r = cli(root, ['migrate', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /миграция до v0\.9\.0: каталог статуса minor\/ .*--dry-run/);
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/minor')));
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/minor/.gitkeep')));
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('archive N.k --into M: minor уезжает в minor/ архива пачки без result.md, ссылки переписаны; отказы', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'base', '--queue', '--title', 'База']);
+    cli(root, ['new', 'leak', '--parent', '1', '--minor', '--title', 'Течь']);
+    cli(root, ['new', 'typo', '--parent', '1', '--minor', '--title', 'Опечатка']);
+    cli(root, ['new', 'batch', '--queue', '--title', 'Пачка']);
+    put(root, 'docs/notes.md', '# Заметки\n\nСм. [течь](backlog/minor/BS-1.1-leak.md).\n');
+    gitAll(root);
+
+    let r = cli(root, ['archive', '1.1', '--into', '2']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /пачка BS-2 ещё в queue\/ — сначала закрой её: backslop archive BS-2/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/minor/BS-1.1-leak.md')));
+    assert.ok(!existsSync(path.join(root, 'docs/archive/BS-2-batch')));
+
+    assert.equal(cli(root, ['archive', '2']).code, 0);
+    r = cli(root, ['archive', '1.1', '--into', 'BS-2']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /archive: BS-1\.1 → пачка BS-2 — файлов с поправленными ссылками 1/);
+    assert.match(r.out, /исход BS-1\.1 назови строкой в result\.md пачки BS-2/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-2-batch/minor/BS-1.1-leak.md')));
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/minor/BS-1.1-leak.md')));
+    assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1.1-leak')));
+    assert.match(read(root, 'docs/notes.md'), /\(archive\/BS-2-batch\/minor\/BS-1\.1-leak\.md\)/);
+    assert.match(run(root, ['status', '--porcelain']).stdout, /^R  docs\/backlog\/minor\/BS-1\.1-leak\.md -> docs\/archive\/BS-2-batch\/minor\/BS-1\.1-leak\.md$/m);
+
+    r = cli(root, ['archive', '1', '--into', '2']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /BS-1 не в minor\//);
+    r = cli(root, ['archive', '1.2', '--into', '99']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /пачки BS-99 нет/);
+    r = cli(root, ['archive', '1.2', '--into', '1.2']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /сама minor-запись/);
+    r = cli(root, ['archive', '1.2', '--into', '2', '--range', 'HEAD~1..HEAD']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--range с --into не сочетается/);
+    r = cli(root, ['archive', '1.1', '--into', '2']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /BS-1\.1 уже в архиве/);
+
+    // Закрытая пачкой запись известна нумерации и сводке: следующая находка — BS-1.3, архив считает задачи.
+    r = cli(root, ['new', 'next', '--parent', '1', '--minor']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /BS-1\.3/);
+    const s = JSON.parse(cli(root, ['status', '--json']).out);
+    assert.equal(s.archive, 1);
+    assert.deepEqual(s.minor.map((m) => m.id), ['BS-1.2', 'BS-1.3']);
   } finally {
     cleanup(root);
   }

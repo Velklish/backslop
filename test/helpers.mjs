@@ -20,7 +20,7 @@ export function makeProject({ prefix = 'BS', docs = 'docs', git = true, stamp = 
   const cfg = { prefix, docs, gates: [] };
   if (stamp) cfg.version = TOOL_VERSION;
   writeFileSync(path.join(root, 'backslop.json'), `${JSON.stringify(cfg, null, 2)}\n`);
-  for (const d of ['backlog/triage', 'backlog/queue', 'backlog/active', 'backlog/deferred', 'archive', 'adr', 'reference']) {
+  for (const d of ['backlog/triage', 'backlog/queue', 'backlog/active', 'backlog/deferred', 'backlog/minor', 'archive', 'adr', 'reference']) {
     mkdirSync(path.join(root, docs, d), { recursive: true });
   }
   writeFileSync(path.join(root, docs, 'README.md'), '# Документация\n\n| Документ | Тема | Статус |\n|---|---|---|\n');

@@ -12,7 +12,7 @@ The project needs a task tracker and decision log that live alongside code, can 
 
 Tasks and decisions are managed with backslop:
 
-- a task is a `{{prefix}}-<number>-<slug>.md` file; its status is the `{{docs}}/backlog/{triage,queue,active,deferred}/` directory; closed tasks live in `{{docs}}/archive/<id>-<slug>/` with `task.md` and `result.md`;
+- a task is a `{{prefix}}-<number>-<slug>.md` file; its status is the `{{docs}}/backlog/{triage,queue,active,deferred,minor}/` directory; closed tasks live in `{{docs}}/archive/<id>-<slug>/` with `task.md` and `result.md`;
 - queue priority is the “Order” field in the file; `{{cli}} new` assigns numbers across directories, while findings get `N.k` without coordination;
 - decisions are ADRs in `{{docs}}/adr/` with a row in `{{docs}}/README.md`; an accepted decision is replaced by a new one, not edited;
 - the change procedure and worker/approver roles are in the backslop section of `AGENTS.md`; details are in `backslop-task` and `backslop-batch`, and documentation population is in `backslop-seed`;

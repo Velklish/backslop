@@ -14,9 +14,9 @@ Requires Node 20+ and git. The package has no dependencies.
 
 Agents produce a lot of work, and it needs a tracker that lives in the repository, can be read by an agent without external services, and does not create conflicts during parallel branch work. backslop keeps everything as files:
 
-- **a task is a file** `BS-N-<slug>.md`; **status is the directory** containing it: `triage/`, `queue/`, `active/`, or `deferred/`; closed tasks move to `archive/` as `task.md` + `result.md`;
+- **a task is a file** `BS-N-<slug>.md`; **status is the directory** containing it: `triage/`, `queue/`, `active/`, `deferred/`, or `minor/`; closed tasks move to `archive/` as `task.md` + `result.md`;
 - **priority is the “Order” field** in the file, not a line in a shared list; there is no task list in git — `status` prints the summary;
-- **a finding is a file** numbered `N.k`, created by its finder in their branch without coordination;
+- **a finding is a file** numbered `N.k`, created by its finder in their branch without coordination, and its cost label decides the route: `critical` and `major` within the current scope are fixed now, `major` outside it becomes a card, `minor` and hypotheses wait in `minor/` for a batch;
 - **decisions are ADRs**, **terms are a glossary**, and **structure is a subsystem reference**;
 - **the process is skills**: a one-task lifecycle with worker and approver roles, a worker run by tracks with briefs and a review gate, and documentation population after installation.
 
@@ -49,11 +49,11 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 | Command | What it does |
 |---|---|
 | `init [--dir docs] [--prefix BS] [--cli …] [--lang ru\|en] [--tools <CSV\|none>]` | lay out the skeleton; on repeat, update selected adapters and the AGENTS.md section |
-| `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M]]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k`; `--parent N.M` accepts a finding parent, creates the next free `N.k`, and records the `Parent` field; the number skips those taken in other worktrees and local branches |
-| `mv <N…> <triage\|queue\|active\|deferred> [--top \| --after M]` | change the status of one or several tasks in one call: `git mv` plus fields that follow status; in `deferred/`, an existing section is not duplicated and the command prompts you to check its reason and return condition; a heading inside a fenced example does not count as an existing section; on a task already in `queue/`, `--top` or `--after M` only changes its Order |
-| `archive <N> [--dry-run]` | close: move to `archive/`, rewrite task links throughout the repository, create `result.md` stub |
+| `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor [--cost <level>] [--hypothesis]]]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k`; `--parent N.M` accepts a finding parent, creates the next free `N.k`, and records the `Parent` field; `--minor` puts the finding in `minor/` with a `Cost` field (`major`/`critical` only as a hypothesis); the number skips those taken in other worktrees and local branches |
+| `mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M]` | change the status of one or several tasks in one call: `git mv` plus fields that follow status; in `minor/` the `Cost` field is added when missing; in `deferred/`, an existing section is not duplicated and the command prompts you to check its reason and return condition; a heading inside a fenced example does not count as an existing section; on a task already in `queue/`, `--top` or `--after M` only changes its Order |
+| `archive <N> [--dry-run]` | close: move to `archive/`, rewrite task links throughout the repository, create `result.md` stub; `archive <N.k> --into <M>` closes a minor entry by batch M: the file moves into `archive/<M>-<slug>/minor/` without a `result.md` of its own, the batch is closed first |
 | `adr <slug> [--title "…"]` | create the next-numbered ADR |
-| `status [--json]` | active work, ordered queue, deferred work, triage; `--json` is for orchestrators and scripts |
+| `status [--json]` | active work, ordered queue, deferred work, triage, minor entries by scope; `--json` is for orchestrators and scripts |
 | `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update a project: CLI, gate, and live-file pins, `migrate` and `init` with the new version, CHANGELOG summary |
 | `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
@@ -82,7 +82,7 @@ A global install (`cli: "backslop"`) or an npm pin (`cli: "npx backslop@X.Y.Z"`)
 3. The approver accepts work: `archive N`, completes `result.md` (while it contains `[TODO]`, `lint` fails), and reviews `triage/` so every entry has a next step. The approver also edits task-file text in status directories and the archive; the worker sends the wording in the result. The only exception is a new finding: the worker creates it as a separate file with `new --parent N[.M]` on their branch; the worker does not edit an existing card.
 4. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a worker changes only its branch and does not move statuses, a reviewer is raised for contract diffs, and acceptance squashes by task.
 
-The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move existing task files between directories; they create a new finding as a separate file with `new --parent N[.M]` on their branch and do not edit an existing card.
+The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move existing task files between directories; they create a new finding as a separate file with `new --parent N[.M]` (with `--minor` for minors and hypotheses) on their branch and do not edit an existing card.
 
 ## For orchestrators
 

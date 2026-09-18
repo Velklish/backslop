@@ -106,6 +106,15 @@ probe('2. чужой файл в каталоге статуса', (root) => put
 probe('3. файл вне каталога статуса', (root) => put(root, 'docs/backlog/BS-9-x.md', '# BS-9 · Х\n'), /файл вне каталога статуса/);
 probe('3. каталог не статус', (root) => mkdirSync(path.join(root, 'docs/backlog/done')), /каталог не статус/);
 probe('3. нет каталога статуса', (root) => rmSync(path.join(root, 'docs/backlog/deferred'), { recursive: true }), /каталога статуса нет/);
+probe('3. нет каталога minor', (root) => rmSync(path.join(root, 'docs/backlog/minor'), { recursive: true }), /docs\/backlog\/minor: каталога статуса нет/);
+probe('4. minor без цены', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Родитель:** BS-1\n'), /в minor\/ без поля «Цена»/);
+probe('4. цена не разбирается', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** дорого\n'), /«Цена» не разбирается/);
+probe('4. major в minor без гипотезы', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** major\n'), /«Цена» major без пометки «гипотеза»/);
+probe('4. цена повторяется', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n- **Цена:** minor\n'), /поле «Цена» повторяется/);
+probe('5. чужой файл в minor/ пачки', (root) => put(root, 'docs/archive/BS-4-e/minor/notes.md', '# заметки\n'), /archive\/BS-4-e\/minor\/notes\.md: в minor\/ пачки только файлы записей/);
+probe('5. каталог в minor/ пачки', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x'), { recursive: true }), /archive\/BS-4-e\/minor\/BS-4\.9-x: в minor\/ пачки только файлы записей/);
+probe('2. запись в minor/ пачки с чужим заголовком', (root) => put(root, 'docs/archive/BS-4-e/minor/BS-4.1-m.md', '# BS-4.2 · Не та\n'), /archive\/BS-4-e\/minor\/BS-4\.1-m\.md: заголовок называет BS-4\.2/);
+probe('4. заглушка вне «Области» в minor/', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\nУлика: [TODO: путь]\n'), /BS-1\.1-m\.md: строка 7: осталась заглушка \[TODO\]/);
 probe('4. очередь без порядка', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n'), /без поля «Порядок»/);
 probe('4. порядок не число', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** высокий\n'), /не целое число/);
 probe('4. два файла очереди с одним порядком', (root) => put(root, 'docs/backlog/queue/BS-5-f.md', '# BS-5 · Е\n\n- **Порядок:** 10\n'), /BS-5-f\.md: «Порядок» 10 уже у docs\/backlog\/queue\/BS-1-a\.md/);
@@ -187,6 +196,40 @@ test('lint: находка под закрытым родителем остаё
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /разбери её \(approver\)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: пустая или незаполненная «Область» в minor/ — предупреждение, не ошибка', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Область:** \n- **Цена:** minor\n');
+    put(root, 'docs/backlog/minor/BS-1.2-n.md', '# BS-1.2 · Н\n\n- **Цена:** major (гипотеза)\n');
+    put(root, 'docs/backlog/minor/BS-1.3-o.md', '# BS-1.3 · О\n\n- **Область:** [x](../../reference/README.md)\n- **Цена:** critical (hypothesis)\n');
+    put(root, 'docs/backlog/minor/BS-1.4-p.md', '# BS-1.4 · П\n\n- **Область:** [TODO: раздел](../../reference/README.md)\n- **Цена:** minor\n');
+    assert.deepEqual(problems(root), []);
+    assert.ok(warnings(root).some((w) => /BS-1\.4-p\.md: «Область» не заполнена: осталась заглушка/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => /BS-1\.1-m\.md: «Область» пуста/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => /BS-1\.2-n\.md: без поля «Область»/.test(w)), warnings(root).join(' | '));
+    assert.ok(!warnings(root).some((w) => /BS-1\.3-o\.md/.test(w)), warnings(root).join(' | '));
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /ошибок нет, предупреждений 3/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: запись, закрытая пачкой, известна упоминаниям и не считается сиротой', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/archive/BS-4-e/minor/BS-4.2-m.md', '# BS-4.2 · Закрыта пачкой\n\n- **Цена:** minor\n');
+    put(root, 'docs/note.md', 'См. BS-4.2 — закрыта пачкой BS-4.\n');
+    assert.deepEqual(problems(root), []);
+    assert.deepEqual(warnings(root), []);
   } finally {
     cleanup(root);
   }

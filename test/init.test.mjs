@@ -21,7 +21,7 @@ const EXPECTED = [
   'backslop.json', 'AGENTS.md',
   'docs/README.md', 'docs/ROADMAP.md', 'docs/GLOSSARY.md', 'docs/reference/README.md',
   'docs/adr/adr-001-process.md', 'docs/backlog/README.md', 'docs/archive/README.md',
-  'docs/backlog/triage/.gitkeep', 'docs/backlog/queue/.gitkeep', 'docs/backlog/active/.gitkeep', 'docs/backlog/deferred/.gitkeep',
+  'docs/backlog/triage/.gitkeep', 'docs/backlog/queue/.gitkeep', 'docs/backlog/active/.gitkeep', 'docs/backlog/deferred/.gitkeep', 'docs/backlog/minor/.gitkeep',
 ];
 
 test('init: раскладка, lint зелёный, сквозной цикл задачи, повтор init идемпотентен', () => {

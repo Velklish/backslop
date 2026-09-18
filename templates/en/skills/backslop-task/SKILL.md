@@ -39,7 +39,7 @@ When the worker is finished, they **commit to their branch** and send the result
 - files touched beyond the obvious ones;
 - gate results as numbers, not merely “green”: how many checks and files; take the number from the summary line of `backslop gates` or from its `--json`, not from memory;
 - **what remains open and where the worker worked around it** — this is more valuable than the rest because it determines whether to raise an isolated reviewer;
-- findings outside the assigned scope — a neighbouring bug, a gap in rules, an unanswered question. Create them in the worker branch: `backslop new <slug> --parent N[.M]` puts a file in `triage/` without changing status directories. A verifiable fact in a finding includes evidence — a command or a file and line; grep takes seconds when already in the repository. If not verified, mark it as a hypothesis.
+- findings outside the assigned scope — a neighbouring bug, a gap in rules, an unanswered question — with a cost label: fix `critical` now within your boundaries, in another track's files message the orchestrator at once; fix `major` within your task's “Scope” now and name it here; file `major` outside it yourself, in the worker branch: `backslop new <slug> --parent N[.M]` puts a file in `triage/`; file `minor` and hypotheses with `backslop new <slug> --parent N[.M] --minor` into `minor/`. Status directories stay untouched. A verifiable fact in a finding includes evidence — a command or a file and line; grep takes seconds when already in the repository. Not verified means a hypothesis, and its place is `minor/` with `--cost <level> --hypothesis`.
 
 The worker does not push their branch or touch the repository’s main tree; the assignment does not override this.
 
@@ -59,7 +59,7 @@ After a task closes, review every entry accumulated during it. Not “when enoug
 
 Decide yourself: merge an obvious duplicate (`backslop archive N` with outcome “merged into M” in `result.md`, copying the entire content into the receiving task), clarify the wording, put it in the queue and choose its place (`backslop mv N queue --top | --after M`), or defer it with a return condition. Ask the owner **only before rejecting**: a finding discarded without asking will never be found a second time. Review finishes when `triage/` is empty or every remaining entry has a stated next step.
 
-Before queueing a factual claim — a number, “covered by a test”, “printed by three commands” — verify it with evidence; incorrect facts create incorrect boundaries for the implementer. Rewrite unverified claims as hypotheses.
+Before queueing a factual claim — a number, “covered by a test”, “printed by three commands” — verify it with evidence; incorrect facts create incorrect boundaries for the implementer. An unverified claim is not a card but a hypothesis: `backslop mv N minor` with the label in `Cost`. Entries in `minor/` are not reviewed on closure — they wait for a batch before the run (`backslop-batch`, “Before splitting”).
 
 ## Real failures
 

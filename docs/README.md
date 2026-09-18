@@ -30,6 +30,7 @@
 | [adr/adr-019-live-pins-and-findings.md](adr/adr-019-live-pins-and-findings.md) | Живые пины в `upgrade`/`lint` и связь находки с родителем | Accepted |
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
 | [adr/adr-021-probe-command-field.md](adr/adr-021-probe-command-field.md) | Команда мутационной пробы объявляется полем `probe` | Accepted |
+| [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
 
 ## Сквозные принципы
 

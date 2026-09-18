@@ -12,7 +12,7 @@
 
 Задачи и решения ведутся по backslop:
 
-- задача — файл `{{prefix}}-<номер>-<slug>.md`; статус — каталог `{{docs}}/backlog/{triage,queue,active,deferred}/`; закрытые — `{{docs}}/archive/<id>-<slug>/` с `task.md` и `result.md`;
+- задача — файл `{{prefix}}-<номер>-<slug>.md`; статус — каталог `{{docs}}/backlog/{triage,queue,active,deferred,minor}/`; закрытые — `{{docs}}/archive/<id>-<slug>/` с `task.md` и `result.md`;
 - приоритет очереди — поле «Порядок» в файле; номера считает `{{cli}} new` по каталогам, находки получают `N.k` без координации;
 - решения — ADR в `{{docs}}/adr/` со строкой в таблице `{{docs}}/README.md`; принятое решение не правится, а заменяется новым;
 - процедура изменения и роли worker/approver — блок backslop в `AGENTS.md`; детали — скиллы `backslop-task` и `backslop-batch`, наполнение документации — `backslop-seed`;
