@@ -37,6 +37,7 @@
 | [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Accepted |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Accepted |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Accepted |
+| [adr/adr-029-minor-finding-requires-evidence.md](adr/adr-029-minor-finding-requires-evidence.md) | Находка в `minor/` заводится только с уликой: `--evidence` обязателен, отказ до создания файла | Accepted |
 
 ## Сквозные принципы
 
