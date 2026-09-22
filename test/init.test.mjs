@@ -84,6 +84,29 @@ test('init: раскладка, lint зелёный, сквозной цикл �
   }
 });
 
+// BS-57.1: первый init строит конфиг сам и loadConfig не зовёт — метка из `--cli` или `--dir`
+// разорвала бы блок уже на первом запуске, а повторный init такой проект уже не чинит: он читает
+// конфиг и отказывает. Отказ идёт до первой записи, поэтому каталог остаётся пустым. Оба поля
+// уезжают в блок, и проверка у них общая: закрытым должно быть не одно из них, а класс.
+test('init: --cli с меткой блока — отказ до первой записи', () => {
+  for (const [flag, value, why] of [
+    ['--cli', 'node bin/backslop.js <!-- backslop:end -->', /cli — значение без меток backslop/],
+    ['--dir', 'docs <!-- backslop:end -->', /docs — значение без меток backslop/],
+    ['--dir', 'docs`', /docs — значение без обратной кавычки/],
+  ]) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', flag, value]);
+      assert.equal(r.code, 1, `${flag} «${value}»: ожидался отказ`);
+      assert.match(r.err, why);
+      assert.equal(existsSync(path.join(root, 'backslop.json')), false, 'конфиг не записан');
+      assert.equal(existsSync(path.join(root, 'AGENTS.md')), false, 'блок не записан');
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test('init: agents.stepOverrides заменяет шаг в RU и EN блоке и сохраняется при повторе', () => {
   for (const [lang, override, escaped, oldStep] of [
     ['ru', 'Проверяй гейты командой `npm run probe` и сохраняй снимок дерева.', 'Проверяй гейты командой \\`npm run probe\\` и сохраняй снимок дерева\\.', /4\. \*\*Гейты до отчёта\./],

@@ -31,6 +31,7 @@
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
 | [adr/adr-021-probe-command-field.md](adr/adr-021-probe-command-field.md) | Команда мутационной пробы объявляется полем `probe` | Accepted |
 | [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
+| [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
 | [adr/adr-024-changelog-merge-keeps-layout.md](adr/adr-024-changelog-merge-keeps-layout.md) | Слияние CHANGELOG сохраняет раскладку файла и отказывается на незакрытом конфликте | Accepted |
 
 ## Сквозные принципы

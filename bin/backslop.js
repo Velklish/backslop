@@ -35,8 +35,9 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
                                                       цитаты, версии релиза, слоты шаблонов; adapter outputs,
                                                       равенство шаблонов и предупреждения о версии и закрытом родителе
-  gates [--keep-going] [--json] [--require-clean] [--dry-run]
-                                                      прогнать команды из gates: код каждой, счёт зелёных, снимок дерева
+  gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
+                                                      прогнать команды из gates: код каждой, счёт зелёных, снимок дерева;
+                                                      область when сверяется с грязным деревом, --base добавляет дифф к ref
   tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli, gates и живых файлах, migrate и init новой версией
   migrate [--dry-run]                                 миграция формата файлов и штамп версии
@@ -76,8 +77,9 @@ Commands:
   lint                                                twelve gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
                                                       versions, template slots; adapter outputs, template parity, and closed-parent warnings
-  gates [--keep-going] [--json] [--require-clean] [--dry-run]
-                                                      run the gates list: exit code of each, green count, tree snapshot
+  gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
+                                                      run the gates list: exit code of each, green count, tree snapshot;
+                                                      a when scope is matched against the dirty tree, --base adds the diff to ref
   tracks [--json]                                     run worktrees and branches: merged or not, what is left, what is dirty
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update cli, gate, and live-file pins, migrate, and initialize the new version
   migrate [--dry-run]                                 migrate file formats and update the version stamp

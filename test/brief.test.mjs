@@ -189,3 +189,25 @@ test('brief: шаг гейтов — по тому, что умеет пинов
     cleanup(root);
   }
 });
+
+// BS-66: у записи `gates` появилась вторая форма. Бриф обязан печатать команду, а не объект, и
+// назвать пропуск по области: «зелёных N» из N перестало быть равенством со списком.
+test('brief: запись с областью печатается командой, и пропуск назван', () => {
+  const root = makeProject();
+  try {
+    seed(root);
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, gates: ['npm test', { command: 'npx backslop@1.2.3 lint', when: ['docs/**'] }] }, null, 2)}\n`);
+    const r = cli(root, ['brief', '3']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /\[object Object\]/);
+    assert.match(r.out, /`npm test`, `npx backslop@1\.2\.3 lint`/);
+    assert.match(r.out, /Область `when` несут 1 из 2/);
+    assert.match(r.out, /Пропущенное к зелёным не прибавляется/);
+
+    put(root, 'backslop.json', `${JSON.stringify(cfg, null, 2)}\n`);
+    assert.doesNotMatch(cli(root, ['brief', '3']).out, /Область `when` несут/, 'без области про неё не говорится');
+  } finally {
+    cleanup(root);
+  }
+});

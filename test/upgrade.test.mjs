@@ -94,6 +94,13 @@ test('rewriteGates: меняется только команда, начинаю
   );
   assert.deepEqual(rewriteGates(['npx github:me/proj#v0.1.0x lint'], 'npx github:me/proj#v0.1.0', 'npx github:me/proj#v0.2.0'),
     ['npx github:me/proj#v0.1.0x lint'], 'подстрока без пробела — другая команда');
+  // BS-66: запись с областью правится внутрь, `when` переживает перестановку пина, а нетронутая
+  // запись возвращается той же ссылкой — иначе `upgrade` печатал бы число заменённых по числу
+  // записей с областью.
+  const gates = [{ command: 'npx github:me/proj#v0.1.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }];
+  const next = rewriteGates(gates, 'npx github:me/proj#v0.1.0', 'npx github:me/proj#v0.2.0');
+  assert.deepEqual(next, [{ command: 'npx github:me/proj#v0.2.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }]);
+  assert.equal(next[1], gates[1], 'нетронутая запись — та же ссылка');
 });
 
 test('changelogSince: секции строго после since и не позже to, без «Не выпущено»', () => {
