@@ -7,7 +7,7 @@
 
 ## Контекст
 
-Находка 2026-09-19 при заведении BS-63, метка major: README бэклога обещает, что в `triage/` поле «Область» не проверяется и заполняется при разборе, а `lint` сразу после `new` красный. `new` пишет строку `- **Область:** [TODO: раздел](../../reference/README.md)`; `lintAreaField` её в `triage/` пропускает, но `lintBacklogTodos` (`lib/lint.js`, `isTodoPlaceholder`) читает значение поля по `TODO_FIELD` и `TODO_VALUE` узнаёт `[TODO…](../triage/…)`. Улика: `node bin/backslop.js new x --title "…"`, затем `node bin/backslop.js lint` → `✖ docs/backlog/triage/BS-63-…md: строка 3: осталась заглушка [TODO]`. Для `minor/` та же строка исключена явно (`areaLine`), для `triage/` — нет.
+Находка 2026-09-19 при заведении BS-63, метка major: README бэклога обещает, что в `triage/` поле «Область» не проверяется и заполняется при разборе, а `lint` сразу после `new` красный. `new` пишет строку `- **Область:** [TODO: раздел](../../reference/README.md)`; `lintAreaField` её в `triage/` пропускает, но `lintBacklogTodos` (`lib/lint.js`, `isTodoPlaceholder`) читает значение поля по `TODO_FIELD` и `TODO_VALUE` узнаёт `[TODO…](../../backlog/triage/…)`. Улика: `node bin/backslop.js new x --title "…"`, затем `node bin/backslop.js lint` → `✖ docs/backlog/triage/BS-63-…md: строка 3: осталась заглушка [TODO]`. Для `minor/` та же строка исключена явно (`areaLine`), для `triage/` — нет.
 
 **Зачем:** карточка, заведённая штатной командой, не проходит гейт проекта до разбора; либо README врёт, либо гейт.
 

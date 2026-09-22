@@ -58,7 +58,7 @@ Once the skeleton is ready, ask an agent to “populate docs using backslop”: 
 | `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
 | `version`, `help` | version and help |
-| `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity; a standalone placeholder line or a field whose entire value is a `[TODO…]` placeholder in any markdown file under `docs/backlog/**` fails the gate, while `[TODO]` inside explanatory text is not a placeholder; `quote:before:<path>` stores a pre-change snapshot, regular `quote:<path>` guards an invariant |
+| `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity; a standalone placeholder line or a field whose entire value is a `[TODO…]` placeholder in any markdown file under `docs/backlog/**` fails the gate — except in `triage/`, where placeholders are not checked at all; `[TODO]` inside explanatory text is not a placeholder; `quote:before:<path>` stores a pre-change snapshot, regular `quote:<path>` guards an invariant |
 | `gates [--keep-going] [--json] [--require-clean] [--dry-run]` | run the commands from `gates`: exit code of each, “gates N, green M”, tree snapshot |
 
 Before publishing to npm the command is long, so projects record it in the `cli` field of `backslop.json`; skills and the `AGENTS.md` section substitute it from there. If installed globally (`npm i -g github:Velklish/backslop#v<version>`), change `cli` to `backslop`.

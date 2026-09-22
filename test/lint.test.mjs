@@ -125,9 +125,10 @@ probe('4. в работе без даты', (root) => put(root, 'docs/backlog/ac
 probe('4. отложена без раздела', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n'), /без раздела «## Отложено»/);
 probe('4. отложена с [TODO]', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n## Отложено\n\n- **Причина:** [TODO]\n'), /не заполнен: остался \[TODO\]/);
 probe('4. второй раздел «Отложено»', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** готово\n- **Условие возврата:** готово\n\n## Отложено\n\n- **Причина:** второй\n- **Условие возврата:** второй\n'), /раздел «Отложено» повторяется 2 раза/);
-probe('4. заглушка в любом файле backlog', (root) => put(root, 'docs/backlog/triage/BS-5-todo.md', '# BS-5 · Заглушка\n\n- [TODO]\n'), /docs\/backlog\/triage\/BS-5-todo\.md: строка 3: осталась заглушка \[TODO\]/);
-probe('4. каноническая улика находки', (root) => put(root, 'docs/backlog/triage/BS-5-finding.md', '# BS-5 · Находка\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\nЦитату файла оборачивай в блок.\n'), /BS-5-finding\.md: строка 4: осталась заглушка \[TODO\]/);
-probe('4. поле с двоеточием вне жирного', (root) => put(root, 'docs/backlog/triage/BS-6-reason.md', '# BS-6 · Причина\n\n- **Reason**: [TODO]\n'), /BS-6-reason\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('4. заглушка в любом файле backlog', (root) => put(root, 'docs/backlog/queue/BS-5-todo.md', '# BS-5 · Заглушка\n\n- [TODO]\n'), /docs\/backlog\/queue\/BS-5-todo\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('4. каноническая улика находки', (root) => put(root, 'docs/backlog/queue/BS-5-finding.md', '# BS-5 · Находка\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\nЦитату файла оборачивай в блок.\n'), /BS-5-finding\.md: строка 4: осталась заглушка \[TODO\]/);
+probe('4. поле с двоеточием вне жирного', (root) => put(root, 'docs/backlog/queue/BS-6-reason.md', '# BS-6 · Причина\n\n- **Reason**: [TODO]\n'), /BS-6-reason\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('4. заглушка списка с подсказкой внутри скобок', (root) => put(root, 'docs/backlog/queue/BS-5-hint.md', '# BS-5 · Подсказка\n\n- [TODO: ход назначается при разборе triage]\n'), /docs\/backlog\/queue\/BS-5-hint\.md: строка 3: осталась заглушка \[TODO\]/);
 
 test('lint: текст о TODO внутри заполненного значения не красит backlog', () => {
   const root = makeProject({ git: false });
@@ -478,6 +479,28 @@ test('lint: 4. заглушка «Области» от new красит раз�
     const found = problems(root);
     assert.ok(found.some((p) => /queued\.md: «Область» не заполнена/.test(p)), found.join(' | ') || 'ничего');
     assert.ok(!found.some((p) => /triaged\.md: «Область»/.test(p)), `запись triage/ не разобрана — гейт молчит: ${found.join(' | ')}`);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Карточка, заведённая штатной командой, обязана проходить гейт до разбора: в triage/ её
+// заготовки не проверяются вовсе. Та же карточка в queue/ разобрана — краснеет каждая.
+test('lint: 4. карточка new в triage/ гейт не красит, она же в queue/ — красит каждую заглушку', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    assert.equal(cli(root, ['new', 'placeholders', '--title', 'Заготовки']).code, 0);
+    assert.deepEqual(problems(root), []);
+    assert.equal(cli(root, ['mv', '5', 'queue']).code, 0);
+    const found = problems(root);
+    const todoLines = read(root, 'docs/backlog/queue/BS-5-placeholders.md')
+      .split('\n').map((line, i) => (line.includes('[TODO') ? i + 1 : 0)).filter(Boolean);
+    assert.ok(todoLines.length >= 4, `в карточке new заготовок ${todoLines.length}`);
+    for (const line of todoLines) {
+      assert.ok(found.some((p) => p === `docs/backlog/queue/BS-5-placeholders.md: строка ${line}: осталась заглушка [TODO]`),
+        `строка ${line} не покраснела: ${found.join(' | ') || 'ничего'}`);
+    }
   } finally {
     cleanup(root);
   }

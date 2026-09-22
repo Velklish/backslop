@@ -68,10 +68,15 @@ test('new: дробный parent принимает находку и сохра
     assert.match(child, /- \*\*Родитель:\*\* BS-007\.1\n/);
     assert.match(child, /Находка при работе над BS-007\.1\.\nУлика: \[TODO: путь к файлу или команда с выводом\]\n/);
     fillArea(root, 'docs/backlog/triage/BS-007.2-child.md');
+    // Гейт заглушек в triage/ не смотрит: запись лежит там до разбора, заполнять её некому.
     let lint = cli(root, ['lint']);
-    assert.equal(lint.code, 1, 'незаполненная улика находки должна красить lint');
+    assert.equal(lint.code, 0, lint.err);
+    // Разобранная находка — уже не запись triage/: незаполненная улика красит гейт.
+    assert.equal(cli(root, ['mv', '7.2', 'queue']).code, 0);
+    lint = cli(root, ['lint']);
+    assert.equal(lint.code, 1, 'незаполненная улика разобранной находки должна красить lint');
     assert.match(lint.err, /BS-007\.2-child\.md: строка \d+: осталась заглушка \[TODO\]/);
-    put(root, 'docs/backlog/triage/BS-007.2-child.md', read(root, 'docs/backlog/triage/BS-007.2-child.md')
+    put(root, 'docs/backlog/queue/BS-007.2-child.md', read(root, 'docs/backlog/queue/BS-007.2-child.md')
       .replace('Улика: [TODO: путь к файлу или команда с выводом]', 'Улика: вывод проверки'));
     lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
