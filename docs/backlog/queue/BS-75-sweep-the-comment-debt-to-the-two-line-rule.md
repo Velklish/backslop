@@ -3,11 +3,11 @@
 - **Порядок:** 170
 - **Область:** `test/fixtures/comment-sweep-pending.json`, `test/comment-length.test.mjs` (потолки), 42 файла из списка долга; [ADR-028](../../adr/adr-028-two-line-comment-rule-and-its-gate.md)
 - **Создана:** 2026-09-22
-- **Зависимости:** [BS-59](BS-59-long-inline-comments-in-lib-and-tests.md) — правило и гейт
+- **Зависимости:** [BS-59](../../archive/BS-59-long-inline-comments-in-lib-and-tests/task.md) — правило и гейт
 
 ## Контекст
 
-[BS-59](BS-59-long-inline-comments-in-lib-and-tests.md) записал правило двух строк в `AGENTS.md` и поставил на него гейт со снимком накопленного долга ([ADR-028](../../adr/adr-028-two-line-comment-rule-and-its-gate.md)). Сам долг тем заходом не тронут по решению владельца: правило действует с сегодня, старый долг гасится отдельно.
+[BS-59](../../archive/BS-59-long-inline-comments-in-lib-and-tests/task.md) записал правило двух строк в `AGENTS.md` и поставил на него гейт со снимком накопленного долга ([ADR-028](../../adr/adr-028-two-line-comment-rule-and-its-gate.md)). Сам долг тем заходом не тронут по решению владельца: правило действует с сегодня, старый долг гасится отдельно.
 
 Замер на `3286f92`, лексером `test/comment-scan.mjs` по `lib`, `test`, `bin`, `scripts`:
 
