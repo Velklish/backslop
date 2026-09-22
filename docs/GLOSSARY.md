@@ -9,7 +9,7 @@
 | В тексте | EN | Определение | Улика |
 |---|---|---|---|
 | задача | task | Единица работы: файл `<префикс>-N-<slug>.md`, лежащий ровно в одном каталоге статуса | [lib/tasks.js](../lib/tasks.js) |
-| находка | finding | Побочное открытие мимо текущей задачи; заводится файлом с номером `N.k` тем, кто нашёл: `major` вне области текущей задачи — в `triage/`, `minor` и гипотеза — в `minor/` | [lib/new.js](../lib/new.js), флаги `--parent`, `--minor` |
+| находка | finding | Побочное открытие мимо текущей задачи; заводится файлом с номером `N.k` тем, кто нашёл: `major` вне области текущей задачи — в `triage/`, `minor` и гипотеза — в `minor/` | [lib/new.js](../lib/new.js), флаги `--parent`, `--minor`, `--evidence` |
 | цена находки | cost | Метка `critical`, `major` или `minor` по шкале reviewer'а — что ломается или остаётся непроверенным, если не чинить; поле «Цена» в `minor/`, гипотеза — с пометкой `(гипотеза)` | [lib/tasks.js](../lib/tasks.js), `parseCost`; [ADR-022](adr/adr-022-cost-decides-finding-fate.md) |
 | пачка | batch | Обычная карточка со списком minor-записей одной области; её закрытие закрывает записи `archive N.k --into M` | [lib/archive.js](../lib/archive.js), `archiveInto` |
 | статус | status | Каталог, в котором лежит файл задачи: `triage`, `queue`, `active`, `deferred`, `minor`; закрытые — в `archive/` | [lib/config.js](../lib/config.js), `STATUSES` |

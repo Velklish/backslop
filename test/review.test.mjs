@@ -108,7 +108,8 @@ test('help, version, --help у команды, неизвестная коман
     assert.match(r.out, /тринадцать гейтов/);
     assert.match(r.out, /mv <N…> <triage\|queue\|active\|deferred\|minor>/);
     assert.match(r.out, /archive <N\.k> --into <M>/);
-    assert.match(r.out, /--minor \[--cost <уровень>\] \[--hypothesis\]/);
+    assert.match(r.out, /--minor --evidence "…" \[--cost <уровень>\] \[--hypothesis\]/);
+    assert.match(r.out, /--evidence обязателен с --minor/);
     r = cli(root, ['version']);
     assert.match(r.out, /^backslop \d+\.\d+\.\d+\n$/);
     r = cli(root, ['new', '--help']);

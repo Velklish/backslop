@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -998,7 +998,7 @@ test('new --minor: файл N.k в minor/ с ценой и родителем, �
   const root = makeProject();
   try {
     cli(root, ['new', 'base', '--queue', '--title', 'База']);
-    let r = cli(root, ['new', 'leak', '--parent', '1', '--minor', '--title', 'Мелкая течь']);
+    let r = cli(root, ['new', 'leak', '--parent', '1', '--minor', '--title', 'Мелкая течь', '--evidence', 'lib/new.js:97 — область пуста']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /minor\/ до пачки/);
     const minor = read(root, 'docs/backlog/minor/BS-1.1-leak.md');
@@ -1006,29 +1006,100 @@ test('new --minor: файл N.k в minor/ с ценой и родителем, �
     assert.match(minor, /- \*\*Область:\*\* \n/);
     assert.match(minor, /- \*\*Родитель:\*\* BS-1\n/);
     assert.match(minor, /- \*\*Цена:\*\* minor\n/);
-    assert.match(minor, /## Улика\n\nНаходка при работе над BS-1\./);
+    assert.match(minor, /## Улика\n\nНаходка при работе над BS-1\.\n\nУлика: lib\/new\.js:97 — область пуста\n/);
+    // Заглушке в minor/ взяться неоткуда: улику даёт флаг, и гейт заглушек её не красит.
+    assert.doesNotMatch(minor, /\[TODO/);
     assert.doesNotMatch(minor, /Что сделать/);
 
-    r = cli(root, ['new', 'guess', '--parent', '1', '--minor', '--cost', 'major', '--hypothesis']);
+    r = cli(root, ['new', 'guess', '--parent', '1', '--minor', '--cost', 'major', '--hypothesis', '--evidence', 'предположительно течёт на пике']);
     assert.equal(r.code, 0, r.err);
     assert.match(read(root, 'docs/backlog/minor/BS-1.2-guess.md'), /- \*\*Цена:\*\* major \(гипотеза\)\n/);
 
     r = cli(root, ['new', 'a', '--minor']);
     assert.equal(r.code, 1);
     assert.match(r.err, /нужен --parent/);
-    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--queue']);
+    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--queue', '--evidence', 'x']);
     assert.equal(r.code, 1);
     assert.match(r.err, /--minor и --queue/);
     r = cli(root, ['new', 'a', '--parent', '1', '--cost', 'major']);
     assert.equal(r.code, 1);
     assert.match(r.err, /только вместе с --minor/);
-    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--cost', 'major']);
+    r = cli(root, ['new', 'a', '--parent', '1', '--evidence', 'x']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--cost, --hypothesis и --evidence имеют смысл только вместе с --minor/);
+    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--cost', 'major', '--evidence', 'x']);
     assert.equal(r.code, 1);
     assert.match(r.err, /--cost major без --hypothesis/);
-    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--cost', 'huge']);
+    r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--cost', 'huge', '--evidence', 'x']);
     assert.equal(r.code, 1);
     assert.match(r.err, /уровни — critical, major, minor/);
     assert.ok(!existsSync(path.join(root, 'docs/backlog/minor/BS-1.3-a.md')));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new --minor без --evidence: отказ до записи на диск, текст называет, чем улика бывает', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-base.md', '# BS-1 · База\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n');
+    const before = readdirSync(path.join(root, 'docs/backlog/minor')).sort();
+
+    let r = cli(root, ['new', 'probe', '--parent', '1', '--minor']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--minor без --evidence/);
+    // Отказ учит формулировать улику, а не только тому, что флаг обязателен.
+    assert.match(r.err, /путь со строкой/);
+    assert.match(r.err, /команда с выводом и кодом/);
+    assert.match(r.err, /замер числом/);
+    assert.match(r.err, /Не проверено — это не пропуск улики, а предположение/);
+    // Отказ приходит раньше любой записи: каталог статуса не изменился.
+    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/minor')).sort(), before);
+
+    // Пустая и пробельная улика — то же, что её отсутствие; гипотеза исключением не служит.
+    for (const extra of [['--evidence', ''], ['--evidence', '   '], ['--cost', 'major', '--hypothesis']]) {
+      r = cli(root, ['new', 'probe', '--parent', '1', '--minor', ...extra]);
+      assert.equal(r.code, 1, extra.join(' '));
+      assert.match(r.err, /--minor без --evidence/);
+    }
+    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/minor')).sort(), before);
+
+    // С уликой та же команда создаёт карточку без заглушки, и гейт заглушек её не красит.
+    r = cli(root, ['new', 'probe', '--parent', '1', '--minor', '--evidence', 'lib/lint.js:294 → код 1']);
+    assert.equal(r.code, 0, r.err);
+    const card = read(root, 'docs/backlog/minor/BS-1.1-probe.md');
+    assert.match(card, /## Улика\n\nНаходка при работе над BS-1\.\n\nУлика: lib\/lint\.js:294 → код 1\n/);
+    assert.doesNotMatch(card, /\[TODO/);
+    assert.equal(cli(root, ['lint']).code, 0, 'карточка из new --minor не красит lint с рождения');
+
+    // Находка в triage/ улики флагом не требует: её достраивают при разборе.
+    r = cli(root, ['new', 'triaged', '--parent', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/triage/BS-1.2-triaged.md'), /Улика: \[TODO: путь к файлу или команда с выводом\]/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new --minor в EN-проекте: отказ и раздел Evidence на английском', () => {
+  const root = makeProject();
+  try {
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+    put(root, 'docs/backlog/queue/BS-1-base.md', '# BS-1 · Base\n\n- **Order:** 10\n- **Scope:** [x](../../README.md)\n');
+
+    let r = cli(root, ['new', 'probe', '--parent', '1', '--minor']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--minor without --evidence/);
+    assert.match(r.err, /a path with a line/);
+    assert.match(r.err, /a command, output, and code/);
+    assert.match(r.err, /a measurement with a number/);
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/minor/BS-1.1-probe.md')));
+
+    r = cli(root, ['new', 'probe', '--parent', '1', '--minor', '--evidence', 'lib/lint.js:294 → exit 1']);
+    assert.equal(r.code, 0, r.err);
+    const card = read(root, 'docs/backlog/minor/BS-1.1-probe.md');
+    assert.match(card, /## Evidence\n\nFinding discovered while working on BS-1\.\n\nEvidence: lib\/lint\.js:294 → exit 1\n/);
+    assert.doesNotMatch(card, /\[TODO/);
   } finally {
     cleanup(root);
   }
@@ -1047,9 +1118,9 @@ test('mv N minor дописывает «Цена: minor»; status печатае
     assert.equal(r.code, 1);
     assert.match(r.err, /уже в minor\//);
 
-    cli(root, ['new', 'late', '--parent', '1', '--minor', '--title', 'Поздняя']);
+    cli(root, ['new', 'late', '--parent', '1', '--minor', '--title', 'Поздняя', '--evidence', 'docs/backlog/README.md:13']);
     put(root, 'docs/backlog/minor/BS-1.1-late.md', '# BS-1.1 · Поздняя\n\n- **Область:** [02. CLI](../../reference/02-cli.md)\n- **Создана:** 2026-09-18\n- **Родитель:** BS-1\n- **Цена:** minor\n');
-    cli(root, ['new', 'early', '--parent', '1', '--minor', '--title', 'Ранняя']);
+    cli(root, ['new', 'early', '--parent', '1', '--minor', '--title', 'Ранняя', '--evidence', 'docs/backlog/README.md:21']);
     put(root, 'docs/backlog/minor/BS-1.2-early.md', '# BS-1.2 · Ранняя\n\n- **Область:** [01. Раскладка](../../reference/01-layout.md)\n- **Создана:** 2026-09-18\n- **Родитель:** BS-1\n- **Цена:** major (гипотеза)\n');
     r = cli(root, ['status']);
     assert.equal(r.code, 0, r.err);
@@ -1091,8 +1162,8 @@ test('archive N.k --into M: minor уезжает в minor/ архива пачк
   const root = makeProject();
   try {
     cli(root, ['new', 'base', '--queue', '--title', 'База']);
-    cli(root, ['new', 'leak', '--parent', '1', '--minor', '--title', 'Течь']);
-    cli(root, ['new', 'typo', '--parent', '1', '--minor', '--title', 'Опечатка']);
+    cli(root, ['new', 'leak', '--parent', '1', '--minor', '--title', 'Течь', '--evidence', 'lib/lint.js:294, код 1']);
+    cli(root, ['new', 'typo', '--parent', '1', '--minor', '--title', 'Опечатка', '--evidence', 'docs/GLOSSARY.md:12']);
     cli(root, ['new', 'batch', '--queue', '--title', 'Пачка']);
     put(root, 'docs/notes.md', '# Заметки\n\nСм. [течь](backlog/minor/BS-1.1-leak.md).\n');
     gitAll(root);
@@ -1131,7 +1202,7 @@ test('archive N.k --into M: minor уезжает в minor/ архива пачк
     assert.match(r.err, /BS-1\.1 уже в архиве/);
 
     // Закрытая пачкой запись известна нумерации и сводке: следующая находка — BS-1.3, архив считает задачи.
-    r = cli(root, ['new', 'next', '--parent', '1', '--minor']);
+    r = cli(root, ['new', 'next', '--parent', '1', '--minor', '--evidence', 'docs/reference/02-cli.md:12']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /BS-1\.3/);
     const s = JSON.parse(cli(root, ['status', '--json']).out);

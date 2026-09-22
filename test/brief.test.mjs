@@ -55,9 +55,9 @@ test('brief: заголовок track’а, постановки задач с �
     }
     assert.match(r.out, /закрытие и правку текста файлов в каталогах статусов и `archive\/` делает approver/);
     assert.match(r.out, /worker присылает формулировку в результате/);
-    assert.match(r.out, /Единственное исключение — новая находка: worker заводит её отдельным файлом командой `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(с `--minor` для minor и гипотез\) в своей ветке/);
+    assert.match(r.out, /Единственное исключение — новая находка: worker заводит её отдельным файлом командой `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(с `--minor --evidence "…"` для minor и гипотез\) в своей ветке/);
     assert.match(r.out, /`critical` чини сейчас в своих границах, в чужих файлах — сообщение оркестратору сразу/);
-    assert.match(r.out, /`minor` и гипотезу — `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\] --minor`/);
+    assert.match(r.out, /`minor` и гипотезу — `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\] --minor --evidence "…"`/);
     assert.match(r.out, /уже созданную карточку worker не правит/);
   } finally {
     cleanup(root);
@@ -118,7 +118,7 @@ test('brief: EN project renders the English twin', () => {
     assert.doesNotMatch(r.out, /## Как работать/, 'русская редакция брифа в EN-проект не попадает');
     assert.match(r.out, /the approver closes tasks and edits file text in those directories; the worker sends the wording in the result\./);
     assert.match(r.out, /Moving a file between status directories or `archive\/` is not the worker’s move\./);
-    assert.match(r.out, /The only exception is a new finding: the worker creates it as a separate file with `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(with `--minor` for minors and hypotheses\) on their branch/);
+    assert.match(r.out, /The only exception is a new finding: the worker creates it as a separate file with `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(with `--minor --evidence "…"` for minors and hypotheses\) on their branch/);
     assert.match(r.out, /Findings carry a cost label, and the label decides the route/);
     assert.match(r.out, /the worker does not edit an existing card/);
   } finally {
