@@ -4,11 +4,11 @@
 
 ## Цели
 
-1. **Английский слой.** Шаблоны docs, скиллы и README на английском по флагу `init --lang en`. Задача — [BS-1](archive/BS-1-english-layer/task.md).
-2. **Публикация в npm.** Подготовка пина и релизного скрипта — [BS-2](archive/BS-2-npm-publish/task.md); фактическая публикация и смена default CLI — [BS-2.1](backlog/deferred/BS-2.1-npm-publish.md).
-3. **Рендер для выбранных harness.** Скиллы процесса в `.claude/skills/`, `.cursor/rules/` и `.agents/skills/` из тех же шаблонов по полю `tools`. Задача — [BS-3](archive/BS-3-cursor-rules-render/task.md).
-4. **Обновление без сюрпризов.** Пин версии в `backslop.json`, команда `upgrade`, штамп версии для миграций формата. Задача — [BS-4](archive/BS-4-upgrade-and-pin/task.md).
-5. **Harness-neutral self-host.** `templates/` — единственный источник в git; generated adapter outputs не коммитятся. Задача — [BS-5](archive/BS-5-harness-neutral-self-host/task.md).
+1. **Английский слой.** Шаблоны docs, скиллы и README на английском по флагу `init --lang en`. Задача — [BS-1](archive/LOG.md#bs-1).
+2. **Публикация в npm.** Подготовка пина и релизного скрипта — [BS-2](archive/LOG.md#bs-2); фактическая публикация и смена default CLI — [BS-2.1](backlog/deferred/BS-2.1-npm-publish.md).
+3. **Рендер для выбранных harness.** Скиллы процесса в `.claude/skills/`, `.cursor/rules/` и `.agents/skills/` из тех же шаблонов по полю `tools`. Задача — [BS-3](archive/LOG.md#bs-3).
+4. **Обновление без сюрпризов.** Пин версии в `backslop.json`, команда `upgrade`, штамп версии для миграций формата. Задача — [BS-4](archive/LOG.md#bs-4).
+5. **Harness-neutral self-host.** `templates/` — единственный источник в git; generated adapter outputs не коммитятся. Задача — [BS-5](archive/LOG.md#bs-5).
 6. **Стык с оркестраторами.** `status --json` и команды статусов — стабильный контракт; варианты транспорта worker'ов подключаются страницей к слоту в `backslop-batch`, а не правкой CLI. Цель держится справочником [reference/02-cli.md](reference/02-cli.md) и меняется только новым ADR.
 
 ## Принцип приоритизации
