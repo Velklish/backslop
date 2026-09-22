@@ -161,35 +161,37 @@ export function maskedLines(text) {
   });
 }
 
-/** Прогоны комментария как `{ start, end, lines }`, с единицы и включительно. */
-export function commentRegions(text) {
-  const regions = [];
+/** Блоки комментария как `{ start, end, lines }`, с единицы и включительно. */
+export function commentBlocks(text) {
+  const blocks = [];
   let current = null;
   const facts = lineFacts(text);
   for (let n = 0; n < facts.length; n++) {
     const fact = facts[n];
-    // Код перед комментарием делает строку строкой кода; код после него обрывает прогон здесь.
+    // Код перед комментарием делает строку строкой кода; код после него обрывает блок здесь.
     if (!fact.spans.length || fact.codeBefore || fact.codeAfter) { current = null; continue; }
     if (current) { current.lines.push(fact.text); current.end = n + 1; continue; }
     current = { start: n + 1, end: n + 1, lines: [fact.text] };
-    regions.push(current);
+    blocks.push(current);
   }
-  return regions;
+  return blocks;
 }
 
-/** Код названных деревьев под git, и рядом — дерево, в котором его не оказалось. */
-export function trackedCode(root, trees) {
-  const files = execFileSync('git', ['ls-files', ...trees], { cwd: root, encoding: 'utf8' })
+/** Код деревьев, который git не игнорирует: индекс и ещё не он. Гейт идёт раньше `git add`. */
+export function scannedCode(root, trees) {
+  const ls = (args) => execFileSync('git', ['ls-files', ...args, ...trees], { cwd: root, encoding: 'utf8' })
     .split('\n').filter((f) => f && /\.(js|mjs)$/.test(f));
+  // Новый файл судится с рождения: `--others` без `--exclude-standard` тащил бы игнорируемое.
+  const files = [...new Set([...ls([]), ...ls(['--others', '--exclude-standard'])])].sort();
   // Дерево, разрешающееся в пустоту, — тихая дыра: обход по нему читает ноль файлов молча
-  // и даёт ту же зелень, что обход по всему. У соседа так простояло четыре дня.
+  // и даёт ту же зелень, что обход по всему.
   const empty = trees.filter((t) => !files.some((f) => f === t || f.startsWith(`${t}/`)));
   return { files, empty };
 }
 
-/** Прогоны длиннее `limit` строк — то, что судит гейт. */
-export function longRuns(text, limit = 2) {
-  return commentRegions(text)
+/** Блоки длиннее `limit` строк — то, что судит гейт. */
+export function longBlocks(text, limit = 2) {
+  return commentBlocks(text)
     .filter((r) => r.end - r.start + 1 > limit)
     .map((r) => ({ line: r.start, length: r.end - r.start + 1, lines: r.lines }));
 }
