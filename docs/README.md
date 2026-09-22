@@ -36,6 +36,7 @@
 | [adr/adr-025-probe-rule-in-skill-and-brief.md](adr/adr-025-probe-rule-in-skill-and-brief.md) | Команда пробы подставляется в блок, скилл и бриф | Accepted |
 | [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Accepted |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Accepted |
+| [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Accepted |
 
 ## Сквозные принципы
 
