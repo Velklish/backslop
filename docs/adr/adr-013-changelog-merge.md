@@ -1,6 +1,6 @@
 # ADR-013: Слияние CHANGELOG командой, а не правилом в скилле
 
-**Status:** Accepted
+**Status:** Superseded in part by [ADR-024](adr-024-changelog-merge-keeps-layout.md) (позиция записи вместо порядка «сначала ours», спор за одно место — в пользу theirs)
 **Date:** 2026-09-09
 **Deciders:** владелец backslop
 

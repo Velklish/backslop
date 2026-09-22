@@ -21,7 +21,7 @@
 | [adr/adr-010-brief-command.md](adr/adr-010-brief-command.md) | Бриф worker'у собирается командой `brief`, а не руками | Accepted |
 | [adr/adr-011-seed-scan-queue-reference.md](adr/adr-011-seed-scan-queue-reference.md) | Механика посева — команда `seed`, отбор кандидатов — агент и владелец | Accepted |
 | [adr/adr-012-owned-outputs-gitignore.md](adr/adr-012-owned-outputs-gitignore.md) | Owned outputs не коммитятся: блок `.gitignore` пишет `init` | Accepted |
-| [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Accepted |
+| [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Superseded in part by ADR-024 (позиция записи и спор за одно место) |
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
 | [adr/adr-015-adapter-write-preserves-foreign.md](adr/adr-015-adapter-write-preserves-foreign.md) | Запись adapter outputs не переписывает чужой файл на owned-пути | Accepted |
 | [adr/adr-016-selected-adapter-roots-symlink.md](adr/adr-016-selected-adapter-roots-symlink.md) | Symlink проверяется только на корнях выбранных adapter'ов | Accepted |
@@ -31,6 +31,7 @@
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
 | [adr/adr-021-probe-command-field.md](adr/adr-021-probe-command-field.md) | Команда мутационной пробы объявляется полем `probe` | Accepted |
 | [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
+| [adr/adr-024-changelog-merge-keeps-layout.md](adr/adr-024-changelog-merge-keeps-layout.md) | Слияние CHANGELOG сохраняет раскладку файла и отказывается на незакрытом конфликте | Accepted |
 
 ## Сквозные принципы
 

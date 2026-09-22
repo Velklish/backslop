@@ -218,3 +218,250 @@ test('merge-changelog: без --out слитый файл идёт в stdout, б
     cleanup(root);
   }
 });
+
+// Секция с заголовками `### …`, буллетом без жирного заголовка и записями по обе стороны от
+// него — ровно та форма, на которой v0.9.0 дублировала заголовок, выдумывала расхождение тел
+// и переразмечала файл (BS-65).
+const HEAD_OURS = `# Changelog
+
+## Не выпущено
+
+### Добавлено
+
+- **Общая добавленная** — тело
+- Буллет без жирного заголовка, продолжение которого
+  идёт с отступом.
+- **Своя у ours** — тело ours
+
+### Исправлено
+
+- **Новая у ours** — тело ours
+- **Старая общая** — тело
+`;
+
+const HEAD_THEIRS = `# Changelog
+
+## Не выпущено
+
+### Добавлено
+
+- **Общая добавленная** — тело
+- Буллет без жирного заголовка, продолжение которого
+  идёт с отступом.
+- **Своя у theirs** — тело theirs
+
+### Исправлено
+
+- **Новая у theirs** — тело theirs
+- **Старая общая** — тело
+`;
+
+// «−0 строк» карточки: результат получается из ours одними вставками, то есть каждая строка
+// ours лежит в нём в том же порядке. Жадный проход — корректная проверка на подпоследовательность.
+function insertionsOver(oursText, mergedText) {
+  const ours = oursText.split('\n');
+  const merged = mergedText.split('\n');
+  let i = 0;
+  for (const line of merged) if (i < ours.length && line === ours[i]) i += 1;
+  assert.equal(i, ours.length, 'строка ours пропала из результата');
+  return merged.length - ours.length;
+}
+
+test('merge-changelog: заголовок ### — граница записи, а не её тело', () => {
+  const { text, report } = mergeChangelog(HEAD_OURS, HEAD_THEIRS);
+  assert.deepEqual(report.conflicts, [], 'тела записей у сторон совпадают — расхождения нет');
+  assert.equal((text.match(/^### Добавлено$/gm) ?? []).length, 1);
+  assert.equal((text.match(/^### Исправлено$/gm) ?? []).length, 1);
+  assert.equal((text.match(/- \*\*Общая добавленная\*\*/g) ?? []).length, 1);
+  assert.equal((text.match(/^- Буллет без жирного заголовка/gm) ?? []).length, 1);
+  // Буллет без жирного заголовка — свой блок: он не утягивает в тело соседней записи ни
+  // себя, ни хвост секции вместе с её заголовком.
+  assert.doesNotMatch(text, /- \*\*Общая добавленная\*\* — тело\n- Буллет[\s\S]*### Исправлено[\s\S]*\n- \*\*Общая добавленная\*\*/);
+});
+
+test('merge-changelog: аддитивное слияние только добавляет строки и не трогает раскладку', () => {
+  const { text } = mergeChangelog(HEAD_OURS, HEAD_THEIRS);
+  const added = insertionsOver(HEAD_OURS, text);
+  assert.equal(added, 3, 'две записи theirs и одна их отбивка — и ни одной строки сверх');
+  const blanks = (s) => (s.match(/^$/gm) ?? []).length;
+  assert.equal(blanks(text), blanks(HEAD_OURS) + 1, 'пустые строки не размножаются');
+});
+
+test('merge-changelog: позиция записи сохраняется — новое сверху', () => {
+  const { text } = mergeChangelog(HEAD_OURS, HEAD_THEIRS);
+  const fixed = text.slice(text.indexOf('### Исправлено'));
+  // У theirs запись стояла первой в своей секции — первой же встаёт и здесь, выше записи
+  // ours, которая claims то же место: сторона, которую вливают, и есть новое.
+  assert.match(fixed, /### Исправлено\n\n- \*\*Новая у theirs\*\* — тело theirs\n- \*\*Новая у ours\*\* — тело ours\n- \*\*Старая общая\*\*/);
+  // А запись, стоявшая у theirs за общим буллетом, остаётся сразу за ним.
+  assert.match(text, /идёт с отступом\.\n- \*\*Своя у theirs\*\* — тело theirs\n\n- \*\*Своя у ours\*\* — тело ours/);
+});
+
+test('merge-changelog: самопроверка отказывает и файл не отдаётся', () => {
+  // Одна и та же жирная подгруппа приходит у сторон под разными заголовками: в результате
+  // строка подгруппы встала бы дважды там, где у каждой стороны она одна. Слияние
+  // отказывается, а не отдаёт файл с выросшей структурой.
+  const ours = '# Changelog\n\n## Не выпущено\n\n### Добавлено\n\n**Для агента:**\n\n- **Одна** — ours\n';
+  const theirs = '# Changelog\n\n## Не выпущено\n\n### Исправлено\n\n**Для агента:**\n\n- **Две** — theirs\n';
+  assert.throws(() => mergeChangelog(ours, theirs), /не прошло собственную проверку.*«\*\*Для агента:\*\*».*2 раз/s);
+});
+
+test('merge-changelog: незакрытая метка конфликта — ненулевой код возврата', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Одна** — редакция ours\n');
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Одна** — редакция theirs\n');
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 1, 'незакрытый конфликт успехом не считается');
+    assert.match(r.err, /осталось меток <!-- backslop:conflict: 1/);
+    assert.match(read(root, 'CHANGELOG.md'), /<!-- backslop:conflict Одна -->/, 'файл всё равно записан — его и разбирать');
+
+    // Метка, приехавшая из самой редакции, — тоже незакрытый конфликт, и слияние поверх неё
+    // отказывается: обе редакции под меткой стоят под одним заголовком, и вторая пропала бы
+    // как дубль. Отказ назван причиной, а не молчаливой потерей строк.
+    put(root, 'CHANGELOG.md', `# Changelog\n\n## Не выпущено\n\n<!-- backslop:conflict Одна -->\n- **Одна** — редакция ours\n\n- **Одна** — редакция theirs\n`);
+    gitAll(root, 'метка осталась');
+    const again = cli(root, ['merge-changelog', '--ours=main', '--theirs=main', '--out=CHANGELOG.md']);
+    assert.equal(again.code, 1);
+    assert.match(again.err, /секция невыпущенного стороны --ours несёт незакрытую метку <!-- backslop:conflict/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: имя метки прозой в код-спане — не метка', () => {
+  // Собственное имя метки стоит в CHANGELOG любого проекта, который про неё написал: у
+  // самого backslop — в записях v0.7.0 и v0.10.0. Подстрочная проверка считала это
+  // незакрытым конфликтом и отказывала на каждом слиянии в его же репозитории.
+  const released = '## v0.1.0 — 2026-01-01\n\n- **Слияние командой** — оставляет обе редакции под меткой `<!-- backslop:conflict … -->`, когда тела разошлись\n';
+  const ours = `# Changelog\n\n## Не выпущено\n\n- **Своя у ours** — тело ours\n\n${released}`;
+  const theirs = `# Changelog\n\n## Не выпущено\n\n- **Своя у theirs** — тело theirs\n\n${released}`;
+  const { text, report } = mergeChangelog(ours, theirs);
+  assert.equal(report.marks, 0, 'проза в выпущенной секции меткой не считается');
+  assert.match(text, /- \*\*Своя у ours\*\*/);
+  assert.match(text, /- \*\*Своя у theirs\*\*/);
+  assert.equal(insertionsOver(ours, text), 2);
+});
+
+test('merge-changelog: имя метки прозой в самой сливаемой секции — тоже не метка', () => {
+  // Запись про merge-changelog в проекте посреди цикла лежит именно в невыпущенном, то есть
+  // ровно в сливаемой секции. Здесь от ложного отказа спасает только якорь начала строки:
+  // сужение до секции не спасает, потому что секция та самая.
+  const entry = '- **Слияние командой** — обе редакции под меткой `<!-- backslop:conflict … -->`\n';
+  const ours = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у ours** — тело ours\n`;
+  const theirs = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у theirs** — тело theirs\n`;
+  const { text, report } = mergeChangelog(ours, theirs);
+  assert.equal(report.marks, 0, 'метка — строка, которая с неё начинается, а не подстрока');
+  assert.equal(report.conflicts.length, 0);
+  assert.match(text, /- \*\*Своя у theirs\*\* — тело theirs/);
+  assert.equal(insertionsOver(ours, text), 2, 'одна запись theirs с её отбивкой');
+});
+
+test('merge-changelog: имя метки прозой — код возврата 0, а строка-метка — 1', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    const released = '## v0.1.0 — 2026-01-01\n\n- **Слияние** — обе редакции под меткой `<!-- backslop:conflict … -->`\n';
+    put(root, 'CHANGELOG.md', `# Changelog\n\n## Не выпущено\n\n- **Своя у ours** — тело\n\n${released}`);
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', `# Changelog\n\n## Не выпущено\n\n- **Своя у theirs** — тело\n\n${released}`);
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /незакрытую метку/);
+    assert.doesNotMatch(r.err, /осталось меток/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: повтор блока у ours — отказ называет повтор, а не потерю строк', () => {
+  const ours = '# Changelog\n\n## Не выпущено\n\n- Повторённый буллет без заголовка\n- Повторённый буллет без заголовка\n';
+  assert.throws(() => mergeChangelog(ours, ours), (e) => {
+    assert.match(e.message, /сторона ours несёт повтор блока, второе вхождение снято: «Повторённый буллет без заголовка»/);
+    assert.doesNotMatch(e.message, /потеряло строк/);
+    return true;
+  });
+});
+
+test('merge-changelog: односторонний буллет без заголовка называется в отчёте отдельной строкой', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Запись** — тело\n- Буллет, который есть у обеих сторон\n');
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Запись** — тело\n- Буллет, который есть у обеих сторон\n- Буллет соседнего track’а, приехавший один\n');
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /только у theirs, буллет без заголовка: Буллет соседнего track’а, приехавший один/);
+    // В счёт записей он не входит: запись опознаётся заголовком, буллет — своим текстом.
+    assert.match(r.err, /записей: ours 1, theirs 1, в результате 1/);
+    assert.match(read(root, 'CHANGELOG.md'), /- Буллет соседнего track’а, приехавший один/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: снятый повтор называется в отчёте и когда до отказа не дошло', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    // База снимает запись, поэтому слияние не аддитивное и третий инвариант молчит. Строка
+    // содержания при этом всё равно пропадает — сказать об этом обязан отчёт, а не отказ.
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n- **Снятая** — тело\n- Буллет, который повторится\n');
+    gitAll(root, 'база');
+    const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n- Буллет, который повторится\n');
+    gitAll(root, 'worker снял Снятую');
+    run(root, ['checkout', '-q', 'main']);
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n- **Снятая** — тело\n- Буллет, который повторится\n- Буллет, который повторится\n');
+    gitAll(root, 'ours с повтором');
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', `--base=${base}`, '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /снята относительно --base: Снятая/);
+    assert.match(r.err, /повтор блока у ours, второе вхождение снято: Буллет, который повторится/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: повтор у theirs тоже называется — в общем seen он неотличим от пришедшего от ours', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n');
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n- Свой буллет worker’а\n- Свой буллет worker’а\n');
+    gitAll(root, 'theirs с повтором');
+    run(root, ['checkout', '-q', 'main']);
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /повтор блока у theirs, второе вхождение снято: Свой буллет worker’а/);
+    assert.equal((read(root, 'CHANGELOG.md').match(/- Свой буллет worker’а/g) ?? []).length, 1);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: имя метки с отступом — не метка, отступ поблажки не даёт', () => {
+  // Настоящую метку `conflictEntry` ставит с первой колонки. Поблажка на отступ вернула бы
+  // ложный отказ для имени метки в отступном блоке кода внутри сливаемой секции.
+  const entry = '- **Слияние командой** — пример вывода:\n\n      <!-- backslop:conflict Одна -->\n\n';
+  const ours = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у ours** — тело ours\n`;
+  const theirs = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у theirs** — тело theirs\n`;
+  const { text, report } = mergeChangelog(ours, theirs);
+  assert.equal(report.marks, 0, 'отступная строка меткой не считается');
+  assert.match(text, /- \*\*Своя у theirs\*\* — тело theirs/);
+});
