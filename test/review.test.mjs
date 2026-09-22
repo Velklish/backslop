@@ -117,6 +117,16 @@ test('help, version, --help у команды, неизвестная коман
     r = cli(root, ['frobnicate']);
     assert.equal(r.code, 1);
     assert.match(r.err, /неизвестная команда/);
+
+    // Строка mv в справке и usage самой команды учат одному: разойдясь, они называют разные
+    // флаги позиции, а справка — первое, куда смотрит человек. Проверяются обе половины.
+    const flags = /mv <N…> <triage\|queue\|active\|deferred\|minor> \[--top \| --after M \| --restore\]/;
+    assert.match(cli(root, ['help']).out, flags);
+    put(root, 'backslop.json', read(root, 'backslop.json').replace(/^{/, '{\n  "lang": "en",'));
+    r = cli(root, ['help']);
+    assert.equal(r.code, 0);
+    assert.match(r.out, /change status with git mv/);
+    assert.match(r.out, flags);
   } finally {
     cleanup(root);
   }

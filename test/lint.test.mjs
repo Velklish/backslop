@@ -119,6 +119,8 @@ probe('4. очередь без порядка', (root) => put(root, 'docs/backl
 probe('4. порядок не число', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** высокий\n'), /не целое число/);
 probe('4. два файла очереди с одним порядком', (root) => put(root, 'docs/backlog/queue/BS-5-f.md', '# BS-5 · Е\n\n- **Порядок:** 10\n'), /BS-5-f\.md: «Порядок» 10 уже у docs\/backlog\/queue\/BS-1-a\.md/);
 probe('4. дубль поля в одном файле с RU/EN алиасами', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Order:** 20\n'), /BS-1-a\.md: поле «Порядок» повторяется в строках 3, 4/);
+probe('4. «Прежний порядок» в очереди не заменяет «Порядок»', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Прежний порядок:** 10\n- **Область:** [x](../../reference/README.md)\n'), /BS-1-a\.md: в очереди без поля «Порядок»/);
+probe('4. дубль «Прежнего порядка» с RU/EN алиасами', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n- **Прежний порядок:** 20\n- **Previous order:** 30\n'), /BS-2-b\.md: поле «Прежний порядок» повторяется в строках 5, 6/);
 probe('4. разобранная задача без «Области»', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n'), /BS-1-a\.md: без поля «Область»/);
 probe('4. «Область» пуста', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:**\n- **Взята:** 2026-09-01\n'), /BS-2-b\.md: «Область» пуста/);
 probe('4. в работе без даты', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n'), /без даты «Взята/);
@@ -129,6 +131,19 @@ probe('4. заглушка в любом файле backlog', (root) => put(root
 probe('4. каноническая улика находки', (root) => put(root, 'docs/backlog/queue/BS-5-finding.md', '# BS-5 · Находка\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\nЦитату файла оборачивай в блок.\n'), /BS-5-finding\.md: строка 4: осталась заглушка \[TODO\]/);
 probe('4. поле с двоеточием вне жирного', (root) => put(root, 'docs/backlog/queue/BS-6-reason.md', '# BS-6 · Причина\n\n- **Reason**: [TODO]\n'), /BS-6-reason\.md: строка 3: осталась заглушка \[TODO\]/);
 probe('4. заглушка списка с подсказкой внутри скобок', (root) => put(root, 'docs/backlog/queue/BS-5-hint.md', '# BS-5 · Подсказка\n\n- [TODO: ход назначается при разборе triage]\n'), /docs\/backlog\/queue\/BS-5-hint\.md: строка 3: осталась заглушка \[TODO\]/);
+
+test('lint: «Прежний порядок» вне queue/ гейт полей не красит', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    // Ранг, сохранённый уходом из очереди: «Порядка» в этих каталогах нет и не требуется.
+    put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n- **Прежний порядок:** 20\n');
+    put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n- **Прежний порядок:** 30\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
 
 test('lint: текст о TODO внутри заполненного значения не красит backlog', () => {
   const root = makeProject({ git: false });

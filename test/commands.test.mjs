@@ -205,7 +205,7 @@ test('mv: очередь → работа ставит «Взята» и сни�
     assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-3-c.md')));
     r = cli(root, ['mv', '3', 'queue']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /уже в queue\/; место — --top или --after M/);
+    assert.match(r.err, /уже в queue\/; место — --top, --after M или --restore/);
     r = cli(root, ['mv', '3', 'queue', '--after', '3']);
     assert.equal(r.code, 1);
     assert.match(r.err, /после самой себя/);
@@ -290,6 +290,199 @@ test('mv: дублированное поле читается первым, que
     assert.equal(r.code, 0, r.err);
     const active = read(root, 'docs/backlog/active/BS-1-duplicate.md');
     assert.doesNotMatch(active, /(?:Order|Порядок):/);
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: уход из очереди сохраняет «Прежний порядок», --restore возвращает место', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']); // 10
+    cli(root, ['new', 'b', '--queue']); // 20
+    cli(root, ['new', 'c', '--queue']); // 30
+    for (const n of ['1-a', '2-b', '3-c']) fillArea(root, `docs/backlog/queue/BS-${n}.md`);
+    gitAll(root);
+
+    // Уход из очереди: активного «Порядка» нет, но ранг не потерян.
+    let r = cli(root, ['mv', '2', 'active']);
+    assert.equal(r.code, 0, r.err);
+    const active = read(root, 'docs/backlog/active/BS-2-b.md');
+    assert.doesNotMatch(active, /- \*\*Порядок:\*\*/);
+    assert.match(active, /- \*\*Прежний порядок:\*\* 20\n/);
+    assert.equal(cli(root, ['lint']).code, 0, 'сохранённый ранг вне queue/ гейт полей не красит');
+
+    // Место свободно — задача встаёт ровно на него, сохранённое число снимается.
+    r = cli(root, ['mv', '2', 'queue', '--restore']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /«Порядок» 20 восстановлен/);
+    const back = read(root, 'docs/backlog/queue/BS-2-b.md');
+    assert.match(back, /- \*\*Порядок:\*\* 20\n/);
+    assert.doesNotMatch(back, /Прежний порядок/);
+    assert.equal(cli(root, ['lint']).code, 0);
+
+    // Сохранённого числа больше нет: отказ, а не тихая постановка в конец.
+    r = cli(root, ['mv', '2', 'queue', '--restore']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /нет поля «Прежний порядок» — место не сохранено/);
+    assert.match(read(root, 'docs/backlog/queue/BS-2-b.md'), /- \*\*Порядок:\*\* 20\n/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv --restore: занятое место — ближайшее свободное, тесная очередь перенумеровывается', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']); // 10
+    cli(root, ['new', 'b', '--queue']); // 20
+    cli(root, ['new', 'c', '--queue']); // 30
+    for (const n of ['1-a', '2-b', '3-c']) fillArea(root, `docs/backlog/queue/BS-${n}.md`);
+    gitAll(root);
+
+    assert.equal(cli(root, ['mv', '2', 'active']).code, 0); // «Прежний порядок» 20
+    assert.equal(cli(root, ['mv', '3', 'queue', '--after', '1']).code, 0); // BS-3 занял 20
+    let r = cli(root, ['mv', '2', 'queue', '--restore']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /сохранённое место 20 занято — «Порядок» 15/);
+    assert.match(read(root, 'docs/backlog/queue/BS-2-b.md'), /- \*\*Порядок:\*\* 15\n/);
+    assert.equal(cli(root, ['lint']).code, 0);
+
+    // Целого места между соседом и занятым рангом нет — очередь перенумеровывается шагом 10,
+    // а восстановленная задача остаётся впереди того, кто занял её число.
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · a\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n');
+    put(root, 'docs/backlog/queue/BS-2-b.md', '# BS-2 · b\n\n- **Порядок:** 11\n- **Область:** [x](../../README.md)\n');
+    put(root, 'docs/backlog/active/BS-3-c.md', '# BS-3 · c\n\n- **Прежний порядок:** 11\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    rmSync(path.join(root, 'docs/backlog/queue/BS-3-c.md'));
+    gitAll(root);
+    r = cli(root, ['mv', '3', 'queue', '--restore']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /перенумерована/);
+    const ranks = ['1-a', '3-c', '2-b'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]);
+    assert.deepEqual(ranks, ['10', '20', '30']);
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv --restore: вне queue, вместе с другим флагом и на пакете — отказы; нецелое число — отказ', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']);
+    cli(root, ['new', 'b', '--queue']);
+    for (const n of ['1-a', '2-b']) fillArea(root, `docs/backlog/queue/BS-${n}.md`);
+    gitAll(root);
+
+    let r = cli(root, ['mv', '1', 'active', '--restore']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--top, --after и --restore имеют смысл только при переводе в queue/);
+    r = cli(root, ['mv', '1', 'queue', '--restore', '--top']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--top и --restore вместе не сочетаются: место одно/);
+    r = cli(root, ['mv', '1', '2', 'queue', '--top']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--top и --after — только с одним номером/);
+    // Пакет --restore разрешён, но без сохранённых чисел отказывает целиком и поимённо.
+    r = cli(root, ['mv', '1', '2', 'queue', '--restore']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /у BS-1, BS-2 нет поля «Прежний порядок» — место не сохранено/);
+    for (const n of ['1-a', '2-b']) assert.ok(existsSync(path.join(root, `docs/backlog/queue/BS-${n}.md`)), 'отказ пакета не двигает ни одной задачи');
+
+    put(root, 'docs/backlog/active/BS-3-c.md', '# BS-3 · c\n\n- **Прежний порядок:** высокий\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    gitAll(root);
+    r = cli(root, ['mv', '3', 'queue', '--restore']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /«Прежний порядок» у BS-3 не целое число/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-3-c.md')), 'отказ виден до переноса');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv --restore: исход пакета не зависит от порядка аргументов', () => {
+  // Сохранённые числа 10 и 11 при тесной занятой очереди: кто встал первым, тот и решил, как
+  // перенумеровались соседи. Обе формы вызова обязаны дать одну очередь.
+  const restore = (ids) => {
+    const root = makeProject();
+    try {
+      put(root, 'docs/backlog/queue/BS-5-e.md', '# BS-5 · e\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n');
+      put(root, 'docs/backlog/queue/BS-6-f.md', '# BS-6 · f\n\n- **Порядок:** 11\n- **Область:** [x](../../README.md)\n');
+      put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · a\n\n- **Прежний порядок:** 10\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+      put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · b\n\n- **Прежний порядок:** 11\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+      gitAll(root);
+      const r = cli(root, ['mv', ...ids, 'queue', '--restore']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(cli(root, ['lint']).code, 0);
+      return ['1-a', '5-e', '2-b', '6-f'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]);
+    } finally {
+      cleanup(root);
+    }
+  };
+  assert.deepEqual(restore(['1', '2']), ['5', '10', '20', '30']);
+  assert.deepEqual(restore(['2', '1']), ['5', '10', '20', '30']);
+});
+
+test('mv --restore: восстановленные задачи сохраняют порядок между собой', () => {
+  const root = makeProject();
+  try {
+    // BS-1 ушла раньше BS-2 и обязана вернуться впереди неё. Сохранённое место BS-1 занято и
+    // тесно — она расталкивает очередь; свободное место BS-2 её не обгоняет.
+    put(root, 'docs/backlog/queue/BS-5-e.md', '# BS-5 · e\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n');
+    put(root, 'docs/backlog/queue/BS-6-f.md', '# BS-6 · f\n\n- **Порядок:** 11\n- **Область:** [x](../../README.md)\n');
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · a\n\n- **Прежний порядок:** 11\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · b\n\n- **Прежний порядок:** 12\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    gitAll(root);
+
+    const r = cli(root, ['mv', '1', '2', 'queue', '--restore']);
+    assert.equal(r.code, 0, r.err);
+    const rank = (n) => Number(read(root, `docs/backlog/queue/BS-${n}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]);
+    assert.ok(rank('1-a') < rank('2-b'), `BS-1 ${rank('1-a')} обязана стоять раньше BS-2 ${rank('2-b')}`);
+    assert.deepEqual(['5-e', '1-a', '6-f', '2-b'].map(rank), [10, 20, 30, 40]);
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv --restore: сводка перенумерации считает файлы, а не срабатывания', () => {
+  const root = makeProject();
+  try {
+    // Три задачи возвращаются на одно и то же сохранённое место при занятом ранге 1. Первая
+    // перенумеровывает соседа, вторая встаёт на освободившуюся единицу, третья перенумеровывает
+    // всех снова — BS-4 попадает в перенумерованные дважды за один вызов.
+    put(root, 'docs/backlog/queue/BS-4-d.md', '# BS-4 · d\n\n- **Порядок:** 1\n- **Область:** [x](../../README.md)\n');
+    for (const [n, slug] of [['1', 'a'], ['2', 'b'], ['3', 'c']]) {
+      put(root, `docs/backlog/active/BS-${n}-${slug}.md`, `# BS-${n} · ${slug}\n\n- **Прежний порядок:** 1\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n`);
+    }
+    gitAll(root);
+
+    const r = cli(root, ['mv', '1', '2', '3', 'queue', '--restore']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /очередь перенумерована шагом 10: 3 файлов/);
+    assert.deepEqual(['1-a', '2-b', '3-c', '4-d'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]), ['10', '20', '30', '40']);
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N queue без --restore: отброшенное место названо вслух, в пакете — про каждую', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · a\n\n- **Прежний порядок:** 20\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · b\n\n- **Прежний порядок:** 30\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    put(root, 'docs/backlog/active/BS-3-c.md', '# BS-3 · c\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    gitAll(root);
+
+    const r = cli(root, ['mv', '1', '2', '3', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /BS-1: сохранённое место 20 отброшено — вернуть его можно было --restore/);
+    assert.match(r.out, /BS-2: сохранённое место 30 отброшено — вернуть его можно было --restore/);
+    assert.equal((r.out.match(/отброшено/g) ?? []).length, 2, 'о задаче без сохранённого числа команда молчит');
+    for (const n of ['1-a', '2-b', '3-c']) assert.doesNotMatch(read(root, `docs/backlog/queue/BS-${n}.md`), /Прежний порядок/);
+    assert.deepEqual(['1-a', '2-b', '3-c'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]), ['10', '20', '30']);
     assert.equal(cli(root, ['lint']).code, 0);
   } finally {
     cleanup(root);

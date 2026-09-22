@@ -19,7 +19,7 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor [--cost <уровень>] [--hypothesis]]]
                                                       завести задачу (по умолчанию в triage/) или находку задачи N / N.M;
                                                       --minor — minor-находка или гипотеза в minor/, с полем «Цена»
-  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M]
+  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M | --restore]
                                                       сменить статус: git mv между каталогами; номеров может быть несколько
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
                                                       печатает доки, которых коснулся ход задачи
@@ -62,7 +62,7 @@ Commands:
   new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor [--cost <level>] [--hypothesis]]]
                                                       create a task (triage/ by default) or a finding for task N / N.M;
                                                       --minor — a minor finding or hypothesis in minor/, with a Cost field
-  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M]
+  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M | --restore]
                                                       change status with git mv between directories; several numbers allowed
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
                                                       prints the documentation touched by the task
