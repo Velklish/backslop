@@ -1,6 +1,6 @@
 ---
 name: backslop-batch
-description: A worker run over the backslop backlog — split the queue into tracks, required brief contents, worker boundaries, the review gate and criterion for a second review round, branch integration, and acceptance. Use when taking several tasks in one run and assigning them to workers — subagents in worktrees, separate sessions, or bus participants — and when managing a running batch: a result arrived, review is being prepared, or a worker branch is being merged. Triggers: “assign tasks to workers”, “run the backlog”, “orchestrate the queue”, “do it in parallel”, “a worker result arrived”, “merge a worker branch”, “should a reviewer be raised a second time”. Not for one task alone (`backslop-task`).
+description: "A worker run over the backslop backlog — split the queue into tracks, required brief contents, worker boundaries, the review gate and criterion for a second review round, branch integration, and acceptance. Use when taking several tasks in one run and assigning them to workers — subagents in worktrees, separate sessions, or bus participants — and when managing a running batch: a result arrived, review is being prepared, or a worker branch is being merged. Triggers: “assign tasks to workers”, “run the backlog”, “orchestrate the queue”, “do it in parallel”, “a worker result arrived”, “merge a worker branch”, “should a reviewer be raised a second time”. Not for one task alone (`backslop-task`)."
 ---
 
 # backslop-batch — a worker run over the backlog

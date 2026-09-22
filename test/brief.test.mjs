@@ -211,3 +211,25 @@ test('brief: запись с областью печатается команд�
     cleanup(root);
   }
 });
+
+test('brief: команда пробы — из поля probe проекта; поля нет — нет и предложения', () => {
+  const root = makeProject();
+  try {
+    seed(root);
+    let r = cli(root, ['brief', '3', '--track', 'миграция конфигов']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /потом проба —/, 'поля probe нет — команду бриф не называет');
+    assert.ok(!r.out.includes('{{'), 'пустая подстановка не оставляет {{…}} читателю');
+    // Выкинутое требование называется вслух, как у `init` (ADR-021), и в stderr: stdout — бриф.
+    assert.match(r.err, /probe в backslop\.json не объявлен/);
+    assert.doesNotMatch(r.out, /probe в backslop\.json не объявлен/, 'нота в stdout уехала бы worker’у частью постановки');
+
+    put(root, 'backslop.json', `${JSON.stringify({
+      prefix: 'BL', docs: 'docs', cli: 'npx backslop@1.2.3', gates: [], tools: [], probe: 'npm run probe',
+    }, null, 2)}\n`);
+    r = cli(root, ['brief', '3', '--track', 'миграция конфигов']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /сначала коммит, потом проба — `npm run probe`\./);
+    assert.doesNotMatch(r.err, /probe в backslop\.json не объявлен/, 'поле объявлено — ноты нет');
+  } finally { cleanup(root); }
+});

@@ -338,6 +338,51 @@ test('init: при tools=[] CLAUDE.md-симлинк сохраняется; --d
   }
 });
 
+// Обязанность без инструмента: скилл ведёт цикл задачи и до BS-58.1 описывал пробу только
+// способом, а команду проекта называл лишь managed-блок AGENTS.md. Теперь источник у обоих
+// один — `agents-probe.md` в подстановке `{{probeRule}}`.
+test('init: шаг 4 скилла называет команду пробы проекта; поля probe нет — нет и предложения', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [] }, null, 2)}\n`);
+    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+    const bare = read(root, '.claude/skills/backslop-task/SKILL.md');
+    assert.doesNotMatch(bare, /потом проба —/, 'нечего исполнять — требования в скилле нет');
+    assert.ok(!bare.includes('{{'), 'пустая подстановка не оставляет {{…}} читателю');
+
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], probe: 'npm run probe' }, null, 2)}\n`);
+    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+    assert.match(read(root, '.claude/skills/backslop-task/SKILL.md'), /сначала коммит, потом проба — `npm run probe`\./);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Контракт adapter output — файл скилла с YAML-фронтматтером, и читает его гейт потребителя, а
+// не backslop. Значение с «: » внутри уезжает закавыченным, а Cursor кавычит его заново сам —
+// снятие кавычек в `splitFrontmatter` и держит `.mdc` от второго слоя экранирования (BS-63).
+function frontmatterValue(text, key) {
+  const line = text.split('\n').find((l) => l.startsWith(`${key}: `));
+  assert.ok(line !== undefined, `строки «${key}: » во фронтматтере нет`);
+  return line.slice(key.length + 2);
+}
+
+test('init: значение description в adapter outputs закавычено, а Cursor не кавычит его дважды', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--tools', 'claude,cursor,codex']);
+    assert.equal(r.code, 0, r.err);
+    const claude = frontmatterValue(read(root, '.claude/skills/backslop-task/SKILL.md'), 'description');
+    assert.ok(claude.startsWith('"'), 'плоский скаляр с «: » внутри YAML-мэппингом не разбирается');
+    assert.ok(JSON.parse(claude).includes(': '), 'кавычки стоят ровно из-за «: » в тексте');
+    assert.equal(frontmatterValue(read(root, '.agents/skills/backslop-task/SKILL.md'), 'description'), claude);
+    const cursor = frontmatterValue(read(root, '.cursor/rules/backslop-task.mdc'), 'description');
+    assert.equal(JSON.parse(cursor), JSON.parse(claude), 'в .mdc уезжает текст, а не экранированные кавычки');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('init: adapters имеют canonical layout; deselect удаляет только owned outputs', () => {
   const root = emptyRepo();
   try {

@@ -33,6 +33,7 @@
 | [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
 | [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
 | [adr/adr-024-changelog-merge-keeps-layout.md](adr/adr-024-changelog-merge-keeps-layout.md) | Слияние CHANGELOG сохраняет раскладку файла и отказывается на незакрытом конфликте | Accepted |
+| [adr/adr-025-probe-rule-in-skill-and-brief.md](adr/adr-025-probe-rule-in-skill-and-brief.md) | Команда пробы подставляется в блок, скилл и бриф | Accepted |
 
 ## Сквозные принципы
 

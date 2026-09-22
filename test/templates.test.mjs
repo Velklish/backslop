@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { TEMPLATES_DIR, renderTemplate, templateParity, templateSlots } from '../lib/templates.js';
+import { srcFiles } from '../lib/mdwalk.js';
 import { cleanup, put } from './helpers.mjs';
 
 test('template parity: состав и placeholders совпадают', () => {
@@ -43,6 +44,43 @@ test('templates: agents-probe.md держит {{probe}} в код-спане —
     assert.equal((text.match(/`/g) ?? []).length, 2, `${rel}: обратных кавычек ровно две — пара код-спана`);
     assert.match(text, /`\{\{probe\}\}`/, `${rel}: значение стоит внутри код-спана`);
   }
+});
+
+// Фронтматтер скилла обязан разбираться как YAML-мэппинг. Плоский скаляр ломают четыре вещи:
+// «: » и « #» внутри, хвостовое «:» и индикатор YAML первым символом — на этом краснел гейт
+// фронтматтера у потребителя после каждого `init` (BS-63). Парсер не тащим: зависимостей у
+// инструмента нет (ADR-003), а правило проверяется само — значение либо плоский скаляр без
+// этих четырёх примет, либо JSON-строка, которую разберёт любой YAML 1.2. Гейт парности
+// (`frontmatterField`) построчный и к этому слеп.
+const YAML_INDICATOR = /^(?:[*&!%@`{[|>?#,\]}']|-(?:\s|$))/;
+
+function frontmatterFaults(rel, text) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+  if (!m) return [`${rel}: фронтматтера нет`];
+  const faults = [];
+  for (const line of m[1].split(/\r?\n/)) {
+    const key = line.match(/^([A-Za-z][\w-]*): /)?.[1];
+    if (!key) { faults.push(`${rel}: строка не «ключ: значение» — ${line}`); continue; }
+    const value = line.slice(key.length + 2);
+    if (value.startsWith('"')) {
+      try { JSON.parse(value); } catch { faults.push(`${rel}: ${key} — закавыченное значение не разбирается как строка`); }
+      continue;
+    }
+    if (value.includes(': ')) faults.push(`${rel}: ${key} — плоский скаляр с «: » внутри`);
+    if (value.includes(' #')) faults.push(`${rel}: ${key} — плоский скаляр с « #» внутри`);
+    if (value.endsWith(':')) faults.push(`${rel}: ${key} — плоский скаляр кончается на «:»`);
+    if (YAML_INDICATOR.test(value)) faults.push(`${rel}: ${key} — плоский скаляр начинается с индикатора YAML`);
+  }
+  return faults;
+}
+
+test('templates: фронтматтер скиллов разбирается как YAML-мэппинг — плоский скаляр без примет', () => {
+  const files = [
+    ...srcFiles(TEMPLATES_DIR, '', ['.md']).filter(([rel]) => !rel.startsWith('en/')),
+    ...srcFiles(path.join(TEMPLATES_DIR, 'en'), '', ['.md']).map(([rel, abs]) => [`en/${rel}`, abs]),
+  ].filter(([rel]) => rel.endsWith('/SKILL.md'));
+  assert.equal(files.length, 6, 'три скилла в двух слоях');
+  assert.deepEqual(files.flatMap(([rel, abs]) => frontmatterFaults(rel, readFileSync(abs, 'utf8'))), []);
 });
 
 test('template parity: пустой description и чужое name в SKILL.md', () => {
