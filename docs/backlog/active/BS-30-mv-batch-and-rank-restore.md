@@ -3,6 +3,7 @@
 - **Область:** [reference/02](../../reference/02-cli.md), `lib/mv.js`, `lib/tasks.js`, `templates/skills/backslop-batch/SKILL.md`, `test/commands.test.mjs`, `test/lint.test.mjs`
 - **Создана:** 2026-09-06
 - **Зависимости:** нет
+- **Взята:** 2026-09-22
 
 ## Контекст
 

@@ -8,4 +8,4 @@
 
 **Доки тем же ходом.** `docs/backlog/README.md` и оба шаблонных слоя (`templates/docs/backlog/README.md`, `templates/en/docs/backlog/README.md`), `docs/reference/03-lint.md`, `README.md` и `README.ru.md` — в обоих README описание `lint` несло прежний контракт, и нашло это ревью, а не гейт: гейт 11 смотрит в README только пин версии. `CHANGELOG.md` — запись в секции v0.10.0.
 
-**Находка.** [BS-64.1](../../backlog/triage/BS-64.1-minor-evidence-placeholder-fails-lint-at-birth.md) — карточка, заведённая `new --parent N --minor`, краснит `lint` в `minor/` с рождения: тот же класс, что закрыт здесь для `triage/`. Заведена с живым замером, ход выбирает владелец.
+**Находка.** [BS-64.1](../../backlog/queue/BS-64.1-minor-evidence-placeholder-fails-lint-at-birth.md) — карточка, заведённая `new --parent N --minor`, краснит `lint` в `minor/` с рождения: тот же класс, что закрыт здесь для `triage/`. Заведена с живым замером, ход выбирает владелец.
