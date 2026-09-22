@@ -40,6 +40,7 @@
 | review round | review round | Итерация ревью: замечания → правки → проверка закрытия; пределы кругов — норма скилла захода | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |
 | владелец | owner | Человек, принимающий решения по проекту: порядок очереди, отказ от находки, выбор ADR | [templates/skills/backslop-seed/SKILL.md](../templates/skills/backslop-seed/SKILL.md) |
 | слот | slot | Место в скилле, куда окружение подставляет свой вариант: транспорт worker'ов в `backslop-batch` | [docs/reference/02-cli.md](reference/02-cli.md) |
+| блок комментария | comment block | Подряд идущие строки, на которых нет ничего, кроме комментария: код до или после обрывает блок, пустая строка тоже. Личность — `sha256` прозы блока со снятыми отступами; считается по дереву, а не по файлу | [test/comment-scan.mjs](../test/comment-scan.mjs), `commentBlocks`; [ADR-028](adr/adr-028-two-line-comment-rule-and-its-gate.md) |
 
 ## Убранные слова
 
@@ -50,3 +51,4 @@
 | индекс бэклога | `status` | списка задач в файлах нет — сводку печатает команда |
 | тимлид | оркестратор, approver | роль названа по действию, а не по должности |
 | линия | track | одно имя для направления внутри захода |
+| прогон (о комментарии) | блок комментария | «прогон» занят запуском: `backslop gates`, живой прогон в `result.md`, [ADR-023](adr/adr-023-gates-scope-when.md) |
