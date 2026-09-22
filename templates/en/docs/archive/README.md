@@ -7,3 +7,9 @@ Live tasks are in [backlog/](../backlog/README.md). Numbers are sequential and n
 A batch of minor entries is the same directory with a `minor/` subdirectory: entries closed with `{{cli}} archive N.k --into M` sit there as they were, without a `result.md` of their own; the batch's `result.md` names each outcome.
 
 Move a task with `{{cli}} archive N`: it also rewrites task links throughout the repository, creates the `result.md` stub, and prints the documentation files touched by the task — the draft of the “documentation updated” line.
+
+A closed task folds into a [LOG.md](LOG.md) journal line: `{{cli}} fold N` removes the directory, appends the line, and moves incoming links onto its anchor — `LOG.md#<number in lower case>`. The definition and the result go in full into the message of the folding commit: the command prints that draft on stdout, and committing with it is mandatory — the body is no longer in the tree. `{{cli}} show N` retrieves it.
+
+The accumulated archive folds with the same `{{cli}} fold` without a number: there the body comes from history rather than from the message, and the journal line names the revision. `--older-than <date>` folds only what was closed before that date.
+
+Both forms are legal and live side by side for as long as you like: a directory is a task that is closed and not yet folded. Folding is not mandatory.

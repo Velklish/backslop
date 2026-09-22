@@ -9,7 +9,7 @@ import { CliError, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { findRoot } from '../lib/config.js';
 
-const COMMANDS = ['init', 'new', 'mv', 'archive', 'adr', 'brief', 'seed', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
+const COMMANDS = ['init', 'new', 'mv', 'archive', 'fold', 'show', 'adr', 'brief', 'seed', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
 
 const HELP_RU = `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
@@ -24,6 +24,13 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
                                                       печатает доки, которых коснулся ход задачи
   archive <N.k> --into <M> [--dry-run]                закрыть minor-запись пачкой M: переезд в archive/<M>-<slug>/minor/ без своего result.md
+  fold <N> [--dry-run]                                свернуть закрытую задачу в строку archive/LOG.md: каталог уходит из дерева,
+                                                      тело — в заготовку сообщения коммита (stdout), ссылки — на якорь строки
+  fold [--older-than <дата>] [--embed-missing] [--dry-run]
+                                                      свернуть накопленный архив: тело каждой задачи обязано лежать в истории,
+                                                      строка журнала называет его ревизию; --embed-missing уносит тело,
+                                                      которого в истории нет, в заготовку сообщения коммита
+  show <N>                                            git show коммита, в котором лежит тело свёрнутой задачи
   adr <slug> [--title "…"]                            завести ADR со следующим номером
   brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"]
         [--autonomy "…"] [--handover "…"] [--measurements]
@@ -31,10 +38,11 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage, minor по областям
-  lint                                                двенадцать гейтов: ссылки, номера, раскладка бэклога, поля,
+  lint                                                тринадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
-                                                      цитаты, версии релиза, слоты шаблонов; adapter outputs,
-                                                      равенство шаблонов и предупреждения о версии и закрытом родителе
+                                                      цитаты, версии релиза, слоты шаблонов, журнал закрытых;
+                                                      adapter outputs, равенство шаблонов и предупреждения
+                                                      о версии и закрытом родителе
   gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
                                                       прогнать команды из gates: код каждой, счёт зелёных, снимок дерева;
                                                       область when сверяется с грязным деревом, --base добавляет дифф к ref
@@ -67,6 +75,13 @@ Commands:
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
                                                       prints the documentation touched by the task
   archive <N.k> --into <M> [--dry-run]                close a minor entry by batch M: move it to archive/<M>-<slug>/minor/ without a result.md of its own
+  fold <N> [--dry-run]                                fold a closed task into an archive/LOG.md line: the directory leaves the tree,
+                                                      the body goes into the commit message draft (stdout), links onto the line anchor
+  fold [--older-than <date>] [--embed-missing] [--dry-run]
+                                                      fold the accumulated archive: every task body must already be in history,
+                                                      and its journal line names the revision; --embed-missing carries a body
+                                                      that is not in history into the commit message draft
+  show <N>                                            git show of the commit holding the body of a folded task
   adr <slug> [--title "…"]                            create the next numbered ADR
   brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"]
         [--autonomy "…"] [--handover "…"] [--measurements]
@@ -74,9 +89,10 @@ Commands:
   seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
                                                       “Reference: …” tasks from the reference/ table
   status [--json]                                     show active work, ordered queue, deferred tasks, triage, and minor entries by scope
-  lint                                                twelve gates: links, numbers, layout, fields, archive,
+  lint                                                thirteen gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
-                                                      versions, template slots; adapter outputs, template parity, and closed-parent warnings
+                                                      versions, template slots, closed task journal; adapter outputs,
+                                                      template parity, and closed-parent warnings
   gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
                                                       run the gates list: exit code of each, green count, tree snapshot;
                                                       a when scope is matched against the dirty tree, --base adds the diff to ref

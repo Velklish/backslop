@@ -5,6 +5,7 @@ import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, formatId, getField, idMentionRe,
   nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
+import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, outcomeFromResult, parseLogLine } from '../lib/log.js';
 
 test('имя файла задачи: номер, sub-ID и slug', () => {
   const re = taskFileRe('BS');
@@ -124,4 +125,46 @@ test('место в очереди: без целого места очеред�
   const mid = placeInQueue(tight, { after: { num: 1, sub: null } });
   assert.equal(mid.rank, 20);
   assert.deepEqual(mid.renumbered, [['f1', 10], ['f2', 30], ['f3', 40]]);
+});
+
+// --- журнал закрытых ---------------------------------------------------------------------------
+
+test('строка журнала: разбор, обратная сборка, битая строка не читается записью', () => {
+  const line = '- <a id="bs-12.3"></a>`BS-12.3-finding` · 2026-09-03 · слита в BS-4 · `a1b2c3d4e5` · Заголовок · с точкой';
+  const e = parseLogLine(line, 'BS');
+  assert.deepEqual(
+    { id: e.id, num: e.num, sub: e.sub, slug: e.slug, date: e.date, outcome: e.outcome, commit: e.commit, title: e.title, anchor: e.anchor },
+    { id: 'BS-12.3', num: 12, sub: 3, slug: 'finding', date: '2026-09-03', outcome: 'слита в BS-4', commit: 'a1b2c3d4e5', title: 'Заголовок · с точкой', anchor: 'bs-12.3' },
+  );
+  assert.equal(formatLogLine({ id: 'BS-12.3', slug: 'finding', date: '2026-09-03', outcome: 'слита в BS-4', commit: 'a1b2c3d4e5', title: 'Заголовок · с точкой' }), line);
+  // Коммит и исход, которых свёртка не узнала, — длинным тире; строка остаётся разбираемой.
+  const bare = formatLogLine({ id: 'BS-1', slug: 'a', date: '2026-09-03', outcome: '', commit: null, title: null });
+  assert.equal(bare, '- <a id="bs-1"></a>`BS-1-a` · 2026-09-03 · — · — · —');
+  assert.equal(parseLogLine(bare, 'BS').commit, null);
+  assert.equal(parseLogLine('- обычный пункт списка', 'BS'), null);
+  assert.equal(parseLogLine('- <a id="bs-1"></a>`BS-1-a` · вчера · выполнена · — · А', 'BS'), null);
+  assert.deepEqual(brokenLogLines('- <a id="bs-1"></a>мусор\n- обычный пункт\n', 'BS').map((b) => b.line), [1]);
+});
+
+test('исход читается из первого абзаца result.md, обеими языковыми формами; не назван — тире', () => {
+  const result = (body) => `# BS-1 · Результат\n\n${body}\n\n**Проверки.** Тут слово отклонена ничего не значит.\n`;
+  assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Выполнена. Итог.'), 'BS', 'ru'), 'выполнена');
+  assert.equal(outcomeFromResult(result('**Closed 2026-09-03.** Completed. Done.'), 'BS', 'ru'), 'выполнена');
+  assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Отклонена.'), 'BS', 'en'), 'rejected');
+  assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Слита в [BS-14](../BS-14-x/task.md). Выполнена там.'), 'BS', 'ru'), 'слита в BS-14');
+  assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Сделано по варианту (b).'), 'BS', 'ru'), '—');
+  assert.equal(dateFromResult(result('**Закрыта 2026-09-03.** Выполнена.')), '2026-09-03');
+  assert.equal(dateFromResult(result('**Закрыта.** Выполнена.')), null);
+  assert.equal(batchOf('пачкой BS-4'), 'BS-4');
+  assert.equal(batchOf('batch BS-4'), 'BS-4');
+  assert.equal(batchOf('выполнена'), null);
+});
+
+test('дописывание в журнал: пустая строка между прозой и первой записью, между записями — нет', () => {
+  const head = '# Журнал\n\nПроза.\n';
+  const one = appendLogLines(head, ['- <a id="bs-1"></a>x']);
+  assert.equal(one, '# Журнал\n\nПроза.\n\n- <a id="bs-1"></a>x\n');
+  assert.equal(appendLogLines(one, ['- <a id="bs-2"></a>y']), '# Журнал\n\nПроза.\n\n- <a id="bs-1"></a>x\n- <a id="bs-2"></a>y\n');
+  assert.equal(appendLogLines('', ['- <a id="bs-1"></a>x']), '- <a id="bs-1"></a>x\n');
+  assert.equal(appendLogLines('# Журнал\n\nПроза.\n\n', ['- <a id="bs-1"></a>x']), '# Журнал\n\nПроза.\n\n- <a id="bs-1"></a>x\n');
 });

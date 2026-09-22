@@ -49,7 +49,8 @@ The approver has passed the review gate and accepted the work. **The skill does 
 
 1. `backslop archive N [--range <base>..HEAD]` moves the file to `archive/<id>-<slug>/task.md`, rewrites links to it throughout the repository, and creates a `result.md` stub beside it; it also prints the documentation files touched by the task, which is where the “documentation updated” line comes from.
 2. Complete `result.md`: outcome (completed, rejected, or merged), exactly what was done, verification with numerical gates, mutation probe and live run, and documentation updated. While `[TODO]` remains, `backslop lint` fails — that is the reminder.
-3. `backslop lint` is green; the acceptance commit names what closed: `{{prefix}}-N: closed — <summary>`.
+3. `backslop fold N` folds the directory into a `{{docs}}/archive/LOG.md` line, moves incoming links onto its anchor, and sends the definition and the result in full into a commit message draft: the command prints the draft on stdout and its report on stderr. The tree keeps only what is alive; the record of work lives in git.
+4. `backslop lint` is green; the acceptance commit carries the draft from step 3 and names what closed: `{{prefix}}-N: closed — <summary>`. Without that commit the task body is lost — it is no longer in the tree.
 
 **A rejected task closes in the same way**, with its rejection reason in `result.md`. **A deferred task does not close:** run `backslop mv N deferred`, then give the “Deferred” section its reason and return condition; without them, `lint` fails.
 

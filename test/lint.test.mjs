@@ -573,9 +573,61 @@ probe('2. битая ссылка с именем файла задачи в к�
   symlinkSync(path.join(root, 'docs/nowhere.md'), path.join(root, 'docs/backlog/queue/BS-9-sub.md'));
 }, /BS-9-sub\.md: битая ссылка в каталоге статуса/);
 probe('3. каталога бэклога нет', (root) => rmSync(path.join(root, 'docs/backlog'), { recursive: true }), /каталога бэклога нет/);
-probe('5. посторонний файл в архиве', (root) => put(root, 'docs/archive/NOTES.txt', 'заметка\n'), /в архиве только каталоги задач и README\.md/);
+probe('5. посторонний файл в архиве', (root) => put(root, 'docs/archive/NOTES.txt', 'заметка\n'), /в архиве только каталоги задач, README\.md и LOG\.md/);
 probe('5. каталог архива без task.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/task.md')), /нет task\.md — постановки/);
 probe('8. ADR есть, а индекса документации нет', (root) => rmSync(path.join(root, 'docs/README.md')), /нет индекса документации, а ADR есть/);
+
+// 13. Журнал закрытых. Гейт держит три утверждения, и у каждого своя проба: запись разбирается,
+// якорь строки равен номеру, ссылка на якорь ведёт на существующую запись. Третья — единственная
+// проверка якоря во всём lint: гейт ссылок резолвит только путь.
+const LOG_GREEN = [
+  '# Журнал закрытых задач',
+  '',
+  'Строка на задачу.',
+  '',
+  '- <a id="bs-5"></a>`BS-5-folded` · 2026-08-02 · выполнена · `abcdef1234` · Свёрнутая',
+  '',
+].join('\n');
+
+function seedLog(root) {
+  put(root, 'docs/archive/LOG.md', LOG_GREEN);
+  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗакрыта [BS-5](archive/LOG.md#bs-5).\n');
+}
+
+test('lint: журнал закрытых рядом с каталогом архива — зелёный', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    seedLog(root);
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+probe('13. строка журнала не разбирается', (root) => {
+  seedLog(root);
+  put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('· 2026-08-02 ·', '· вчера ·'));
+}, /LOG\.md: строка 5 выглядит записью журнала, но не разбирается/);
+
+probe('13. якорь строки не совпадает с номером', (root) => {
+  seedLog(root);
+  put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('id="bs-5"', 'id="bs-50"'));
+}, /LOG\.md: строка 5: якорь «bs-50» не совпадает с номером/);
+
+probe('13. ссылка ведёт на якорь, которого в журнале нет', (root) => {
+  seedLog(root);
+  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗакрыта [BS-5](archive/LOG.md#bs-55).\n');
+}, /ROADMAP\.md: ссылка archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
+
+probe('13. ссылка из корневого файла на промахнувшийся якорь', (root) => {
+  seedLog(root);
+  put(root, 'README.md', 'См. [BS-5](docs/archive/LOG.md#bs-55)\n');
+}, /README\.md: ссылка docs\/archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
+
+probe('2. номер занят и каталогом архива, и строкой журнала', (root) => {
+  put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('bs-5', 'bs-4').replace('BS-5-folded', 'BS-4-e'));
+}, /номер BS-4 уже занят/);
 
 test('lint: каталог с именем файла задачи — диагностика гейта 2 в stderr, а не стек EISDIR', () => {
   const root = makeProject({ git: false });

@@ -8,7 +8,7 @@
 
 [ADR-013](adr-013-changelog-merge.md) дал команду `merge-changelog`, а скилл `backslop-batch` объявил её способом разбирать конфликт CHANGELOG. В репозитории-потребителе правило звучало жёстче: «resolve it with `merge-changelog`, never by hand-picking lines». Вывод команды принимали не глядя, и `exit 0` это поощрял.
 
-Заход `external/diffalanche` 2026-09-21 показал цену. Вход — `--ours 8db629b --theirs e495e97 --base ed81928`, все три среза читаются из git. Команда вышла нулём, а файл отдала битый ([BS-65](../archive/BS-65-merge-changelog-returns-a-broken-file-with-exit-zero/task.md)):
+Заход `external/diffalanche` 2026-09-21 показал цену. Вход — `--ours 8db629b --theirs e495e97 --base ed81928`, все три среза читаются из git. Команда вышла нулём, а файл отдала битый ([BS-65](../archive/LOG.md#bs-65)):
 
 | что | v0.9.0 | у сторон | эталон |
 |---|---|---|---|

@@ -20,7 +20,7 @@
 
 ## Не входит
 
-- Разбор записей и инварианты самой команды: закрыты в [BS-65](../../archive/BS-65-merge-changelog-returns-a-broken-file-with-exit-zero/task.md).
+- Разбор записей и инварианты самой команды: закрыты в [BS-65](../../archive/LOG.md#bs-65).
 
 ## Проверки
 
