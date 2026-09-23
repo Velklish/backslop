@@ -152,12 +152,44 @@ test('исход читается из первого абзаца result.md, о
   assert.equal(outcomeFromResult(result('**Closed 2026-09-03.** Completed. Done.'), 'BS', 'ru'), 'выполнена');
   assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Отклонена.'), 'BS', 'en'), 'rejected');
   assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Слита в [BS-14](../BS-14-x/task.md). Выполнена там.'), 'BS', 'ru'), 'слита в BS-14');
-  assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Сделано по варианту (b).'), 'BS', 'ru'), '—');
+  assert.equal(outcomeFromResult(result('Сделано по варианту (b).'), 'BS', 'ru'), '—');
   assert.equal(dateFromResult(result('**Закрыта 2026-09-03.** Выполнена.')), '2026-09-03');
   assert.equal(dateFromResult(result('**Закрыта.** Выполнена.')), null);
   assert.equal(batchOf('пачкой BS-4'), 'BS-4');
   assert.equal(batchOf('batch BS-4'), 'BS-4');
   assert.equal(batchOf('выполнена'), null);
+});
+
+// Заголовки и первые абзацы ниже — реальные строки result.md: не причёсывать.
+test('дата закрытия: первый абзац сильнее заголовка result.md, заголовок — формой «(<исход> ГГГГ-ММ-ДД)»', () => {
+  assert.equal(dateFromResult('# BL-005 — результат (снята с плана 2026-08-13)\n\nПлан сменился.\n'), '2026-08-13');
+  assert.equal(dateFromResult('# BL-001 — результат (выполнена 2026-07-30)\n\n**Исход:** закрыта.\n'), '2026-07-30');
+  assert.equal(dateFromResult('# BL-001 — результат (выполнена 2026-07-30)\n\n**Закрыта 2026-08-30.** Run 0830c, worker sync-doctor; ревью xhigh.\n'), '2026-08-30');
+  assert.equal(dateFromResult('# PB-40 · Result\n\n**Outcome:** completed — closed by PB-37 (ADR-005), item by item.\n'), null);
+  assert.equal(dateFromResult('# BS-1 · Результат 2026-07-30\n\n**Закрыта.** Выполнена.\n'), null, 'дата заголовка читается только в скобках');
+});
+
+test('исход старых архивов: заголовок «(<исход> ДАТА)», голое «Закрыта» / «Closed» / «Done»; названный исход сильнее голого', () => {
+  const result = (head, body) => `${head}\n\n${body}\n\n**Проверки.** Гейты зелёные.\n`;
+  assert.equal(outcomeFromResult(result('# BL-005 — результат (снята с плана 2026-08-13)', 'План сменился.'), 'BL', 'ru'), 'отклонена');
+  assert.equal(outcomeFromResult(result('# BL-001 — результат (выполнена 2026-07-30)', 'Сделано по варианту (b).'), 'BL', 'en'), 'completed');
+  assert.equal(outcomeFromResult(result('# BL-7 · Результат', '**Закрыта 2026-08-30.** Run 0830c, worker sync-doctor; ревью xhigh.'), 'BL', 'ru'), 'выполнена');
+  assert.equal(outcomeFromResult(result('# PB-9 · Result', '**Closed 2026-09-05.** Done.'), 'PB', 'en'), 'completed');
+  assert.equal(outcomeFromResult(result('# BL-8 · Результат', '**Исход:** закрыта.'), 'BL', 'ru'), 'выполнена');
+  assert.equal(outcomeFromResult(result('# PB-40 · Result', '**Outcome:** completed — closed by PB-37 (ADR-005), item by item.'), 'PB', 'en'), 'completed');
+  assert.equal(outcomeFromResult(result('# PB-41 · Result', '**Closed as dead weight removed, not as a defect fixed.**'), 'PB', 'en'), 'completed');
+  // Голое «закрыта» — исход, пока другого слова нет ни в абзаце, ни в заголовке; абзац сильнее заголовка.
+  assert.equal(outcomeFromResult(result('# BL-005 — результат (снята с плана 2026-08-13)', '**Закрыта 2026-08-13.** План сменился.'), 'BL', 'ru'), 'отклонена');
+  assert.equal(outcomeFromResult(result('# BL-001 — результат (отклонена 2026-07-30)', '**Закрыта 2026-07-30.** Выполнена.'), 'BL', 'ru'), 'выполнена');
+  assert.equal(outcomeFromResult(result('# BL-9 · Результат (слита в BL-3 2026-08-01)', 'Дубль.'), 'BL', 'ru'), 'слита в BL-3');
+  // Слияние и снятие с датой или разметкой внутри формы.
+  assert.equal(outcomeFromResult(result('# BL-472 · Результат', '**Слита 2026-09-03 в [BL-470](../BL-470-canary-env-hygiene/task.md)** при разборе Triage.'), 'BL', 'ru'), 'слита в BL-470');
+  assert.equal(outcomeFromResult(result('# BL-173 · Результат', 'Закрыта: 2026-08-27. Исход — **слита** в [BL-172](../BL-172-reviewer-spawn-task-and-name/task.md), работа там.'), 'BL', 'ru'), 'слита в BL-172');
+  assert.equal(outcomeFromResult(result('# BL-055 · Результат', 'Закрыта: 2026-08-27. Исход — **снята с плана решением владельца**, прогон в живом Cursor IDE не проводится.'), 'BL', 'ru'), 'отклонена');
+  assert.equal(outcomeFromResult(result('# BL-107 · Результат', 'Снята: 2026-08-26. Беспредметна — гейт, чью оценку она чинила, убран целиком.'), 'BL', 'ru'), 'отклонена');
+  // Слово внутри слова — не исход; голое «снята» — исход только первым словом абзаца: снятая заглушка задачу не отклоняет.
+  assert.equal(outcomeFromResult(result('# PB-42 · Result', 'Abandoned; the flaw was disclosed upstream.'), 'PB', 'en'), '—');
+  assert.equal(outcomeFromResult(result('# BL-10 · Результат', '**Закрыта 2026-08-02.** Снята переходная форма, заглушка снята.'), 'BL', 'ru'), 'выполнена');
 });
 
 test('дописывание в журнал: пустая строка между прозой и первой записью, между записями — нет', () => {
