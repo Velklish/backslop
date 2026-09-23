@@ -60,14 +60,14 @@
 - <a id="bs-46"></a>`BS-46-adapter-symlink-crlf-guards-untested` · 2026-09-09 · выполнена · `9b765f1cab` · Четыре ветви, объявленные комментариями кода — охрана `ownedPath` от записи сквозь symlink, следование по symlink в обходе markdown, терпимость owned-маркера к CRLF и откат `moveFile` на `renameSync` с предупреждением — не закреплены ни одним из 134 тестов
 - <a id="bs-47"></a>`BS-47-release-acceptance-tarball-files` · 2026-09-09 · выполнена · `4e4b695c46` · Acceptance-тест релиза не проверяет состав tarball по `files` из package.json
 - <a id="bs-48"></a>`BS-48-tool-copy-fixture-helper` · 2026-09-09 · выполнена · `3f300c0601` · Оснастка «копия инструмента» продублирована в test/init.test.mjs и test/lint.test.mjs — вынести в helpers.mjs
-- <a id="bs-49"></a>`BS-49-lint-second-deferred-section` · 2026-09-13 · — · `89eb03df81` · `mv N deferred` дописывает шаблон «Отложено» поверх заполненного, а `lint` второй раздел и `[TODO]` в docs/backlog/** не видит
-- <a id="bs-50"></a>`BS-50-new-parent-fractional-and-closed` · 2026-09-13 · — · `024a6f49c5` · `new --parent` не принимает дробный номер родителя, а находка под закрытой задачей валит `lint` в triage
+- <a id="bs-49"></a>`BS-49-lint-second-deferred-section` · 2026-09-13 · выполнена · `89eb03df81` · `mv N deferred` дописывает шаблон «Отложено» поверх заполненного, а `lint` второй раздел и `[TODO]` в docs/backlog/** не видит
+- <a id="bs-50"></a>`BS-50-new-parent-fractional-and-closed` · 2026-09-13 · выполнена · `024a6f49c5` · `new --parent` не принимает дробный номер родителя, а находка под закрытой задачей валит `lint` в triage
 - <a id="bs-51"></a>`BS-51-gates-command-absent-on-old-pin` · 2026-09-12 · выполнена · `908c017e24` · Блок Definition of Done брифа зовёт `gates`, которой в пинованной версии проекта нет
-- <a id="bs-52"></a>`BS-52-quote-block-on-file-the-card-fixes` · 2026-09-13 · — · `89eb03df81` · Блок `quote` на файл, который карточка и правит, валит `lint` у worker'а между правкой и архивацией
-- <a id="bs-53"></a>`BS-53-upgrade-and-lint-stop-at-markdown` · 2026-09-13 · — · `024a6f49c5` · `upgrade` и `lint` не выходят за markdown, поэтому пин в `package.json` и в файлах CI молча отстаёт
-- <a id="bs-54"></a>`BS-54-agents-md-step-cannot-be-overridden` · 2026-09-13 · — · `89eb03df81` · Нумерованный шаг блока `AGENTS.md` не переопределяется проектом, и приписка ниже агентом не читается
+- <a id="bs-52"></a>`BS-52-quote-block-on-file-the-card-fixes` · 2026-09-13 · выполнена · `89eb03df81` · Блок `quote` на файл, который карточка и правит, валит `lint` у worker'а между правкой и архивацией
+- <a id="bs-53"></a>`BS-53-upgrade-and-lint-stop-at-markdown` · 2026-09-13 · выполнена · `024a6f49c5` · `upgrade` и `lint` не выходят за markdown, поэтому пин в `package.json` и в файлах CI молча отстаёт
+- <a id="bs-54"></a>`BS-54-agents-md-step-cannot-be-overridden` · 2026-09-13 · выполнена · `89eb03df81` · Нумерованный шаг блока `AGENTS.md` не переопределяется проектом, и приписка ниже агентом не читается
 - <a id="bs-55"></a>`BS-55-brief-boundary-slots` · 2026-09-12 · выполнена · `908c017e24` · Бриф не называет границу самостоятельности, точку входа и форму сдачи
-- <a id="bs-56"></a>`BS-56-brief-status-boundary-names-only-two-moves` · 2026-09-13 · — · `89eb03df81` · Граница каталогов статуса в брифе объясняет только закрытие и перенос, и worker правит карточку
+- <a id="bs-56"></a>`BS-56-brief-status-boundary-names-only-two-moves` · 2026-09-13 · выполнена · `89eb03df81` · Граница каталогов статуса в брифе объясняет только закрытие и перенос, и worker правит карточку
 - <a id="bs-57"></a>`BS-57-escape-override-value-on-render` · 2026-09-16 · выполнена · `f9e51a534c` · Значение переопределения шага не экранируется при сборке: определение ссылки действует на весь документ
 - <a id="bs-57.1"></a>`BS-57.1-cli-value-breaks-managed-block` · 2026-09-22 · выполнена · `4c6477a16b` · Значение cli с меткой блока рвёт managed-блок и растит AGENTS.md с каждым init
 - <a id="bs-58"></a>`BS-58-probe-tool-unnamed-in-template` · 2026-09-16 · выполнена · `f9e51a534c` · Шаблон AGENTS.md требует мутационную пробу, не называя инструмента
@@ -85,3 +85,4 @@
 - <a id="bs-67"></a>`BS-67-archive-folds-to-log-and-commit` · 2026-09-22 · выполнена · `bef8bbe38a` · Закрытая задача сворачивается в строку журнала, тело уезжает в сообщение коммита
 - <a id="bs-59"></a>`BS-59-long-inline-comments-in-lib-and-tests` · 2026-09-22 · выполнена · `e0e16a84e2` · Инлайн-комментарии длиннее двух строк в lib/ и test/ вне предмета BS-57/BS-58
 - <a id="bs-64.1"></a>`BS-64.1-minor-evidence-placeholder-fails-lint-at-birth` · 2026-09-22 · выполнена · `59e6a9bdf6` · Карточка из new --minor красит lint с рождения: заглушка «Улика» в minor/ под гейтом заглушек
+- <a id="bs-76"></a>`BS-76-fold-loses-date-and-outcome-of-old-records` · 2026-09-23 · выполнена · — · Свёртка теряет дату и исход старых записей: дата читается только из первого абзаца, исход — только в трёх словесных формах
