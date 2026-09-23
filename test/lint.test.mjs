@@ -2,11 +2,12 @@
 // проекта; без неё гейт нечем отличить от холостого.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, renameSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { loadProject } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
-import { cleanup, cli, makeProject, put, read, toolCli, toolCopy } from './helpers.mjs';
+import { cleanup, cli, gitAll, makeProject, put, read, run, toolCli, toolCopy } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
 
 function seedGreen(root) {
@@ -600,6 +601,7 @@ test('lint: журнал закрытых рядом с каталогом ар�
     seedGreen(root);
     seedLog(root);
     assert.deepEqual(problems(root), []);
+    assert.ok(warnings(root).some((w) => /LOG\.md: достижимость ревизий журнала из HEAD не проверена/.test(w)), warnings(root).join(' | '));
   } finally {
     cleanup(root);
   }
@@ -624,6 +626,53 @@ probe('13. ссылка из корневого файла на промахну
   seedLog(root);
   put(root, 'README.md', 'См. [BS-5](docs/archive/LOG.md#bs-55)\n');
 }, /README\.md: ссылка docs\/archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
+
+// Закрытая задача, закоммиченная между `archive N` и `fold N`: этот коммит и становится ревизией строки журнала.
+function foldCommitted(root) {
+  put(root, 'docs/archive/BS-5-folded/task.md', '# BS-5 · Свёрнутая\n\n- **Область:** [x](../../reference/README.md)\n');
+  put(root, 'docs/archive/BS-5-folded/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-08-02.** Выполнена.\n');
+  gitAll(root, 'BS-5: приёмка до свёртки');
+  const r = cli(root, ['fold', '5']);
+  assert.equal(r.code, 0, r.err);
+  assert.match(read(root, 'docs/archive/LOG.md'), /· `[0-9a-f]{10}` · Свёрнутая/, 'строка называет ревизию');
+  return r.out;
+}
+
+test('lint: 13. ревизия строки журнала не достижима из HEAD — squash выбросил коммит между archive и fold', () => {
+  const root = makeProject();
+  try {
+    seedGreen(root);
+    gitAll(root, 'база');
+    const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+    const draft = foldCommitted(root);
+    assert.deepEqual(problems(root), [], 'до squash ревизия строки лежит в истории HEAD');
+    run(root, ['add', '-A']);
+    run(root, ['reset', '-q', '--soft', base]);
+    run(root, ['commit', '-q', '-m', draft]);
+    const line = read(root, 'docs/archive/LOG.md').split('\n').findIndex((l) => l.startsWith('- <a id="bs-5">')) + 1;
+    const found = problems(root);
+    assert.ok(found.some((p) => new RegExp(`LOG\\.md: строка ${line}: ревизия [0-9a-f]{10} не достижима из HEAD`).test(p)), found.join(' | ') || 'ничего');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 13. неполный клон — достижимость ревизий журнала не проверяется, предупреждение вместо ошибки', () => {
+  const root = makeProject();
+  const clone = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shallow-')));
+  try {
+    seedGreen(root);
+    gitAll(root, 'база');
+    foldCommitted(root);
+    gitAll(root, 'BS-5: закрыта');
+    run(root, ['clone', '-q', '--depth', '1', `file://${root}`, clone]);
+    assert.deepEqual(problems(clone).filter((p) => p.startsWith('docs/archive/LOG.md')), [], 'ревизии в неполном клоне нет, и это не довод против строки');
+    assert.ok(warnings(clone).some((w) => /LOG\.md: достижимость ревизий журнала из HEAD не проверена: клон неполный/.test(w)), warnings(clone).join(' | '));
+  } finally {
+    cleanup(root);
+    cleanup(clone);
+  }
+});
 
 probe('2. номер занят и каталогом архива, и строкой журнала', (root) => {
   put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('bs-5', 'bs-4').replace('BS-5-folded', 'BS-4-e'));

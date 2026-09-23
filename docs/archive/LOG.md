@@ -86,3 +86,4 @@
 - <a id="bs-59"></a>`BS-59-long-inline-comments-in-lib-and-tests` · 2026-09-22 · выполнена · `0e4de22c41b7343c711b2541d383b649d8a7e8d3` · Инлайн-комментарии длиннее двух строк в lib/ и test/ вне предмета BS-57/BS-58
 - <a id="bs-64.1"></a>`BS-64.1-minor-evidence-placeholder-fails-lint-at-birth` · 2026-09-22 · выполнена · `c30a7dedddb98e61188d7f30b5142f1b5e222b26` · Карточка из new --minor красит lint с рождения: заглушка «Улика» в minor/ под гейтом заглушек
 - <a id="bs-76"></a>`BS-76-fold-loses-date-and-outcome-of-old-records` · 2026-09-23 · выполнена · — · Свёртка теряет дату и исход старых записей: дата читается только из первого абзаца, исход — только в трёх словесных формах
+- <a id="bs-77"></a>`BS-77-fold-and-squash-before-push-are-not-reconciled` · 2026-09-23 · выполнена · — · fold N и squash перед пушем не согласованы: коммит между archive и fold уносит ревизию строки журнала в выброшенный sha, а без него squash теряет тело задачи

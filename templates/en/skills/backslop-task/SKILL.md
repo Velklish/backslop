@@ -29,7 +29,7 @@ A single agent performs both roles in sequence. The roles are separated for more
 
 5. **Acceptance and archive** are one approver pass (below).
 6. **Triage review** happens immediately after acceptance (below).
-7. **Commit.** Use `{{prefix}}-N: <what was done>`; follow project rules for branch and MR or direct main. **A task reaches the outside as one commit**: taking it, review fixes, and acceptance are intermediate commits squashed before pushing (`git reset --soft <base>` and one commit, or a branch squash). Two tasks mean two commits, not one.
+7. **Commit.** Use `{{prefix}}-N: <what was done>`; follow project rules for branch and MR or direct main. **A task reaches the outside as one commit — the acceptance commit**: taking it and review fixes are intermediate commits squashed into it at closure (step 4 of acceptance below), and nothing is squashed after the fold — a squash would discard the draft, the only storage of the task body. Two tasks mean two commits, not one.
 
 ## What a worker does instead of closing
 
@@ -49,8 +49,8 @@ The approver has passed the review gate and accepted the work. **The skill does 
 
 1. `backslop archive N [--range <base>..HEAD]` moves the file to `archive/<id>-<slug>/task.md`, rewrites links to it throughout the repository, and creates a `result.md` stub beside it; it also prints the documentation files touched by the task, which is where the “documentation updated” line comes from.
 2. Complete `result.md`: outcome (completed, rejected, or merged), exactly what was done, verification with numerical gates, mutation probe and live run, and documentation updated. While `[TODO]` remains, `backslop lint` fails — that is the reminder.
-3. `backslop fold N` folds the directory into a `{{docs}}/archive/LOG.md` line, moves incoming links onto its anchor, and sends the definition and the result in full into a commit message draft: the command prints the draft on stdout and its report on stderr. The tree keeps only what is alive; the record of work lives in git.
-4. `backslop lint` is green; the acceptance commit carries the draft from step 3 and names what closed: `{{prefix}}-N: closed — <summary>`. Without that commit the task body is lost — it is no longer in the tree.
+3. `backslop fold N > "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"` folds the directory into a `{{docs}}/archive/LOG.md` line, moves incoming links onto its anchor, and sends the definition and the result in full into a commit message draft: the command prints the draft on stdout and its report on stderr. The draft lands in the git directory, outside the working tree, so the `git add -A` of step 4 does not pick it up. The tree keeps only what is alive; the record of work lives in git. **Do not commit between steps 1 and 3:** that commit would become the journal line's revision, the squash in step 4 would drop it, and the line would name a commit that is not in history — `show N` could not find the body through it, and `backslop lint` on the final commit fails.
+4. The final acceptance commit — one per task — carries the draft from step 3 as its message: `git add -A`, `git reset --soft <base>` (the commit before the task was taken), `git commit -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"`. You may replace the subject with `{{prefix}}-N: closed — <summary>`; keep the body: without it the task body is lost — it is no longer in the tree. A `fixup` onto the worker's commit discards the draft, and so does a squash after this commit. **`backslop lint` is green on the final commit, before pushing:** it sees a journal revision dropped by the squash only after that commit.
 
 **A rejected task closes in the same way**, with its rejection reason in `result.md`. **A deferred task does not close:** run `backslop mv N deferred`, then give the “Deferred” section its reason and return condition; without them, `lint` fails.
 
