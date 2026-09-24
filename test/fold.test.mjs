@@ -3,11 +3,12 @@
 // гибрид — свёрнутые записи рядом с несвёрнутыми каталогами.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
+import { git } from '../lib/util.js';
 
 // Закрытая задача в архиве: каталог с постановкой и дописанным результатом, ссылка соседа на неё.
 function closed(root, { id = 'BS-1', slug = 'alpha', title = 'Альфа', date = '2026-09-03', outcome = 'Выполнена.' } = {}) {
@@ -561,6 +562,50 @@ test('show N: тело файлами из ревизии строки, инач
     const live = cli(root, ['show', '4']);
     assert.equal(live.code, 1);
     assert.match(live.err, /не свёрнута — её тело лежит в дереве/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('show N: тело из сообщения коммита печатается без диффа — коммит приёмки больше 1 МиБ не роняет команду', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    gitAll(root);
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
+    const folded = cli(root, ['fold', '2']);
+    assert.equal(folded.code, 0, folded.err);
+    assert.match(logLines(root)[0], / · — · Бета$/, 'тело едет только в сообщении');
+    const draft = path.join(root, '.git', 'BACKSLOP_DRAFT');
+    writeFileSync(draft, folded.out);
+    put(root, 'docs/bulk.txt', 'строка массовой переписи\n'.repeat(60_000));
+    run(root, ['add', '-A']);
+    run(root, ['commit', '-q', '-F', draft]);
+    assert.ok(Number(run(root, ['cat-file', '-s', 'HEAD:docs/bulk.txt']).stdout) > 1 << 20, 'добавленный файл, а с ним и дифф коммита, больше буфера spawnSync по умолчанию');
+
+    const r = cli(root, ['show', '2']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^BS-2: Бета$/m);
+    assert.match(r.out, /^--- docs\/archive\/BS-2-beta\/task\.md ---$/m);
+    assert.match(r.out, /текст постановки/);
+    assert.match(r.out, /^--- docs\/archive\/BS-2-beta\/result\.md ---$/m);
+    assert.doesNotMatch(r.out, /^diff --git/m, 'печатается сообщение, а не коммит с диффом');
+    assert.doesNotMatch(r.out, /массовой переписи/);
+    assert.match(r.err, /печатается сообщение коммита/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('git: вывод больше 1 МиБ читается — потолок буфера задан явно, а не умолчанием spawnSync', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/bulk.txt', 'x'.repeat(3 << 20));
+    gitAll(root);
+    const r = git(root, ['cat-file', 'blob', 'HEAD:docs/bulk.txt']);
+    assert.equal(r.error, undefined, r.error?.message);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.length, 3 << 20);
   } finally {
     cleanup(root);
   }

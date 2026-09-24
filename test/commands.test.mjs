@@ -2,12 +2,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 import { loadProject } from '../lib/config.js';
 import { toPosix } from '../lib/util.js';
+import { listReleaseTags } from '../lib/upgrade.js';
 
 // Гейт 4 требует «Область» у задачи вне triage/: фикстуры, доводящие lint до зелёного,
 // заполняют заглушки от `new` этим хелпером: гейт BS-49 видит их во всём backlog.
@@ -1239,5 +1240,20 @@ test('archive N.k --into M: minor уезжает в minor/ архива пачк
     assert.deepEqual(s.minor.map((m) => m.id), ['BS-1.2', 'BS-1.3']);
   } finally {
     cleanup(root);
+  }
+});
+
+test('upgrade: список тегов источника больше 1 МиБ читается, а не обрывается ENOBUFS', () => {
+  const src = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-many-tags-')));
+  try {
+    run(src, ['init', '-q', '-b', 'main']);
+    run(src, ['-c', 'user.email=t@e', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'one']);
+    const sha = run(src, ['rev-parse', 'HEAD']).stdout.trim();
+    const refs = Array.from({ length: 20_000 }, (_, i) => `${sha} refs/tags/v0.0.${i}\n`).join('');
+    writeFileSync(path.join(src, '.git', 'packed-refs'), refs);
+    assert.ok(refs.length > 1 << 20, 'вывод ls-remote больше буфера spawnSync по умолчанию');
+    assert.equal(listReleaseTags(src).length, 20_000);
+  } finally {
+    rmSync(src, { recursive: true, force: true });
   }
 });
