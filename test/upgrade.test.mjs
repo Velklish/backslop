@@ -8,14 +8,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseCli } from '../lib/config.js';
 import { changelogSince } from '../lib/changelog.js';
 import { listReleaseTags, rewriteGates } from '../lib/upgrade.js';
+import { renderTemplate } from '../lib/templates.js';
 import { TOOL_VERSION } from '../lib/version.js';
-import { BIN, cleanup, cli, makeProject, put, read } from './helpers.mjs';
+import { BIN, cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
 
 function releasesRepo(tags) {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-src-')));
@@ -38,6 +39,9 @@ function setConfig(root, patch) {
 }
 
 const config = (root) => JSON.parse(read(root, 'backslop.json'));
+
+// Копия правил ведения у проекта на прежней версии: одна строка расходится с шаблоном этой.
+const staleRules = (text) => text.replace(/^Операционный трекер .*$/m, 'Операционный трекер прежней версии.');
 
 test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; другие формы пина не несут', () => {
   const pinned = parseCli('npx github:me/proj#v0.1.0');
@@ -169,6 +173,9 @@ test('upgrade целиком: migrate и init новой версией, шта�
   try {
     setConfig(root, { cli: `node "${BIN}"`, gates: [`node "${BIN}" lint`], version: '0.0.9', source: src, tools: ['claude'] });
     rmSync(path.join(root, 'docs', 'README.md'));
+    const rules = renderTemplate('docs/backlog/README.md', { cli: `node "${BIN}"`, prefix: 'BS', project: path.basename(root) });
+    put(root, 'docs/backlog/README.md', staleRules(rules));
+    put(root, 'docs/GLOSSARY.md', '# Свой глоссарий\n');
     const r = cli(root, ['upgrade']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /пин не меняется/);
@@ -176,6 +183,8 @@ test('upgrade целиком: migrate и init новой версией, шта�
     assert.match(r.out, /→ node .*backslop\.js" init/);
     assert.match(r.out, /## v0\.1\.0/);
     assert.equal(config(root).version, TOOL_VERSION);
+    assert.equal(read(root, 'docs/backlog/README.md'), rules, 'правила ведения — рендер шаблона новой версии');
+    assert.equal(read(root, 'docs/GLOSSARY.md'), '# Свой глоссарий\n', 'проектный файл docs upgrade не перерисовывает');
     assert.ok(existsSync(path.join(root, '.claude/skills/backslop-task/SKILL.md')));
     const lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
@@ -212,6 +221,101 @@ test('upgrade без источника релизов отказывает; mig
     assert.equal(r.code, 1);
   } finally {
     cleanup(root);
+  }
+});
+
+// Правила ведения и архива принадлежат инструменту (ADR-032): migrate перерисовывает их, пока
+// штамп ниже его версии, а проектный скелет docs не трогает.
+test('migrate: правила ведения и архива перерисовываются из шаблона, проектные файлы docs — нет', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    const vars = { cli: 'node bin/backslop.js', prefix: 'BS', project: path.basename(root) };
+    const rules = ['docs/backlog/README.md', 'docs/archive/README.md'];
+    const expected = Object.fromEntries(rules.map((rel) => [rel, renderTemplate(rel, vars)]));
+    put(root, rules[0], staleRules(expected[rules[0]]));
+    put(root, 'docs/GLOSSARY.md', '# Свой глоссарий\n');
+    const index = read(root, 'docs/README.md');
+    let r = cli(root, ['migrate', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /правила ведения и архива из шаблона v\d+\.\d+\.\d+: перерисовать docs\/backlog\/README\.md, docs\/archive\/README\.md \(--dry-run\)/);
+    assert.equal(read(root, rules[0]), staleRules(expected[rules[0]]), '--dry-run ничего не пишет');
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /перерисованы docs\/backlog\/README\.md, docs\/archive\/README\.md/);
+    for (const rel of rules) assert.equal(read(root, rel), expected[rel], `${rel} не равен рендеру шаблона`);
+    assert.equal(read(root, 'docs/GLOSSARY.md'), '# Свой глоссарий\n', 'проектный файл docs не перерисовывается');
+    assert.equal(read(root, 'docs/README.md'), index, 'индекс docs не перерисовывается');
+
+    // На своей версии правила не трогаются: перерисовку несёт только обновление.
+    put(root, rules[1], '# Своя правка архива\n');
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, rules[1]), '# Своя правка архива\n');
+    assert.doesNotMatch(r.out, /правила ведения/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: en-проект получает правила из en-шаблона, недостающий файл пары создаётся', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0', lang: 'en' });
+    rmSync(path.join(root, 'docs/archive/README.md'));
+    const vars = { cli: 'node bin/backslop.js', prefix: 'BS', project: path.basename(root) };
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /tracking and archive rules from the v\d+\.\d+\.\d+ template: rewritten docs\/backlog\/README\.md, docs\/archive\/README\.md — no git, uncommitted edits could not be checked/);
+    for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
+      assert.equal(read(root, rel), renderTemplate(`en/${rel}`, vars), `${rel} не равен рендеру en-шаблона`);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Незакоммиченную правку перерисовка стёрла бы без следа в истории: отказ до первой записи.
+test('migrate: незакоммиченная правка правил — отказ с именем файла, штамп и файлы не тронуты', () => {
+  const root = makeProject();
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    gitAll(root);
+    put(root, 'docs/backlog/README.md', '# Свои правила, не закоммичены\n');
+    for (const args of [['migrate', '--dry-run'], ['migrate']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${args.join(' ')}: ожидался отказ`);
+      assert.match(r.err, /docs\/backlog\/README\.md.*закоммить или откати правку, затем повтори/);
+    }
+    assert.equal(read(root, 'docs/backlog/README.md'), '# Свои правила, не закоммичены\n');
+    assert.equal(config(root).version, '0.10.0', 'отказ не переставил штамп');
+
+    gitAll(root, 'свои правила');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /no git|git нет/);
+    assert.match(read(root, 'docs/backlog/README.md'), /^# Backlog\n\nОперационный трекер /);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: файл пары за symlink не перерисовывается — предупреждение, общий файл цел', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    writeFileSync(path.join(shared, 'README.md'), '# Общий архив\n');
+    rmSync(path.join(root, 'docs/archive/README.md'));
+    symlinkSync(path.join(shared, 'README.md'), path.join(root, 'docs/archive/README.md'));
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /docs\/archive\/README\.md: путь идёт через symlink docs\/archive\/README\.md/);
+    assert.equal(read(shared, 'README.md'), '# Общий архив\n', 'запись ушла за ссылку');
+    assert.match(r.out, /перерисованы docs\/backlog\/README\.md(?!, docs\/archive)/);
+  } finally {
+    cleanup(root);
+    rmSync(shared, { recursive: true, force: true });
   }
 });
 
@@ -312,8 +416,8 @@ test('upgrade: пин в прозе docs переставляется, запи�
   const now = `npx github:me/proj#v${TOOL_VERSION}`;
   const seed = () => {
     setConfig(root, { cli: old, gates: [`${old} lint`], version: '0.1.0', source: src });
-    put(root, 'docs/archive/README.md', `# Архив\n\nПереезд делает \`${old} archive N\`.\n`);
-    put(root, 'docs/backlog/README.md', `# Backlog\n\nСводку печатает \`${old} status\`.\n`);
+    put(root, 'docs/reference/README.md', `# Справочник\n\nПереезд делает \`${old} archive N\`.\n`);
+    put(root, 'docs/GLOSSARY.md', `# Глоссарий\n\nСводку печатает \`${old} status\`.\n`);
     put(root, 'README.md', `Установка: \`${old} init\`.\n`);
     put(root, 'package.json', '{"scripts":{"lint:backslop":"' + old + ' lint"}}\n');
     put(root, 'fixture-package.json', '{"scripts":{"lint:backslop":"' + old + ' lint"}}\n');
@@ -330,7 +434,7 @@ test('upgrade: пин в прозе docs переставляется, запи�
     let r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /затем .* upgrade для живых пинов/);
-    assert.ok(read(root, 'docs/archive/README.md').includes(old), '--pin-only прозу не трогает');
+    assert.ok(read(root, 'docs/reference/README.md').includes(old), '--pin-only прозу не трогает');
 
     // Прозу чинит следующий полный upgrade, хотя пин в конфиге уже уехал: поиск идёт по
     // спеке, а не по литералу прежнего cli — иначе отставшая на две версии проза не
@@ -346,7 +450,7 @@ test('upgrade: пин в прозе docs переставляется, запи�
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /пин в прозе: 6 файлов/);
-    for (const rel of ['docs/archive/README.md', 'docs/backlog/README.md', 'README.md', 'package.json', '.github/workflows/ci.yml']) {
+    for (const rel of ['docs/reference/README.md', 'docs/GLOSSARY.md', 'README.md', 'package.json', '.github/workflows/ci.yml']) {
       assert.ok(read(root, rel).includes(now), `${rel}: пин не переставлен`);
       assert.ok(!read(root, rel).includes(old), `${rel}: остался старый пин`);
     }

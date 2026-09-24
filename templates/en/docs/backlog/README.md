@@ -2,6 +2,8 @@
 
 The operational tracker for {{project}}: **one task is one file**, and **status is the directory** containing it. There is no task list here — `{{cli}} status` prints it. For overall project direction, see [ROADMAP.md](../ROADMAP.md); for closed tasks, see the [archive](../archive/README.md).
 
+This file belongs to backslop: an update (`{{cli}} upgrade`, the `migrate` step) rewrites it from the template of the new version, and a local edit here does not survive the next update. Keep project rules of your own outside this file — for example, in `AGENTS.md` outside the backslop section.
+
 ## Directories
 
 | Directory | Contents | How it gets there |

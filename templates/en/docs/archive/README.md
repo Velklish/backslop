@@ -13,3 +13,5 @@ A closed task folds into a [LOG.md](LOG.md) journal line: `{{cli}} fold N` remov
 The accumulated archive folds with the same `{{cli}} fold` without a number: there the body comes from history rather than from the message, and the journal line names the revision. `--older-than <date>` folds only what was closed before that date.
 
 Both forms are legal and live side by side for as long as you like: a directory is a task that is closed and not yet folded. Folding is not mandatory.
+
+This file belongs to backslop: an update (`{{cli}} upgrade`, the `migrate` step) rewrites it from the template of the new version, and a local edit here does not survive the next update.

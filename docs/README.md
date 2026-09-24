@@ -40,6 +40,7 @@
 | [adr/adr-029-minor-finding-requires-evidence.md](adr/adr-029-minor-finding-requires-evidence.md) | Находка в `minor/` заводится только с уликой: `--evidence` обязателен, отказ до создания файла | Accepted |
 | [adr/adr-030-changelog-merge-untagged-version-section.md](adr/adr-030-changelog-merge-untagged-version-section.md) | Слияние CHANGELOG видит верхнюю секцию версии без тега невыпущенной: бамп до работы не ломает приёмку | Accepted |
 | [adr/adr-031-restore-batch-keeps-order.md](adr/adr-031-restore-batch-keeps-order.md) | Пакет `--restore` возвращает задачи в порядке их сохранённых чисел: каждая следующая встаёт не позже соседа по пакету | Accepted |
+| [adr/adr-032-tool-owned-rules-redrawn-by-migrate.md](adr/adr-032-tool-owned-rules-redrawn-by-migrate.md) | Правила ведения и архива у потребителя принадлежат инструменту: `migrate` перерисовывает их из шаблона | Accepted |
 | [adr/adr-033-fold-draft-mandatory-only-without-revision.md](adr/adr-033-fold-draft-mandatory-only-without-revision.md) | `fold N` записывает ревизию закоммиченного каталога; заготовка обязательна только без неё | Accepted |
 
 ## Сквозные принципы

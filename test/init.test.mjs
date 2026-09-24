@@ -70,10 +70,12 @@ test('init: раскладка, lint зелёный, сквозной цикл �
     // Повтор: docs не тронуты, конфиг тот же, блок заменён на тот же текст.
     const agentsBefore = read(root, 'AGENTS.md');
     put(root, 'docs/GLOSSARY.md', '# Мой глоссарий\n');
+    put(root, 'docs/backlog/README.md', '# Мои правила ведения\n');
     put(root, 'AGENTS.md', `# Шапка проекта\n\n${agentsBefore.replace('Трекер задач', 'ИСПОРЧЕНО')}`);
     r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, 'docs/GLOSSARY.md'), '# Мой глоссарий\n', 'docs не перезаписываются');
+    assert.equal(read(root, 'docs/backlog/README.md'), '# Мои правила ведения\n', 'правила ведения перерисовывает migrate, а не init');
     const agentsAfter = read(root, 'AGENTS.md');
     assert.equal(agentsAfter, `# Шапка проекта\n\n${agentsBefore}`, 'блок заменён между маркерами, шапка сохранена');
     assert.equal((agentsAfter.match(/<!-- backslop:start -->/g) ?? []).length, 1);
