@@ -103,3 +103,11 @@ export function put(root, rel, text) {
 export function cleanup(root) {
   rmSync(root, { recursive: true, force: true });
 }
+
+// Абзацы шаблона `result.md` после заголовка — с подставленными номером и датой, как их кладёт
+// `archive`. Проба заглушки идёт на них, а не на выдуманную строку.
+export function resultTemplateParagraphs(lang, { id = 'BS-4', date = '2026-08-01' } = {}) {
+  const text = readFileSync(path.join(REPO, 'templates', ...(lang === 'en' ? ['en'] : []), 'result.md'), 'utf8')
+    .replaceAll('{{id}}', id).replaceAll('{{date}}', date).replaceAll('{{prefix}}', id.split('-')[0]);
+  return text.trim().split(/\n\s*\n/).slice(1);
+}
