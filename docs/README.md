@@ -36,7 +36,7 @@
 | [adr/adr-025-probe-rule-in-skill-and-brief.md](adr/adr-025-probe-rule-in-skill-and-brief.md) | Команда пробы подставляется в блок, скилл и бриф | Accepted |
 | [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Superseded in part by ADR-033 (ревизия у `fold N` и обязательность заготовки), ADR-034 (сверка тела с ревизией до удаления, четвёртая причина пустой ревизии) |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Superseded in part by ADR-031 (порядок пакета при `--restore` — гарантия контракта) |
-| [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Superseded in part by ADR-035 (носитель долга в пробе обхода — фикстура вне обхода) |
+| [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Superseded in part by ADR-035 (носитель долга в пробе обхода — фикстура вне обхода), ADR-038 (гейт судит и ширину строки блока — не шире 100 знаков) |
 | [adr/adr-029-minor-finding-requires-evidence.md](adr/adr-029-minor-finding-requires-evidence.md) | Находка в `minor/` заводится только с уликой: `--evidence` обязателен, отказ до создания файла | Superseded in part by ADR-036 (вторая дверь в `minor/` закрыта) |
 | [adr/adr-030-changelog-merge-untagged-version-section.md](adr/adr-030-changelog-merge-untagged-version-section.md) | Слияние CHANGELOG видит верхнюю секцию версии без тега невыпущенной: бамп до работы не ломает приёмку | Accepted |
 | [adr/adr-031-restore-batch-keeps-order.md](adr/adr-031-restore-batch-keeps-order.md) | Пакет `--restore` возвращает задачи в порядке их сохранённых чисел: каждая следующая встаёт не позже соседа по пакету | Accepted |
@@ -46,6 +46,7 @@
 | [adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md](adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md) | Долг комментариев сведён в ноль: носитель долга в пробе гейта — фикстура вне обхода | Accepted |
 | [adr/adr-036-mv-minor-requires-evidence.md](adr/adr-036-mv-minor-requires-evidence.md) | Вторая дверь в `minor/` — `mv N minor` — требует улику, `lint` требует в `minor/` раздел «Улика» | Accepted |
 | [adr/adr-037-result-outcome-word-under-gate.md](adr/adr-037-result-outcome-word-under-gate.md) | Исход задачи — слово первого абзаца `result.md` под гейтом 5, а не поле | Accepted |
+| [adr/adr-038-comment-line-width-under-gate.md](adr/adr-038-comment-line-width-under-gate.md) | Гейт комментариев судит и ширину строки: не шире 100 знаков, знак — кодпоинт | Accepted |
 
 ## Сквозные принципы
 

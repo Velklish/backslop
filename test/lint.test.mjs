@@ -143,7 +143,8 @@ probe('4. цена повторяется', (root) => put(root, 'docs/backlog/mi
 probe('5. чужой файл в minor/ пачки', (root) => put(root, 'docs/archive/BS-4-e/minor/notes.md', '# заметки\n'), /archive\/BS-4-e\/minor\/notes\.md: в minor\/ пачки только файлы записей/);
 probe('5. каталог в minor/ пачки', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x'), { recursive: true }), /archive\/BS-4-e\/minor\/BS-4\.9-x: в minor\/ пачки только файлы записей/);
 probe('2. запись в minor/ пачки с чужим заголовком', (root) => put(root, 'docs/archive/BS-4-e/minor/BS-4.1-m.md', '# BS-4.2 · Не та\n'), /archive\/BS-4-e\/minor\/BS-4\.1-m\.md: заголовок называет BS-4\.2/);
-// Вторая дверь в minor/ закрыта с той же стороны, что new --minor: раздел «Улика» обязателен (ADR-036).
+// Вторая дверь в minor/ закрыта с той же стороны, что new --minor:
+// раздел «Улика» обязателен (ADR-036).
 probe('4. minor без раздела «Улика»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст: запись уезжает в пачку без разбора/);
 probe('4. minor с пустой «Уликой»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст/);
 probe('4. «Улика» в minor/ заглушкой', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\n'), /BS-1\.1-m\.md: раздел «Улика» не заполнен: осталась заглушка \[TODO\]/);
@@ -417,7 +418,8 @@ test('lint: adapter output без маркера — чужой файл на ow
     project = toolProject((dir) => {
       put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n');
       put(dir, 'templates/en/skills/backslop-task/references/extra.md', '# extra\n');
-      // `init --tools` в корне инструмента отказывает; adapter в self-host выбирается правкой конфига.
+      // `init --tools` в корне инструмента отказывает;
+      // adapter в self-host выбирается правкой конфига.
       put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), tools: ['claude'] }, null, 2)}\n`);
       const r = toolCli(dir, ['init']);
       assert.equal(r.code, 0, r.err);
@@ -506,7 +508,8 @@ test('lint: 11. гейт релиза жив после переименован
   } finally { if (project) cleanup(project.dir); }
 });
 
-// 14. Непечатаемый байт: гейт судит отслеживаемые файлы, поэтому копия инструмента заводит индекс git.
+// 14. Непечатаемый байт: гейт судит отслеживаемые файлы,
+// поэтому копия инструмента заводит индекс git.
 test('lint: 14. байт ниже 0x09 в отслеживаемом исходнике инструмента — ошибка с файлом, смещением и строкой', () => {
   let red;
   let green;
@@ -684,7 +687,7 @@ probe('10. блок цитаты не закрыт', (root) => put(root, 'docs/q
 
 // BS-19: пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
 probe('2. каталог вместо файла задачи в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), /каталог внутри каталога статуса/);
-// Каталог, названный как файл задачи: scanTasks читал его как файл и падал EISDIR раньше гейта (BS-19.1).
+// Каталог, названный как файл задачи: scanTasks читал его как файл и падал EISDIR раньше гейта.
 probe('2. каталог, названный как файл задачи, в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md')), /BS-9-sub\.md: каталог внутри каталога статуса/);
 probe('2. symlink на каталог с именем файла задачи — та же диагностика', (root) => {
   mkdirSync(path.join(root, 'docs/shared'));
@@ -746,7 +749,8 @@ probe('13. ссылка из корневого файла на промахну
   put(root, 'README.md', 'См. [BS-5](docs/archive/LOG.md#bs-55)\n');
 }, /README\.md: ссылка docs\/archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
 
-// Закрытая задача, закоммиченная между `archive N` и `fold N`: этот коммит и становится ревизией строки журнала.
+// Закрытая задача, закоммиченная между `archive N` и `fold N`:
+// этот коммит и становится ревизией строки журнала.
 function foldCommitted(root) {
   put(root, 'docs/archive/BS-5-folded/task.md', '# BS-5 · Свёрнутая\n\n- **Область:** [x](../../reference/README.md)\n');
   put(root, 'docs/archive/BS-5-folded/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-08-02.** Выполнена.\n');

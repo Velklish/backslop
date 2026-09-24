@@ -121,3 +121,7 @@
 - <a id="bs-81"></a>`BS-81-minor-batch-git-signal-cause` · 2026-09-24 · выполнена · — · Пачка minor: отказ git, оборванного сигналом, называет причину в gates, upgrade, merge-changelog и lint
 - <a id="bs-78.2"></a>`BS-78.2-git-signal-kill-still-says-code-null` · 2026-09-24 · пачкой BS-81 · — · Отказ git, оборванного сигналом, в gates, upgrade, merge-changelog и lint всё ещё печатает «код null»
 - <a id="bs-2.1"></a>`BS-2.1-npm-publish` · 2026-09-24 · отклонена · — · Выпуск пакета в npm и переключение default CLI
+- <a id="bs-82"></a>`BS-82-minor-batch-comment-width-gates-error` · 2026-09-24 · выполнена · — · Пачка minor: ширина строки под гейтом комментариев, skip shim-вердикта на Windows, gates с ошибкой запуска не зелёный
+- <a id="bs-75.1"></a>`BS-75.1-comment-gate-counts-lines-not-width` · 2026-09-24 · пачкой BS-82 · — · Гейт комментариев считает строки, а не ширину: абзац, сложенный в две длинные строки, проходит
+- <a id="bs-78.3"></a>`BS-78.3-fold-signal-shim-verdict-no-win32-skip` · 2026-09-24 · пачкой BS-82 · — · Вердикт show N с sh-шимом git не помечен skip на Windows
+- <a id="bs-78.4"></a>`BS-78.4-gates-green-gate-says-did-not-start` · 2026-09-24 · пачкой BS-82 · — · gates печатает «не запустился» у гейта, который отработал кодом 0 и посчитан зелёным
