@@ -54,6 +54,33 @@ test('fold N: каталог уходит, строка журнала на ме
   }
 });
 
+test('fold N: корневая ссылка и каталог со слэшем ведут на якорь, ссылка мимо тела названа в итоге', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    put(root, 'docs/archive/BS-1-alpha/notes.md', '# Заметки\n');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\nКорень: [BS-1](/docs/archive/BS-1-alpha/task.md#контекст), каталог: [альфа](archive/BS-1-alpha/), заметки: [n](archive/BS-1-alpha/notes.md).\n');
+    gitAll(root);
+
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    const roadmap = read(root, 'docs/ROADMAP.md');
+    assert.match(roadmap, /\[BS-1\]\(\/docs\/archive\/LOG\.md#bs-1\)/, 'корневая ссылка осталась корневой');
+    assert.match(roadmap, /\[альфа\]\(archive\/LOG\.md#bs-1\)/);
+    assert.match(r.err, /файлов с поправленными ссылками 1, ссылок в свёрнутое без переписи 1\n/);
+    assert.match(r.err, /мимо task\.md, result\.md и записей пачки/);
+    assert.match(r.err, / {2}docs\/ROADMAP\.md: archive\/BS-1-alpha\/notes\.md\n/);
+
+    // Названная ссылка — единственная битая: гейт 1 видит её, переписанные — нет.
+    const lint = cli(root, ['lint']);
+    assert.match(lint.err, /битая ссылка archive\/BS-1-alpha\/notes\.md/);
+    assert.doesNotMatch(lint.err, /битая ссылка \/docs\/archive\/BS-1-alpha|битая ссылка archive\/BS-1-alpha\/[\s)]/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold N: отказы — пустой result.md, заглушка в нём, задача не в архиве, уже свёрнутая', () => {
   const root = makeProject();
   try {

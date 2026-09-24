@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  blankCode, brokenLinks, directoryLinks, refDefinitions, relativeLinks, rewriteIncomingLinks, rewriteMovedLinks,
+  blankCode, brokenLinks, directoryLinks, refDefinitions, relativeLinks, rewriteFoldedLinks, rewriteIncomingLinks, rewriteMovedLinks,
 } from '../lib/links.js';
 
 const FROM = 'docs/backlog/active';
@@ -122,6 +122,31 @@ test('разбор: сноска — не объявление ссылки; о�
 test('перепись: корневой путь и query не трогаются', () => {
   assert.equal(rewriteMovedLinks('[к](/docs/README.md)', FROM, TO), '[к](/docs/README.md)');
   assert.equal(rewriteMovedLinks('[з](../queue/BS-40-y.md?plain=1)', FROM, TO), '[з](../../backlog/queue/BS-40-y.md?plain=1)');
+});
+
+test('свёртка: корневая цель и каталог со слэшем доходят до resolve путём от корня, форма ссылки сохраняется', () => {
+  const seen = [];
+  const resolve = (target, href) => {
+    seen.push([target, href]);
+    return target === 'docs/archive/BS-1-x' || target === 'docs/archive/BS-1-x/task.md'
+      ? { path: 'docs/archive/LOG.md', anchor: 'bs-1' }
+      : null;
+  };
+  const text = [
+    '[к](/docs/archive/BS-1-x/task.md#контекст) [д](../archive/BS-1-x/) [у](<../archive/BS-1-x/> "каталог")',
+    '[о](../archive/BS-1-x/notes.md) [gh](https://x.y/docs/archive/BS-1-x/task.md) [я](#итог)',
+    '',
+    '[r]: /docs/archive/BS-1-x/',
+  ].join('\n');
+  assert.equal(rewriteFoldedLinks(text, 'docs/backlog', resolve), [
+    '[к](/docs/archive/LOG.md#bs-1) [д](../archive/LOG.md#bs-1) [у](<../archive/LOG.md#bs-1> "каталог")',
+    '[о](../archive/BS-1-x/notes.md) [gh](https://x.y/docs/archive/BS-1-x/task.md) [я](#итог)',
+    '',
+    '[r]: /docs/archive/LOG.md#bs-1',
+  ].join('\n'));
+  // Нераспознанная цель приходит в resolve как написана — по ней свёртка называет ссылку в итоге.
+  assert.deepEqual(seen.find(([, href]) => href.endsWith('notes.md')), ['docs/archive/BS-1-x/notes.md', '../archive/BS-1-x/notes.md']);
+  assert.ok(!seen.some(([, href]) => /^(https?:|#)/.test(href)), 'внешний адрес и якорь в resolve не попадают');
 });
 
 test('разбор: reference-style объявление только в начале абзаца', () => {
