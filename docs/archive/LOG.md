@@ -116,3 +116,4 @@
 - <a id="bs-78.1"></a>`BS-78.1-show-spawn-failure-says-code-null` · 2026-09-24 · пачкой BS-79 · — · show N и прочие отказы git печатают «код null» без причины, когда git не запустился или оборван (ENOBUFS, timeout)
 - <a id="bs-80"></a>`BS-80-minor-batch-lint-links` · 2026-09-24 · выполнена · — · Пачка minor: проверка ссылок lint — reference-style и adapter outputs
 - <a id="bs-69.1"></a>`BS-69.1-directory-link-check-misses-refstyle-and-adapters` · 2026-09-24 · пачкой BS-80 · — · Проверка ссылки на каталог не видит reference-style ссылки и adapter outputs
+- <a id="bs-76.6"></a>`BS-76.6-outcome-residue-after-position-rule` · 2026-09-24 · выполнена · — · Исход по позиции оставляет 13 из 1085 строк журнала расходящимися с телом: «Закрыта отказом», «не выполнена», «Исход — снята», дубль без «слита», слово о чужой задаче
