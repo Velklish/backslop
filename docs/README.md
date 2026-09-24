@@ -34,12 +34,13 @@
 | [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
 | [adr/adr-024-changelog-merge-keeps-layout.md](adr/adr-024-changelog-merge-keeps-layout.md) | Слияние CHANGELOG сохраняет раскладку файла и отказывается на незакрытом конфликте | Accepted |
 | [adr/adr-025-probe-rule-in-skill-and-brief.md](adr/adr-025-probe-rule-in-skill-and-brief.md) | Команда пробы подставляется в блок, скилл и бриф | Accepted |
-| [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Accepted |
+| [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Superseded in part by ADR-033 (ревизия у `fold N` и обязательность заготовки) |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Superseded in part by ADR-031 (порядок пакета при `--restore` — гарантия контракта) |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Accepted |
 | [adr/adr-029-minor-finding-requires-evidence.md](adr/adr-029-minor-finding-requires-evidence.md) | Находка в `minor/` заводится только с уликой: `--evidence` обязателен, отказ до создания файла | Accepted |
 | [adr/adr-030-changelog-merge-untagged-version-section.md](adr/adr-030-changelog-merge-untagged-version-section.md) | Слияние CHANGELOG видит верхнюю секцию версии без тега невыпущенной: бамп до работы не ломает приёмку | Accepted |
 | [adr/adr-031-restore-batch-keeps-order.md](adr/adr-031-restore-batch-keeps-order.md) | Пакет `--restore` возвращает задачи в порядке их сохранённых чисел: каждая следующая встаёт не позже соседа по пакету | Accepted |
+| [adr/adr-033-fold-draft-mandatory-only-without-revision.md](adr/adr-033-fold-draft-mandatory-only-without-revision.md) | `fold N` записывает ревизию закоммиченного каталога; заготовка обязательна только без неё | Accepted |
 
 ## Сквозные принципы
 
