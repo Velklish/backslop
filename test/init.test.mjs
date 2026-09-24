@@ -63,7 +63,7 @@ test('init: раскладка, lint зелёный, сквозной цикл �
     r = cli(root, ['lint']);
     assert.equal(r.code, 1, 'result.md с [TODO] держит lint красным');
     assert.match(r.err, /результат не дописан/);
-    put(root, 'docs/archive/BS-1-first-task/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Сделано.\n');
+    put(root, 'docs/archive/BS-1-first-task/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена.\n');
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
 
@@ -519,7 +519,7 @@ test('init --lang en: CLI и generated tree английские, mixed metadata
     spawnSync('git', ['-C', root, 'commit', '-qm', 'seed']);
     r = cli(root, ['archive', '1']);
     assert.equal(r.code, 0, r.err);
-    put(root, 'docs/archive/BS-1-english/result.md', '# BS-1 · Result\n\n**Closed 2026-09-03.** Done.\n');
+    put(root, 'docs/archive/BS-1-english/result.md', '# BS-1 · Result\n\n**Closed 2026-09-03.** Completed.\n');
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err + r.out);
   } finally {
@@ -831,6 +831,28 @@ test('init --tools claude: файл на компоненте пути owned out
     assert.match(r.err, /на пути adapter output файл вместо каталога: \.claude\/skills\/backslop-task\//);
     assert.doesNotMatch(r.err, /ENOTDIR|EISDIR|node:fs/);
   } finally {
+    cleanup(root);
+  }
+});
+
+test('init --tools в корне самого backslop — отказ до записи; --tools none и чужой каталог — как прежде', () => {
+  const tool = toolCopy();
+  const root = emptyRepo();
+  try {
+    const r = toolCli(tool, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /--tools claude: .* — репозиторий самого backslop \(templates\/ — каталог запущенного инструмента\), adapter outputs здесь не раскладываются/);
+    for (const rel of ['backslop.json', 'CLAUDE.md', '.claude', 'docs', 'AGENTS.md']) {
+      assert.ok(!existsSync(path.join(tool, rel)), `отказ до записи: ${rel} не создан`);
+    }
+    assert.equal(toolCli(tool, ['init', '--tools', 'none']).code, 0, 'self-host без adapter\'ов раскладывается');
+    const again = toolCli(tool, ['init', '--tools', 'cursor,codex']);
+    assert.equal(again.code, 1, again.out);
+    assert.deepEqual(JSON.parse(read(tool, 'backslop.json')).tools, [], 'отказ не трогает конфиг');
+    assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0, 'стенд в своём каталоге');
+    assert.ok(existsSync(path.join(root, 'CLAUDE.md')));
+  } finally {
+    cleanup(tool);
     cleanup(root);
   }
 });

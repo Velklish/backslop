@@ -1137,7 +1137,7 @@ test('mv N minor дописывает «Цена: minor»; status печатае
   try {
     cli(root, ['new', 'base', '--queue', '--title', 'База']);
     cli(root, ['new', 'idea', '--title', 'Идея']);
-    let r = cli(root, ['mv', '2', 'minor']);
+    let r = cli(root, ['mv', '2', 'minor', '--evidence', 'docs/backlog/README.md:15 — предположительно']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /«Цена: minor» дописана/);
     assert.match(read(root, 'docs/backlog/minor/BS-2-idea.md'), /- \*\*Цена:\*\* minor\n/);
@@ -1159,6 +1159,84 @@ test('mv N minor дописывает «Цена: minor»; status печатае
       ['BS-2', null, 'minor'],
     ]);
     assert.equal(s.minor[2].file, 'docs/backlog/minor/BS-2-idea.md');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N.k minor: без улики — отказ до переноса; с --evidence заглушки постановки сняты, «Контекст» стал «Уликой», lint по записи молчит', () => {
+  const root = makeProject();
+  try {
+    assert.equal(cli(root, ['new', 'base', '--queue', '--title', 'База']).code, 0);
+    assert.equal(cli(root, ['new', 'finding', '--parent', '1']).code, 0);
+    const triage = 'docs/backlog/triage/BS-1.1-finding.md';
+    const before = read(root, triage);
+
+    let r = cli(root, ['mv', '1.1', 'minor']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /BS-1\.1: в minor\/ без улики — раздела «Улика» нет, он пуст или в нём заглушка \[TODO\]/);
+    assert.match(r.err, /mv N minor --evidence "…" — путь со строкой, команда с выводом и кодом или замер числом/);
+    assert.equal(read(root, triage), before, 'отказ до переноса: карточка на месте и не тронута');
+
+    r = cli(root, ['mv', '1.1', 'minor', '--evidence', 'lib/mv.js:95 → «Цена» дописана, «Улики» нет']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /сняты разделы из одних заглушек: «Что сделать», «Не входит», «Проверки»/);
+    assert.match(r.out, /«Контекст» стал «Уликой»/);
+    const card = read(root, 'docs/backlog/minor/BS-1.1-finding.md');
+    assert.match(card, /## Улика\n\nНаходка при работе над BS-1\.\nУлика: lib\/mv\.js:95 → «Цена» дописана, «Улики» нет\n/);
+    assert.doesNotMatch(card, /\[TODO|## Контекст|## Что сделать|## Не входит|## Проверки/);
+    assert.match(card, /- \*\*Цена:\*\* minor\n/);
+    assert.ok(card.endsWith('\n') && !card.endsWith('\n\n'), 'хвост файла — одна новая строка');
+    assert.doesNotMatch(cli(root, ['lint']).err, /✖ docs\/backlog\/minor\/BS-1\.1/, 'запись в minor/ гейт не красит');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor: написанный текст остаётся, готовая «Улика» улики флагом не требует, отказы флага', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · А\n\n- **Область:** [TODO: раздел]\n\n## Контекст\n\nЗачем: замер lint → код 1.\n\n## Что сделать\n\n- [TODO]\n- поправить отказ\n\n## Не входит\n\n- [TODO]\n\n## Проверки\n\n```\n[TODO] в примере\n```\n');
+    put(root, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · Б\n\n## Контекст\n\nистория\n\n## Улика\n\nlib/x.js:1 — код 1\n');
+    put(root, 'docs/backlog/triage/BS-3-c.md', '# BS-3 · В\n\n## Контекст\n\n[TODO: откуда задача]\n');
+    let r = cli(root, ['mv', '1', 'minor']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/backlog/minor/BS-1-a.md'), '# BS-1 · А\n\n- **Область:** \n- **Цена:** minor\n\n## Улика\n\nЗачем: замер lint → код 1.\n\n## Что сделать\n\n- поправить отказ\n\n## Проверки\n\n```\n[TODO] в примере\n```\n');
+    r = cli(root, ['mv', '2', 'minor']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/backlog/minor/BS-2-b.md'), '# BS-2 · Б\n\n- **Цена:** minor\n\n## Контекст\n\nистория\n\n## Улика\n\nlib/x.js:1 — код 1\n');
+    assert.doesNotMatch(r.out, /стал «Уликой»/);
+
+    r = cli(root, ['mv', '3', 'queue', '--evidence', 'x']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--evidence имеет смысл только при переводе в minor/);
+    put(root, 'docs/backlog/triage/BS-4-d.md', '# BS-4 · Г\n');
+    r = cli(root, ['mv', '3', '4', 'minor', '--evidence', 'x']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /--evidence — только с одним номером/);
+    r = cli(root, ['mv', '3', '4', 'minor']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /BS-3, BS-4: в minor\/ без улики/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-3-c.md')) && existsSync(path.join(root, 'docs/backlog/triage/BS-4-d.md')), 'пакет — всё или ничего');
+    r = cli(root, ['mv', '3', 'minor', '--evidence', 'предположительно течёт']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/backlog/minor/BS-3-c.md'), '# BS-3 · В\n\n- **Цена:** minor\n\n## Улика\n\nУлика: предположительно течёт\n');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor в EN-проекте: Context становится Evidence, строка улики — Evidence:', () => {
+  const root = makeProject();
+  try {
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · A\n\n## Context\n\nFinding discovered while working on BS-7.\nEvidence: [TODO: file path or command output]\n\n## Work to do\n\n- [TODO]\n');
+    let r = cli(root, ['mv', '1', 'minor']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /BS-1: no evidence for minor\//);
+    r = cli(root, ['mv', '1', 'minor', '--evidence', 'lib/mv.js:95 → exit 0']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/backlog/minor/BS-1-a.md'), '# BS-1 · A\n\n- **Cost:** minor\n\n## Evidence\n\nFinding discovered while working on BS-7.\nEvidence: lib/mv.js:95 → exit 0\n');
   } finally {
     cleanup(root);
   }

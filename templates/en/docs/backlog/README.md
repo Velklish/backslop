@@ -12,7 +12,7 @@ This file belongs to backslop: an update (`{{cli}} upgrade`, the `migrate` step)
 | `queue/` | The queue; priority is the integer “Order” field, in steps of 10; lower comes first | `{{cli}} new <slug> --queue [--top]`, `{{cli}} mv N queue [--top \| --after M \| --restore]` |
 | `active/` | Work in progress; “Taken” is the date it was started | `{{cli}} mv N… active` by the person holding the queue |
 | `deferred/` | Deferred work; the “Deferred” section gives the reason and return condition | `{{cli}} mv N deferred`; if the section is already present, the command does not append it and prints “section exists; check the reason and return condition” |
-| `minor/` | Minor findings and hypotheses: they wait for a batch, not for review; the “Cost” field is required, “Scope” is filled in when batches are cut | `{{cli}} new <slug> --parent N[.M] --minor --evidence "…" [--cost <level>] [--hypothesis]`; `{{cli}} mv N minor` |
+| `minor/` | Minor findings and hypotheses: they wait for a batch, not for review; the “Cost” field is required, “Scope” is filled in when batches are cut | `{{cli}} new <slug> --parent N[.M] --minor --evidence "…" [--cost <level>] [--hypothesis]`; `{{cli}} mv N minor [--evidence "…"]` |
 | [`../archive/`](../archive/README.md) | Closed: a [`LOG.md`](../archive/LOG.md) journal line, and before folding a `task.md` + `result.md` directory; minor entries in the batch's `minor/` | `{{cli}} archive N`, complete `result.md`, then `{{cli}} fold N`; a minor entry — `{{cli}} archive N.k --into M` once batch M is closed and before it is folded |
 
 ## How to maintain it

@@ -2,13 +2,14 @@
 // уезжает в заготовку сообщения коммита, входящие ссылки ведут на якорь строки. Проверяется и
 // гибрид — свёрнутые записи рядом с несвёрнутыми каталогами.
 import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
-import { git } from '../lib/util.js';
+import { git, gitCause, today } from '../lib/util.js';
 
 // Закрытая задача в архиве: каталог с постановкой и дописанным результатом, ссылка соседа на неё.
 function closed(root, { id = 'BS-1', slug = 'alpha', title = 'Альфа', date = '2026-09-03', outcome = 'Выполнена.' } = {}) {
@@ -94,6 +95,9 @@ test('fold N: тело с ревизией — заготовка не обяз�
     assert.match(kept.err, /коммитить её не обязательно: тело уже в истории/);
     assert.match(kept.err, / show BS-1 достаёт его оттуда/);
     assert.doesNotMatch(kept.err, /закоммить свёртку вместе с ней/);
+    // Вступление заготовки говорит то же, что stderr: при ревизии заготовка — копия.
+    assert.match(kept.out, /^Свёрнута в строку docs\/archive\/LOG\.md#bs-1\. Тело задачи — ниже, копией: строка журнала называет ревизию [0-9a-f]{10}, и .+ show BS-1 достаёт его оттуда\.$/m);
+    assert.doesNotMatch(kept.out, /единственное хранилище/);
     // Замер карточки: свёртка закоммичена без заготовки, и тело всё равно достаётся.
     gitAll(root, 'свёртка без заготовки');
     const shown = cli(root, ['show', '1']);
@@ -111,6 +115,7 @@ test('fold N: тело с ревизией — заготовка не обяз�
     assert.match(logLines(root)[1], / · — · Бета$/, 'фикстура даёт именно строку без ревизии');
     assert.match(draftOnly.err, /заготовка сообщения коммита — в stdout: закоммить свёртку вместе с ней, иначе тело задачи потеряется/);
     assert.doesNotMatch(draftOnly.err, /не обязательно/);
+    assert.match(draftOnly.out, /^Свёрнута в строку docs\/archive\/LOG\.md#bs-2\. Тело задачи — ниже: в дереве его больше нет, и это сообщение — его единственное хранилище\.$/m);
   } finally {
     cleanup(root);
   }
@@ -149,6 +154,33 @@ test('fold N: отказы — пустой result.md, заглушка в нё�
     r = cli(root, ['fold', '1']);
     assert.equal(r.code, 1);
     assert.match(r.err, /уже свёрнута в журнал/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold N: result.md без слова исхода — отказ до записи тем же текстом, что гейт 5; массовая форма читает голое «Закрыта»', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/active/BS-1-alpha.md', '# BS-1 · Альфа\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст постановки\n');
+    gitAll(root, 'заведена альфа');
+    assert.equal(cli(root, ['archive', '1']).code, 0);
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-24.** Отказ: беспредметна.\n');
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /docs\/archive\/BS-1-alpha\/result\.md не называет исход словом словаря — выполнена, отклонена, снята с плана или слита в BS-N — ни в первом абзаце, ни в заголовке/);
+    assert.equal(r.out, '', 'заготовки нет');
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/task.md')), 'каталог на месте');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'строки в журнале нет');
+    const lint = cli(root, ['lint']);
+    assert.match(lint.err, /docs\/archive\/BS-1-alpha: result\.md не называет исход словом словаря/, 'гейт 5 говорит то же');
+
+    // Старую запись массовая свёртка по-прежнему читает фолбэком (ADR-037).
+    gitAll(root, 'закрытие альфы');
+    const bulk = cli(root, ['fold']);
+    assert.equal(bulk.code, 0, bulk.err);
+    assert.match(logLines(root)[0], /^- <a id="bs-1"><\/a>`BS-1-alpha` · 2026-09-24 · выполнена · /);
   } finally {
     cleanup(root);
   }
@@ -209,6 +241,9 @@ test('fold: массовая свёртка, --older-than отбирает по 
 
     const older = cli(root, ['fold', '--older-than', '2026-06-01']);
     assert.equal(older.code, 0, older.err);
+    // Тел в заготовке массовой свёртки нет: коммитить её ради тел незачем, они в истории.
+    assert.match(older.err.trimEnd().split('\n').at(-1), /^⚠ заготовка сообщения коммита — в stdout, тел задач в ней нет: строка журнала называет ревизию, в которой лежит тело, и .+ show N достаёт его оттуда$/);
+    assert.doesNotMatch(older.err, /потеряется|потеряются/);
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-alpha')));
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-2-beta')));
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-3-gamma')), 'свежая задача остаётся каталогом');
@@ -235,6 +270,64 @@ test('fold: массовая свёртка, --older-than отбирает по 
   }
 });
 
+// Коммит с заданной датой: день свёртки и дата ревизии иначе совпали бы, и проверка была бы холостой.
+function commitOn(root, date, message) {
+  run(root, ['add', '-A']);
+  const env = { ...process.env, GIT_AUTHOR_DATE: `${date}T12:00:00`, GIT_COMMITTER_DATE: `${date}T12:00:00` };
+  const r = spawnSync('git', ['-C', root, 'commit', '-qm', message], { encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stderr);
+}
+
+test('fold: без даты в result.md строка берёт дату коммита ревизии тела, день свёртки — только без ревизии', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.gitignore', 'docs/archive/BS-3-gamma/\n');
+    for (const [id, slug] of [['BS-1', 'alpha'], ['BS-2', 'beta'], ['BS-3', 'gamma']]) {
+      put(root, `docs/archive/${id}-${slug}/task.md`, `# ${id} · ${slug}\n\n## Контекст\n\nтекст\n`);
+      put(root, `docs/archive/${id}-${slug}/result.md`, `# ${id} · Результат\n\nВыполнена без даты.\n`);
+    }
+    commitOn(root, '2026-02-03', 'закрытие');
+
+    const older = cli(root, ['fold', '--older-than', '2026-03-01']);
+    assert.equal(older.code, 0, older.err);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-3-gamma')), 'без ревизии возраст неизвестен — --older-than её не берёт');
+    const lines = logLines(root);
+    assert.equal(lines.length, 2);
+    for (const line of lines) assert.match(line, / · 2026-02-03 · выполнена · `[0-9a-f]{10}` · /);
+
+    const rest = cli(root, ['fold']);
+    assert.equal(rest.code, 0, rest.err);
+    assert.match(logLines(root)[2], new RegExp(`^- <a id="bs-3"></a>\`BS-3-gamma\` · ${today()} · выполнена · — · `), 'без ревизии — день свёртки');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: массовая свёртка пишет строки по дате закрытия, равные даты — по номеру', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root, { id: 'BS-1', slug: 'alpha', title: 'Альфа', date: '2026-05-10' });
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета', date: '2026-01-10' });
+    closed(root, { id: 'BS-3', slug: 'gamma', title: 'Гамма', date: '2026-05-10' });
+    put(root, 'docs/archive/BS-4-delta/task.md', '# BS-4 · Дельта\n\n## Контекст\n\nтекст\n');
+    put(root, 'docs/archive/BS-4-delta/result.md', '# BS-4 · Результат\n\nВыполнена, дата — у коммита.\n');
+    commitOn(root, '2026-03-15', 'закрытие');
+
+    const r = cli(root, ['fold']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(logLines(root).map((l) => l.match(/^- <a id="([^"]+)"><\/a>`[^`]+` · (\S+) ·/).slice(1).join(' ')), [
+      'bs-2 2026-01-10', 'bs-4 2026-03-15', 'bs-1 2026-05-10', 'bs-3 2026-05-10',
+    ]);
+    // Заготовка перечисляет задачи в том же порядке, что журнал.
+    const listed = r.out.split('\n').filter((l) => l.startsWith('- docs/archive/')).map((l) => l.split(' ')[1]);
+    assert.deepEqual(listed, ['docs/archive/BS-2-beta', 'docs/archive/BS-4-delta', 'docs/archive/BS-1-alpha', 'docs/archive/BS-3-gamma']);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold: тело вне истории — по умолчанию уходит с каталогом, с --embed-missing едет в заготовку', () => {
   const root = makeProject();
   try {
@@ -253,6 +346,9 @@ test('fold: тело вне истории — по умолчанию уход�
     assert.match(dropped.err, /тела нет в истории git — текст уходит вместе с каталогом/);
     assert.match(dropped.err, /--embed-missing/);
     assert.doesNotMatch(dropped.out, /текст постановки/, 'умолчание тело не сохраняет');
+    // Выброшенное тело не достать ничем: последняя строка не обещает для него show N.
+    assert.match(dropped.err.trimEnd().split('\n').at(-1), /^⚠ заготовка сообщения коммита — в stdout, тел задач в ней нет: у строк с «—» \(задач 1\) тело ушло вместе с каталогом и не сохранено ни в заготовке, ни в истории$/);
+    assert.doesNotMatch(dropped.err, /потеряется|потеряются|show N/, 'без --embed-missing тел в заготовке нет, а у выброшенного — и в истории');
     assert.match(logLines(root)[0], / · — · Альфа$/, 'коммита у такой записи нет');
 
     closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
@@ -262,10 +358,27 @@ test('fold: тело вне истории — по умолчанию уход�
     assert.match(kept.out, /--- docs\/archive\/BS-2-beta\/task\.md ---/);
     assert.match(kept.out, /текст постановки/);
     assert.match(kept.out, /--- docs\/archive\/BS-2-beta\/result\.md ---/);
+    assert.match(kept.err, /в ней тела задач, которых нет в истории: закоммить свёртку вместе с ней, иначе эти тела потеряются/);
 
     const single = cli(root, ['fold', '1', '--embed-missing']);
     assert.equal(single.code, 1);
     assert.match(single.err, /--embed-missing с номером задачи не сочетается/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: выброшенное тело и тело в истории в одной свёртке — последняя строка называет оба случая', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.gitignore', 'docs/archive/BS-1-alpha/\n');
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
+    gitAll(root);
+    closed(root, { id: 'BS-1', slug: 'alpha', title: 'Альфа' });
+    const r = cli(root, ['fold']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err.trimEnd().split('\n').at(-1), /^⚠ заготовка сообщения коммита — в stdout, тел задач в ней нет: у строк с «—» \(задач 1\) тело ушло вместе с каталогом и не сохранено ни в заготовке, ни в истории; у строк с ревизией тело достаёт .+ show N$/);
   } finally {
     cleanup(root);
   }
@@ -608,6 +721,45 @@ test('git: вывод больше 1 МиБ читается — потолок 
     assert.equal(r.stdout.length, 3 << 20);
   } finally {
     cleanup(root);
+  }
+});
+
+test('git: отказ без кода возврата называет причину — ошибку запуска или сигнал, а не «код null»', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/bulk.txt', 'x'.repeat(1 << 20));
+    gitAll(root);
+    const overflow = git(root, ['cat-file', 'blob', 'HEAD:docs/bulk.txt'], { maxBuffer: 1024 });
+    assert.equal(overflow.status, null, 'фикстура даёт именно status null');
+    assert.match(gitCause(overflow), /ENOBUFS/);
+    assert.equal(gitCause({ status: null, signal: 'SIGKILL', stderr: '' }), 'оборван сигналом SIGKILL');
+    assert.equal(gitCause({ status: null, signal: 'SIGKILL', stderr: '' }, 'en'), 'killed by SIGKILL');
+    assert.equal(gitCause({ status: 128, stderr: 'fatal: bad object\n' }), 'fatal: bad object');
+    assert.equal(gitCause({ status: 1, stderr: '' }, 'en'), 'exit code 1');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('show N: git, оборванный на чтении сообщения, — отказ называет сигнал, а не «код null»', () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    gitAll(root);
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
+    assert.equal(cli(root, ['fold', '2']).code, 0);
+    gitAll(root, 'BS-2: тело беты в сообщении');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = "--format=%B" ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['show', '2'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git show [0-9a-f]+: оборван сигналом SIGKILL — коммит из строки/);
+    assert.doesNotMatch(r.err, /код null/);
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 

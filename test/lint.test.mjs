@@ -26,7 +26,7 @@ function seedGreen(root) {
   // Находка BS-4.1 разобрана — уехала в deferred/; закрытый родитель BS-4 её не красит.
   put(root, 'docs/backlog/deferred/BS-4.1-f.md', '# BS-4.1 · Е\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** ждёт раннера\n- **Условие возврата:** появится раннер\n');
   put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n');
-  put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+  put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
   put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — одно имя.\n\nПример:\n\n```\nбез фенса\n```\n');
   put(root, 'docs/quoting.md', ['# Цитаты', '',
     '<!-- quote:reference/README.md -->', '', '```', 'Одно понятие — одно имя.', '```', '', '<!-- /quote -->', '',
@@ -137,6 +137,10 @@ probe('4. цена повторяется', (root) => put(root, 'docs/backlog/mi
 probe('5. чужой файл в minor/ пачки', (root) => put(root, 'docs/archive/BS-4-e/minor/notes.md', '# заметки\n'), /archive\/BS-4-e\/minor\/notes\.md: в minor\/ пачки только файлы записей/);
 probe('5. каталог в minor/ пачки', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x'), { recursive: true }), /archive\/BS-4-e\/minor\/BS-4\.9-x: в minor\/ пачки только файлы записей/);
 probe('2. запись в minor/ пачки с чужим заголовком', (root) => put(root, 'docs/archive/BS-4-e/minor/BS-4.1-m.md', '# BS-4.2 · Не та\n'), /archive\/BS-4-e\/minor\/BS-4\.1-m\.md: заголовок называет BS-4\.2/);
+// Вторая дверь в minor/ закрыта с той же стороны, что new --minor: раздел «Улика» обязателен (ADR-036).
+probe('4. minor без раздела «Улика»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст: запись уезжает в пачку без разбора/);
+probe('4. minor с пустой «Уликой»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст/);
+probe('4. «Улика» в minor/ заглушкой', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\n'), /BS-1\.1-m\.md: раздел «Улика» не заполнен: осталась заглушка \[TODO\]/);
 probe('4. заглушка вне «Области» в minor/', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\nУлика: [TODO: путь]\n'), /BS-1\.1-m\.md: строка 7: осталась заглушка \[TODO\]/);
 probe('4. очередь без порядка', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n'), /без поля «Порядок»/);
 probe('4. порядок не число', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** высокий\n'), /не целое число/);
@@ -225,6 +229,28 @@ test('lint: 5. заглушка, показанная в коде, — расс�
     cleanup(root);
   }
 });
+// Исход словом словаря: голое «Закрыта» свёртка прочла бы «выполнена», и отказ стал бы выполнением.
+for (const [first, lang] of [['**Закрыта 2026-08-01.** Готово.', 'ru'], ['**Закрыта 2026-08-01.** Отказ: беспредметна.', 'ru'], ['**Закрыта 2026-08-01.** Дубль BS-2.', 'ru'], ['**Закрыта 2026-08-01.** Слито в main.', 'ru'], ['**Closed 2026-08-01.** Done.', 'en']]) {
+  probe(`5. первый абзац result.md без слова исхода: «${first}»`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${first}\n\n**Проверки.** Отклонена гипотеза о кэше.\n`),
+    /archive\/BS-4-e: result\.md не называет исход словом словаря — выполнена, отклонена, снята с плана или слита в BS-N — ни в первом абзаце, ни в заголовке/);
+}
+test('lint: 5. слово исхода из словаря в первом абзаце или заголовке — любой исход и оба языка', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    for (const first of ['**Закрыта 2026-08-01.** Выполнена.', '**Закрыта 2026-08-01.** Отклонена: беспредметна.', '**Закрыта 2026-08-01.** Снята с плана.', '**Закрыта 2026-08-01.** Слита в BS-2.', '**Closed 2026-08-01.** Completed.', '**Closed 2026-08-01.** Rejected.', '**Closed 2026-08-01.** Merged into BS-2.']) {
+      put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${first}\n`);
+      assert.deepEqual(problems(root), [], first);
+    }
+    // Исход в заголовке старого архива свёртка читает — гейт тоже.
+    for (const heading of ['# BS-4 — результат (снята с плана 2026-08-13)', '# BS-4 — результат: отклонена']) {
+      put(root, 'docs/archive/BS-4-e/result.md', `${heading}\n\nОписание дефекта без слова исхода.\n`);
+      assert.deepEqual(problems(root), [], heading);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
 probe('5. каталог архива не по шаблону', (root) => put(root, 'docs/archive/old-stuff/task.md', '# x\n'), /old-stuff: имя не по шаблону/);
 probe('6. упоминание номера без файла в docs', (root) => put(root, 'docs/ROADMAP.md', 'Сделаем в BS-99.\n'), /упоминает BS-99/);
 probe('6. упоминание номера без файла в CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Закрыта** BS-2.7\n'), /CHANGELOG\.md: упоминает BS-2\.7/);
@@ -248,9 +274,9 @@ test('lint: находка под закрытым родителем остаё
   try {
     seedGreen(root);
     put(root, 'docs/archive/BS-2-b/task.md', '# BS-2 · Б\n');
-    put(root, 'docs/archive/BS-2-b/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+    put(root, 'docs/archive/BS-2-b/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
     put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
-    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
     put(root, 'docs/backlog/triage/BS-007.1-x.md', '# BS-007.1 · Находка\n');
     rmSync(path.join(root, 'docs/backlog/active/BS-2-b.md'));
     assert.deepEqual(problems(root), []);
@@ -268,10 +294,10 @@ test('lint: пустая или незаполненная «Область» в
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Область:** \n- **Цена:** minor\n');
-    put(root, 'docs/backlog/minor/BS-1.2-n.md', '# BS-1.2 · Н\n\n- **Цена:** major (гипотеза)\n');
-    put(root, 'docs/backlog/minor/BS-1.3-o.md', '# BS-1.3 · О\n\n- **Область:** [x](../../reference/README.md)\n- **Цена:** critical (hypothesis)\n');
-    put(root, 'docs/backlog/minor/BS-1.4-p.md', '# BS-1.4 · П\n\n- **Область:** [TODO: раздел](../../reference/README.md)\n- **Цена:** minor\n');
+    put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Область:** \n- **Цена:** minor\n\n## Улика\n\nlib/a.js:1\n');
+    put(root, 'docs/backlog/minor/BS-1.2-n.md', '# BS-1.2 · Н\n\n- **Цена:** major (гипотеза)\n\n## Улика\n\nпредположительно течёт\n');
+    put(root, 'docs/backlog/minor/BS-1.3-o.md', '# BS-1.3 · О\n\n- **Область:** [x](../../reference/README.md)\n- **Цена:** critical (hypothesis)\n\n## Evidence\n\npresumably leaks\n');
+    put(root, 'docs/backlog/minor/BS-1.4-p.md', '# BS-1.4 · П\n\n- **Область:** [TODO: раздел](../../reference/README.md)\n- **Цена:** minor\n\n## Улика\n\nlib/b.js:2\n');
     assert.deepEqual(problems(root), []);
     assert.ok(warnings(root).some((w) => /BS-1\.4-p\.md: «Область» не заполнена: осталась заглушка/.test(w)), warnings(root).join(' | '));
     assert.ok(warnings(root).some((w) => /BS-1\.1-m\.md: «Область» пуста/.test(w)), warnings(root).join(' | '));
@@ -349,7 +375,7 @@ test('lint: номер с ведущими нулями — форма файл�
   try {
     seedGreen(root);
     put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
-    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Готово.\n');
+    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
     put(root, 'docs/ROADMAP.md', 'Сделано в BS-007, она же BS-7.\n');
     assert.deepEqual(problems(root), []);
   } finally {
@@ -388,7 +414,9 @@ test('lint: adapter output без маркера — чужой файл на ow
     project = toolProject((dir) => {
       put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n');
       put(dir, 'templates/en/skills/backslop-task/references/extra.md', '# extra\n');
-      const r = toolCli(dir, ['init', '--tools', 'claude']);
+      // `init --tools` в корне инструмента отказывает; adapter в self-host выбирается правкой конфига.
+      put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), tools: ['claude'] }, null, 2)}\n`);
+      const r = toolCli(dir, ['init']);
       assert.equal(r.code, 0, r.err);
       put(dir, '.claude/skills/backslop-task/references/extra.md', '# мой файл на этом пути\n');
     });
@@ -474,6 +502,50 @@ test('lint: 11. гейт релиза жив после переименован
     assert.equal(project.code, 1, project.out);
     assert.match(project.err, /версия package\.json v9\.9\.9 расходится со штампом/);
   } finally { if (project) cleanup(project.dir); }
+});
+
+// 14. Непечатаемый байт: гейт судит отслеживаемые файлы, поэтому копия инструмента заводит индекс git.
+test('lint: 14. байт ниже 0x09 в отслеживаемом исходнике инструмента — ошибка с файлом, смещением и строкой', () => {
+  let red;
+  let green;
+  try {
+    red = toolProject((dir) => {
+      put(dir, 'lib/probe.js', 'const a = 1;\nconst key = `a\u0000b`;\n');
+      put(dir, 'bin/probe.txt', 'ab\u0001c\n');
+      run(dir, ['init', '-q']);
+      run(dir, ['add', '-A']);
+    });
+    assert.equal(red.code, 1, red.out);
+    assert.match(red.err, /lib\/probe\.js: байт 0x00 на смещении 27 \(строка 2\): NUL делает файл бинарным для git и grep, и поиск по нему молчит — запиши его escape-последовательностью \(\\u0000\)/);
+    assert.match(red.err, /bin\/probe\.txt: байт 0x01 на смещении 2 \(строка 1\): невидимый управляющий байт: в редакторе и в выводе его не видно — запиши его escape-последовательностью \(\\u0001\)/);
+    assert.doesNotMatch(red.err, /0x01[^\n]*git/, 'про git — только у NUL: прочие байты git бинарными не считает');
+    assert.equal(red.err.match(/: байт 0x/g).length, 2, 'копия инструмента других таких байтов не несёт');
+
+    green = toolProject((dir) => {
+      put(dir, 'lib/probe.js', 'const a = 1;\n\tconst key = `a\\u0000b`;\n');
+      put(dir, 'docs/untracked.md', 'не в индексе \u0001\n');
+      run(dir, ['init', '-q']);
+      run(dir, ['add', '-A', '--', 'lib', 'bin', 'templates', 'package.json']);
+    });
+    assert.equal(green.code, 0, green.err);
+    assert.doesNotMatch(green.err, /байт 0x|не проверены/);
+  } finally {
+    if (red) cleanup(red.dir);
+    if (green) cleanup(green.dir);
+  }
+});
+
+test('lint: 14. чужой проект гейт байтов не судит — его docs/** и test/** законно бинарные', () => {
+  const root = makeProject();
+  try {
+    seedGreen(root);
+    put(root, 'lib/probe.js', 'const key = `a\u0000b`;\n');
+    put(root, 'docs/logo.png', '\u0089PNG\r\n\u001a\n\u0000\u0000');
+    gitAll(root);
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
 });
 
 // 12. Слоты шаблонов: плейсхолдер без ключа в vars. Проба в обе стороны — иначе гейт не
