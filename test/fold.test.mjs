@@ -270,7 +270,7 @@ test('fold: тело вне истории — по умолчанию уход�
   }
 });
 
-// Пустая ревизия тела приходит по трём причинам, и умолчание «удалить» владелец выбирал только
+// Пустая ревизия тела приходит по четырём причинам, и умолчание «удалить» владелец выбирал только
 // для одной — доказанного отсутствия тела. «Не смогли посмотреть в историю» — не она.
 test('fold: массовая свёртка отказывает на незакоммиченном каталоге и вовсе без git, а не удаляет', () => {
   const root = makeProject();
@@ -310,6 +310,131 @@ test('fold: массовая свёртка отказывает на незак
     } finally {
       cleanup(bare);
     }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: ревизия строки — последний коммит, тронувший каталог: show N печатает result.md, дописанный после архивации', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/active/BS-1-alpha.md', '# BS-1 · Альфа\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст постановки\n');
+    gitAll(root, 'заведена альфа');
+    assert.equal(cli(root, ['archive', '1']).code, 0);
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Черновик итога.\n');
+    gitAll(root, 'архивация альфы');
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог после ревью.\n');
+    gitAll(root, 'итог альфы по ревью');
+    const reviewed = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+    // Результата нет вовсе в коммите, последним тронувшем постановку.
+    put(root, 'docs/archive/BS-2-beta/task.md', '# BS-2 · Бета\n\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nпостановка беты\n');
+    gitAll(root, 'только постановка беты');
+    put(root, 'docs/archive/BS-2-beta/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-09-04.** Выполнена. Итог беты.\n');
+    gitAll(root, 'итог беты');
+    const late = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+
+    const r = cli(root, ['fold']);
+    assert.equal(r.code, 0, r.err);
+    const lines = logLines(root);
+    assert.match(lines[0], new RegExp(` · \`${reviewed.slice(0, 10)}\` · Альфа$`));
+    assert.match(lines[1], new RegExp(` · \`${late.slice(0, 10)}\` · Бета$`));
+    gitAll(root, 'свёртка архива');
+
+    const alpha = cli(root, ['show', '1']);
+    assert.equal(alpha.code, 0, alpha.err);
+    assert.match(alpha.out, /Итог после ревью/);
+    assert.doesNotMatch(alpha.out, /Черновик итога/);
+    const beta = cli(root, ['show', '2']);
+    assert.equal(beta.code, 0, beta.err);
+    assert.match(beta.out, /--- docs\/archive\/BS-2-beta\/result\.md ---/);
+    assert.match(beta.out, /Итог беты/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Правка, которую `git status` не видит: чистый по статусу каталог, а на диске — не то, что в ревизии.
+test('fold: файл каталога расходится с ревизией при чистом git status — массовая отказывает с именем файла, одиночная уносит тело в заготовку', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    gitAll(root);
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Правка мимо индекса.\n');
+    run(root, ['update-index', '--assume-unchanged', 'docs/archive/BS-1-alpha/result.md']);
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'git status правки не видит');
+
+    const bulk = cli(root, ['fold']);
+    assert.equal(bulk.code, 1, bulk.out);
+    assert.match(bulk.err, /docs\/archive\/BS-1-alpha\/result\.md: файл расходится со своей редакцией в [0-9a-f]{10}/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/result.md')), 'отказ не трогает каталог');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'отказ не заводит журнал');
+
+    const single = cli(root, ['fold', '1']);
+    assert.equal(single.code, 0, single.err);
+    assert.match(logLines(root)[0], / · — · Альфа$/, 'ревизия, обещающая другой текст, в строку не идёт');
+    assert.match(single.out, /Правка мимо индекса/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: рабочее дерево с CRLF над LF-блобом (core.autocrlf) — не расхождение, строка получает ревизию', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    gitAll(root);
+    run(root, ['config', 'core.autocrlf', 'true']);
+    rmSync(path.join(root, 'docs/archive/BS-1-alpha'), { recursive: true, force: true });
+    run(root, ['checkout', '--', 'docs/archive/BS-1-alpha']);
+    assert.match(read(root, 'docs/archive/BS-1-alpha/result.md'), /\r\n/, 'фикстура даёт CRLF на диске');
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '');
+
+    const r = cli(root, ['fold']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(logLines(root)[0], / · `[0-9a-f]{10}` · Альфа$/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: незакоммиченный result.md при status.showUntrackedFiles=no — отказ «каталог не закоммичен», а не выброс', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/archive/BS-1-alpha/task.md', '# BS-1 · Альфа\n\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст постановки\n');
+    gitAll(root);
+    run(root, ['config', 'status.showUntrackedFiles', 'no']);
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог вне истории.\n');
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'обычный git status новый файл не показывает');
+
+    const r = cli(root, ['fold']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /каталог не закоммичен/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/result.md')), 'отказ не трогает каталог');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: файл каталога не читается git hash-object — отказ называет причину, а не расхождение', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    put(root, 'docs/archive/BS-1-alpha/notes.txt', 'вложение\n');
+    gitAll(root);
+    run(root, ['update-index', '--assume-unchanged', 'docs/archive/BS-1-alpha/notes.txt']);
+    rmSync(path.join(root, 'docs/archive/BS-1-alpha/notes.txt'));
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'git status удаления не видит');
+
+    const r = cli(root, ['fold']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /docs\/archive\/BS-1-alpha: файлы каталога не сверить с ревизией [0-9a-f]{10} — git hash-object: .*notes\.txt/);
+    assert.doesNotMatch(r.err, /файл расходится/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/result.md')), 'отказ не трогает каталог');
   } finally {
     cleanup(root);
   }
