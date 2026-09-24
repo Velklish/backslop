@@ -83,6 +83,11 @@ test('lint: EN project accepts RU metadata and reports errors in English', () =>
 probe('1. битая ссылка в docs', (root) => put(root, 'docs/note.md', '[нет](reference/none.md)\n'), /docs\/note\.md: битая ссылка reference\/none\.md/);
 probe('1. битая ссылка в корневом README', (root) => put(root, 'README.md', '[нет](docs/none.md)\n'), /README\.md: битая ссылка/);
 probe('1. ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1](../triage) — карточка\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
+probe('1. reference-style ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1][f] — карточка\n\n[f]: ../triage\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
+probe('1. ссылка с номером задачи на каталог в generated adapter output', (root) => {
+  assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+  put(root, '.claude/skills/backslop-task/SKILL.md', `${read(root, '.claude/skills/backslop-task/SKILL.md')}\nСм. [BS-2](../../../docs/backlog/triage)\n`);
+}, /\.claude\/skills\/backslop-task\/SKILL\.md: ссылка \[BS-2\]\(\.\.\/\.\.\/\.\.\/docs\/backlog\/triage\) ведёт на каталог/);
 probe('1. номер в тексте ссылки на каталог — и в код-спане', (root) => put(root, 'README.md', 'См. [`BS-2.1` · находка](docs/backlog/triage/)\n'), /README\.md: ссылка \[`BS-2\.1` · находка\]\(docs\/backlog\/triage\/\) ведёт на каталог/);
 test('lint: 1. незакрытая скобка с номером перед ссылкой на каталог — не текст ссылки', () => {
   const root = makeProject({ git: false });

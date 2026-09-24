@@ -196,6 +196,40 @@ test('ссылки на каталог: только существующий к
   }
 });
 
+test('ссылки на каталог: reference-style — полная, свёрнутая и краткая формы, метка без регистра', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
+  try {
+    mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
+    writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · Х\n');
+    const file = path.join(sb, 'docs', 'note.md');
+    writeFileSync(file, [
+      'Полная [BS-5][f], регистр [`BS-6`][F], свёрнутая [BS-7][] и краткая [BS-8].',
+      'Файл [BS-9][card], инлайн [a](triage/BS-5-x.md), спан `[BS-10][f]`, чекбокс [x] без объявления.',
+      '',
+      '[f]: triage',
+      '[bs-7]: <triage/>',
+      '[BS-8]: /docs/triage#x',
+      '[card]: triage/BS-5-x.md',
+      '',
+      'Абзац',
+      '[late]: triage',
+      '',
+      '```',
+      '[code]: triage',
+      '```',
+      '[Late] и [code].',
+    ].join('\n'));
+    assert.deepEqual(directoryLinks(file, sb), [
+      { text: 'BS-5', href: 'triage' },
+      { text: '`BS-6`', href: 'triage' },
+      { text: 'BS-7', href: 'triage/' },
+      { text: 'BS-8', href: '/docs/triage#x' },
+    ]);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
 test('ссылки на каталог: текст — от ближайшей скобки, путь через файл — не каталог и не отказ', () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
   try {

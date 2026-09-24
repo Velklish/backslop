@@ -114,3 +114,5 @@
 - <a id="bs-76.2"></a>`BS-76.2-result-outcome-word-not-enforced` · 2026-09-24 · пачкой BS-79 · — · Отклонённая или слитая задача, чей исход назван не словом словаря, свёрткой читается «выполнена»: lint не требует слова исхода в result.md
 - <a id="bs-76.4"></a>`BS-76.4-fold-orders-journal-by-number-but-header-promises-closing-order` · 2026-09-24 · пачкой BS-79 · — · Массовая свёртка пишет журнал в порядке номеров, а шапка обещает порядок закрытия
 - <a id="bs-78.1"></a>`BS-78.1-show-spawn-failure-says-code-null` · 2026-09-24 · пачкой BS-79 · — · show N и прочие отказы git печатают «код null» без причины, когда git не запустился или оборван (ENOBUFS, timeout)
+- <a id="bs-80"></a>`BS-80-minor-batch-lint-links` · 2026-09-24 · выполнена · — · Пачка minor: проверка ссылок lint — reference-style и adapter outputs
+- <a id="bs-69.1"></a>`BS-69.1-directory-link-check-misses-refstyle-and-adapters` · 2026-09-24 · пачкой BS-80 · — · Проверка ссылки на каталог не видит reference-style ссылки и adapter outputs
