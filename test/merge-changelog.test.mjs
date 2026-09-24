@@ -270,6 +270,27 @@ test('merge-changelog: команда читает редакции из git и 
   }
 });
 
+test('merge-changelog: CHANGELOG.md больше 1 МиБ читается из git, а не обрывается ENOBUFS', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    const history = '- **Старая запись** — длинная история выпущенных версий\n'.repeat(20_000);
+    put(root, 'CHANGELOG.md', `${OURS}${history}`);
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', `${THEIRS}${history}`);
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+    assert.ok(Buffer.byteLength(read(root, 'CHANGELOG.md')) > 1 << 20, 'файл больше буфера spawnSync по умолчанию');
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'CHANGELOG.md'), /- \*\*Первое theirs\*\* — тело theirs/);
+    assert.equal(read(root, 'CHANGELOG.md').split('- **Старая запись**').length - 1, 20_000);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('merge-changelog: --base читается командой и снимает запись, которой сторона лишилась', () => {
   const root = makeProject({ prefix: 'BS' });
   try {
