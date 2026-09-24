@@ -12,9 +12,8 @@ function withGates(root, gates) {
   put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), gates }, null, 2)}\n`);
 }
 
-// Гейты пишут метку в файл: так видно, какие из них дошли до запуска. Путь идёт переменной
-// окружения, а не литералом внутри `node -e`: в пути с `\t` или `\r` (Windows) литерал стал
-// бы escape-последовательностью.
+// Гейт пишет метку в файл — видно, какие дошли до запуска. Путь — переменной окружения, а не
+// литералом в `node -e`: `\t` или `\r` в пути (Windows) стали бы escape-последовательностью.
 const mark = (name, code) => `node -e "require('fs').appendFileSync(process.env.GATES_MARK,'${name}\\n');process.exit(${code})"`;
 const marked = (root) => ({ env: { GATES_MARK: path.join(root, 'ran.txt') } });
 const ran = (root) => {
@@ -414,9 +413,8 @@ test('gates: исход различает код, сигнал и незапу�
     assert.equal(killed.code, null);
     assert.equal(killed.signal, 'SIGTERM');
 
-    // Команда идёт через оболочку, поэтому ненайденное имя — это код самой оболочки (127 у sh,
-    // 1 или 9009 у cmd.exe), а не `r.error`: ветка «не запустился» через shell недостижима и
-    // пробой не покрыта. Число не проверяем — оно от оболочки, а не от нас.
+    // Ненайденное имя — код самой оболочки (127 у sh, 1 или 9009 у cmd.exe), а не `r.error`: ветка
+    // «не запустился» через shell недостижима, и число от оболочки не проверяем.
     withGates(root, ['такой-команды-нет-и-не-будет']);
     r = cli(root, ['gates', '--json']);
     assert.equal(r.code, 1);

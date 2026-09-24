@@ -1,6 +1,5 @@
-// Временный проект для проверок команд: git-репозиторий с backslop.json и каталогами
-// статусов, собранный руками, — независимо от `init`, чтобы дефект init не красил чужие
-// проверки. Команды гоняются настоящим процессом через bin/backslop.js.
+// Временный проект для проверок команд: git с backslop.json и каталогами статусов, собранный
+// руками, а не `init`, — дефект init не красит чужие проверки. Команды — настоящим процессом.
 import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
@@ -11,10 +10,8 @@ import { TOOL_VERSION } from '../lib/version.js';
 export const BIN = fileURLToPath(new URL('../bin/backslop.js', import.meta.url));
 export const REPO = fileURLToPath(new URL('..', import.meta.url));
 
-// stamp: false — проект без штампа версии, каким его застаёт lint у старой раскладки.
-// По умолчанию штамп стоит: иначе lint на любой проверке несёт постоянное предупреждение
-// «нет штампа версии», и ассерт на пустой stderr нельзя написать ни в одном тесте. Поле cli
-// не пишется — loadConfig подставит defaultCli() с пином на ту же TOOL_VERSION, и lint молчит.
+// stamp: false — проект без штампа, как старая раскладка. По умолчанию штамп стоит, а `cli` берётся
+// из defaultCli() с той же версией: иначе предупреждение lint мешало бы ассертам на пустой stderr.
 export function makeProject({ prefix = 'BS', docs = 'docs', git = true, stamp = true } = {}) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-proj-')));
   const cfg = { prefix, docs, gates: [] };
@@ -30,18 +27,16 @@ export function makeProject({ prefix = 'BS', docs = 'docs', git = true, stamp = 
     run(root, ['init', '-q', '-b', 'main']);
     run(root, ['config', 'user.email', 'test@example.com']);
     run(root, ['config', 'user.name', 'test']);
-    // Пин против глобального конфига машины: определение переименований у себя выключил —
-    // и `git mv` виден в status как пара D/A, неотличимо от renameSync; подпись коммитов
-    // включена без ключа — фикстура падает на первом же снимке.
+    // Пин против глобального конфига: без переименований `git mv` в status неотличим от renameSync,
+    // подпись коммитов без ключа роняет фикстуру на первом снимке.
     run(root, ['config', 'status.renames', 'true']);
     run(root, ['config', 'commit.gpgsign', 'false']);
   }
   return root;
 }
 
-// Код возврата git проверяется: проглоченный отказ (нет git, сломанный конфиг, нечего
-// коммитить) оставлял бы файл вне индекса, и команда молча уходила бы на ветку renameSync —
-// проверка ветки `git mv` тихо становилась бы проверкой ветки fs.
+// Код git проверяется: проглоченный отказ оставил бы файл вне индекса, и проверка ветки `git mv`
+// тихо стала бы проверкой ветки renameSync.
 export function run(root, args) {
   const r = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8' });
   if (r.status !== 0) {
@@ -60,21 +55,16 @@ export function cli(root, args, { cwd = root, env = {} } = {}) {
   return runBin(BIN, args, cwd, env);
 }
 
-// --no-warnings дочернему процессу: предупреждения самого Node (конфликт NO_COLOR с
-// унаследованным FORCE_COLOR, Experimental/Deprecation из NODE_OPTIONS сессии) уходят в его
-// stderr и красили бы ассерты на пустой stderr выводом, которого команда не писала.
-// Унаследованное значение сохраняется — флаг дописывается к нему.
+// --no-warnings дописывается к унаследованному NODE_OPTIONS: предупреждения Node (NO_COLOR против
+// FORCE_COLOR, Experimental) красили бы ассерты на пустой stderr чужим выводом.
 function runBin(bin, args, cwd, env) {
   const nodeOptions = `${process.env.NODE_OPTIONS ?? ''} --no-warnings`.trim();
   const r = spawnSync(process.execPath, [bin, ...args], { cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1', NODE_OPTIONS: nodeOptions, ...env } });
   return { code: r.status, out: r.stdout ?? '', err: r.stderr ?? '' };
 }
 
-// Копия инструмента — bin, lib, templates, package.json в mkdtemp. Нужна пробам, которым нужен
-// self-host (гейт парности шаблонов и гейт 11 включаются только там, где `templates/` проекта —
-// каталог запущенного инструмента) или состав шаблонов, отличный от дерева репозитория
-// (не-legacy owned-путь). CHANGELOG.md копия не несёт — пробы кладут его сами. `mutate` правит
-// копию до первого запуска.
+// Копия инструмента в mkdtemp — для проб self-host (парность шаблонов, гейт 11) и чужого состава
+// шаблонов. CHANGELOG.md пробы кладут сами; `mutate` правит копию до первого запуска.
 export function toolCopy(mutate = () => {}) {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-tool-')));
   for (const rel of ['bin', 'lib', 'templates', 'package.json']) {
