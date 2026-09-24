@@ -6,7 +6,7 @@ import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, formatId, getField, idMentionRe,
   nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
-import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, outcomeFromResult, parseLogLine } from '../lib/log.js';
+import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, namedResultOutcome, outcomeFromResult, parseLogLine } from '../lib/log.js';
 
 test('имя файла задачи: номер, sub-ID и slug', () => {
   const re = taskFileRe('BS');
@@ -285,6 +285,44 @@ test('исход старых архивов: заголовок «(<исход>
   // Слово внутри слова — не исход; голое «снята» — исход только первым словом абзаца: снятая заглушка задачу не отклоняет.
   assert.equal(outcomeFromResult(result('# PB-42 · Result', 'Abandoned; the flaw was disclosed upstream.'), 'PB', 'en'), '—');
   assert.equal(outcomeFromResult(result('# BL-10 · Результат', '**Закрыта 2026-08-02.** Снята переходная форма, заглушка снята.'), 'BL', 'ru'), 'выполнена');
+});
+
+test('маркер «Исход:» / «Outcome:» без слова словаря читается как голое «закрыта»; «исход» без двоеточия — не маркер', () => {
+  const read = (id, body, lang = 'ru') => outcomeFromResult(`# ${id} · Результат\n\n${body}\n\n## Проверки\n\nОтклонена ниже абзаца — не исход.\n`, id.split('-')[0], lang);
+  assert.equal(read('BL-641.3', '**Исход: обе формы понимаются, рычага два — по одному на форму.**'), 'выполнена');
+  assert.equal(read('BL-642.1', '**Исход: снятие инструмента не оставляет следа, и право на снятие доказывается положительно.**'), 'выполнена');
+  assert.equal(read('BL-642.2', '**Исход: в репозитории сервиса `doctor` отвечает, а не отказывает поиском корня.**'), 'выполнена');
+  assert.equal(read('PB-1', '**Outcome:** the reviewer keeps the diff.', 'en'), 'completed');
+  assert.equal(read('BL-1', '**Исход: отклонена** — предмет ушёл.'), 'отклонена', 'слово словаря после маркера решает само');
+  assert.equal(read('BL-1', '**Исход: снята** вместе с предметом.'), 'выполнена', 'слово вне таблицы или «снята» не первым словом после маркера — как «Отказ: беспредметна»');
+  assert.equal(read('PB-1', '**Outcome:** abandoned; the flaw was disclosed upstream.', 'en'), 'completed');
+  assert.equal(read('BL-1', 'Исход спора решит владелец.'), '—');
+  assert.equal(read('BL-1', '**Исход — обе формы понимаются.**'), '—', 'форма с тире — не маркер');
+  assert.equal(read('BL-1', 'Исходы: два, оба в разделе ниже.'), '—');
+  // Маркер — фолбэк свёртки старых записей, а не слово исхода: гейт 5 и `fold N` его не принимают.
+  assert.equal(namedResultOutcome('# BL-1 · Результат\n\n**Исход: обе формы понимаются.**\n', 'BL'), null);
+});
+
+test('«слиянием в <номер>» — слияние, как «слита в»: номер проекта сразу после формы, отрицание отсекается', () => {
+  const read = (body) => outcomeFromResult(`# BL-1 · Результат\n\n${body}\n`, 'BL', 'ru');
+  assert.equal(read('**Закрыта 2026-09-12 слиянием в `BL-624.1`.**'), 'слита в BL-624.1');
+  assert.equal(read('**Закрыта 2026-09-12 слиянием в `BL-604`.**'), 'слита в BL-604');
+  assert.equal(read('**Закрыта 2026-09-12 слиянием в `BL-565.2`.**'), 'слита в BL-565.2');
+  assert.equal(read('**Закрыта.** Не слиянием в BL-3: предмет другой.'), 'выполнена');
+  assert.equal(read('**Закрыта** слиянием в main.'), 'выполнена');
+  assert.equal(namedResultOutcome('# BL-1 · Результат\n\n**Закрыта 2026-09-12 слиянием в `BL-604`.**\n', 'BL'), 'слита в BL-604');
+});
+
+// Первые фразы записей потребителей, чей исход журнал называет иначе; «…» — сокращение, пути сняты.
+const UNREAD = JSON.parse(readFileSync(new URL('./fixtures/outcome-unread-residue.json', import.meta.url), 'utf8'));
+
+test('известный остаток: «Закрыта отказом», «а не выполнена», «Исход — снята», дубль без «слита», слово о чужой задаче — не читаются по решению владельца, вердикт держит нынешнее чтение', () => {
+  assert.equal(UNREAD.length, 7);
+  const got = UNREAD.map((e) => {
+    const [prefix] = e.id.split('-');
+    return [e.id, outcomeFromResult(`# ${e.id} · Результат\n\n${e.phrase}\n`, prefix, prefix === 'PB' ? 'en' : 'ru')];
+  });
+  assert.deepEqual(got, UNREAD.map((e) => [e.id, e.outcome]));
 });
 
 test('дописывание в журнал: пустая строка между прозой и первой записью, между записями — нет', () => {
