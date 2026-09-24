@@ -149,6 +149,104 @@ test('merge-changelog: без секции невыпущенного у ours �
   assert.throws(() => mergeChangelog('# Changelog\n\n## v0.1.0\n\n- **Одна** — ours\n', THEIRS), /нет секции невыпущенного/);
 });
 
+// `release --bump` переименовывает секцию невыпущенного в `## vX.Y.Z — <дата>` до тега.
+const BUMPED = (body) => `# Changelog\n\n## v0.2.0 — 2026-02-01\n\n${body}\n## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n`;
+const UNBUMPED = (body) => `# Changelog\n\n## Не выпущено\n\n${body}\n## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n`;
+const onlyFirstTagged = (version) => version === '0.1.0';
+const headings = (text) => text.match(/^## .+$/gm);
+const entries = (text) => [...text.matchAll(/^- \*\*(.+?)\*\*/gm)].map((m) => m[1]);
+
+test('merge-changelog: после бампа сливается верхняя секция версии без тега', () => {
+  const base = BUMPED('- **Общее** — тело\n- **Снятая** — тело\n');
+  const ours = BUMPED('- **Своя ours** — тело\n- **Общее** — тело\n- **Снятая** — тело\n');
+  const theirs = BUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n');
+  const { text, report } = mergeChangelog(ours, theirs, base, 'ru', onlyFirstTagged);
+  assert.deepEqual(report.section, { ours: 'v0.2.0 — 2026-02-01', theirs: 'v0.2.0 — 2026-02-01', base: 'v0.2.0 — 2026-02-01' });
+  assert.deepEqual(report.onlyTheirs, ['Своя theirs']);
+  assert.deepEqual(report.dropped, ['Снятая'], 'база после бампа читается тем же правилом');
+  assert.deepEqual(headings(text), ['## v0.2.0 — 2026-02-01', '## v0.1.0 — 2026-01-01']);
+  assert.deepEqual(entries(text), ['Своя ours', 'Общее', 'Своя theirs', 'Старое']);
+});
+
+test('merge-changelog: ours после бампа, theirs отрезан до него — записи theirs ложатся в секцию версии', () => {
+  const ours = BUMPED('- **Своя ours** — тело\n- **Общее** — тело\n');
+  const theirs = UNBUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n');
+  const { text, report } = mergeChangelog(ours, theirs, null, 'ru', onlyFirstTagged);
+  assert.deepEqual(report.section, { ours: 'v0.2.0 — 2026-02-01', theirs: 'Не выпущено', base: null });
+  assert.deepEqual(headings(text), ['## v0.2.0 — 2026-02-01', '## v0.1.0 — 2026-01-01']);
+  assert.deepEqual(entries(text), ['Своя ours', 'Общее', 'Своя theirs', 'Старое']);
+});
+
+test('merge-changelog: бамп только у theirs — его записи не теряются', () => {
+  const ours = UNBUMPED('- **Своя ours** — тело\n- **Общее** — тело\n');
+  const theirs = BUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n');
+  const { text, report } = mergeChangelog(ours, theirs, null, 'ru', onlyFirstTagged);
+  assert.equal(report.theirs, 2);
+  assert.deepEqual(report.section, { ours: 'Не выпущено', theirs: 'v0.2.0 — 2026-02-01', base: null });
+  assert.deepEqual(entries(text), ['Своя ours', 'Общее', 'Своя theirs', 'Старое']);
+});
+
+test('merge-changelog: верхняя секция версии с тегом выпущена — отказ', () => {
+  const tagged = (version) => ['0.1.0', '0.2.0'].includes(version);
+  assert.throws(() => mergeChangelog(BUMPED('- **Одна** — ours\n'), THEIRS, null, 'ru', tagged), /нет секции невыпущенного/);
+});
+
+test('merge-changelog: у theirs нет секции невыпущенного — отчёт говорит, что его записи не читались', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n');
+    gitAll(root, 'релиз 0.1.0');
+    run(root, ['tag', 'v0.1.0']);
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n- **Запись в выпущенной** — тело\n');
+    gitAll(root, 'worker');
+    run(root, ['checkout', '-q', 'main']);
+    put(root, 'CHANGELOG.md', UNBUMPED('- **Своя ours** — тело\n'));
+    gitAll(root, 'ours');
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /записей: ours 1, theirs 0, в результате 1/);
+    assert.match(r.err, /у theirs нет секции невыпущенного — записи theirs не читались/);
+    assert.doesNotMatch(read(root, 'CHANGELOG.md'), /Запись в выпущенной/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: команда сверяет версию секции с тегами репозитория', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n');
+    gitAll(root, 'релиз 0.1.0');
+    run(root, ['tag', 'v0.1.0']);
+    put(root, 'CHANGELOG.md', BUMPED('- **Общее** — тело\n'));
+    gitAll(root, 'бамп 0.2.0');
+    const bump = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', BUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n'));
+    gitAll(root, 'worker');
+    run(root, ['checkout', '-q', 'main']);
+
+    let r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', `--base=${bump}`, '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(entries(read(root, 'CHANGELOG.md')), ['Общее', 'Своя theirs', 'Старое']);
+    for (const side of ['ours', 'theirs', 'base']) {
+      assert.match(r.err, new RegExp(`секция невыпущенного у ${side} — «v0\\.2\\.0 — 2026-02-01»: тега у версии нет`));
+    }
+
+    // Тег без `v` тоже выпускает версию.
+    run(root, ['checkout', '--', 'CHANGELOG.md']);
+    run(root, ['tag', '0.2.0']);
+    r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /нет секции невыпущенного/);
+    assert.deepEqual(entries(read(root, 'CHANGELOG.md')), ['Общее', 'Старое'], 'отказ --out не трогает');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('merge-changelog: команда читает редакции из git и пишет в --out, отчёт в stderr', () => {
   const root = makeProject({ prefix: 'BS' });
   try {

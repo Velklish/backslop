@@ -21,7 +21,7 @@
 | [adr/adr-010-brief-command.md](adr/adr-010-brief-command.md) | Бриф worker'у собирается командой `brief`, а не руками | Accepted |
 | [adr/adr-011-seed-scan-queue-reference.md](adr/adr-011-seed-scan-queue-reference.md) | Механика посева — команда `seed`, отбор кандидатов — агент и владелец | Accepted |
 | [adr/adr-012-owned-outputs-gitignore.md](adr/adr-012-owned-outputs-gitignore.md) | Owned outputs не коммитятся: блок `.gitignore` пишет `init` | Accepted |
-| [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Superseded in part by ADR-024 (позиция записи и спор за одно место) |
+| [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Superseded in part by ADR-024 (позиция записи и спор за одно место); refined by [ADR-030](adr/adr-030-changelog-merge-untagged-version-section.md) (верхняя секция версии без тега — невыпущенная) |
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
 | [adr/adr-015-adapter-write-preserves-foreign.md](adr/adr-015-adapter-write-preserves-foreign.md) | Запись adapter outputs не переписывает чужой файл на owned-пути | Accepted |
 | [adr/adr-016-selected-adapter-roots-symlink.md](adr/adr-016-selected-adapter-roots-symlink.md) | Symlink проверяется только на корнях выбранных adapter'ов | Accepted |
@@ -38,6 +38,7 @@
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Accepted |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Accepted |
 | [adr/adr-029-minor-finding-requires-evidence.md](adr/adr-029-minor-finding-requires-evidence.md) | Находка в `minor/` заводится только с уликой: `--evidence` обязателен, отказ до создания файла | Accepted |
+| [adr/adr-030-changelog-merge-untagged-version-section.md](adr/adr-030-changelog-merge-untagged-version-section.md) | Слияние CHANGELOG видит верхнюю секцию версии без тега невыпущенной: бамп до работы не ломает приёмку | Accepted |
 
 ## Сквозные принципы
 
