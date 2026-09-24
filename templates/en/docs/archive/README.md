@@ -8,7 +8,7 @@ A batch of minor entries is the same directory with a `minor/` subdirectory: ent
 
 Move a task with `{{cli}} archive N`: it also rewrites task links throughout the repository, creates the `result.md` stub, and prints the documentation files touched by the task — the draft of the “documentation updated” line.
 
-A closed task folds into a [LOG.md](LOG.md) journal line: `{{cli}} fold N` removes the directory, appends the line, and moves incoming links onto its anchor — `LOG.md#<number in lower case>`. The definition and the result go in full into the message of the folding commit: the command prints that draft on stdout, and committing with it is mandatory — the body is no longer in the tree. `{{cli}} show N` retrieves it.
+A closed task folds into a [LOG.md](LOG.md) journal line: `{{cli}} fold N` removes the directory, appends the line, and moves incoming links onto its anchor — `LOG.md#<number in lower case>`. The definition and the result go in full into the message of the folding commit: the command prints that draft on stdout. Committing with it is mandatory when the line's commit field is `—`: the body is no longer in the tree and not yet in history. When the line names a revision, the body sits in it, and the draft is optional as long as that revision stays in history. `{{cli}} show N` retrieves it.
 
 The accumulated archive folds with the same `{{cli}} fold` without a number: there the body comes from history rather than from the message, and the journal line names the revision. `--older-than <date>` folds only what was closed before that date.
 

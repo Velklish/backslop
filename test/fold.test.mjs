@@ -81,6 +81,40 @@ test('fold N: корневая ссылка и каталог со слэшем 
   }
 });
 
+test('fold N: тело с ревизией — заготовка не обязательна, show N достаёт тело; без ревизии — обязательна', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    gitAll(root);
+    const kept = cli(root, ['fold', '1']);
+    assert.equal(kept.code, 0, kept.err);
+    assert.match(logLines(root)[0], / · `[0-9a-f]{10}` · Альфа$/, 'фикстура даёт именно строку с ревизией');
+    assert.match(kept.err, /коммитить её не обязательно: тело уже в истории/);
+    assert.match(kept.err, / show BS-1 достаёт его оттуда/);
+    assert.doesNotMatch(kept.err, /закоммить свёртку вместе с ней/);
+    // Замер карточки: свёртка закоммичена без заготовки, и тело всё равно достаётся.
+    gitAll(root, 'свёртка без заготовки');
+    const shown = cli(root, ['show', '1']);
+    assert.equal(shown.code, 0, shown.err);
+    assert.match(shown.out, /текст постановки/);
+    assert.match(shown.out, /Итог одной строкой/);
+
+    // Ход приёмки: archive N и result.md без коммита — ревизии нет, заготовка единственное хранилище.
+    put(root, 'docs/backlog/active/BS-2-beta.md', '# BS-2 · Бета\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст беты\n');
+    gitAll(root, 'заведена бета');
+    assert.equal(cli(root, ['archive', '2']).code, 0);
+    put(root, 'docs/archive/BS-2-beta/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-09-04.** Выполнена. Итог беты.\n');
+    const draftOnly = cli(root, ['fold', '2']);
+    assert.equal(draftOnly.code, 0, draftOnly.err);
+    assert.match(logLines(root)[1], / · — · Бета$/, 'фикстура даёт именно строку без ревизии');
+    assert.match(draftOnly.err, /заготовка сообщения коммита — в stdout: закоммить свёртку вместе с ней, иначе тело задачи потеряется/);
+    assert.doesNotMatch(draftOnly.err, /не обязательно/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold N: отказы — пустой result.md, заглушка в нём, задача не в архиве, уже свёрнутая', () => {
   const root = makeProject();
   try {
