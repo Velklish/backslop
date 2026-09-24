@@ -76,9 +76,8 @@ test('mv --after на чужую задачу отказывает до пере
   }
 });
 
-// Свой лимит, а не только --test-timeout из npm test: прямой `node --test <файл>` глобальный
-// флаг не получает, а регрессия решения «exitCode вместо process.exit» (bin/backslop.js:108)
-// вешает этот тест навсегда — без лимита прогон не краснеет, а стоит.
+// Свой лимит: прямой `node --test <файл>` не получает --test-timeout из npm test, а регрессия
+// «exitCode вместо process.exit» (bin/backslop.js) вешала бы тест, а не красила.
 test('status --json доезжает целиком через пайп, который читают с задержкой', { timeout: 20000 }, async () => {
   const root = makeProject({ git: false });
   try {

@@ -1,6 +1,5 @@
-// Разбор и перепись ссылок markdown. Переезд файла меняет его глубину относительно docs/,
-// и рвутся именно ссылки — проверяются все формы, которые ломались при ручном переезде,
-// плюс те, что трогать нельзя.
+// Разбор и перепись ссылок markdown: все формы, что ломались при ручном переезде файла, плюс те,
+// что трогать нельзя.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';

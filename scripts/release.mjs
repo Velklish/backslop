@@ -40,9 +40,8 @@ function tagExistsOnOrigin(tag) {
   return command('git', ['ls-remote', '--exit-code', '--tags', 'origin', `refs/tags/${tag}`], { capture: true, allow: [2] }).status === 0;
 }
 
-// Бамп — отдельный ход перед релизом: версия пакета, штамп раскладки (его ставит init новой
-// версией) и заголовок верхней секции CHANGELOG. Совместить его с релизом нельзя — preflight
-// требует чистого дерева, а коммитов скрипт не пишет: дифф проверяет и коммитит агент.
+// Бамп — отдельный ход до релиза: версия пакета, штамп раскладки (через init) и заголовок верхней
+// секции CHANGELOG. С релизом не совместить: preflight требует чистого дерева, а коммитит агент.
 function bump(version) {
   const pkg = readFileSync('package.json', 'utf8');
   const current = packageVersion();
@@ -57,10 +56,8 @@ function bump(version) {
   if (/^## v\d/.test(heading[0])) throw new Error(`CHANGELOG.md: верхняя секция «${heading[0]}» уже выпущена — нечего переименовывать в v${version}`);
   const section = `## v${version} — ${today()}`;
 
-  // Проверки все до первой записи: отказ на середине оставил бы package.json бампнутым, а
-  // CHANGELOG — со старым заголовком, и это ровно тот рассинхрон, который гейт 11 ловит.
-  // Третье действие, `init`, гарантией не покрыто: он ходит по диску и может отказать уже
-  // после двух записей. Его отказ ловит тот же гейт 11 — штамп останется на прежней версии.
+  // Все проверки — до первой записи: отказ на середине дал бы рассинхрон, который ловит гейт 11.
+  // `init` этим не покрыт и может отказать после двух записей — тогда штамп останется прежним.
   writeFileSync('package.json', bumped);
   writeFileSync('CHANGELOG.md', changelog.replace(heading[0], section));
   command('node', ['bin/backslop.js', 'init']);

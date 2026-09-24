@@ -1,10 +1,5 @@
-// Обновление проекта: форма пина в cli, перепись гейтов, выжимка CHANGELOG, а также upgrade,
-// migrate и changelog настоящим процессом. Источник релизов — локальный git-репозиторий с
-// тегами: ls-remote читает его так же, как GitHub, а сеть тестам не нужна.
-// Сам `upgrade` на Windows не покрывается: пробный запуск новой версии подменяется шимом npx с
-// shebang `/bin/sh`, которого Windows не исполняет, поэтому все тесты, доходящие до пробы, —
-// включая обе формы `--pin-only`, — помечены skip. Разборы без запуска (parseCli, rewriteGates,
-// changelogSince, listReleaseTags) платформы не касаются и идут везде.
+// Обновление проекта: пин, гейты, выжимка CHANGELOG и команды процессом; релизы — локальный git с
+// тегами, без сети. Тесты, доходящие до пробы (шим npx на `/bin/sh`), на Windows — skip.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -98,9 +93,8 @@ test('rewriteGates: меняется только команда, начинаю
   );
   assert.deepEqual(rewriteGates(['npx github:me/proj#v0.1.0x lint'], 'npx github:me/proj#v0.1.0', 'npx github:me/proj#v0.2.0'),
     ['npx github:me/proj#v0.1.0x lint'], 'подстрока без пробела — другая команда');
-  // BS-66: запись с областью правится внутрь, `when` переживает перестановку пина, а нетронутая
-  // запись возвращается той же ссылкой — иначе `upgrade` печатал бы число заменённых по числу
-  // записей с областью.
+  // Запись с областью правится внутрь и сохраняет `when`, нетронутая возвращается той же ссылкой —
+  // иначе число заменённых было бы числом записей с областью.
   const gates = [{ command: 'npx github:me/proj#v0.1.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }];
   const next = rewriteGates(gates, 'npx github:me/proj#v0.1.0', 'npx github:me/proj#v0.2.0');
   assert.deepEqual(next, [{ command: 'npx github:me/proj#v0.2.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }]);
@@ -436,9 +430,8 @@ test('upgrade: пин в прозе docs переставляется, запи�
     assert.match(r.out, /затем .* upgrade для живых пинов/);
     assert.ok(read(root, 'docs/reference/README.md').includes(old), '--pin-only прозу не трогает');
 
-    // Прозу чинит следующий полный upgrade, хотя пин в конфиге уже уехал: поиск идёт по
-    // спеке, а не по литералу прежнего cli — иначе отставшая на две версии проза не
-    // починилась бы уже никогда.
+    // Прозу чинит следующий полный upgrade: поиск идёт по спеке, а не по литералу прежнего cli,
+    // иначе отставшая на две версии проза не починилась бы никогда.
     r = cli(root, ['migrate'], { env });
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['init'], { env });
@@ -469,9 +462,8 @@ test('upgrade: пин в прозе docs переставляется, запи�
   }
 });
 
-// Пин пишется только после того, как новая версия хоть раз запустилась. `--pin-only` сокращает
-// хвост — migrate, init, выжимку CHANGELOG, — но не пробу: иначе он оставлял бы проект с пином
-// на команду, которая не поднимается, и лечилось бы это правкой backslop.json руками.
+// Пин пишется только после пробного запуска новой версии, и `--pin-only` пробу не сокращает:
+// иначе проект остался бы с пином на команду, которая не поднимается.
 test('upgrade --pin-only: сбой пробного запуска не пишет пин и гейты', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', 'v0.2.0']);

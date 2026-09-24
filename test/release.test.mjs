@@ -1,6 +1,5 @@
-// Проверки скрипта релиза. Файл не рассчитан на Windows: git и npm подменяются шимами с
-// shebang (putExecutable ниже), которые Windows не исполняет, а acceptance зовёт `npm` без
-// shell. Тесты, у которых от платформы зависит сам предмет проверки, помечены skip явно.
+// Проверки скрипта релиза. Не для Windows: git и npm подменяются шимами с shebang, а acceptance
+// зовёт `npm` без shell; тесты, чей предмет зависит от платформы, помечены skip явно.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -176,10 +175,8 @@ test('release: push failure фиксирует published state и exact atomic r
   }
 });
 
-// Отказ запуска и ненулевой код запущенной команды — разные отказы, и assert.equal(status, 0)
-// их не различает: у несостоявшегося запуска status === null, причина лежит в error, а у снятого
-// сигналом — в signal. «null !== 0» не называет ни команды, ни причины, и приёмка сообщает про
-// дефект релиза там, где на машине просто нет npm или его снял sandbox.
+// Незапуск (причина в error), снятие сигналом и ненулевой код — разные отказы: «null !== 0» назвал
+// бы дефектом релиза машину без npm или sandbox, который его снял.
 function describeRun(label, r) {
   if (r.error) return `${label}: запуск не состоялся — ${r.error.code ?? r.error.message}`;
   if (r.signal) return `${label}: снят сигналом ${r.signal}`;
@@ -194,12 +191,8 @@ function runOk(label, cmd, args, opts = {}) {
   return r;
 }
 
-// npm запускается со своим HOME, кэшем и обоими конфигами внутри каталога самой проверки:
-// иначе он читает ~/.npmrc с токеном реестра и лезет за учёткой в Keychain — под sandbox этот
-// запрос отклоняется, npm снимают, и приёмка релиза краснеет на окружении участника, а не на
-// релизе. Унаследованные npm_config_* выбрасываются целиком: родитель прогона — сам `npm test`,
-// и он выкладывает в окружение всю свою конфигурацию, включая globalconfig и userconfig.
-// Зависимостей у пакета нет, поэтому install идёт --offline и реестр не нужен вовсе.
+// npm — со своим HOME, кэшем и конфигами в каталоге проверки и без npm_config_* от `npm test`:
+// иначе ~/.npmrc с токеном и Keychain под sandbox красили бы приёмку окружением; install — offline.
 function npmEnv(home, cache) {
   mkdirSync(home, { recursive: true });
   writeFileSync(path.join(home, '.npmrc'), '');
@@ -245,11 +238,8 @@ test('packed tarball matches files, installs locally and its bin passes version,
     const manifest = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'));
     assert.deepEqual(Object.keys(manifest.dependencies ?? {}), [], '--offline держится на отсутствии зависимостей');
 
-    // Состав tarball: всё, что инструменту нужно, и ничего сверх. Три команды ниже выпадение
-    // `templates/` из `files` не поймают — self-host без adapters шаблонов скиллов не рендерит.
-    // Ожидаемое — отслеживаемые git файлы каталогов из `files`, а не содержимое каталогов на
-    // диске: `.DS_Store`, `._*`, `.gitignore` npm выбрасывает и внутри перечисленных каталогов,
-    // и обход диска красил бы гейт артефактом ОС без следа в `git status`.
+    // Состав tarball — ровно нужное инструменту: выпадение `templates/` команды ниже не поймают.
+    // Ожидаемое — файлы git, а не диск: `.DS_Store` и `._*` npm выбрасывает сам.
     const REQUIRED = ['bin', 'lib', 'templates', 'README.md', 'README.ru.md', 'LICENSE', 'CHANGELOG.md'];
     assert.deepEqual(manifest.files, REQUIRED, 'поле files package.json — контракт состава tarball');
     const packedPaths = new Set(packInfo.files.map((f) => f.path));
