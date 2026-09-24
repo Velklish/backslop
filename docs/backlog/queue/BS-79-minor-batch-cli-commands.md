@@ -24,6 +24,7 @@
 - [BS-73.1](../minor/BS-73.1-archive-skips-rooted-incoming-link.md) — `archive N` переписывает и корневую входящую ссылку на переехавший файл: `rewriteIncomingLinks` через `mapLinks` пропускает корневые пути, верно только для ссылок самого переехавшего файла; та же форма, что BS-73 закрыла для `fold`.
 - [BS-74.1](../minor/BS-74.1-fold-draft-intro-claims-only-storage.md) — вступление заготовки `fold N` (`draftOne`) различает строку с ревизией (заготовка — копия, тело достаёт `show N`) и строку с «—» (единственное хранилище), как это уже делает stderr после BS-74.
 - [BS-74.2](../minor/BS-74.2-bulk-fold-demands-draft-without-bodies.md) — последняя строка stderr массовой свёртки: без `--embed-missing` тел в заготовке нет, и строка называет, что тела лежат в истории по ревизиям строк; требование «иначе тело потеряется» остаётся только для заготовки с телами (`--embed-missing`).
+- [BS-78.1](../minor/BS-78.1-show-spawn-failure-says-code-null.md) — отказ git у `show`, `fold` и прочих команд при `status null` (git не запустился, ENOBUFS, timeout) называет причину из `error`/`stderr`, а не «код null».
 
 ## Не входит
 
