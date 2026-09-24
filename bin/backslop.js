@@ -21,8 +21,9 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
                                                       --minor — minor-находка или гипотеза в minor/, с полем «Цена»;
                                                       --evidence обязателен с --minor: путь со строкой, команда с выводом
                                                       и кодом, замер числом; непроверенное — предположением
-  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M | --restore]
-                                                      сменить статус: git mv между каталогами; номеров может быть несколько
+  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M | --restore] [--evidence "…"]
+                                                      сменить статус: git mv между каталогами; номеров может быть несколько;
+                                                      в minor — только с уликой: раздел «Улика» или --evidence
   archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
                                                       печатает доки, которых коснулся ход задачи
   archive <N.k> --into <M> [--dry-run]                закрыть minor-запись пачкой M: переезд в archive/<M>-<slug>/minor/ без своего result.md
@@ -40,9 +41,10 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage, minor по областям
-  lint                                                тринадцать гейтов: ссылки, номера, раскладка бэклога, поля,
+  lint                                                четырнадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
-                                                      цитаты, версии релиза, слоты шаблонов, журнал закрытых;
+                                                      цитаты, версии релиза, слоты шаблонов, журнал закрытых,
+                                                      непечатаемые байты;
                                                       adapter outputs, равенство шаблонов и предупреждения
                                                       о версии и закрытом родителе
   gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
@@ -74,8 +76,9 @@ Commands:
                                                       --minor — a minor finding or hypothesis in minor/, with a Cost field;
                                                       --evidence is required with --minor: a path with a line, a command
                                                       with output and exit code, a measurement; unverified is an assumption
-  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M | --restore]
-                                                      change status with git mv between directories; several numbers allowed
+  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M | --restore] [--evidence "…"]
+                                                      change status with git mv between directories; several numbers allowed;
+                                                      minor requires evidence: an “Evidence” section or --evidence
   archive <N> [--dry-run] [--range <base>..HEAD]      close a task, move it to archive/, and update links;
                                                       prints the documentation touched by the task
   archive <N.k> --into <M> [--dry-run]                close a minor entry by batch M: move it to archive/<M>-<slug>/minor/ without a result.md of its own
@@ -93,9 +96,10 @@ Commands:
   seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
                                                       “Reference: …” tasks from the reference/ table
   status [--json]                                     show active work, ordered queue, deferred tasks, triage, and minor entries by scope
-  lint                                                thirteen gates: links, numbers, layout, fields, archive,
+  lint                                                fourteen gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
-                                                      versions, template slots, closed task journal; adapter outputs,
+                                                      versions, template slots, closed task journal, non-printable
+                                                      bytes; adapter outputs,
                                                       template parity, and closed-parent warnings
   gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
                                                       run the gates list: exit code of each, green count, tree snapshot;

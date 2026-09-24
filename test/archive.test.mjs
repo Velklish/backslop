@@ -117,7 +117,7 @@ test('archive: файл из плоского docs/backlog/ переезжает
     assert.match(archived, /\[архив\]\(\.\.\/README\.md\)/);
     assert.match(read(root, 'docs/ROADMAP.md'), /\(archive\/BS-5-flat\/task\.md\)/);
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-5-flat/result.md')));
-    put(root, 'docs/archive/BS-5-flat/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-09-06.** Перенесено.\n');
+    put(root, 'docs/archive/BS-5-flat/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-09-06.** Выполнена: перенесено.\n');
     const lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
   } finally {
@@ -170,6 +170,22 @@ test('archive: файл вне репозитория git переезжает �
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /файл не в индексе git — перенесён без git mv/);
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-a/task.md')));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('archive: корневая входящая ссылка на переехавший файл переписывается и остаётся корневой', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/active/BS-3-gamma.md', '# BS-3 · Гамма\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\nКорень: [BS-3](/docs/backlog/active/BS-3-gamma.md#итог), путь: [гамма](backlog/active/BS-3-gamma.md).\n');
+    gitAll(root);
+    const r = cli(root, ['archive', '3']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROADMAP.md'), '# Roadmap\n\nКорень: [BS-3](/docs/archive/BS-3-gamma/task.md#итог), путь: [гамма](archive/BS-3-gamma/task.md).\n');
+    assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
   } finally {
     cleanup(root);
   }

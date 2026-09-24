@@ -12,7 +12,7 @@
 | `queue/` | Очередь; приоритет — поле «Порядок»: целое, шаг 10, меньше — раньше | `node bin/backslop.js new <slug> --queue [--top]`, `node bin/backslop.js mv N queue [--top \| --after M \| --restore]` |
 | `active/` | В работе; поле «Взята» — дата взятия | `node bin/backslop.js mv N… active` — тот, кто держит очередь |
 | `deferred/` | Отложено; раздел «Отложено» — причина и условие возврата | `node bin/backslop.js mv N deferred`; если раздел уже есть, команда не дописывает его и печатает «раздел есть, проверь причину и условие возврата» |
-| `minor/` | Minor-находки и гипотезы: ждут пачки, а не разбора; поле «Цена» обязательно, «Область» заполняется при резке пачек | `node bin/backslop.js new <slug> --parent N[.M] --minor --evidence "…" [--cost <уровень>] [--hypothesis]`; `node bin/backslop.js mv N minor` |
+| `minor/` | Minor-находки и гипотезы: ждут пачки, а не разбора; поле «Цена» обязательно, «Область» заполняется при резке пачек | `node bin/backslop.js new <slug> --parent N[.M] --minor --evidence "…" [--cost <уровень>] [--hypothesis]`; `node bin/backslop.js mv N minor [--evidence "…"]` |
 | [`../archive/`](../archive/README.md) | Закрыто: строка журнала [`LOG.md`](../archive/LOG.md), а до свёртки — каталог `task.md` + `result.md`; записи minor — в `minor/` пачки | `node bin/backslop.js archive N`, дописать `result.md`, затем `node bin/backslop.js fold N`; запись minor — `node bin/backslop.js archive N.k --into M` после закрытия пачки M и до её свёртки |
 
 ## Как вести

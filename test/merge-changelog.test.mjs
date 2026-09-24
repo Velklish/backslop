@@ -135,6 +135,23 @@ test('merge-changelog: с --base снятая стороной запись сн
   assert.doesNotMatch(reverse.text, /Снятая/);
 });
 
+test('merge-changelog: снятый по --base последний блок не уносит пустую строку перед следующей секцией', () => {
+  const tail = '## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n';
+  const ours = `# Changelog\n\n## Не выпущено\n\n${tail}`;
+  const theirs = `# Changelog\n\n## Не выпущено\n\n- **Новая** — тело\n- **Снятая** — тело\n\n${tail}`;
+  const base = `# Changelog\n\n## Не выпущено\n\n- **Снятая** — тело\n\n${tail}`;
+  const merged = mergeChangelog(ours, theirs, base);
+  assert.deepEqual(merged.report.dropped, ['Снятая']);
+  assert.equal(merged.text, `# Changelog\n\n## Не выпущено\n\n- **Новая** — тело\n\n${tail}`);
+
+  // Та же отбивка со стороны ours: запись снял theirs, и у ours она стояла последней.
+  const oursLast = `# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n- **Снятая** — тело\n\n${tail}`;
+  const theirsLast = `# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n\n${tail}`;
+  const reverse = mergeChangelog(oursLast, theirsLast, base);
+  assert.deepEqual(reverse.report.dropped, ['Снятая']);
+  assert.equal(reverse.text, theirsLast);
+});
+
 test('merge-changelog: сливается только первая секция невыпущенного', () => {
   const ours = '# Changelog\n\n## Не выпущено\n\n- **Одна** — ours\n\n## v0.1.0\n\n- **Выпущенная** — ours\n';
   const theirs = '# Changelog\n\n## Не выпущено\n\n- **Две** — theirs\n\n## v0.1.0\n\n- **Выпущенная** — theirs\n';

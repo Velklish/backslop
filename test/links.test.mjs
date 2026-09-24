@@ -82,6 +82,17 @@ test('входящие ссылки: чужая ссылка рядом не т�
   );
 });
 
+test('входящие ссылки: корневая ссылка на переехавший файл переписывается и остаётся корневой', () => {
+  assert.equal(
+    rewriteIncomingLinks('[BS-42](/docs/backlog/active/BS-42-x.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)', 'docs', OLD, NEW),
+    '[BS-42](/docs/archive/BS-42-x/task.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)',
+  );
+  assert.equal(
+    rewriteIncomingLinks('Смотри [задачу][t].\n\n[t]: </docs/backlog/active/BS-42-x.md>\n', '', OLD, NEW),
+    'Смотри [задачу][t].\n\n[t]: </docs/archive/BS-42-x/task.md>\n',
+  );
+});
+
 test('разбор: блоки кода, спаны и внешние адреса не дают ссылок', () => {
   const text = [
     'Живая [а](a.md) и внешняя [gh](https://x.y).',

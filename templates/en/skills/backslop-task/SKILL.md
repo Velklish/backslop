@@ -60,7 +60,7 @@ After a task closes, review every entry accumulated during it. Not “when enoug
 
 Decide yourself: merge an obvious duplicate (`backslop archive N` with outcome “merged into M” in `result.md`, copying the entire content into the receiving task), clarify the wording, put it in the queue and choose its place (`backslop mv N queue --top | --after M`), or defer it with a return condition. Ask the owner **only before rejecting**: a finding discarded without asking will never be found a second time. Review finishes when `triage/` is empty or every remaining entry has a stated next step.
 
-Before queueing a factual claim — a number, “covered by a test”, “printed by three commands” — verify it with evidence; incorrect facts create incorrect boundaries for the implementer. An unverified claim is not a card but a hypothesis: `backslop mv N minor` with the label in `Cost`. Entries in `minor/` are not reviewed on closure — they wait for a batch before the run (`backslop-batch`, “Before splitting”).
+Before queueing a factual claim — a number, “covered by a test”, “printed by three commands” — verify it with evidence; incorrect facts create incorrect boundaries for the implementer. An unverified claim is not a card but a hypothesis: `backslop mv N minor --evidence "presumably …"` with the label in `Cost`. Entries in `minor/` are not reviewed on closure — they wait for a batch before the run (`backslop-batch`, “Before splitting”).
 
 ## Real failures
 

@@ -1,6 +1,6 @@
 # ADR-029: Находка в minor/ заводится только с уликой
 
-**Status:** Accepted
+**Status:** Superseded in part by [ADR-036](adr-036-mv-minor-requires-evidence.md) (вторая дверь в `minor/` закрыта: `mv N minor` требует улику, `lint` требует в `minor/` раздел «Улика»; пункт Consequences об открытой второй двери больше не действует)
 **Date:** 2026-09-22
 **Deciders:** Velklish
 

@@ -105,8 +105,9 @@ test('help, version, --help у команды, неизвестная коман
   try {
     let r = cli(root, ['help']);
     assert.equal(r.code, 0);
-    assert.match(r.out, /тринадцать гейтов/);
+    assert.match(r.out, /четырнадцать гейтов/);
     assert.match(r.out, /mv <N…> <triage\|queue\|active\|deferred\|minor>/);
+    assert.match(r.out, /в minor — только с уликой: раздел «Улика» или --evidence/);
     assert.match(r.out, /archive <N\.k> --into <M>/);
     assert.match(r.out, /--minor --evidence "…" \[--cost <уровень>\] \[--hypothesis\]/);
     assert.match(r.out, /--evidence обязателен с --minor/);
