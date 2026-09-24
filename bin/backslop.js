@@ -50,7 +50,7 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
                                                       область when сверяется с грязным деревом, --base добавляет дифф к ref
   tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli, gates и живых файлах, migrate и init новой версией
-  migrate [--dry-run]                                 миграция формата файлов и штамп версии
+  migrate [--dry-run]                                 миграция формата файлов, правила ведения и архива из шаблона, штамп версии
   changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями
   merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <файл>]
                                                       слить две редакции CHANGELOG.md: записи секции невыпущенного
@@ -102,7 +102,7 @@ Commands:
                                                       a when scope is matched against the dirty tree, --base adds the diff to ref
   tracks [--json]                                     run worktrees and branches: merged or not, what is left, what is dirty
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update cli, gate, and live-file pins, migrate, and initialize the new version
-  migrate [--dry-run]                                 migrate file formats and update the version stamp
+  migrate [--dry-run]                                 migrate file formats, rewrite tracking and archive rules from the template, update the version stamp
   changelog [--since X.Y.Z] [--to X.Y.Z]              print backslop CHANGELOG entries between versions
   merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]
                                                       merge two CHANGELOG.md revisions: unreleased entries by

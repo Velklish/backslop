@@ -1168,6 +1168,9 @@ test('migrate до v0.9.0 создаёт каталог minor/ в проекте
   try {
     rmSync(path.join(root, 'docs/backlog/minor'), { recursive: true });
     put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"version":"0.8.0"}\n');
+    // Правила ведения, перерисованные migrate, ссылаются на скелет, который кладёт init.
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n');
+    put(root, 'docs/reference/README.md', '# Справочник\n');
     let r = cli(root, ['lint']);
     assert.equal(r.code, 1);
     assert.match(r.err, /docs\/backlog\/minor: каталога статуса нет/);
