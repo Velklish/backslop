@@ -152,3 +152,20 @@ test('self-host: правила ведения в docs/ — рендер сво�
     assert.equal(readFileSync(path.join(repo, ...rel.split('/')), 'utf8'), expected, `${rel} разошёлся с templates/${rel}`);
   }
 });
+
+// Свёрнутую пачку записью не догрузить: порядок её закрытия и шаг приёмки со свёрткой держатся
+// в обоих языковых слоях скилла пачек.
+test('backslop-batch: пачка сворачивается после своих записей, приёмка идёт через fold и заготовку', () => {
+  for (const rel of ['skills/backslop-batch/SKILL.md', 'en/skills/backslop-batch/SKILL.md']) {
+    const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
+    const into = text.indexOf('`backslop archive N.k --into M`');
+    assert.ok(into !== -1 && text.indexOf('`backslop fold M`', into) !== -1, `${rel}: fold M не назван после archive N.k --into M`);
+    const accept = text.split('\n').find((line) => line.startsWith('4. ') && line.includes('`backslop archive N`'));
+    assert.ok(accept, `${rel}: шаг приёмки с archive N не найден`);
+    assert.ok(accept.indexOf('`backslop fold N') > accept.indexOf('`backslop archive N`'), `${rel}: после archive N нет fold N`);
+    assert.ok(accept.includes('git commit -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"'), `${rel}: коммит приёмки не несёт заготовку`);
+    const track = accept.indexOf('(ADR-033)');
+    assert.ok(track !== -1 && accept.lastIndexOf('`backslop fold`', track) > accept.indexOf('`backslop fold N >'),
+      `${rel}: не назван track одним коммитом — свёртка следующим коммитом, fold N или массовый fold`);
+  }
+});
