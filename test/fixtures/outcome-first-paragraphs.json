@@ -1,0 +1,107 @@
+[
+  {
+    "id": "BL-092",
+    "cut": false,
+    "heading": "# BL-092 · Результат",
+    "paragraph": "Закрыта отклонением: 2026-08-26, решение владельца.",
+    "outcome": "отклонена"
+  },
+  {
+    "id": "BL-255",
+    "cut": true,
+    "heading": "# Результат",
+    "paragraph": "Закрыта 2026-08-29 воркером `lint` захода night2 (слито в main перед v0.43.0).",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "BL-258",
+    "cut": false,
+    "heading": "# Результат",
+    "paragraph": "Закрыта 2026-08-29: Windows-шапки (33 файла) — заходом 0829a, остальное — воркером `tests` захода night2 (слито в main перед v0.43.0).",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "BL-262",
+    "cut": true,
+    "heading": "# Результат",
+    "paragraph": "Закрыта 2026-08-29 воркером `setup` захода night2 (слито в main перед v0.43.0) по решению владельца: асимметрия не сознательная.",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "BL-267",
+    "cut": true,
+    "heading": "# Результат",
+    "paragraph": "Закрыта 2026-08-29 заходом night2 двумя линиями (слито в main перед v0.43.0).",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "BL-270",
+    "cut": true,
+    "heading": "# Результат",
+    "paragraph": "Закрыта 2026-08-29 воркером `lint` захода night2 (слито в main перед v0.43.0).",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "BL-271",
+    "cut": false,
+    "heading": "# Результат",
+    "paragraph": "Закрыта 2026-08-29 воркером `bus` захода night2 (слито в main перед v0.43.0); три итерации фидбека владельца по живой ленте за один день.",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "BL-274",
+    "cut": true,
+    "heading": "# Результат",
+    "paragraph": "**BL-274 закрыта 2026-08-29** воркером `supervisor` захода по бэклогу (слито в main перед v0.46.0).",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "BL-355",
+    "cut": false,
+    "heading": "# BL-355 — результат: отклонена",
+    "paragraph": "**Закрыта:** 2026-08-31, решением владельца. Кода не написано.",
+    "outcome": "отклонена"
+  },
+  {
+    "id": "BL-456",
+    "cut": true,
+    "heading": "# BL-456 · Результат",
+    "paragraph": "**Закрыта 2026-09-02.** Деревья не слиты в одно — и это решение, а не отказ: дерево в `reference/12` — весь дом `.promptobus/` (сессии, надзиратель, contact point'ы, конфиги участников — файлы слоя CLI), дерево в `reference/14` — только раскладка protocol v1, которую пишет движок.",
+    "outcome": "выполнена"
+  },
+  {
+    "id": "PB-6",
+    "cut": false,
+    "heading": "# PB-6 · Result",
+    "paragraph": "**Closed 2026-09-05.** Completed, with the entry's cause corrected by reproduction: cleanup was already content-based (`git merge-tree --write-tree` recognises a plain squash, pinned by a fixture since the snapshot). The real failure needs one more step — after the squash the base moves over the same file, the re-merge conflicts, and the directory of an accepted branch is kept while the report blames \"a conflict or an old git\". Second measurement added in `lib/worktree.js`: patch identity (`git patch-id --stable` over the branch's diff from its fork point, narrowed to the branch's own paths on both sides, looked for among the commits the base gained since the fork — a squash carries exactly that patch, later commits over the same file do not move it, and a squash that landed inside a wider commit is still recognised). `worktreeDisposition` says `merged as a squash`, `is entirely in <base>` or `is not merged`, and names both comparisons when nothing could be confirmed. `git apply -R --3way` was tried and rejected: it exits 0 with \"Applied patch with conflicts\" on a branch never merged, and would delete real work. Recognition stays narrow on purpose. Track `cli`, same worker and review round.",
+    "outcome": "completed"
+  },
+  {
+    "id": "PB-52",
+    "cut": false,
+    "heading": "# PB-52 · Result",
+    "paragraph": "**Closed 2026-09-09.** Completed with the owner's choice of the card's first option, recorded as ADR-006. A guard hook group in project settings is recognised as Promptobus's own first by the exact ids of the machine-local install manifest and, when the manifest is absent (a checkout copied from another machine, a deleted `.promptobus/`), by a portable signature of the command the package itself renders — an anchored regex `GUARD_SIGNATURE` in `lib/install.js`: two quoted launch elements, optional bare host-prefix words, the bare `guard` word, then nothing or exactly `--role <value> --task <value> --home <value>` with shell-quoted values — never by this machine's absolute node and binary paths and never by a bare substring. A foreign-path guard is therefore replaced on install and removed on uninstall instead of duplicated and orphaned; wrappers such as `\"/bin/sh\" \"-c\" node hook.js guard`, a quoted `guard`, unknown or incomplete tails and unterminated quotes stay foreign. The accepted false-positive class is named in the guides: any Stop/SessionStart (Cursor `stop`) command of that exact shape is treated as ours whatever binary it launches. No committed ownership manifest was added (the rejected alternative); install.md now says the manifest is machine-local state the installer never commits and tells the reader to ignore `.promptobus/`. PB-103's interim needle is gone; `layoutBinPath()` is documented as the entry a host builds `guardArgv` from, no longer called by the package. The card's \"keep the bin-path needle as extra confirmation\" is superseded by the owner's option: an OR-chained extra term changes nothing. `src/hooks.ts` and `src/standalone.ts` from Scope needed no change — PB-103 already moved the rendered argv into the host.",
+    "outcome": "completed"
+  },
+  {
+    "id": "PB-117",
+    "cut": false,
+    "heading": "# PB-117 · Result",
+    "paragraph": "**Closed 2026-09-12** (`PB-130` was merged into it). Done. The Cursor and Codex session registries\nbecame one factory in `lib/harness-registry.js`, the driver helpers moved to `lib/driver-common.js`,\nand the shared wake frame to `lib/notification.js`.",
+    "outcome": "completed"
+  },
+  {
+    "id": "PB-131",
+    "cut": false,
+    "heading": "# PB-131 · Result",
+    "paragraph": "**Closed 2026-09-09.** Completed. `MESSAGE_TYPES` in `src/protocol.ts` is `Object.freeze`d, so it is immutable at runtime and `readonly string[]` in TypeScript; `MESSAGE_TYPES_V1` in `src/v1/model.ts` is that same object without a separate re-annotation. A JavaScript consumer can enumerate or copy the list but can no longer push a foreign type into it and thereby widen what the record validator and the engine gate accept for the rest of the process. A literal `as const` tuple was tried and rejected within the task's scope: it surfaced three `.includes(string)` type errors that would have needed casts or validator edits, so the frozen array keeps the surgical boundary. `test/mcp.test.mjs`'s `enum: [...MESSAGE_TYPES]` still copies into a plain array and type-checks unchanged. The regression in `test/v1-engine.test.mjs` attempts the mutation from JavaScript and proves the push throws, the length stays 7, and an injected type reaches neither the record validator nor the engine.",
+    "outcome": "completed"
+  },
+  {
+    "id": "PB-249",
+    "cut": false,
+    "heading": "# PB-249 · Result",
+    "paragraph": "**Closed 2026-09-23.** Completed by worker pb249 in eight commits over `39316bc2` (`21bee0e7` to `aea7b9a2`), squashed into the closing one. Every open card carries a `Cost` label, with a dated \"Re-triage, 2026-09-23\" section (queue, deferred) or an `Evidence` section (minor) that lists each checkable claim re-run against the tree with its command and exit code; a claim that could not be re-run is stated as an assumption. Snapshot (`backslop status` exit 0; Cost counted by `grep -l '^- \\*\\*Cost:\\*\\*'`): before, on `39316bc2` — queue 27 (1 with Cost), deferred 15 (0), triage 1 (0), minor 1 (1); after, on the merged tree with this card archived — queue 24 (24 with Cost: 21 major, 3 minor), deferred 11 (11: 6 major, 5 minor), triage 0, minor 13 (13: 12 minor, 1 `major (hypothesis)`; 13 with an `Evidence` section). Moves: queue → `minor/` PB-188.2, PB-139.1, PB-225.1, PB-237, PB-238; triage → `minor/` PB-228 (`major (hypothesis)`: the load premise is unestablished); deferred with a fired return condition → `minor/` by its label PB-146.3, PB-66.2, PB-13.2 (the owner's wording restored as the fired one, the narrower reading left as a proposal); deferred with a fired return condition → queue PB-65.2. Two return conditions were reworded to be checkable: PB-24.1, PB-87.2. Filed: PB-249.1, PB-249.2, PB-249.3 (minor, in `minor/`), and the minor batches PB-250 (PB-225.1, PB-237, PB-238; rides with PB-240) and PB-251 (PB-247.1, PB-249.1–.3; rides with PB-245.1 and PB-239). The queue is ordered by cost, `major` first and the two batches last; PB-248 heads it by the owner's order for run 2026-09-23, and PB-244 is last among `major`, blocked on the consumer's work. Duplicates: no whole-card duplicate; PB-214's third work item was merged into PB-191 and replaced by a pointer; the overlaps PB-187 ↔ PB-246 and PB-191 ↔ PB-194 are recorded in both cards and not merged. Rejection candidates: none, every subject was found alive with the command in its card. Handed to the owner, the card left open: PB-24.2 needs only the owner's yes or no, its \"if no\" branch half done by PB-28. Tool work outside `docs/backlog/`, kept because reverting it turns `lint` red: `mv 146.3 minor` rewrote one incoming link in `docs/archive/PB-201-gate-protocol-artifact/task.md`, and `mv 13.2 minor` the PB-13.2 link in `docs/TRACKS.md`.",
+    "outcome": "completed"
+  }
+]

@@ -1,6 +1,7 @@
 // Чистые функции задач: имена, номера, шапка, порядок очереди.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, formatId, getField, idMentionRe,
   nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
@@ -217,6 +218,41 @@ test('исход читается из первого абзаца result.md, о
   assert.equal(batchOf('пачкой BS-4'), 'BS-4');
   assert.equal(batchOf('batch BS-4'), 'BS-4');
   assert.equal(batchOf('выполнена'), null);
+});
+
+// Заголовок и первый абзац — буквально из истории потребителей; `cut` — абзац обрезан до первой фразы.
+const EVIDENCE = JSON.parse(readFileSync(new URL('./fixtures/outcome-first-paragraphs.json', import.meta.url), 'utf8'));
+
+test('исход — первое по позиции слово словаря: записи, которые перебор словаря называл не тем исходом', () => {
+  assert.equal(EVIDENCE.length, 15);
+  const got = EVIDENCE.map((e) => {
+    const [prefix] = e.id.split('-');
+    const text = `${e.heading}\n\n${e.paragraph}\n\n## Проверки\n\nНиже абзаца «отклонена» и «слита в ${prefix}-1» — не исход.\n`;
+    return [e.id, outcomeFromResult(text, prefix, prefix === 'PB' ? 'en' : 'ru')];
+  });
+  assert.deepEqual(got, EVIDENCE.map((e) => [e.id, e.outcome]));
+});
+
+test('исход по позиции: ведущее слово сильнее прозы, слияние — только с номером сразу после формы, отрицание — не слияние', () => {
+  const ru = (body) => outcomeFromResult(`# BS-1 · Результат\n\n${body}\n`, 'BS', 'ru');
+  assert.equal(ru('Слита в BS-14. Выполнена там.'), 'слита в BS-14');
+  assert.equal(ru('Completed. Rejected option recorded.'), 'выполнена');
+  assert.equal(ru('Выполнена; вариант с флагом отклонён.'), 'выполнена');
+  assert.equal(ru('**Закрыта.** Не слита в BS-3: предмет другой.'), 'выполнена');
+  assert.equal(ru('Closed; not merged into BS-3.'), 'выполнена');
+  assert.equal(ru('Слито в main.'), '—');
+  assert.equal(ru('Merged into it, BS-3 is the rest.'), '—');
+  assert.equal(ru('Слита в `BS-7`.'), 'слита в BS-7');
+  assert.equal(ru('Слита в BL-7.'), '—', 'номер чужого проекта — не слияние');
+  assert.equal(ru('**Закрыта 2026-08-30.** Гейт-сверщик двух копий отклонён: список короткий.'), 'выполнена', 'мужской род — отвергнутый вариант, а не задача');
+  assert.equal(ru('Отклонено решением владельца.'), 'отклонена');
+  assert.equal(ru('Закрыта отклонением.'), 'отклонена');
+  assert.equal(ru('Отклонение от плана — в разделе ниже.'), '—');
+  assert.equal(ru('**Закрыта 2026-09-24** с отклонением от постановки: флаг не заведён.'), 'выполнена', '«с отклонением» — ход работы, а не исход');
+  // Заголовок формой «— результат: <исход>» — источник наравне со скобками и слабее абзаца.
+  assert.equal(outcomeFromResult('# PB-1 — Result: rejected\n\n**Closed 2026-09-01.**\n', 'PB', 'en'), 'rejected');
+  assert.equal(outcomeFromResult('# BL-1 — результат: отклонена\n\nВыполнена.\n', 'BL', 'ru'), 'выполнена');
+  assert.equal(outcomeFromResult('# BL-1 · Результат\n\n**Закрыта:** 2026-08-31.\n\nрезультат: отклонена\n', 'BL', 'ru'), 'выполнена');
 });
 
 // Заголовки и первые абзацы ниже — реальные строки result.md: не причёсывать.
