@@ -7,7 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { loadProject } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
-import { cleanup, cli, gitAll, makeProject, put, read, run, toolCli, toolCopy } from './helpers.mjs';
+import { cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run, toolCli, toolCopy } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
 
 function seedGreen(root) {
@@ -179,6 +179,30 @@ test('lint: fenced-only заголовок секции не заменяет р
 });
 probe('5. архив без result.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/result.md')), /нет result\.md/);
 probe('5. результат не дописан', (root) => put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** [TODO: исход]\n'), /результат не дописан/);
+// Построчный разбор заглушек `docs/backlog/**` строку шаблона заглушкой не считает: проба на
+// голую `- [TODO]` не отличила бы рабочий гейт от холостого.
+for (const lang of ['ru', 'en']) {
+  const paragraphs = resultTemplateParagraphs(lang);
+  assert.ok(paragraphs.length > 0 && paragraphs.every((p) => p.includes('[TODO')), `шаблон result.md (${lang}) без заглушек — проба была бы холостой`);
+  probe(`5. нетронутый шаблон result.md (${lang})`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${paragraphs.join('\n\n')}\n`), /BS-4-e\/result\.md: результат не дописан/);
+  paragraphs.forEach((p, i) => {
+    probe(`5. абзац ${i + 1} шаблона result.md (${lang}) — единственная заглушка`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${p}\n`), /BS-4-e\/result\.md: результат не дописан/);
+  });
+}
+test('lint: 5. заглушка, показанная в коде, — рассказ о ней, а не она сама', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/archive/BS-4-e/result.md', [
+      '# BS-4 · Результат', '',
+      '**Закрыта 2026-08-01.** Выполнена: гейт краснел на `[TODO: исход]` в прозе, а ``[TODO`` в код-спане — пример.', '',
+      '```', '**Закрыта 2026-08-01.** [TODO: исход]', '```', '',
+    ].join('\n'));
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('5. каталог архива не по шаблону', (root) => put(root, 'docs/archive/old-stuff/task.md', '# x\n'), /old-stuff: имя не по шаблону/);
 probe('6. упоминание номера без файла в docs', (root) => put(root, 'docs/ROADMAP.md', 'Сделаем в BS-99.\n'), /упоминает BS-99/);
 probe('6. упоминание номера без файла в CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Закрыта** BS-2.7\n'), /CHANGELOG\.md: упоминает BS-2\.7/);

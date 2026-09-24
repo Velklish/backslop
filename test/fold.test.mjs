@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
+import { cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
 
 // Закрытая задача в архиве: каталог с постановкой и дописанным результатом, ссылка соседа на неё.
@@ -87,6 +87,29 @@ test('fold N: отказы — пустой result.md, заглушка в нё�
     r = cli(root, ['fold', '1']);
     assert.equal(r.code, 1);
     assert.match(r.err, /уже свёрнута в журнал/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold N: заглушка шаблона result.md отказывает абзацем, показанная в коде — нет', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    gitAll(root);
+    for (const lang of ['ru', 'en']) {
+      for (const p of resultTemplateParagraphs(lang, { id: 'BS-1', date: '2026-09-03' })) {
+        put(root, 'docs/archive/BS-1-alpha/result.md', `# BS-1 · Результат\n\n${p}\n`);
+        const r = cli(root, ['fold', '1']);
+        assert.equal(r.code, 1, `${lang}: ${p}`);
+        assert.match(r.err, /остался заглушкой/);
+      }
+    }
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена: `[TODO: исход]` в прозе — рассказ о заглушке.\n');
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-alpha')), 'свёрнута');
   } finally {
     cleanup(root);
   }
