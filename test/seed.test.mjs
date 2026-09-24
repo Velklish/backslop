@@ -92,7 +92,8 @@ test('seed --queue-reference: задача на строку без раздел
     assert.deepEqual(queue, ['BS-1-describe-orders-api.md'], 'готовый раздел и внешняя ссылка пропущены');
     assert.match(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md'), /^# BS-1 · Справочник: Приём заказов\n/);
 
-    // Область заводимой задачи известна, но оставшиеся поля пока ждут автора и красны по гейту BS-49.
+    // Область заводимой задачи известна, но оставшиеся поля пока ждут автора
+    // и красны по lint.
     assert.match(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md'), /- \*\*Область:\*\* \[Приём заказов\]\(\.\.\/\.\.\/reference\/README\.md\) — раздел `orders-api\.md` ещё не написан\n/);
     const lint = cli(root, ['lint']);
     assert.match(lint.err, /BS-1-describe-orders-api/, 'общий гейт видит незаполненные поля посеянной задачи');

@@ -195,3 +195,15 @@ export function longBlocks(text, limit = 2) {
     .filter((r) => r.end - r.start + 1 > limit)
     .map((r) => ({ line: r.start, length: r.end - r.start + 1, lines: r.lines }));
 }
+
+/** Строки блоков шире `limit` знаков: кодпоинты всей строки с отступом, без `\r` (ADR-038). */
+export function wideLines(text, limit = 100) {
+  const out = [];
+  for (const block of commentBlocks(text)) {
+    block.lines.forEach((l, k) => {
+      const width = [...l.replace(/\r$/, '')].length;
+      if (width > limit) out.push({ line: block.start + k, width });
+    });
+  }
+  return out;
+}

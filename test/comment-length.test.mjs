@@ -1,15 +1,16 @@
-// Гейт: инлайн-комментарий не длиннее двух строк — правило AGENTS.md.
-// Что он ловит, чего не ловит и как гасится долг — ADR-028.
+// Гейт: инлайн-комментарий не длиннее двух строк и не шире 100 знаков — правило AGENTS.md.
+// Что он ловит, чего не ловит и как гасится долг — ADR-028, ширина — ADR-038.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { longBlocks, maskedLines, scannedCode } from './comment-scan.mjs';
+import { longBlocks, maskedLines, scannedCode, wideLines } from './comment-scan.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const LIMIT = 2;
+const WIDTH = 100;
 const TREES = ['lib', 'test', 'bin', 'scripts'];
 
 // Файлы, до которых свод не дошёл: каждый называет ЛИЧНОСТЬ каждого своего длинного блока,
@@ -25,6 +26,10 @@ export function blockId(block) {
 
 export function blocksOf(text) {
   return longBlocks(text, LIMIT);
+}
+
+export function wideOf(text) {
+  return wideLines(text, WIDTH);
 }
 
 /** Сколько раз встречается каждое значение — вся разница между мультимножеством и `Set`. */
@@ -82,11 +87,15 @@ export function surveyTree(files, listing) {
   const offenders = [];
   const appeared = [];
   const swept = [];
+  const wide = [];
   let judged = 0;
   let seen = 0;
   let lines = 0;
   for (const rel of files) {
-    const blocks = blocksOf(readFileSync(path.join(ROOT, rel), 'utf8'));
+    const text = readFileSync(path.join(ROOT, rel), 'utf8');
+    const blocks = blocksOf(text);
+    // Ширину список долга не прощает: он называет блоки, а не строки.
+    for (const w of wideOf(text)) wide.push(`${rel}:${w.line} — ширина ${w.width}`);
     judged++;
     seen += blocks.length;
     for (const block of blocks) lines += block.length;
@@ -100,7 +109,7 @@ export function surveyTree(files, listing) {
     }
     if (!blocks.length) swept.push(rel);
   }
-  return { offenders, appeared, swept, judged, seen, lines };
+  return { offenders, appeared, swept, wide, judged, seen, lines };
 }
 
 const walk = surveyTree(scanned, PENDING);
@@ -142,6 +151,32 @@ test('инлайн-комментарий не длиннее двух стро�
   assert.deepEqual(walk.appeared, [],
     'файл из списка несёт длинный блок, которого список не называет, — подмена долга не свод');
   assert.deepEqual(walk.swept, [], 'сведённые файлы всё ещё в списке — убери их оттуда');
+});
+
+test('строка инлайн-комментария не шире 100 знаков, в любом файле обхода', () => {
+  assert.deepEqual(walk.wide, [], `строки комментария шире ${WIDTH} знаков`);
+});
+
+test('обход судит ширину и в файле вне списка, и в файле из списка', () => {
+  const debtor = 'test/fixtures/comment-debtor.js.txt';
+  const carried = wideOf(readFileSync(path.join(ROOT, debtor), 'utf8')).length;
+  assert.ok(carried > 0, `${debtor} больше не несёт широкой строки — пробе нечего судить`);
+  const bare = surveyTree([debtor], new Map());
+  assert.equal(bare.wide.length, carried, 'каждая широкая строка файла вне списка отвергнута');
+  assert.match(bare.wide[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — ширина 101$/, 'и отказ называет файл, строку и ширину');
+  const listed = surveyTree([debtor], new Map([[debtor, []]]));
+  assert.deepEqual(listed.wide, bare.wide, 'запись в списке долга ширину не прощает');
+});
+
+test('ширина: строка комментария в 101 знак — нарушение той же природы, что третья строка блока', () => {
+  const line = (width, indent = '') => `${indent}// ${'x'.repeat(width - indent.length - 3)}`;
+  assert.deepEqual(wideOf(`${line(40)}\n${line(101)}\nconst x = 1;\n`), [{ line: 2, width: 101 }],
+    'блок в две строки, вторая — 101 знак');
+  assert.deepEqual(wideOf(`${line(100)}\n${line(100)}\nconst x = 1;\n`), [], 'ровно 100 — в пределе');
+  assert.deepEqual(wideOf(`${line(101, '    ')}\n`), [{ line: 1, width: 101 }], 'отступ входит в ширину');
+  assert.deepEqual(wideOf(`${line(100)}\r\n${line(100)}\r\n`), [], '`\\r` перевода строки CRLF — не знак');
+  assert.deepEqual(wideOf(`// ${'𝑥'.repeat(97)}\n`), [], 'знак — кодпоинт, а не единица UTF-16');
+  assert.deepEqual(wideOf(`const x = 1; // ${'x'.repeat(120)}\n`), [], 'хвост строки кода гейт не судит (ADR-028)');
 });
 
 test('каждая запись списка называет файл, который видит обход, и каждый записанный блок ещё существует', () => {

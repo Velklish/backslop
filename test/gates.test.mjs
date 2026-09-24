@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 import { globToRe } from '../lib/gates.js';
 
@@ -227,6 +228,48 @@ test('gates --base: git diff, оборванный сигналом, — отк�
   }
 });
 
+// Потолок сужен у настоящего `spawnSync` до 2 с, сама команда гейта — та же: оболочка ловит
+// SIGTERM потолка и выходит кодом 0, и `spawnSync` отдаёт ETIMEDOUT при `status` 0.
+test('gates: гейт с ошибкой запуска при коде 0 — не зелёный, итог и код возврата красные', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-gate-cap-')));
+  try {
+    const cap = path.join(dir, 'cap.mjs');
+    writeFileSync(cap, [
+      "import cp from 'node:child_process';",
+      "import { syncBuiltinESMExports } from 'node:module';",
+      'const real = cp.spawnSync;',
+      'cp.spawnSync = (file, opts, ...rest) => real(file, opts?.shell === true ? { ...opts, timeout: 2000 } : opts, ...rest);',
+      'syncBuiltinESMExports();',
+    ].join('\n'));
+    const trapped = "trap 'exit 0' TERM; n=0; while [ $n -lt 100 ]; do sleep 0.05; n=$((n+1)); done; exit 7";
+    withGates(root, [trapped, mark('after', 0)]);
+    const env = { ...marked(root).env, NODE_OPTIONS: `--no-warnings --import ${pathToFileURL(cap).href}` };
+
+    let r = cli(root, ['gates'], { env });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /✖ trap .* — не запустился: spawnSync \S+ ETIMEDOUT, \d+ ms/);
+    assert.doesNotMatch(r.out, /✔ trap/);
+    assert.match(r.err, /гейтов 2, зелёных 0, не запущено 1/);
+    assert.deepEqual(ran(root), [], 'без --keep-going прогон стоит на нём, как на красном');
+
+    r = cli(root, ['gates', '--keep-going'], { env });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /гейтов 2, зелёных 1/);
+    assert.deepEqual(ran(root), ['after']);
+
+    r = cli(root, ['gates', '--json', '--keep-going'], { env });
+    assert.equal(r.code, 1);
+    const report = JSON.parse(r.out);
+    assert.equal(report.gates[0].code, 0, 'код у гейта — ноль: красит его ошибка, а не код');
+    assert.match(report.gates[0].error, /ETIMEDOUT/);
+    assert.equal(report.green, 1);
+  } finally {
+    cleanup(root);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // Корень проекта ниже корня репозитория: git печатает `pkg/lib/x.js`, а образец написан рядом с
 // конфигом — `lib/**`. Без снятия префикса гейт не запускался бы никогда при зелёном итоге.
 test('gates: в монорепе пути приводятся к корню проекта', () => {
@@ -434,8 +477,8 @@ test('gates: исход различает код, сигнал и незапу�
     assert.equal(killed.code, null);
     assert.equal(killed.signal, 'SIGTERM');
 
-    // Ненайденное имя — код самой оболочки (127 у sh, 1 или 9009 у cmd.exe), а не `r.error`: ветка
-    // «не запустился» через shell недостижима, и число от оболочки не проверяем.
+    // Ненайденное имя — код самой оболочки (127 у sh, 1 или 9009 у cmd.exe), а не `r.error`: для
+    // него ветка «не запустился» через shell недостижима, и число от оболочки не проверяем.
     withGates(root, ['такой-команды-нет-и-не-будет']);
     r = cli(root, ['gates', '--json']);
     assert.equal(r.code, 1);

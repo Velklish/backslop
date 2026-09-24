@@ -1306,7 +1306,8 @@ test('archive N.k --into M: minor уезжает в minor/ архива пачк
     assert.equal(r.code, 1);
     assert.match(r.err, /BS-1\.1 уже в архиве/);
 
-    // Закрытая пачкой запись известна нумерации и сводке: следующая находка — BS-1.3, архив считает задачи.
+    // Закрытая пачкой запись известна нумерации и сводке: следующая находка — BS-1.3,
+    // архив считает задачи.
     r = cli(root, ['new', 'next', '--parent', '1', '--minor', '--evidence', 'docs/reference/02-cli.md:12']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /BS-1\.3/);
