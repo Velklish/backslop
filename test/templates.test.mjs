@@ -140,3 +140,15 @@ test('renderTemplate: подстановка без ключа — отказ, �
   assert.throws(() => renderTemplate('adr.md', { number: 1, title: 'x' }),
     /adr\.md: подстановке \{\{date\}\} не передан ключ date/);
 });
+
+// Эта пара рендерится в docs/ репозитория 1:1 (AGENTS.md): без сверки правка одной стороны
+// расходится с другой молча, а цитаты и ссылки карточек смотрят в рабочую копию.
+test('self-host: правила ведения в docs/ — рендер своего шаблона 1:1', () => {
+  const repo = path.dirname(TEMPLATES_DIR);
+  const cfg = JSON.parse(readFileSync(path.join(repo, 'backslop.json'), 'utf8'));
+  const project = JSON.parse(readFileSync(path.join(repo, 'package.json'), 'utf8')).name;
+  for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
+    const expected = renderTemplate(rel, { cli: cfg.cli, prefix: cfg.prefix, project });
+    assert.equal(readFileSync(path.join(repo, ...rel.split('/')), 'utf8'), expected, `${rel} разошёлся с templates/${rel}`);
+  }
+});
