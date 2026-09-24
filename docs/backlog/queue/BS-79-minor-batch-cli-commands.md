@@ -29,7 +29,7 @@
 
 - Перегенерация журналов и `result.md` у потребителей.
 - Сквозной флаг корня у всех команд CLI — второй ход BS-58.2, отвергнут владельцем.
-- Парсер исхода и ревизия свёртки — [BS-76.3](../../archive/LOG.md#bs-76.3), [BS-76.5](BS-76.5-fold-revision-is-the-commit-that-created-the-directory-not-the-last-touch.md).
+- Парсер исхода и ревизия свёртки — [BS-76.3](../../archive/LOG.md#bs-76.3), [BS-76.5](../../archive/LOG.md#bs-76.5).
 
 ## Проверки
 

@@ -1,6 +1,6 @@
 # ADR-026: Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита
 
-**Status:** Superseded in part by [ADR-033](adr-033-fold-draft-mandatory-only-without-revision.md) (ревизия у `fold N` и обязательность заготовки)
+**Status:** Superseded in part by [ADR-033](adr-033-fold-draft-mandatory-only-without-revision.md) (ревизия у `fold N` и обязательность заготовки), [ADR-034](adr-034-fold-checks-body-blobs-against-revision.md) (сверка тела с ревизией до удаления, четвёртая причина пустой ревизии)
 **Date:** 2026-09-22
 **Deciders:** владелец backslop — свернуть весь архив и удалить то, что свернуть не выйдет, решено им к заходу 2026-09-22 (карточка BS-67); текст ADR владельцем не вычитан
 
