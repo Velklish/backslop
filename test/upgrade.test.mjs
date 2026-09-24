@@ -118,6 +118,27 @@ test('listReleaseTags: теги локального репозитория ка
   }
 });
 
+test('upgrade: git ls-remote, оборванный сигналом, — отказ называет сигнал, а не «код null»', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.2.0', 'v0.3.0']);
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    setConfig(root, { cli: 'npx --yes -q backslop@0.2.0', source: src, version: '0.2.0' });
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = ls-remote ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['upgrade', '--dry-run'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.ok(r.err.includes(`git ls-remote --tags ${src}: оборван сигналом SIGKILL`), r.err);
+    assert.doesNotMatch(r.err, /код null/);
+    assert.equal(config(root).cli, 'npx --yes -q backslop@0.2.0');
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
 test('upgrade --dry-run показывает план и ничего не пишет; --pin-only переставляет пин, lint предупреждает', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', 'v0.2.0']);

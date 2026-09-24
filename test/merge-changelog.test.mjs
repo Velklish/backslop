@@ -2,6 +2,10 @@
 // процессом на git: редакции она читает через `git show <ref>:./CHANGELOG.md`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { CONFLICT_MARK, mergeChangelog } from '../lib/merge-changelog.js';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 
@@ -351,6 +355,27 @@ test('merge-changelog: без --out слитый файл идёт в stdout, б
     assert.match(r.err, /не читается нет-такой-ветки:CHANGELOG\.md/);
   } finally {
     cleanup(root);
+  }
+});
+
+test('merge-changelog: git, оборванный сигналом на редакции или на тегах, — отказ называет сигнал, а не «код null»', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ prefix: 'BS' });
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'CHANGELOG.md', OURS);
+    gitAll(root, 'ours');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    for (const [arg, cause] of [['*:./CHANGELOG.md', /не читается HEAD:CHANGELOG\.md — оборван сигналом SIGKILL/], ['tag', /не читается список тегов — оборван сигналом SIGKILL/]]) {
+      writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do case "$a" in ${arg}) kill -9 $$;; esac; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+      const r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD'], { env });
+      assert.equal(r.code, 1, r.out);
+      assert.match(r.err, cause);
+      assert.doesNotMatch(r.err, /код null/);
+    }
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 

@@ -2,6 +2,7 @@
 // виден в выводе. Фикстура — проект с двумя гейтами, где красный стоит первым.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -203,6 +204,26 @@ test('gates: --base добавляет дифф к базе, источник н
     assert.match(bad.err, /--base нет-такой-ссылки: git diff отказал/);
   } finally {
     cleanup(root);
+  }
+});
+
+test('gates --base: git diff, оборванный сигналом, — отказ называет сигнал, а не «null»', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    withGates(root, [mark('always', 0)]);
+    gitAll(root, 'база');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = diff ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['gates', '--base', 'HEAD'], { env: { ...marked(root).env, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /--base HEAD: git diff отказал — оборван сигналом SIGKILL/);
+    assert.doesNotMatch(r.err, /\bnull\b/);
+    assert.deepEqual(ran(root), [], 'отказ до первой команды');
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 
