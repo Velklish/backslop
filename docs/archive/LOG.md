@@ -118,3 +118,5 @@
 - <a id="bs-69.1"></a>`BS-69.1-directory-link-check-misses-refstyle-and-adapters` · 2026-09-24 · пачкой BS-80 · — · Проверка ссылки на каталог не видит reference-style ссылки и adapter outputs
 - <a id="bs-76.6"></a>`BS-76.6-outcome-residue-after-position-rule` · 2026-09-24 · выполнена · — · Исход по позиции оставляет 13 из 1085 строк журнала расходящимися с телом: «Закрыта отказом», «не выполнена», «Исход — снята», дубль без «слита», слово о чужой задаче
 - <a id="bs-75"></a>`BS-75-sweep-the-comment-debt-to-the-two-line-rule` · 2026-09-24 · выполнена · — · Свод накопленного долга комментариев к правилу двух строк
+- <a id="bs-81"></a>`BS-81-minor-batch-git-signal-cause` · 2026-09-24 · выполнена · — · Пачка minor: отказ git, оборванного сигналом, называет причину в gates, upgrade, merge-changelog и lint
+- <a id="bs-78.2"></a>`BS-78.2-git-signal-kill-still-says-code-null` · 2026-09-24 · пачкой BS-81 · — · Отказ git, оборванного сигналом, в gates, upgrade, merge-changelog и lint всё ещё печатает «код null»

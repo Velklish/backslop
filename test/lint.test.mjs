@@ -2,7 +2,8 @@
 // проекта; без неё гейт нечем отличить от холостого.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { loadProject } from '../lib/config.js';
@@ -789,6 +790,46 @@ test('lint: 13. неполный клон — достижимость реви�
   } finally {
     cleanup(root);
     cleanup(clone);
+  }
+});
+
+test('lint: 13. git rev-list, оборванный сигналом, — предупреждение называет сигнал, а не «git null»', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    seedGreen(root);
+    gitAll(root, 'база');
+    foldCommitted(root);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rev-list ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['lint'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 0, `предупреждение гейт не красит: ${r.err}`);
+    assert.match(r.err, /LOG\.md: достижимость ревизий журнала из HEAD не проверена: оборван сигналом SIGKILL$/m);
+    assert.doesNotMatch(r.err, /git null/);
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('lint: 13. многострочный stderr git rev-list — предупреждение несёт только первую строку', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    seedGreen(root);
+    gitAll(root, 'база');
+    foldCommitted(root);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rev-list ] && { printf 'fatal: первая\\nвторая\\n' >&2; exit 128; }; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['lint'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 0, `предупреждение гейт не красит: ${r.err}`);
+    assert.match(r.err, /LOG\.md: достижимость ревизий журнала из HEAD не проверена: fatal: первая$/m);
+    assert.doesNotMatch(r.err, /вторая/);
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 
