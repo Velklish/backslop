@@ -120,3 +120,4 @@
 - <a id="bs-75"></a>`BS-75-sweep-the-comment-debt-to-the-two-line-rule` · 2026-09-24 · выполнена · — · Свод накопленного долга комментариев к правилу двух строк
 - <a id="bs-81"></a>`BS-81-minor-batch-git-signal-cause` · 2026-09-24 · выполнена · — · Пачка minor: отказ git, оборванного сигналом, называет причину в gates, upgrade, merge-changelog и lint
 - <a id="bs-78.2"></a>`BS-78.2-git-signal-kill-still-says-code-null` · 2026-09-24 · пачкой BS-81 · — · Отказ git, оборванного сигналом, в gates, upgrade, merge-changelog и lint всё ещё печатает «код null»
+- <a id="bs-2.1"></a>`BS-2.1-npm-publish` · 2026-09-24 · отклонена · — · Выпуск пакета в npm и переключение default CLI

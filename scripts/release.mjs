@@ -82,8 +82,8 @@ function main(argv) {
     bump(version);
     return;
   }
-  // Публикация в npm отложена владельцем (BS-2.1), а тег и atomic push нужны: это штатный
-  // путь релиза до первой публикации, а не обход скрипта.
+  // Публикация в npm не планируется (владелец отклонил BS-2.1), а тег и atomic push нужны:
+  // `--no-publish` — штатный путь релиза, а не обход скрипта.
   const publish = !flags.includes('--no-publish');
   const tag = `v${version}`;
   const actualVersion = packageVersion();

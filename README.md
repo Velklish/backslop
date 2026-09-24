@@ -92,7 +92,7 @@ An orchestrator on any harness — subagents in worktrees, separate sessions, or
 
 - Skills appear only for selected `tools`. Without `--tools`, a project gets the `AGENTS.md` section and `docs/`.
 - English and Russian template layers are provided. Changing `lang` does not translate existing docs.
-- Publishing to npm is prepared (`npx backslop@X.Y.Z` pins work; `npm run release`) but the default CLI stays on GitHub until the first publish.
+- Publishing to npm is prepared (`npx backslop@X.Y.Z` pins work; `npm run release`) but publishing is not planned: the default CLI stays on GitHub, and releases run with `--no-publish`.
 - A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-reference gate on lines such as `API-2.0`; choose a prefix absent from project text.
 
 ## Development
