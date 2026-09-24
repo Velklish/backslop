@@ -82,6 +82,28 @@ test('lint: EN project accepts RU metadata and reports errors in English', () =>
 
 probe('1. битая ссылка в docs', (root) => put(root, 'docs/note.md', '[нет](reference/none.md)\n'), /docs\/note\.md: битая ссылка reference\/none\.md/);
 probe('1. битая ссылка в корневом README', (root) => put(root, 'README.md', '[нет](docs/none.md)\n'), /README\.md: битая ссылка/);
+probe('1. ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1](../triage) — карточка\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
+probe('1. номер в тексте ссылки на каталог — и в код-спане', (root) => put(root, 'README.md', 'См. [`BS-2.1` · находка](docs/backlog/triage/)\n'), /README\.md: ссылка \[`BS-2\.1` · находка\]\(docs\/backlog\/triage\/\) ведёт на каталог/);
+test('lint: 1. незакрытая скобка с номером перед ссылкой на каталог — не текст ссылки', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/note.md', 'Полуинтервал [0, 1) — см. BS-2.1. Раскладка — [backlog/](backlog/triage).\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+test('lint: 1. каталог без номера в тексте и карточка с номером — законные цели', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n[triage/](../triage) и **Находка.** [BS-2.1](../triage/BS-2.1-d.md)\n`);
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('1. битая ссылка в скилле backslop', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
   put(root, '.claude/skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n[нет](../none.md)\n');

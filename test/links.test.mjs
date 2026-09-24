@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  blankCode, brokenLinks, refDefinitions, relativeLinks, rewriteIncomingLinks, rewriteMovedLinks,
+  blankCode, brokenLinks, directoryLinks, refDefinitions, relativeLinks, rewriteIncomingLinks, rewriteMovedLinks,
 } from '../lib/links.js';
 
 const FROM = 'docs/backlog/active';
@@ -138,6 +138,39 @@ test('битые ссылки файла: цель резолвится от е�
     const file = path.join(sb, 'docs', 'note.md');
     writeFileSync(file, '[ж](reference/README.md#верх) [м](reference/missing.md) [в](https://x.y) [к](/docs/reference/README.md?plain=1) [н](/nope.md)\n');
     assert.deepEqual(brokenLinks(file, sb), ['reference/missing.md', '/nope.md']);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('ссылки на каталог: только существующий каталог, текст — из исходника, показанное в коде не считается', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
+  try {
+    mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
+    writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · Х\n');
+    const file = path.join(sb, 'docs', 'note.md');
+    writeFileSync(file, '[a](triage) [ф](triage/BS-5-x.md) [н](none) [`BS-5`](triage/#x) [в](https://x.y) [к](/docs/triage) `[s](triage)`\n\n```\n[f](triage)\n```\n');
+    assert.deepEqual(directoryLinks(file, sb), [
+      { text: 'a', href: 'triage' },
+      { text: '`BS-5`', href: 'triage/#x' },
+      { text: 'к', href: '/docs/triage' },
+    ]);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('ссылки на каталог: текст — от ближайшей скобки, путь через файл — не каталог и не отказ', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
+  try {
+    mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
+    writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · Х\n');
+    const file = path.join(sb, 'docs', 'note.md');
+    writeFileSync(file, 'Полуинтервал [0, 1) — см. BS-5. Шаблоны — [templates/](triage).\nЕщё [полуинтервал — BS-5,\nи [каталог](triage/).\n[BS-5](triage/BS-5-x.md/x)\n');
+    assert.deepEqual(directoryLinks(file, sb), [
+      { text: 'templates/', href: 'triage' },
+      { text: 'каталог', href: 'triage/' },
+    ]);
   } finally {
     rmSync(sb, { recursive: true, force: true });
   }
