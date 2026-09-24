@@ -446,6 +446,32 @@ test('mv --restore: восстановленные задачи сохраняю
   }
 });
 
+test('mv --restore: широкий разрыв перед занятым числом не уводит задачу вперёд соседа по пакету', () => {
+  const root = makeProject();
+  try {
+    // Очередь 7/12, пакет 13, 10, 8, 13. BS-2 (10) находит место занятым и встаёт на 5; BS-3 (8)
+    // со свободным числом позади неё встаёт перед ней, а не на своё 8.
+    put(root, 'docs/backlog/queue/BS-5-e.md', '# BS-5 · e\n\n- **Порядок:** 7\n- **Область:** [x](../../README.md)\n');
+    put(root, 'docs/backlog/queue/BS-6-f.md', '# BS-6 · f\n\n- **Порядок:** 12\n- **Область:** [x](../../README.md)\n');
+    for (const [n, slug, saved] of [['1', 'a', 13], ['2', 'b', 10], ['3', 'c', 8], ['4', 'd', 13]]) {
+      put(root, `docs/backlog/active/BS-${n}-${slug}.md`, `# BS-${n} · ${slug}\n\n- **Прежний порядок:** ${saved}\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n`);
+    }
+    gitAll(root);
+
+    const r = cli(root, ['mv', '1', '2', '3', '4', 'queue', '--restore']);
+    assert.equal(r.code, 0, r.err);
+    const rank = (n) => Number(read(root, `docs/backlog/queue/BS-${n}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]);
+    const batch = ['3-c', '2-b', '1-a', '4-d'];
+    assert.deepEqual(batch.map(rank), [...batch.map(rank)].sort((a, b) => a - b), 'пакет встал по возрастанию сохранённых чисел 8, 10, 13, 13');
+    assert.deepEqual(['3-c', '2-b', '5-e', '6-f', '1-a', '4-d'].map(rank), [2, 5, 10, 20, 30, 40]);
+    assert.match(r.out, /сохранённое место 8 позади BS-2 из того же пакета — «Порядок» 2, перед ней/);
+    assert.match(r.out, /сохранённое место 10 занято — «Порядок» 5/);
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv --restore: сводка перенумерации считает файлы, а не срабатывания', () => {
   const root = makeProject();
   try {

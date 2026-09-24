@@ -127,6 +127,65 @@ test('место в очереди: без целого места очеред�
   assert.deepEqual(mid.renumbered, [['f1', 10], ['f2', 30], ['f3', 40]]);
 });
 
+test('место в очереди: сохранённый ранг не позже соседа по пакету', () => {
+  const rows = [row(9, 5), row(1, 10), row(2, 20)];
+  const nine = { num: 9, sub: null };
+  assert.deepEqual(placeInQueue(rows, { rank: 8, before: nine }), { rank: 2, renumbered: [], bounded: true }, 'свободное число позади соседа');
+  assert.deepEqual(placeInQueue(rows, { rank: 20, before: nine }), { rank: 2, renumbered: [], bounded: true }, 'занятое число позади соседа');
+  assert.deepEqual(placeInQueue(rows, { rank: 5, before: nine }), { rank: 2, renumbered: [] }, 'число занято самим соседом — обычное «перед занявшим»');
+  assert.deepEqual(placeInQueue(rows, { rank: 3, before: nine }), { rank: 3, renumbered: [] }, 'число впереди соседа сосед не трогает');
+  assert.deepEqual(placeInQueue(rows, { rank: 3, before: { num: 2, sub: null } }), { rank: 3, renumbered: [] });
+  const tight = placeInQueue([row(1, 1), row(9, 2), row(2, 3)], { rank: 3, before: nine });
+  assert.deepEqual(tight, { rank: 20, renumbered: [['f1', 10], ['f9', 30], ['f2', 40]], bounded: true }, 'тесно — перенумерация, задача перед соседом');
+});
+
+test('место в очереди: пакет --restore ложится по возрастанию сохранённых чисел — перебор', () => {
+  // Модель цикла `mv <N…> queue --restore`: убывание сохранённых чисел, при равных — номеров,
+  // каждая следующая с `before` на поставленную перед ней. Seed фиксирован — перебор повторяем.
+  let seed = 30;
+  const random = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const pick = (lo, hi) => lo + Math.floor(random() * (hi - lo + 1));
+  const byRank = (a, b) => a.rank - b.rank || a.task.num - b.task.num;
+  const restore = (queue, batch, bound) => {
+    const rows = queue.map((r) => ({ ...r }));
+    let previous = null;
+    let bounded = 0;
+    for (const b of [...batch].sort((x, y) => y.saved - x.saved || y.task.num - x.task.num)) {
+      rows.sort(byRank);
+      const placed = placeInQueue(rows, { rank: b.saved, before: bound ? previous : null });
+      const renumbered = new Map(placed.renumbered);
+      for (const r of rows) r.rank = renumbered.get(r.task.file) ?? r.rank;
+      rows.push({ task: b.task, rank: placed.rank });
+      if (placed.bounded) bounded += 1;
+      previous = b.task;
+    }
+    const got = rows.sort(byRank).filter((r) => r.task.file.startsWith('b')).map((r) => r.task.num);
+    const want = [...batch].sort((x, y) => x.saved - y.saved || x.task.num - y.task.num).map((b) => b.task.num);
+    return { inverted: got.join() !== want.join(), bounded };
+  };
+
+  const RUNS = 100_000;
+  let inverted = 0;
+  let unbounded = 0;
+  let bounded = 0;
+  for (let i = 0; i < RUNS; i += 1) {
+    const queue = Array.from({ length: pick(1, 4) }, (_, k) => ({ task: { num: 50 + k, sub: null, file: `q${k}` }, rank: pick(1, 14) }));
+    const batch = Array.from({ length: pick(2, 4) }, (_, k) => ({ task: { num: k + 1, sub: null, file: `b${k}` }, saved: pick(1, 14) }));
+    const run = restore(queue, batch, true);
+    if (run.inverted) inverted += 1;
+    bounded += run.bounded;
+    if (restore(queue, batch, false).inverted) unbounded += 1;
+  }
+  assert.equal(inverted, 0, `${inverted} конфигураций из ${RUNS} — восстановленные не по возрастанию сохранённых чисел`);
+  assert.ok(unbounded > 0, 'без соседа-ограничителя перебор обязан находить инверсии — иначе он не видит дефекта');
+  assert.ok(bounded > 0, 'перебор ни разу не дошёл до ограничения соседом');
+});
+
 // --- журнал закрытых ---------------------------------------------------------------------------
 
 test('строка журнала: разбор, обратная сборка, битая строка не читается записью', () => {
