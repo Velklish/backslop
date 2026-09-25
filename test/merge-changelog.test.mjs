@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CONFLICT_MARK, mergeChangelog } from '../lib/merge-changelog.js';
@@ -818,6 +818,22 @@ test('merge-changelog: --out creates missing directories, and an fs failure is o
       assert.match(r.err, new RegExp(`не записывается --out ${path.join(root, out).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: ${code}`));
       assert.doesNotMatch(r.err, /^\s+at /m, 'no stack');
     }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: a relative --out resolves against the cwd, and written: names it from the cwd', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', OURS);
+    gitAll(root, 'ours');
+    mkdirSync(path.join(root, 'sub', 'dir'), { recursive: true });
+    const r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD', '--out=merged.md'], { cwd: path.join(root, 'sub', 'dir') });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'sub/dir/merged.md'), OURS);
+    assert.ok(!existsSync(path.join(root, 'merged.md')), 'nothing lands at the project root');
+    assert.match(r.err, /записано: merged\.md$/m);
   } finally {
     cleanup(root);
   }

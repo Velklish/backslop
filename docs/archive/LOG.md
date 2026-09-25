@@ -137,3 +137,4 @@
 - <a id="bs-103"></a>`BS-103-unverified-lang-switch-redraw` · 2026-09-25 · completed · — · Check and fix: changing `lang` does not redraw the tool-owned rules pair
 - <a id="bs-87"></a>`BS-87-merge-changelog-structure-and-io` · 2026-09-25 · completed · — · merge-changelog: keep subgroups and entry bodies, EOL, empty --base, --out errors
 - <a id="bs-88"></a>`BS-88-branch-scans-new-and-tracks` · 2026-09-25 · completed · — · new and tracks: see numbers on every branch, and tell a git failure from an empty list
+- <a id="bs-101"></a>`BS-101-unverified-command-input-forms` · 2026-09-25 · completed · — · Check and fix: merge-changelog --out base dir, archive --range single ref, pin grammar

@@ -205,3 +205,25 @@ test('archive: a card linking to itself points at task.md after the move', () =>
     cleanup(root);
   }
 });
+
+test('archive: a --range without .. is refused before the move, and the range form still works', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
+    gitAll(root, 'task');
+    put(root, 'docs/reference/old.md', '# old\n');
+    gitAll(root, 'old');
+    put(root, 'docs/reference/new.md', '# new\n');
+    gitAll(root, 'new');
+    const r = cli(root, ['archive', '1', '--range', 'HEAD~1']);
+    assert.equal(r.code, 1, r.err);
+    assert.match(r.err, /--range HEAD~1: нужен диапазон <база>\.\.HEAD/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')), 'the task stays in place');
+    const ok = cli(root, ['archive', '1', '--range', 'HEAD~1..HEAD', '--dry-run']);
+    assert.equal(ok.code, 0, ok.err);
+    assert.match(ok.out + ok.err, /docs\/reference\/new\.md/);
+    assert.doesNotMatch(ok.out + ok.err, /docs\/reference\/old\.md/);
+  } finally {
+    cleanup(root);
+  }
+});

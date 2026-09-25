@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseCli } from '../lib/config.js';
 import { changelogSince } from '../lib/changelog.js';
-import { listReleaseTags, rewriteCommand, rewriteGates } from '../lib/upgrade.js';
+import { listReleaseTags, rewriteCommand, rewriteGates, rewriteProsePins } from '../lib/upgrade.js';
 import { renderTemplate } from '../lib/templates.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { BIN, cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -59,6 +59,20 @@ test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; др�
   const flagged = parseCli('npx --yes -q github:me/proj#v01.2.3');
   assert.equal(flagged.pin, '1.2.3', 'пин нормализуется');
   assert.equal(flagged.withPin('v0.2.0'), 'npx --yes -q github:me/proj#v0.2.0', 'флаги npx сохраняются');
+});
+
+test('upgrade: pins with a .git suffix or without v move and take the canonical #vX.Y.Z form', () => {
+  const form = parseCli('npx github:me/proj#v0.1.0');
+  assert.deepEqual(rewriteGates(['npx github:me/proj.git#v0.1.0 lint', 'npx github:me/proj#0.1.0 status'], 'npx github:me/proj#v0.1.0', form, '0.2.0'),
+    ['npx github:me/proj#v0.2.0 lint', 'npx github:me/proj#v0.2.0 status']);
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/ROADMAP.md', 'Run `npx github:me/proj.git#v0.1.0 lint` or `npx github:me/proj#0.1.0 lint`.\n');
+    assert.deepEqual(rewriteProsePins(root, 'docs', 'BS', form, '0.2.0'), ['docs/ROADMAP.md']);
+    assert.equal(read(root, 'docs/ROADMAP.md'), 'Run `npx github:me/proj#v0.2.0 lint` or `npx github:me/proj#v0.2.0 lint`.\n');
+  } finally {
+    cleanup(root);
+  }
 });
 
 test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', { skip: process.platform === 'win32' }, () => {
