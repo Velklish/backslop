@@ -4,7 +4,7 @@
 import process from 'node:process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { CliError, bad } from '../lib/util.js';
+import { CliError, HelpRequest, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { findRoot } from '../lib/config.js';
 
@@ -60,7 +60,7 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   help                                                эта справка
 
 Значение флага, начинающееся с дефиса, — формой с «=»: --title="--…". Без «=» оно принимается,
-если не совпадает с именем флага этой команды.
+если не совпадает с именем флага этой команды; -h и --help на месте значения — тоже значение.
 
 Запуск без установки: npx github:Velklish/backslop#v${TOOL_VERSION} <команда>
 `;
@@ -114,7 +114,7 @@ Commands:
   help                                                show this help
 
 A flag value that starts with a dash goes in the “=” form: --title="--…". Without “=” it is
-accepted unless it matches a flag name of that command.
+accepted unless it matches a flag name of that command; -h and --help in a value position are values.
 
 Run without installing: npx github:Velklish/backslop#v${TOOL_VERSION} <command>
 `;
@@ -142,13 +142,14 @@ async function main(argv) {
     ? `unknown command “${name}”; see backslop help`
     : lang === 'ru' ? `неизвестная команда «${name}»; список — backslop help`
       : `Unknown command “${name}” / Неизвестная команда «${name}»; see / список — backslop help`);
-  if (rest.includes('--help') || rest.includes('-h')) {
+  const mod = await import(`../lib/${name}.js`);
+  try {
+    return (await mod.run(rest, { cwd: process.cwd() })) ?? 0;
+  } catch (e) {
+    if (!(e instanceof HelpRequest)) throw e;
     process.stdout.write(lang === 'en' ? HELP_EN : lang === 'ru' ? HELP_RU : `${HELP_EN}\n${HELP_RU}`);
     return 0;
   }
-  const mod = await import(`../lib/${name}.js`);
-  const code = await mod.run(rest, { cwd: process.cwd() });
-  return code ?? 0;
 }
 
 // Читатель закрыл пайп (`status --json | head`) — не наша ошибка, выходим тихо.

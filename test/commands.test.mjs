@@ -272,6 +272,50 @@ test('new/adr: значение --title с ведущим дефисом при�
   }
 });
 
+test('new/adr: a blank or whitespace-only --title falls back to the slug', () => {
+  const root = makeProject();
+  try {
+    for (const [title, slug, n] of [['', 'a', 1], ['   ', 'b', 2]]) {
+      const r = cli(root, ['new', slug, '--queue', '--title', title]);
+      assert.equal(r.code, 0, r.err);
+      assert.match(read(root, `docs/backlog/queue/BS-${n}-${slug}.md`), new RegExp(`^# BS-${n} · ${slug}\n`));
+    }
+    for (const [title, slug, n] of [['', 'x', 1], ['  ', 'y', 2]]) {
+      const r = cli(root, ['adr', slug, '--title', title]);
+      assert.equal(r.code, 0, r.err);
+      assert.match(read(root, `docs/adr/adr-00${n}-${slug}.md`), new RegExp(`^# ADR-00${n}: ${slug}\n`));
+    }
+    const r = cli(root, ['status']);
+    assert.doesNotMatch(r.out, /untitled|без заголовка/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new/adr: -h and --help given as an option value are the value, not a help request', () => {
+  const root = makeProject();
+  try {
+    let r = cli(root, ['new', 'x', '--title', '-h']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/triage/BS-1-x.md'), /^# BS-1 · -h\n/);
+    r = cli(root, ['new', 'y', '--title', '--help']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/triage/BS-2-y.md'), /^# BS-2 · --help\n/);
+    r = cli(root, ['new', 'z', '--parent', '1', '--minor', '--evidence', '--help']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/minor/BS-1.1-z.md'), /Evidence: --help|Улика: --help/);
+    r = cli(root, ['adr', 'x', '--title', '-h']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/adr/adr-001-x.md'), /^# ADR-001: -h\n/);
+    assert.doesNotMatch(r.out, /Команды:|Commands:/, 'help printed instead of creating the ADR');
+    r = cli(root, ['new', '--help']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /Команды:/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('new: даты — локальная календарная дата машины, не UTC', () => {
   const root = makeProject({ git: false });
   try {

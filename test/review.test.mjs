@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { BIN, cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
 
@@ -96,6 +97,21 @@ test('status --json доезжает целиком через пайп, кот�
     assert.equal(JSON.parse(out).queue.length, 400);
   } finally {
     cleanup(root);
+  }
+});
+
+test('<command> --help and -h print the help outside a project too', () => {
+  const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-noproj-')));
+  try {
+    for (const args of [['new', '--help'], ['lint', '--help'], ['status', '-h'], ['init', '-h'], ['mv', '1', 'queue', '--help']]) {
+      const r = cli(dir, args);
+      assert.equal(r.code, 0, `${args.join(' ')}: ${r.err}`);
+      assert.match(r.out, /Commands:/, args.join(' '));
+      assert.match(r.out, /Команды:/, args.join(' '));
+    }
+    assert.ok(!existsSync(path.join(dir, 'backslop.json')), 'init -h initialised the directory');
+  } finally {
+    cleanup(dir);
   }
 });
 
