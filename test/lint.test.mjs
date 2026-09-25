@@ -70,6 +70,22 @@ test('lint: зелёный проект без ошибок, CLI выходит 
   }
 });
 
+test('lint: an unknown flag is refused like in every other command', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    for (const args of [['--bogus'], ['--json'], ['--nope', '--json', 'foo']]) {
+      const r = cli(root, ['lint', ...args]);
+      assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+      assert.match(r.err, new RegExp(`^✖ Unknown option '${args[0]}'`), args.join(' '));
+      assert.doesNotMatch(r.out, /ошибок нет/, `${args.join(' ')}: lint ran anyway`);
+    }
+    assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('lint: EN project accepts RU metadata and reports errors in English', () => {
   const root = makeProject({ git: false });
   try {
