@@ -125,3 +125,4 @@
 - <a id="bs-75.1"></a>`BS-75.1-comment-gate-counts-lines-not-width` · 2026-09-24 · пачкой BS-82 · — · Гейт комментариев считает строки, а не ширину: абзац, сложенный в две длинные строки, проходит
 - <a id="bs-78.3"></a>`BS-78.3-fold-signal-shim-verdict-no-win32-skip` · 2026-09-24 · пачкой BS-82 · — · Вердикт show N с sh-шимом git не помечен skip на Windows
 - <a id="bs-78.4"></a>`BS-78.4-gates-green-gate-says-did-not-start` · 2026-09-24 · пачкой BS-82 · — · gates печатает «не запустился» у гейта, который отработал кодом 0 и посчитан зелёным
+- <a id="bs-83"></a>`BS-83-finding-verification-protocol` · 2026-09-25 · completed · — · Add the finding verification protocol to docs/reference
