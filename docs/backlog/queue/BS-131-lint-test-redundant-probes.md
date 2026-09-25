@@ -44,6 +44,7 @@ Base run: `node --test --test-timeout=60000 --test-concurrency=1 test/lint.test.
   Fix the probe at :144: create the directory `docs/archive/BS-4-e/minor/BS-4.9-x.md` and expect `/archive\/BS-4-e\/minor\/BS-4\.9-x\.md: в minor\/ пачки только файлы записей/`.
   ```
 - Delete the probe line :167 (delete, do not comment out).
+- Owner decision: the uncovered `(?!\[TODO)` lookahead is removed. Remove it from `TODO_FIELD` — at lib/lint.js:24, or in lib/tasks.js if the BS-117 (`mv-reuses-task-model`) card moved it there — together with the clause of the comment above it that justifies it; run the suite; if a test turns red, stop and report. A reference sentence that describes the lookahead is updated in the same change.
 - In :612 drop :617 (`new triaged`) and :620; rename the test to `lint: 4. заглушка «Области» от new красит разобранную задачу`.
 - In :594 drop :600-602; rename the test to `lint: чужой templates/ не будит гейт парности`.
 - In :661 replace both `cli()` calls with `problems()`: `assert.deepEqual(problems(root), [])`, then `assert.ok(problems(root).some((p) => /quoting\.md: цитата ведёт на несуществующий файл reference\/missing\.md/.test(p)))`.
@@ -52,13 +53,13 @@ Base run: `node --test --test-timeout=60000 --test-concurrency=1 test/lint.test.
 ## Out of scope
 
 - The `greenProbe`/`toolProbe` helpers and the git-shim merge — BS-130 (`lint-test-helpers-and-merges`).
-- Deciding whether the `(?!\[TODO)` lookahead at lib/lint.js:24 is dead code (removal probe measured: suite stays green) — no card in this queue owns it; file a finding if the removal is wanted.
 - Merging :482 and :496 into one tool copy: never mutation-probed, saves ~240 ms only.
-- Any change under lib/.
+- Any change under lib/ other than removing the `(?!\[TODO)` lookahead.
 
 ## Verification
 
 - `node --test --test-timeout=60000 test/lint.test.mjs; echo rc=$?` -> rc 0, tests 124 (127 after BS-130 (`lint-test-helpers-and-merges`): -1 :844, -2 :220 ru/en, -1 :130, -1 :167, +2 from splitting :858).
 - Mutation probe lib/lint.js:438 drop `!m.isFile() ||` -> `lint: 5. каталог в minor/ пачки` red.
 - Mutation probe lib/lint.js:122 -> `if (!existsSync(templates)) return;` -> the renamed :594 test red; lib/lint.js:611 `!quoted` -> the :661 test red; lib/lint.js:261 `if (false) err(t.file` -> :392 and :840 red; lib/tasks.js:197 `return true;` -> :691 red.
+- `grep -rn -F '(?!\[TODO)' lib; echo rc=$?` -> no output, rc 1.
 - `npm test; echo rc=$?` -> rc 0.

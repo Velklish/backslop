@@ -31,7 +31,7 @@ Base run: `node --test --test-timeout=60000 --test-concurrency=1 test/lint.test.
 ## Out of scope
 
 - Deleting redundant probes, the vacuous minor/ probe fix and the live-pin split — BS-131 (`lint-test-redundant-probes`).
-- Deciding whether the `(?!\[TODO)` lookahead at lib/lint.js:24 is dead code (removal probe measured: suite stays green) — no card in this queue owns it; file a finding if the removal is wanted.
+- Removing the `(?!\[TODO)` lookahead at lib/lint.js:24 (removal probe measured: suite stays green) — BS-131 (`lint-test-redundant-probes`) removes it.
 - Merging :482 and :496 into one tool copy: never mutation-probed, saves ~240 ms only.
 - Any change under lib/.
 

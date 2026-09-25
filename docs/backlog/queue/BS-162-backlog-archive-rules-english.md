@@ -52,8 +52,8 @@ BS-86 (`fold-keeps-bodies-retrievable`) already made the bulk draft intro (`draf
 
 ## Out of scope
 
-- Moving the worker/approver/owner role protocol out of the backlog README (the owner decides).
-- Having migrate redraw the LOG.md header in consumer projects (the owner decides; the body is data).
+- Moving the worker/approver/owner role protocol out of the backlog README (minor hypothesis BS-162.1).
+- Having migrate redraw the LOG.md header in consumer projects (minor hypothesis BS-162.2; the body is data).
 - Deleting the ROADMAP templates, the init change and the delete-if-unchanged migration (the BS-157 (`remove-roadmap-from-layout`) card); the lang-switch redraw in code (the BS-103 (`unverified-lang-switch-redraw`) card).
 - The fold report streams (stdout vs stderr, the ⚠ glyph on routine lines).
 

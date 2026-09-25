@@ -1,4 +1,4 @@
-# BS-90 · brief: name only commands the pinned CLI version has
+# BS-90 · brief: warn when the pinned CLI version lacks a command the brief names
 
 - **Order:** 80
 - **Scope:** [02. CLI](../../reference/02-cli.md) § brief
@@ -18,10 +18,10 @@ One verified defect where the brief does not follow the version a project pins. 
 
 ## Work to do
 
-- Defect 1, step 1 — owner decision before code; ask with these options (recommendation first): (B) `brief` compares the cli pin with 0.10.0, the first version that has every command the brief names, and for an older pin prints a stderr note naming the command the pinned version lacks and `<cli> upgrade` as the remedy, stdout unchanged; (A) a per-command constant (`EVIDENCE_SINCE = '0.10.0'`) and a template branch that renders `--minor` without `--evidence` for older pins; (C) require the brief to be rendered by the pinned CLI and drop pin awareness from brief. Record the answer in result.md.
-- Defect 1, step 2 — implement the chosen option in lib/brief.js (and templates/brief.md plus templates/en/brief.md only for option A, keeping template parity and `TEMPLATE_KEYS` in step); rewrite the comment lib/brief.js:12-13 so it no longer claims only `gates` needs checking. The BS-108 (`drop-pre-floor-version-gates`) card later deletes `GATES_SINCE` and its fallback; keep the new check independent of them.
-- Defect 1, test: in test/brief.test.mjs, a project whose cli is `npx backslop@0.9.0` — assert the behaviour of the chosen option (B: rc=0, stdout identical to a 0.10.0-pinned brief, stderr names `--evidence` and `upgrade`); and a project pinned at 0.10.0 or later gets no such note.
-- docs/reference/02-cli.md: in the `brief` row state the chosen pin behaviour. CHANGELOG.md: one English entry under the unreleased section for the user-visible change.
+- Defect 1, step 1 — Owner decision: `brief` compares the cli pin with 0.10.0, the first version that has every command the brief names, and for an older pin prints a stderr note naming what the pinned version lacks and `<cli> upgrade` as the remedy; stdout is unchanged. No pin or a floating cli prints no note.
+- Defect 1, step 2 — implement it in lib/brief.js; templates/brief.md, templates/en/brief.md and `TEMPLATE_KEYS` stay unchanged. Rewrite the comment lib/brief.js:12-13 so it no longer claims only `gates` needs checking. The BS-108 (`drop-pre-floor-version-gates`) card later deletes `GATES_SINCE` and its fallback; keep the new check independent of them.
+- Defect 1, test: in test/brief.test.mjs, a project whose cli is `npx backslop@0.9.0` → rc=0, stdout identical to a 0.10.0-pinned brief, stderr names `--evidence` and `upgrade`; a project pinned at 0.10.0 or later and a project whose cli has no pin get no such note.
+- docs/reference/02-cli.md: in the `brief` row state the stderr note for a cli pinned below 0.10.0. CHANGELOG.md: one English entry under the unreleased section for the user-visible change.
 
 ## Out of scope
 
@@ -31,6 +31,6 @@ One verified defect where the brief does not follow the version a project pins. 
 
 ## Verification
 
-- Defect 1 repro above after the fix: behaviour of the chosen option (B: `$BS brief 1 > b.out 2> b.err; echo rc=$?` → rc=0, `grep -c -- '--evidence' b.err` ≥ 1, `grep -c upgrade b.err` ≥ 1).
+- Defect 1 repro above after the fix: `$BS brief 1 > b.out 2> b.err; echo rc=$?` → rc=0, `grep -c -- '--evidence' b.err` ≥ 1, `grep -c upgrade b.err` ≥ 1.
 - The new brief test fails on the base code (run it once before the fix: rc=1) and passes after (rc=0).
 - `npm test; echo rc=$?` → rc=0 with the pass count; `node bin/backslop.js lint; echo rc=$?` → rc=0.

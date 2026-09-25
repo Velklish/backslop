@@ -24,8 +24,8 @@ Module: lint gates (lib/lint.js, lib/mdwalk.js, lib/links.js).
     3. Fix only if confirmed: exempt journal lines (the `- <a id="…"></a>` line form parsed by lib/log.js) from the pin gate and from `rewriteProsePins`, keep the LOG.md header live; test: old pin in a journal title → lint rc=0 and `upgrade` leaves the line; old pin in the header → still reported and rewritten.
 - [ ] Root-relative links in a monorepo subproject (lib/links.js, lib/lint.js)
     1. Blind repro: `mkdir -p mono/pkg/a && cd mono && git init -q -b main && cd pkg/a && $BS init --lang en --tools none && printf '[a](/pkg/a/docs/README.md)\n[b](/docs/README.md)\n' > docs/note.md && $BS lint; echo rc=$?` — expected wrong output: rc=1 `✖ docs/note.md: broken link /pkg/a/docs/README.md`, and `/docs/README.md` not reported.
-    2. Refutation check: docs/reference/03-lint.md:34 states that root paths `/docs/…` are resolved from the project root — this sanctions the behaviour as written. Ask the owner whether the contract should follow GitHub/GitLab rendering; without that decision, record "sanctioned by 03-lint.md:34" and stop.
-    3. Fix only if the owner changes the contract: resolve `/…` against `git rev-parse --show-toplevel` when the project is inside a repository (fallback: project root) in `brokenLinks`, gates 8/13 and the `mv`/`archive` rewrite of incoming root links; update 03-lint.md; test in a monorepo fixture.
+    2. Owner decision: root-relative links `/…` resolve from the repository root, as GitHub and GitLab render them, also inside a monorepo subproject. docs/reference/03-lint.md:34, which resolves root paths `/docs/…` from the project root, describes the behaviour this item fixes; it is not a sanction.
+    3. Fix only if step 1 reproduces: resolve `/…` against `git rev-parse --show-toplevel` when the project is inside a repository (fallback: project root) in `brokenLinks`, gates 8/13 and the `mv`/`archive` rewrite of incoming root links; rewrite every statement of the root-link rule in docs/reference/03-lint.md (the gate 1, 8 and 13 rows and the sentence at :34): root paths resolve from the repository root (from the project root outside a repository); test in a monorepo fixture.
 - [ ] Malformed quote markers (lib/lint.js gate 10)
     1. Blind repro: `printf '# Q\n\n<!-- quote: reference/README.md -->\n\nnot the text\n\n<!-- /quote -->\n\n<!-- /quote -->\n' > docs/q.md; $BS lint; echo rc=$?` — expected wrong output: rc=0 `✔ lint: no errors`. Control: the same file with `quote:reference/README.md` (no space) → rc=1 `quote no longer matches reference/README.md: “not the text”`.
     2. Refutation check: docs/reference/03-lint.md row 10 and the quote section of docs/backlog/README.md (rules template): if either defines the spaced form as not-a-quote or says a stray closer is ignored, record the sanction and stop.
@@ -38,10 +38,10 @@ Module: lint gates (lib/lint.js, lib/mdwalk.js, lib/links.js).
 ## Out of scope
 
 - Verified link-gate and walker bugs — the BS-89 (`link-gate-target-resolution`) and BS-95 (`lint-walk-and-gate-coverage`) cards.
-- Changing the root-link contract without an owner decision.
 
 ## Verification
 
-- For each item the result names the outcome of steps 1–2 with the command output and rc.
-- Each confirmed item has a red-then-green test in test/lint.test.mjs (or test/links.test.mjs); a sanctioned item has no code change.
+- For each item the result names the outcome of steps 1–2 with the command output and rc (item 2: step 1 only; its step 2 is the owner decision).
+- Each confirmed item has a red-then-green test in test/lint.test.mjs (or test/links.test.mjs); a sanctioned item (items 1, 3 and 4 only) has no code change.
+- Item 2 after the fix: the step-1 monorepo repro gives rc=1 with `✖ docs/note.md: broken link /docs/README.md` and no error for `/pkg/a/docs/README.md`; docs/reference/03-lint.md says root paths resolve from the repository root.
 - `npm test` → rc=0; `node bin/backslop.js lint` → rc=0.

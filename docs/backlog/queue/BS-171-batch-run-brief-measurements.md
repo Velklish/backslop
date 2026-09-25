@@ -48,7 +48,7 @@ Files: `templates/{en/,}skills/backslop-batch/SKILL.md`, all sections except "In
 - en:22, :24 and :34, en first and then ru: first confirm that templates/{en/,}docs/backlog/README.md carries each rule you drop (the three pairs quoted in the context). Then shrink each paragraph to one sentence plus a link to `{{docs}}/backlog/README.md`, keeping only the orchestrator's timing: review triage in full before splitting; cut minor batches at the same point; move a whole track to active in one `{{cli}} mv … active` call and return it with `{{cli}} mv … queue --restore`.
 - en:54: "it becomes the brief heading (`# <title>`); pass the same title as the session or agent name when the harness takes one".
 - en:55: add "`brief` exits 0 even with stubs: check the output for `[TODO` before sending it".
-- en:116: add "`tracks` exits 0 either way: read the summary (`worktrees and branches 0, not merged 0`) or use `--json`".
+- en:116: Owner decision: the skill checks that nothing is left with `{{cli}} tracks --json` (`total` is 0), not with the human summary line, because human text is not contract; add that `tracks` exits 0 either way.
 - measurements.md:15 (and SKILL :60 and :71 if needed): `--measurements` carries only the three-point summary; any other rule from this file goes into the brief by hand, e.g. through `--handover`.
 - measurements.md:13: keep the rule (a gate proves nothing about a commit unless the tree is byte-identical; use `{{cli}} gates --require-clean`) and drop the list of refusal causes.
 - measurements.md:9: "`\s` in `git grep -E` is not portable: on macOS it silently matches nothing. Use POSIX classes such as `[[:space:]]`." Say nothing about other platforms.
@@ -66,5 +66,6 @@ Files: `templates/{en/,}skills/backslop-batch/SKILL.md`, all sections except "In
 
 - `$B init --lang en --tools claude` with the default pin: `` grep -nE '`backslop [a-z]' .claude/skills/backslop-batch/SKILL.md .claude/skills/backslop-batch/references/*.md `` finds nothing (skill names such as `backslop-task` do not match), and `grep -n "is called"` finds nothing.
 - `grep -n "archive N.k --into M" templates/en/docs/backlog/README.md` still matches, and so do the `--restore` and pre-run triage rules.
+- The rendered batch skill checks the end state with `tracks --json` and quotes no human summary: `grep -c 'not merged 0' .claude/skills/backslop-batch/SKILL.md` prints 0.
 - All three skills in both layers (owner of the `{{cli}}` spelling finding): `grep -rnE '(^|[^{}a-z-])backslop (lint|status|new|adr|mv|gates|fold|archive|seed|brief|tracks)' templates/skills templates/en/skills; echo rc=$?` → rc=1 (50 matches at 6f6318e), and `grep -rn 'is called' templates/skills templates/en/skills; echo rc=$?` → rc=1.
 - `npm test` exits 0 with no failing test (450 at the base commit, plus the tests this card adds); `node bin/backslop.js lint` exits 0 (templateParity and the key check stay clean).

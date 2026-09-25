@@ -11,7 +11,7 @@ Evidence was taken at commit 6f6318e (v0.11.0), where `npm test` (`node --test -
 
 Template pairs: `templates/en/<path>` is the source and `templates/<path>` is its ru twin. Edit en first, then carry the same change into ru. `templateParity` (run by `lint`) requires the same file set, the same placeholders and the same heading shape in both layers. Tests pin literal strings of the ru layer: grep `test/` for every ru sentence you change and update the assertion in the same commit.
 
-File: `templates/{en/,}skills/backslop-task/SKILL.md`, plus one sentence in step 4 of `templates/{en/,}agents-section.md`. Line numbers are from 6f6318e. BS-163 (`agents-block-wording`) and BS-165 (`probe-text-opt-in`) run first: they settle the commit subject form, the step-7 content, and which probe sentences are conditional.
+File: `templates/{en/,}skills/backslop-task/SKILL.md`, plus one sentence in step 4 and the Windows note in step 5 of `templates/{en/,}agents-section.md`. Line numbers are from 6f6318e. BS-163 (`agents-block-wording`) and BS-165 (`probe-text-opt-in`) run first: they settle the commit subject form, the step-7 content, and which probe sentences are conditional.
 
 **The skill restates the AGENTS.md block rule by rule.** verified — a side-by-side read. Task SKILL en:12-32, plus :42, :50-53 and :59-61, restate agents-section en:8-18:
 - role split (SKILL:14-15 / block:8);
@@ -56,16 +56,20 @@ The block is written for every project (default `tools: []`, so no skills), and 
 - Drift: make en explicit and carry it into ru. :31 "by the approver"; :48 "using the review table in `backslop-batch`"; :59 "give every entry a next step"; :63 either both languages say "grep takes seconds" or neither does.
 - Command spelling: `{{cli}}` in every runnable command, and delete the alias sentence at :8. Skill names such as `backslop-batch` stay.
 - Windows note next to the draft recipe, as a checklist. (1) On a Windows host, in a throwaway project, run `<cli> fold 1 > "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"` and then `git commit -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"` in Git Bash, Windows PowerShell 5.1 and PowerShell 7. Check `git log -1 --format=%B | od -c | head` each time. Expected: intact in Git Bash; NUL bytes (UTF-16LE) in PowerShell 5.1; a failure in cmd.exe. (2) Write one line with the working form verified per shell, e.g. PowerShell 7: `$d = git rev-parse --git-dir; <cli> fold N | Out-File -Encoding utf8NoBOM "$d/BACKSLOP_DRAFT"`. (3) Without a Windows host, write only "on Windows, run this recipe in Git Bash" and file a `minor` finding with `--hypothesis` for the PowerShell form.
+- Owner decision: the Windows note "on Windows, run this recipe in Git Bash" also goes next to the BACKSLOP_DRAFT recipe in step 5 of the AGENTS block, in both languages (templates/agents-section.md and templates/en/agents-section.md).
 - Tests: grep `test/` for literal strings of this skill that you change or delete (e.g. test/init.test.mjs:342-356 reads the rendered step 4) and update them in the same commit.
+- The acceptance redraws this repository's own AGENTS.md block with `node bin/backslop.js init` and commits it with the task, so later workers follow the new rules.
 
 ## Out of scope
 
 - The probe paragraphs themselves (the BS-165 (`probe-text-opt-in`) card).
-- AGENTS-block wording other than the one `--base` sentence in step 4.
+- AGENTS-block wording other than the `--base` sentence in step 4 and the Windows note in step 5.
 - The backslop-batch skill, and any change to the gates or lint code.
 
 ## Verification
 
 - In the scoped-gate project from the context, follow the new step 4 literally: the scoped gate runs ("paths" > 0), and a red first gate with `--keep-going` reports every gate.
 - `$B init --lang en --tools claude`: `grep -c "Real failures" .claude/skills/backslop-task/SKILL.md` prints 0, `grep -n "simply called" …` finds nothing, and `` grep -nE '`backslop (status|mv|new|gates|archive|fold|lint|adr) ' … `` finds nothing.
+- `$B init --lang en` and `$B init --lang ru` in throwaway projects: step 5 of AGENTS.md carries the Windows note next to the BACKSLOP_DRAFT recipe.
+- After the acceptance commit: `node bin/backslop.js init && git diff --exit-code AGENTS.md; echo rc=$?` → rc=0 (this repository's block equals the rendered template).
 - `npm test` exits 0 with no failing test (450 at the base commit, plus the tests this card adds); `node bin/backslop.js lint` exits 0 (templateParity and the key check stay clean).

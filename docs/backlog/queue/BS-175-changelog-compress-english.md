@@ -68,6 +68,7 @@ Evidence. Every item is verified at v0.11.0 (commit 6f6318e):
 - Priority and depth: v0.11.0, v0.10.1, v0.10.0 first (printed to every consumer on upgrade), then v0.5.0, v0.6.0, v0.9.0; v0.1.0-v0.3.1 are translated nearly one to one.
 - Tests on their own fixture, test first where possible: the full-upgrade test (test/upgrade.test.mjs:185 at 6f6318e) and the changelog CLI table the BS-137 (`upgrade-config-version-tests`) card built from :213 and :412 run the CLI from `toolCopy()` (`test/helpers.mjs`, copies `bin`, `lib`, `templates`, `package.json`, not `CHANGELOG.md`) with a fixture `CHANGELOG.md` put into the copy — sections `## v${TOOL_VERSION}`, `## v0.2.0`, `## v0.1.0` — invoked via `toolCli(tool, args, { cwd: root })`; the upgrade test's `cli` points at the copy's `bin/backslop.js`. Keep the regex assertions; they now read the fixture.
 - Fix the comment at `lib/changelog.js:29`: sections come out in the file's order (the file is kept newest first); keep the file's comment language.
+- Owner decision: no owner review before merge; result.md carries a table mapping every old entry to its new entry or to "dropped".
 
 ## Out of scope
 
@@ -84,3 +85,4 @@ Evidence. Every item is verified at v0.11.0 (commit 6f6318e):
 - `node -e "console.log((require('fs').readFileSync('CHANGELOG.md','utf8').match(/[\u0400-\u04FF]/g)||[]).length)"` → 0; `wc -c < CHANGELOG.md` is about 20,000 or less.
 - Decoupling probe: in a throwaway copy of the repo delete the `## v0.1.0` section from the real `CHANGELOG.md` and run `node --test test/upgrade.test.mjs` → still rc=0 (it failed 3 tests before the fixture change); discard the copy.
 - In an `init --lang en` project: `node <repo>/bin/backslop.js changelog --since v0.9.0` prints no Cyrillic and no `docs/` link.
+- result.md has one table row per entry of the released sections at `<base>` (102 at 6f6318e), each naming its new entry or "dropped".

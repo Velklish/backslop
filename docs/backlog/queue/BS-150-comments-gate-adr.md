@@ -48,7 +48,7 @@ Three ADRs describe one gate, `test/comment-length.test.mjs` run by `npm test` (
 
 ## Verification
 
-- `git grep -n -E 'PENDING|comment-sweep-pending|blockId|staleIds|unknownFiles|unnamedBlocks' -- test lib docs AGENTS.md; echo rc=$?` -> no output, `rc=1`.
+- `git grep -n -E 'PENDING|comment-sweep-pending|blockId|staleIds|unknownFiles|unnamedBlocks' -- test lib docs AGENTS.md ':!docs/backlog' ':!docs/archive'; echo rc=$?` -> no output, `rc=1`.
 - `git grep -n -E 'ADR-0(28|35|38)([^0-9]|$)|adr-0(28|35|38)-' -- . ':!docs/archive'; echo rc=$?` -> no output, `rc=1` (base: 17 lines outside docs/adr).
 - `node bin/backslop.js lint; echo rc=$?` -> `rc=0` (gate 1 fails on any link to a deleted ADR file, gate 8 on an ADR without a `docs/README.md` link or a duplicate number).
 - `npm test; echo rc=$?` -> `rc=0` (base 6f6318e: 450 tests, 450 pass).

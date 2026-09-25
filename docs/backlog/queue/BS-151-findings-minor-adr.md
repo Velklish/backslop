@@ -3,7 +3,7 @@
 - **Order:** 690
 - **Scope:** [01. Layout](../../reference/01-layout.md) § minor file
 - **Created:** 2026-09-25
-- **Dependencies:** BS-108
+- **Dependencies:** BS-108, BS-83
 
 ## Context
 
@@ -37,13 +37,14 @@ Findings are described by five ADRs: `docs/adr/adr-022-cost-decides-finding-fate
   Test first: in test/lint.test.mjs next to `lint: находка под закрытым родителем остаётся предупреждением для approver` (:279) add a test: BS-1 open, BS-1.1 archived, BS-1.2 in `triage/` with `Parent: BS-1.1` -> lint exit 0 and no gate-9 warning for BS-1.2. It passes on the current code; confirm it guards the rule with the probe in Verification.
   ```
 - Create the ADR (`node bin/backslop.js adr findings --title "Findings: numbering under a parent, cost label, the minor/ status and batch closing"`). Context: every observation made into a full card fills triage faster than it drains; findings need a stable link to their source task without a third numbering level; an entry waiting for a batch is never revisited by its author, so it must carry evidence from birth, through both doors, and lint must agree with the commands. Decision: numbering — `new <slug> --parent N[.M]` needs an existing parent in any status, archive or journal and gets the next free `N.k` over status directories, archive directories and their batch `minor/`, journal lines, other worktrees and local branches; a finding of a finding gets `N.k` under the same root with a Parent field naming the exact parent; lint gate 2 requires task `N` to exist; Parent is informational (lint only rejects a repeated field); gate 9 warns (exit 0) for a finding in `triage/` whose root task `N` is archived or folded, Parent not consulted, other statuses not reported. Cost scale critical / major / minor with the reviewer's meanings and fates (process text in the backlog rules template; raise the label when unsure). `minor/` is the fifth status: `init` creates it, gate 3 requires it. The `new --minor` and `mv … minor` rules, the reshape and the lint gate 4/5 rules of item 1. Batches: an ordinary queue card listing entry ids; close with `archive M`, then `archive N.k --into M` per entry (entry in `minor/`, M archived and not folded, M not a minor entry, no `--range`; the file moves to `archive/<M>-<slug>/minor/` with links rewritten and no result.md of its own), outcomes as lines in M's result.md, `fold M` last; batch entries remain tasks for numbering and mentions; `status` lists `minor/` by scope with cost. Consequences: only a major finding outside the current Scope becomes a full card; under-labelling hides expensive findings; a hand-written minor entry without Evidence fails gate 4 while command-made ones pass from birth; `mv` keeps an existing Parent and never adds one; gate 9 does not report a closed exact parent `N.M` while `N` is open; a folded batch cannot take more entries.
+- The findings ADR links `docs/reference/04-verification.md` (the finding verification protocol, added by BS-83 (`finding-verification-protocol`)) for how a finding is verified, without restating its steps.
 - Delete adr-022, adr-029, adr-036 and replace rows `docs/README.md:33`, `:40`, `:47` with one row.
 - ADR-019: leave the file and its row in place; the BS-152 (`adr-pin-upgrade-migrate`) card deletes it and repoints lib/mdwalk.js:113 and lib/upgrade.js:47.
 - Repoint code and test comments to the new ADR id: lib/mv.js:18, :231; lib/new.js:63; lib/archive.js:65; test/lint.test.mjs:147. Drop the ADR links and citations in docs/reference/01-layout.md:88, docs/reference/02-cli.md:12-14, docs/reference/03-lint.md:10 and the ADR-022 link in docs/GLOSSARY.md:13. CHANGELOG.md:9, :41, :56, :58: remove the old ADR tokens and link markup.
 
 ## Out of scope
 
-- Making gate 9 read the Parent field (a behaviour change needs its own decision).
+- Making gate 9 read the Parent field (minor hypothesis BS-151.1).
 - The cost-scale wording in templates/docs/backlog/README.md and the batch skill (template cards).
 - The pre-0.9.0 `minor/` migration (the BS-108 (`drop-pre-floor-version-gates`) card removes it).
 - The live-pin half of ADR-019 (version-pin ADR card) and ADR-001 (process ADR card).
@@ -54,5 +55,6 @@ Findings are described by five ADRs: `docs/adr/adr-022-cost-decides-finding-fate
 - `node --test --test-name-pattern='minor|evidence|--into|закрытым родителем|дробный parent|Улика|цена|Цена' test/commands.test.mjs test/lint.test.mjs test/fold.test.mjs; echo rc=$?` -> `rc=0`, the new test among the passes.
 - `git grep -n -E 'ADR-0(22|29|36)([^0-9]|$)|adr-0(22|29|36)-' -- . ':!docs/archive'; echo rc=$?` -> no output, `rc=1` (base: 20 lines outside docs/adr).
 - `ls docs/adr | grep -c -E '^adr-0(22|29|36)-'` -> `0`.
+- `grep -c '04-verification\.md' docs/adr/adr-NNN-findings.md` -> at least `1`, and the ADR does not list the protocol's steps.
 - `node bin/backslop.js lint; echo rc=$?` -> `rc=0` (gate 1 fails on any link to a deleted ADR file, gate 8 on an ADR without a `docs/README.md` link or a duplicate number).
 - `npm test; echo rc=$?` -> `rc=0` (base 6f6318e: 450 tests, 450 pass).

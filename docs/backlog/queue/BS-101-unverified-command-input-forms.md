@@ -27,8 +27,8 @@ Module: command input interpretation (lib/merge-changelog.js, lib/archive.js, li
     3. Fix only if confirmed: refuse a `--range` without `..` with the documented form in the message; test in test/archive.test.mjs.
 - [ ] Pin grammar of `cli` vs the pin matcher (lib/config.js)
     1. Blind repro: `cd <repo> && node --input-type=module -e 'import { parseCli, pinRe } from "./lib/config.js"; for (const cli of ["npx github:Velklish/backslop#0.9.0", "npx github:Velklish/backslop.git#v0.9.0"]) { const f = parseCli(cli); const prose = "`" + cli + " lint`"; console.log(JSON.stringify({ cli, pin: f.pin, withPin: f.withPin("0.11.0"), proseMatches: [...prose.matchAll(pinRe(f))].length })); }'` — expected wrong output: `pin` 0.9.0 and `proseMatches` 0 for both lines. CLI check: in a fresh project (cli `npx github:Velklish/backslop#v0.11.0`) append ``Run `npx github:Velklish/backslop.git#v0.9.0 lint`.`` to docs/README.md and run `$BS lint; echo rc=$?` — expected wrong output: rc=0, no pin error.
-    2. Refutation check: docs/reference/01-layout.md § backslop.json (`cli` forms), README.md install/upgrade section and test/config.test.mjs: if the `.git` suffix and the `v`-less pin are documented as accepted forms, the pin matcher must widen; if only the canonical form is documented, `parseCli` must reject the others. Either way it is a bug; record which side the docs support.
-    3. Fix only if confirmed: make both grammars one — widen `pinRe` to `(?:\.git)?#v?` (and have `upgrade` rewrite such prose to the canonical form) or reject non-canonical forms in `parseCli`/`loadConfig`; tests for upgrade rewrite and lint detection.
+    2. Owner decision: the pin matcher widens to the forms `parseCli` accepts, and `parseCli` keeps accepting them. The assert that sanctions the `.git` suffix and the `v`-less pin is test/upgrade.test.mjs:47 (`parseCli('npx github:me/proj.git#1.0.0').pin === '1.0.0'`), not test/config.test.mjs.
+    3. Fix only if step 1 reproduces: widen `pinRe` to accept `(?:\.git)?#v?` and have `upgrade` rewrite such prose to the canonical `#vX.Y.Z`; tests for upgrade rewrite and lint detection.
 
 ## Out of scope
 
@@ -36,6 +36,6 @@ Module: command input interpretation (lib/merge-changelog.js, lib/archive.js, li
 
 ## Verification
 
-- For each item the result names the outcome of steps 1–2 with the command output and rc.
-- Each confirmed item has a red-then-green test; a sanctioned item has no code change (or only a doc sentence).
+- For each item the result names the outcome of steps 1–2 with the command output and rc (item 3: step 1 only; its step 2 is the owner decision).
+- Each confirmed item has a red-then-green test; a sanctioned item (items 1 and 2 only) has no code change (or only a doc sentence).
 - `npm test` → rc=0; `node bin/backslop.js lint` → rc=0.

@@ -11,7 +11,7 @@ Evidence was taken at commit 6f6318e (v0.11.0), where `npm test` (`node --test -
 
 Template pairs: `templates/en/<path>` is the source and `templates/<path>` is its ru twin. Edit en first, then carry the same change into ru. `templateParity` (run by `lint`) requires the same file set, the same placeholders and the same heading shape in both layers. Tests pin literal strings of the ru layer: grep `test/` for every ru sentence you change and update the assertion in the same commit.
 
-Files: `templates/{en/,}skills/backslop-seed/SKILL.md` and its `references/{inventory,adr-backfill}.md`, and the ADR sentence of `templates/{en/,}docs/README.md`. The skill's own section headings are "Phase 1" to "Phase 4"; they are quoted below by name. Line numbers below are from 6f6318e.
+Files: `templates/{en/,}skills/backslop-seed/SKILL.md` and its `references/{inventory,adr-backfill}.md`. The skill's own section headings are "Phase 1" to "Phase 4"; they are quoted below by name. Line numbers below are from 6f6318e.
 
 **Phase 4 promises a green lint that phase 3 makes impossible.** verified — a repro.
 - Commands: `$B init --lang en --cli backslop --tools claude`; append `| [Order intake](orders-api.md) | orders | src/orders |` to docs/reference/README.md; `$B seed --queue-reference` prints "✔ BS-1: docs/backlog/queue/BS-1-describe-orders-api.md"; then `$B lint; echo rc=$?`.
@@ -63,18 +63,18 @@ Files: `templates/{en/,}skills/backslop-seed/SKILL.md` and its `references/{inve
 ## Work to do
 
 - `templates/{en/,}skills/backslop-seed/SKILL.md`: remove ROADMAP from the description (:3), from the skeleton list (:8, the word "roadmap"), from survey question 2 (:36) and from step 5 of the "Phase 3" section (:51). Renumber the remaining survey questions and fill steps. Do this last: the line numbers below are from 6f6318e.
-- Phase 4 (:57-58): replace "`backslop lint` is green" with the real end state. After seeding, `{{cli}} lint` reports only broken links from reference/README.md to sections not written yet; everything else is green. Phase 3 step 4 must now tell the agent to fill Context, Work to do, Out of scope and Verification of every seeded `describe-<slug>` task from the inventory. Also add the check for markers outside the backlog: lint looks for `[TODO]` only under `{{docs}}/backlog`, so run `grep -rnE '\[(TODO|ASK|\?)' {{docs}}/` and report every hit.
+- Phase 4 (:57-58): replace "`backslop lint` is green" with the real end state. Right after `{{cli}} seed --queue-reference`, `{{cli}} lint` is red: the seeded tasks keep `[TODO]` fields until Phase 3 fills them, and reference/README.md links to sections not written yet. After Phase 3, lint reports only those broken links, which the seeded describe tasks close when they write the sections; everything else is green. Phase 3 step 4 must now tell the agent to fill Context, Work to do, Out of scope and Verification of every seeded `describe-<slug>` task from the inventory. Also add the check for markers outside the backlog: lint looks for `[TODO]` only under `{{docs}}/backlog`, so run `grep -rnE '\[(TODO|ASK|\?)' {{docs}}/` and report every hit.
 - Phase 1: in inventory.md, mark in each table which rows `seed --scan` reads (the sources listed in the context) and which are read by eye (README, CONTRIBUTING, noxfile, analyzers, data boundaries, and a bare `cli/` or `cmd/` without an entry file). Replace "it walks the sources of both tables" to match. In SKILL.md:24, remove README from the scanned sources or mark it manual.
 - Foreign ADRs: state the constraint once, in adr-backfill.md (:30). Migrated files must be renamed to `adr-NNN-<slug>.md`. After `init`, number 001 belongs to the process ADR, so migrated ADRs take the next free numbers and keep the original number in their text. Keeping the original numbers requires renumbering the process ADR first, with the owner's consent. SKILL.md:29 and :49 shrink to pointers to references/adr-backfill.md.
 - adr-backfill.md:25: delete the bullet (line 17 already covers Options), or reword it against the real sections: "do not fill Options or Consequences with alternatives or effects nobody weighed".
 - SKILL.md:50 example: use a directory-named label, e.g. `[orders-api](orders-api.md)`.
 - `[ASK]`: keep the definition at SKILL.md:14 and include the marker in the "Phase 4" check above.
-- ADR commit rule: next to the ADR-row sentence in templates/{en/,}docs/README.md, add one line: an ADR is committed with no `[TODO]` left, and its Status stays `Proposed` until the owner accepts it, then `Accepted`.
+- ADR commit rule, one line in the foreign-ADR section of adr-backfill.md (:28-30): a migrated ADR is committed with no `[TODO]` left, and its Status stays `Proposed` until the owner accepts it, then `Accepted`. Owner decision: this rule applies only to ADRs the seed migrates from foreign sources; the process ADR template stays `Status: Accepted` with its Deciders placeholder.
 - Command spelling: use `{{cli}}` in every runnable command of the seed skill and its references, and delete the alias sentence at :8. Skill names such as `backslop-task` stay. Update any test that pins literal seed-skill commands (`grep -rn "backslop-seed" test/`).
 
 ## Out of scope
 
-- Any lint change: exempting a reference link whose describe task exists, or a `[TODO]` gate in docs/adr/ (either needs an owner decision and an ADR).
+- Any lint change: exempting a reference link whose describe task exists (owner decision: lint stays red until the describe tasks write the sections), or a `[TODO]` gate in docs/adr/ (minor hypothesis BS-167.1).
 - Changing which sources `seed --scan` reads (lib/seed.js).
 - Deleting the ROADMAP templates and the migration (BS-157 (`remove-roadmap-from-layout`), done before this card).
 - test/seed.test.mjs:95-103: the red lint after seeding stays the documented state.
@@ -83,5 +83,6 @@ Files: `templates/{en/,}skills/backslop-seed/SKILL.md` and its `references/{inve
 
 - Follow phase 3 step 4 as rewritten, in a fresh en project (the repro from the context, with the seeded task filled): `$B lint` reports exactly what phase 4 says, i.e. only the broken link to the unwritten section.
 - Follow the new adr-backfill migration text with docs/adr/0001-use-pg.md: after the migration, `$B lint` exits 0 and `$B adr x` takes the next free number.
+- The process ADR template still reads `**Status:** Accepted` with its Deciders placeholder in both layers, and the commit rule appears only in the foreign-ADR section of references/adr-backfill.md.
 - `$B init --lang en --cli backslop --tools claude; grep -rn "is called" .claude/skills/backslop-seed/` finds nothing. With the default pin, `` grep -rnE '`backslop (adr|new|lint|status|init|seed)' .claude/skills/backslop-seed/ `` finds nothing.
 - `npm test` exits 0 with no failing test (450 at the base commit, plus the tests this card adds); `node bin/backslop.js lint` exits 0 (templateParity and the key check stay clean).

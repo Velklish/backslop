@@ -3,7 +3,7 @@
 - **Order:** 440
 - **Scope:** [02. CLI](../../reference/02-cli.md) § status --json
 - **Created:** 2026-09-25
-- **Dependencies:** BS-92, BS-98
+- **Dependencies:** BS-92, BS-98, BS-102
 
 ## Context
 
@@ -17,7 +17,7 @@ Machine-readable output is a contract: `status --json` is listed as stable in do
 ## Work to do
 
 - lib/status.js:19 and :24: apply `|| null` to `created` and `taken`. Document in docs/reference/02-cli.md (`status --json` section, current language) that a blank or missing created, taken, area or cost is `null`.
-- docs/reference/02-cli.md (gates entry): document `tree.dirty` as the newline-joined `git status --porcelain` text, and document `total` for `seed --scan --json`. lib/seed.js:53: add `total` (number of subsystems) to the scan JSON.
+- docs/reference/02-cli.md (gates entry): document `tree.dirty` as the newline-joined `git status --porcelain` lines of the project's area, with paths relative to the project (both sides of a rename; the BS-102 (`unverified-repo-state-reports`) card), and document `total` for `seed --scan --json`. lib/seed.js:53: add `total` (number of subsystems) to the scan JSON.
 - `status --json` is a contract: state the null rule in docs/reference/02-cli.md (BS-176 (`orchestrator-contract-reference`) moves it into the contract page later), and add an English CHANGELOG entry under the unreleased section for the created/taken change and the new `seed --scan` total.
 
 ## Out of scope

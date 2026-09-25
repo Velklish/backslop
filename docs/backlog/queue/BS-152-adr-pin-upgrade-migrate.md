@@ -3,7 +3,7 @@
 - **Order:** 700
 - **Scope:** [02. CLI](../../reference/02-cli.md) § upgrade
 - **Created:** 2026-09-25
-- **Dependencies:** BS-143, BS-84, BS-85, BS-108, BS-99, BS-90, BS-151, BS-120, BS-93
+- **Dependencies:** BS-143, BS-84, BS-85, BS-108, BS-99, BS-90, BS-151, BS-120, BS-93, BS-101, BS-103
 
 ## Context
 
@@ -11,7 +11,7 @@ Four Russian ADRs describe the version pin and its movement: docs/adr/adr-004-ve
 
 Line numbers below are at base commit 6f6318e (v0.11.0), where `npm test` passes 450 tests and `node bin/backslop.js lint` exits 0. The cards named under Dependencies change some of the cited code; read the code on the commit you start from and cite file:line from that commit, not from this card.
 
-Dependencies change this topic heavily: the BS-84 (`upgrade-completes-pinned-consumers`) card moves the prose-pin rewrite after `migrate` and `init`, takes the from-version as the lower of pin and stamp, rewrites every pin occurrence inside gate commands, extends the stale-pin lint check to `gates` and `probe`, compares the probed version with the target, and pins a floating cli already on the latest tag; BS-93 (`upgrade-source-path-from-root`) resolves a relative `source` from the project root; the BS-85 (`rewrite-guards-against-data-loss`) card skips symlinked and non-UTF-8 files in the prose rewrite and makes migrate refuse on any git failure except 'not a repository'; the BS-108 (`drop-pre-floor-version-gates`) card deletes `MIN_UPGRADE_TARGET` (lib/upgrade.js:11-13, :116-118) and the 0.9.0 migration (lib/migrate.js:17-26); the BS-99 (`unverified-lint-gate-gaps`) card checks journal lines (below). The ADR records the code after all of them.
+Dependencies change this topic heavily: the BS-84 (`upgrade-completes-pinned-consumers`) card moves the prose-pin rewrite after `migrate` and `init`, takes the from-version as the lower of pin and stamp, rewrites every pin occurrence inside gate commands, extends the stale-pin lint check to `gates` and `probe`, compares the probed version with the target, and pins a floating cli already on the latest tag; BS-93 (`upgrade-source-path-from-root`) resolves a relative `source` from the project root; the BS-85 (`rewrite-guards-against-data-loss`) card skips symlinked and non-UTF-8 files in the prose rewrite and makes migrate refuse on any git failure except 'not a repository'; the BS-108 (`drop-pre-floor-version-gates`) card deletes `MIN_UPGRADE_TARGET` (lib/upgrade.js:11-13, :116-118) and the 0.9.0 migration (lib/migrate.js:17-26); the BS-99 (`unverified-lint-gate-gaps`) card checks journal lines (below); the BS-101 (`unverified-command-input-forms`) card widens the pin matcher (`pinRe`) to the pin forms `parseCli` accepts, and the BS-103 (`unverified-lang-switch-redraw`) card makes a `lang` change redraw the rules pair. The ADR records the code after all of them.
 
 **Rules to record** (verified — read at 6f6318e against the cited lines):
 - Pin and stamp: a new config gets the pinned default cli and `version` = tool version (lib/init.js:73, :79); re-running init restamps (:175-178) but never changes cli (:57-61); init and migrate refuse a stamp newer than the tool (lib/init.js:54-56, lib/migrate.js:78-80). A pin is the cli release form plus a whole X.Y.Z (lib/config.js:62-71); the list of forms is in the runtime/release ADR.
@@ -34,7 +34,7 @@ Dependencies change this topic heavily: the BS-84 (`upgrade-completes-pinned-con
 
 **How to write a consolidated ADR (applies to every ADR this card creates).** Create it with `node bin/backslop.js adr <slug> --title "<title>"` (the repository runs with `lang: en`, so the English template with Context / Options / Decision / Consequences is used and the number is the next free one; if another card takes the same number first, renumber on rebase: lint gate 8 refuses duplicate numbers). Header: `Status: Accepted`, `Date:` the day you write it, `Deciders: Velklish`. The text must not mention the numbers or file names of the ADRs it replaces, task or finding numbers, run ids, commit hashes, dated measurements or "owner decision of <date>" notes. Cite code by file and function name, not by line number (line numbers below are at base commit 6f6318e and only help you find the code). Options keeps only the rejected alternatives that still explain the choice, each with its cost in one sentence. Then delete the replaced ADR files and replace their rows in `docs/README.md` with one row for the new ADR (topic in English, Status equal to the Status line of the file; keep the table's current column layout). Every remaining reference to a deleted file is handled in the same card: links in `CHANGELOG.md` lose their link markup and old ADR tokens (the CHANGELOG rewrite drops them anyway); links and citations in `docs/reference/`, `docs/GLOSSARY.md` and `AGENTS.md` are dropped, not repointed (rules there carry no ADR citations); code and test comments that cite an old ADR get the new ADR id (`ADR-NNN`) and lose quoted section names the new ADR does not have — comments stay at most two lines and 100 code points per line (`npm test` enforces it).
 
-**Links at 6f6318e** (`git grep -n -i -E 'adr-0(04|07|19|32)'`): docs/README.md:15, :18, :30, :43; comments lib/config.js:26 (ADR-004), :41 (ADR-007), lib/upgrade.js:2 (ADR-004), :47 (ADR-019), lib/mdwalk.js:113 (ADR-019), lib/migrate.js:42 (ADR-032), test/upgrade.test.mjs:242 (ADR-032); docs/reference/01-layout.md:32 (ADR-032), docs/reference/02-cli.md:25, :26 (ADR-032), :47 (ADR-007); CHANGELOG.md:22 (ADR-032); older ADRs docs/adr/adr-001-process.md:3, :16 and adr-022-cost-decides-finding-fate.md:15, :38 (links to adr-019). docs/archive/LOG.md:30 mentions ADR-004/ADR-007 in a history line (plain text, not a link) and stays. test/init.test.mjs:571-572 name `adr-004-process.md`, a fixture inside a temp project.
+**Links at 6f6318e** (`git grep -n -i -E 'adr-0(04|07|19|32)'`): docs/README.md:15, :18, :30, :43; comments lib/config.js:26 (ADR-004), :41 (ADR-007), lib/upgrade.js:2 (ADR-004), :47 (ADR-019), lib/mdwalk.js:113 (ADR-019), lib/migrate.js:42 (ADR-032), test/upgrade.test.mjs:242 (ADR-032); docs/reference/01-layout.md:32 (ADR-032), docs/reference/02-cli.md:25, :26 (ADR-032), :47 (ADR-007); CHANGELOG.md:22 (ADR-032); older ADRs docs/adr/adr-001-process.md:3, :16 and adr-022-cost-decides-finding-fate.md:15, :38 (links to adr-019). docs/archive/LOG.md:30 mentions ADR-004/ADR-007 in the title text of a journal line (plain text, not a link). test/init.test.mjs:571-572 name `adr-004-process.md`, a fixture inside a temp project.
 
 ## Work to do
 
@@ -47,6 +47,7 @@ Dependencies change this topic heavily: the BS-84 (`upgrade-completes-pinned-con
 - docs/README.md: replace rows 15, 18, 43 and 30 (numbers at 6f6318e) with one English row `| [adr/adr-NNN-version-pin-upgrade-migrate.md](adr/adr-NNN-version-pin-upgrade-migrate.md) | Version pin, upgrade and migrate | Accepted |`.
 - docs/reference/01-layout.md:32 and 02-cli.md:25, :26, :47: delete the ADR citations, keep the sentences.
 - CHANGELOG.md:22: delete the ADR-032 link, keep the rest of the entry.
+- docs/archive/LOG.md:30, the journal line of `BS-21-adr-004-status-stale`. Owner decision: the old ADR numbers are removed from its title text; the slug is an identifier and stays as it is. Reword the title without the numbers and keep its meaning.
 - Comments lib/config.js:26, :41, lib/upgrade.js:2, :47, lib/mdwalk.js:113, lib/migrate.js:42, test/upgrade.test.mjs:242 (those that still exist): replace the old id with the new ADR id; at lib/upgrade.js:2 the new ADR now records the probe, so the pointer is correct; keep each comment within two lines of 100 characters.
 - After deleting, run `git grep -n -e adr-004-version-pin-upgrade -e adr-007-npm-pin -e adr-032-tool-owned-rules-redrawn-by-migrate -- '*.md'`: every hit in an older ADR file that still exists (another cluster not consolidated yet) gets its link target repointed to the new ADR file, and its link text to the new ADR id; lint gate 1 walks docs/** and root *.md and turns red on a link to a deleted file. Add `adr-019-live-pins-and-findings` to the grep.
 
@@ -54,13 +55,12 @@ Dependencies change this topic heavily: the BS-84 (`upgrade-completes-pinned-con
 
 - Code changes to upgrade, migrate, lint or mdwalk — the dependency cards.
 - The finding-numbering half of ADR-019 — the findings consolidation.
-- docs/archive/LOG.md:30 — a history line.
 - A CHANGELOG entry: nothing user-visible changes.
 
 ## Verification
 
 - `node bin/backslop.js lint; echo rc=$?` → rc=0.
 - `npm test; echo rc=$?` → rc=0; report the pass count.
-- `git grep -n -i -E 'adr-0(04|07|32)' -- . ':!docs/archive/LOG.md' ':!test/init.test.mjs'; echo rc=$?` → no output, rc=1; `git grep -n -i adr-019 -- . ':!docs/archive/LOG.md'` → no output.
+- `git grep -n -i -E 'adr-0(04|07|32)' -- . ':!docs/archive/LOG.md' ':!test/init.test.mjs'; echo rc=$?` → no output, rc=1; `git grep -n -i adr-019 -- . ':!docs/archive/LOG.md'` → no output; `git grep -n -E 'ADR-0(04|07)' -- docs/archive/LOG.md; echo rc=$?` → no output, rc=1 (the lowercase slug `BS-21-adr-004-status-stale` stays).
 - `grep -o -E 'ADR-[0-9]{3}' docs/adr/adr-NNN-version-pin-upgrade-migrate.md | sort -u` → only `ADR-NNN`; `grep -n -E 'BS-[0-9]|0\.2\.0|126-137' docs/adr/adr-NNN-version-pin-upgrade-migrate.md` → no output.
 - The Decision names the probe before any write, `--to`, the downgrade refusal, `--dry-run`, `--pin-only` and the early-exit condition, each with the implementing function in lib/upgrade.js.
