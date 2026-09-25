@@ -126,6 +126,57 @@ test('brief: EN project renders the English twin', () => {
   }
 });
 
+test('brief: old CLI pin warns, with stdout equal after normalizing the pin token', () => {
+  const root = makeProject();
+  try {
+    seed(root);
+    const cfg = { ...JSON.parse(read(root, 'backslop.json')), gates: ['npm test'], probe: 'npm test' };
+    const render = (command) => {
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, cli: command }, null, 2)}\n`);
+      const result = cli(root, ['brief', '3']);
+      assert.equal(result.code, 0, result.err);
+      return result;
+    };
+    const old = render('npx backslop@0.9.0');
+    const floor = render('npx backslop@0.10.0');
+    assert.ok((old.out.match(/backslop@0\.9\.0/g) ?? []).length > 0);
+    assert.equal(old.out.replaceAll('backslop@0.9.0', 'backslop@0.10.0'), floor.out);
+    assert.match(old.err, /--evidence/);
+    assert.match(old.err, /npx backslop@0\.9\.0 upgrade/);
+    assert.equal(floor.err, '');
+    for (const command of ['npx backslop@0.11.0', 'npx backslop', 'npx backslop@latest']) {
+      assert.equal(render(command).err, '');
+    }
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, cli: 'npx backslop@0.9.0', lang: 'en' }, null, 2)}\n`);
+    const english = cli(root, ['brief', '3']);
+    assert.equal(english.code, 0, english.err);
+    assert.match(english.err, /Pinned CLI .* lacks .*--evidence.*upgrade/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('brief: GitHub CLI pin warning follows the command floor', () => {
+  const root = makeProject();
+  try {
+    seed(root);
+    const cfg = { ...JSON.parse(read(root, 'backslop.json')), lang: 'en', gates: ['npm test'], probe: 'npm test' };
+    const render = (command) => {
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, cli: command }, null, 2)}\n`);
+      const result = cli(root, ['brief', '3']);
+      assert.equal(result.code, 0, result.err);
+      return result;
+    };
+    const old = render('npx github:Velklish/backslop#v0.9.0');
+    assert.match(old.err, /--evidence/);
+    assert.match(old.err, /npx github:Velklish\/backslop#v0\.9\.0 upgrade/);
+    assert.equal(render('npx github:Velklish/backslop#v0.10.0').err, '');
+    assert.equal(render('npx github:Velklish/backslop').err, '');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('brief: архивная задача без task.md — отказ словами, а не ENOENT', () => {
   const root = makeProject();
   try {
