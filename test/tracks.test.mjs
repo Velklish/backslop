@@ -2,7 +2,8 @@
 // Worktree заводятся настоящим git: проверяется чтение живого состояния репозитория.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, makeProject, put, run } from './helpers.mjs';
@@ -178,5 +179,53 @@ test('tracks: detached worktree меряется по своему sha, а не 
   } finally {
     rmSync(beside(root, 'detached'), { recursive: true, force: true });
     cleanup(root);
+  }
+});
+
+test('tracks: a branch named like a path is read as a branch, its task commit listed', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n');
+    run(root, ['add', '-A']);
+    run(root, ['commit', '-qm', 'init']);
+    run(root, ['checkout', '-q', '-b', 'docs']);
+    run(root, ['commit', '-q', '--allow-empty', '-m', 'BS-1: work on docs branch']);
+    run(root, ['checkout', '-q', 'main']);
+
+    const report = JSON.parse(cli(root, ['tracks', '--json']).out);
+    assert.equal(report.tracks.length, 1);
+    assert.equal(report.tracks[0].branch, 'docs');
+    assert.equal(report.tracks[0].pending.length, 1);
+    assert.match(report.tracks[0].pending[0], /BS-1: work on docs branch/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('tracks: a git log that fails reports pending as unchecked, not as empty', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    seedRun(root);
+    run(root, ['branch', 'side']);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = "$KILL_ON" ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+
+    const json = cli(root, ['tracks', '--json'], { env: { ...env, KILL_ON: 'log' } });
+    assert.equal(json.code, 0, json.err);
+    const report = JSON.parse(json.out);
+    assert.deepEqual(report.tracks.map((t) => [t.branch, t.pending]).sort(),
+      [['side', null], ['track-merged', null], ['track-pending', null]], 'an unchecked branch is listed, not dropped');
+    const text = cli(root, ['tracks'], { env: { ...env, KILL_ON: 'log' } });
+    assert.equal(text.code, 0, text.err);
+    assert.match(text.out, /track-pending\)\n {4}не влит в HEAD\n {4}не влитые коммиты задач: спросить не удалось\n/);
+
+    const list = cli(root, ['tracks'], { env: { ...env, KILL_ON: 'worktree' } });
+    assert.equal(list.code, 1, list.out);
+    assert.match(list.err, /git worktree list --porcelain: оборван сигналом SIGKILL/);
+  } finally {
+    rmSync(shim, { recursive: true, force: true });
+    dropRun(root);
   }
 });
