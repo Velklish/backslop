@@ -1,0 +1,48 @@
+# BS-128 · Test behaviour instead of test-only lib exports; trim unused test-helper exports
+
+- **Order:** 460
+- **Scope:** [Reference](../../reference/README.md)
+- **Created:** 2026-09-25
+- **Dependencies:** BS-104, BS-107
+
+## Context
+
+All evidence below was taken at commit 6f6318e (v0.11.0), where `npm test` runs 450 tests (450 pass, rc=0) and `node bin/backslop.js lint` exits 0. "Removal probe" means: the change was applied in a throwaway clone at that commit, then the full suite and lint were run.
+
+Several `lib/` exports exist only so that a test can import them, and several exports and options in the test helpers are never used. Each item below says whether to keep the export or to test the behaviour through the public function. A mutation probe was run wherever the decision depends on test coverage.
+
+- **links.js `refDefinitions`: un-export it and assert through `relativeLinks`.** verified — grep, a probe and a mutation probe. `grep -rnw refDefinitions lib bin scripts test templates docs` finds lib/links.js:61 (the definition), :82 (the internal call in `relativeLinks`) and test/links.test.mjs:9, :129, :163 and :164. The probe dropped the export and replaced `refDefinitions(` with `relativeLinks(` at test lines 129, 163 and 164; the inputs contain no inline links, so the expected hrefs are unchanged. The result was links.test.mjs 17/17 and 450/450. The mutation `canStart = true` in `refEntries` turns the rewritten test 'reference-style объявление только в начале абзаца' red, so the rule stays covered.
+- **adapter-ownership `isAdapterRel`: un-export it and assert through `isOwnedAdapterFile`.** verified — a probe and a mutation probe. The only uses outside the module are test/adapter-ownership.test.mjs:7 (the import) and :46 (`assert.equal(isAdapterRel('docs/adr.md'), false);`). Replacing :46 with `assert.equal(isOwnedAdapterFile('docs/marked.md', put(dir, 'docs/marked.md', markGenerated('# x\n'))), false);` kept the file at 5/5, and the mutation `isAdapterRel → return true` turns it red. The fixture must carry the marker at the start. Otherwise `hasGeneratedMarker` alone makes the result false; the existing :47 assertion does not guard the path check for exactly that reason.
+- **tasks.js `readFields`: move it into the test as a local helper.** verified — grep and a probe. It has no production caller; production reads fields with `getField` and `fieldOccurrences` (lib/tasks.js:404-411). Its uses are test/tasks.test.mjs:7 and :51-56, where it observes the key order `setField` produces, and :81 `assert.equal(readFields(duplicate).get('Order'), '30');`, which :82 `assert.equal(getField(duplicate, FIELD_ORDER), '30');` already covers through production. The probe removed the export, added a local reader to the test and deleted :81; the result was 450/450 and lint rc=0.
+- **version.js `parseVersion` and config.js `BLOCK_MARKER_RE`.** verified — grep, a removal probe and a mutation probe. No lib, bin or scripts module imports them outside their own file. Un-exporting `parseVersion` and deleting test/version.test.mjs:12-15 kept 450/450 and lint rc=0. The `normalizeVersion` and `compareVersions` tests do not cover `parseVersion`: a mutation of the regex at lib/version.js:9 that drops `$` and accepts suffixes survives the whole suite once those lines are gone. The rejection cases therefore have to be re-expressed through `normalizeVersion`. For `BLOCK_MARKER_RE` (lib/config.js:23), the assertion at test/config.test.mjs:126-128 only checks the regex itself; un-exporting it and dropping the assertion is safe (450/450). A mutation probe confirms it is tautological: BLOCK_START, BLOCK_END and BLOCK_MARKER_RE are all built from BLOCK_MARKERS (lib/config.js:21-23); with :126-128 deleted and `BLOCK_MARKER_RE = /backslop:end/`, the probe test still fails (`Missing expected exception`) and so does :140. `rewriteGates` stays exported: test/upgrade.test.mjs:89-101 is the only guard that keeps `when` scopes and returns the same reference. `MIGRATIONS`, `listReleaseTags` and `renderTemplate` stay exported: their tests check real invariants or serve as oracles.
+- **util.js `git(root, args, opts = {})`: the third parameter exists for one test.** verified — a bracket-aware scan and a probe. A scan of all 49 `git(` calls finds a third argument to `util.git` only at test/fold.test.mjs:732 (`git(root, ['cat-file', 'blob', 'HEAD:docs/bulk.txt'], { maxBuffer: 1024 })`), which forces ENOBUFS for `gitCause`. The other calls with three or more arguments go to local variadic helpers (test/commands.test.mjs:92, test/fold.test.mjs:824). Dropping `opts`/`...opts` at lib/util.js:36-37 and calling `spawnSync` directly at test/fold.test.mjs:732 (spawnSync is already imported at :4) kept fold.test at 29/29, the full suite at 450/450 and lint rc=0.
+- **Unused imports in tests.** verified — grep and a probe (450/450). `mkdtempSync` (test/tracks.test.mjs:5) and `os` (:6) appear only on their import lines, and so does `mkdirSync` (test/upgrade.test.mjs:6).
+- **test/helpers.mjs exports `REPO` with zero consumers.** verified — a probe (450/450). `grep -rn "import.*REPO" test` prints nothing. test/release.test.mjs:11 defines its own `REPO` and does not import helpers.mjs at all. helpers.mjs uses REPO internally at :71 and :100.
+- **`makeProject` options: `docs` is never passed, and `prefix` only ever gets its default.** verified — a probe (450/450). `grep -rhno "makeProject({[^)]*})" test | sed 's/.*makeProject//' | sort | uniq -c` gives 64 `({ git: false })`, 3 `({ git: false, stamp: false })`, 1 `({ stamp: false })` and 12 `({ prefix: 'BS' })`, the last all in test/merge-changelog.test.mjs. There are also 114 bare calls and no `docs:`. The signature is `makeProject({ prefix = 'BS', docs = 'docs', git = true, stamp = true } = {})` (test/helpers.mjs:15).
+
+## Work to do
+
+- lib/links.js:61: drop `export` from `refDefinitions`. In test/links.test.mjs, remove it from the import at :9 and change `refDefinitions(` to `relativeLinks(` at :129, :163 and :164, with the same inputs and expected values.
+- lib/adapter-ownership.js:38: drop `export` from `isAdapterRel`. In test/adapter-ownership.test.mjs, remove it from the import at :7 and replace :46 with an `isOwnedAdapterFile('docs/marked.md', <file written with markGenerated('# x\n')>)` === false assertion.
+- lib/tasks.js:396-402: drop `export function readFields`. In test/tasks.test.mjs, remove it from the import at :7, add a local header-field reader for :51-56 (split into lines, stop at `## `, match `/^- \*\*([^*:\n]+):\*\*[ \t]*(.*)$/`, first occurrence wins), and delete :81.
+- lib/version.js:8: drop `export` from `parseVersion`. Replace test/version.test.mjs:12-15 with `normalizeVersion` assertions that keep the rejection cases covered: `normalizeVersion('1.2') === null`, `normalizeVersion('v1.2.3-beta') === null`, `normalizeVersion('10.0.7') === '10.0.7'`.
+- lib/config.js:23: drop `export` from `BLOCK_MARKER_RE`, and delete the regex assertion at test/config.test.mjs:126-128 along with its import; keep the comment at :124-125 (it explains why :129 builds values from the constants) and :129-131.
+- lib/util.js:36-37: remove the `opts` parameter and `...opts`. At test/fold.test.mjs:732, call `spawnSync('git', ['-C', root, 'cat-file', 'blob', 'HEAD:docs/bulk.txt'], { encoding: 'utf8', maxBuffer: 1024 })` directly.
+- test/tracks.test.mjs:5-6: drop `mkdtempSync` and delete the `os` import line. test/upgrade.test.mjs:6: drop `mkdirSync`.
+- test/helpers.mjs:11: drop `export` from `REPO`.
+- test/helpers.mjs:15: change the signature to `makeProject({ git = true, stamp = true } = {})`, with `const prefix = 'BS', docs = 'docs'` inside. Replace the 12 `makeProject({ prefix: 'BS' })` calls in test/merge-changelog.test.mjs with `makeProject()`.
+
+## Out of scope
+
+- Un-exporting `rewriteGates`, `MIGRATIONS`, `listReleaseTags` or `renderTemplate`. Their direct tests guard real invariants: `rewriteGates` keeping `when`, the `since <= TOOL_VERSION` invariant, the 20k-tag ls-remote parser, and the template oracle.
+- Un-exporting `mergeChangelog`, `CONFLICT_MARK` or `parseLogLine`, or dropping the `mergeChangelog` defaults. The tests drive the real merge engine and log parser (22 direct calls plus 17 CLI cases). Dropping the defaults would touch 19 test calls and the documented default in the changelog-merge ADR for no behaviour gain.
+- Un-exporting `gates.globToRe`. The unit table at test/gates.test.mjs:420-431 is the only guard of the glob contract: with it removed, the mutations `*` → `.*` and `**/` → `.*/` pass all the remaining gates tests.
+- Production call sites, apart from the `util.git` signature.
+
+## Verification
+
+- `for n in refDefinitions isAdapterRel readFields parseVersion BLOCK_MARKER_RE; do grep -rnw "export.*$n" lib; done` prints nothing. `grep -rn "import.*\(refDefinitions\|isAdapterRel\|readFields\|parseVersion\|BLOCK_MARKER_RE\)" test` prints nothing.
+- Mutation probe, reverting each change afterwards: (1) in lib/links.js `refEntries`, set `canStart = true`; `node --test test/links.test.mjs` must fail. (2) Make `isAdapterRel` return true; `node --test test/adapter-ownership.test.mjs` must fail. (3) Remove `$` from the regex at lib/version.js:9; `node --test test/version.test.mjs` must fail.
+- `grep -rn "makeProject({ prefix" test` prints nothing. `grep -n "opts" lib/util.js` shows no `git` parameter.
+- `npm test > t.out 2>&1; echo rc=$?` gives rc=0 with 0 fail. The count equals the count before this card, since only assertions inside existing tests change.
+- `node bin/backslop.js lint > l.out 2>&1; echo rc=$?` gives rc=0.
