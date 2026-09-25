@@ -144,3 +144,4 @@
 - <a id="bs-88.1"></a>`BS-88.1-tracks-git-failure-reads-as-empty` · 2026-09-25 · completed · — · tracks: a failed git call outside pendingCommits reads as 'no repository' or 'no branches'
 - <a id="bs-98"></a>`BS-98-seed-scan-and-queue-reference` · 2026-09-25 · completed · — · seed: English Scope, script filter, YAML block scalars, worktrees, quoted paths, slugs
 - <a id="bs-99"></a>`BS-99-unverified-lint-gate-gaps` · 2026-09-25 · completed · — · Check and fix: journal pins, monorepo root links, malformed quote markers, [TODO] forms
+- <a id="bs-94"></a>`BS-94-config-validation-one-rule-set` · 2026-09-25 · completed · — · backslop.json: one validator for init and every command; BOM, prefix type, gate strings

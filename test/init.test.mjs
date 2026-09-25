@@ -107,6 +107,39 @@ test('init: --cli с меткой блока — отказ до первой з
   }
 });
 
+test('init refuses --cli and --dir values that later commands would refuse, before any write', () => {
+  for (const args of [['--cli', ''], ['--cli', '  '], ['--dir', '../x'], ['--dir', 'a\\..\\b'], ['--dir', 'docs/../x'], ['--dir', 'C:\\x'], ['--dir', 'C:/x'], ['--dir', '\\\\server\\x']]) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', '--lang', 'en', '--tools', 'none', ...args]);
+      assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+      assert.match(r.err, /^✖ .*(cli must be a non-empty command string|expected a relative path inside the project)/, args.join(' '));
+      assert.doesNotMatch(r.err, /\n\s+at /, `${args.join(' ')}: a stack`);
+      assert.equal(existsSync(path.join(root, 'backslop.json')), false, `${args.join(' ')}: the config was written`);
+      assert.equal(existsSync(path.join(root, 'AGENTS.md')), false, `${args.join(' ')}: the block was written`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('init --dir with ".." inside a name passes init and every later command', () => {
+  for (const dir of ['my..docs', 'docs..v2']) {
+    const root = emptyRepo();
+    try {
+      let r = cli(root, ['init', '--dir', dir, '--tools', 'none', '--lang', 'en']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(JSON.parse(read(root, 'backslop.json')).docs, dir);
+      r = cli(root, ['lint']);
+      assert.equal(r.code, 0, `${dir}: ${r.err}`);
+      r = cli(root, ['init']);
+      assert.equal(r.code, 0, `${dir}: ${r.err}`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test('init: agents.stepOverrides заменяет шаг в RU и EN блоке и сохраняется при повторе', () => {
   for (const [lang, override, escaped, oldStep] of [
     ['ru', 'Проверяй гейты командой `npm run probe` и сохраняй снимок дерева.', 'Проверяй гейты командой \\`npm run probe\\` и сохраняй снимок дерева\\.', /4\. \*\*Гейты до отчёта\./],
@@ -338,6 +371,25 @@ test('init refuses a non-UTF-8 AGENTS.md or rewritten .gitignore before any writ
   }
 });
 
+test('a BOM-prefixed backslop.json loads: lint is green, help follows lang, init rewrites it without BOM', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init', '--lang', 'en', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    put(root, 'backslop.json', `\uFEFF${read(root, 'backslop.json')}`);
+    r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    r = cli(root, ['help']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^backslop — a file-based backlog/, 'help fell back to Russian');
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(readFileSync(path.join(root, 'backslop.json'))[0], 0x7B, 'the rewritten config starts with a BOM');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('init: markers quoted in prose are not the block; a marker line twice is refused', () => {
   const root = emptyRepo();
   try {
@@ -392,6 +444,31 @@ test('init: при tools=[] CLAUDE.md-симлинк сохраняется; --d
     assert.match(r.out, /CLAUDE\.md: не выбран/);
     assert.equal(JSON.parse(read(root, 'backslop.json')).docs, 'docs');
     assert.doesNotMatch(read(root, 'AGENTS.md'), /docs\/\//);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init: a repeated --dir spelling the stored docs differently is not a conflict', () => {
+  const root = emptyRepo();
+  try {
+    for (const dir of ['docs/', 'docs/', './docs']) {
+      const r = cli(root, ['init', '--dir', dir, '--tools', 'none']);
+      assert.equal(r.code, 0, `--dir ${dir}: ${r.err}`);
+    }
+    assert.equal(JSON.parse(read(root, 'backslop.json')).docs, 'docs');
+    let r = cli(root, ['init', '--dir', 'doc']);
+    assert.equal(r.code, 1, 'another directory still conflicts with the config');
+    assert.match(r.err, /docs = «docs»/);
+    r = cli(root, ['init', '--dir', 'docs/../docs']);
+    assert.equal(r.code, 1, 'a .. segment passed because it normalises to the stored docs');
+    assert.match(r.err, /^✖ --dir “docs\/\.\.\/docs”: expected a relative path inside the project/);
+    put(root, 'backslop.json', read(root, 'backslop.json').replace('"docs": "docs"', '"docs": "./docs"'));
+    for (const dir of ['./docs', 'docs', 'docs/']) {
+      r = cli(root, ['init', '--dir', dir, '--tools', 'none']);
+      assert.equal(r.code, 0, `stored ./docs, --dir ${dir}: ${r.err}`);
+    }
+    assert.equal(JSON.parse(read(root, 'backslop.json')).docs, './docs', 'init rewrote the stored spelling');
   } finally {
     cleanup(root);
   }

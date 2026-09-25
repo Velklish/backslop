@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BLOCK_END, BLOCK_MARKER_RE, BLOCK_START, PREFIX_RE, loadConfig } from '../lib/config.js';
-import { cleanup, makeProject, put } from './helpers.mjs';
+import { cleanup, cli, makeProject, put } from './helpers.mjs';
 
 test('config: legacy projects read as ru with no adapters', () => {
   const root = makeProject({ git: false });
@@ -72,6 +72,52 @@ test('config: prefix, docs, cli и gates проверяются формой', (
   } finally { cleanup(root); }
 });
 
+test('config: a leading BOM is ignored on read', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'backslop.json', `\uFEFF${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'en' }, null, 2)}\n`);
+    assert.equal(loadConfig(root).lang, 'en');
+    const r = cli(root, ['help']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^backslop — a file-based backlog/, 'help fell back to Russian');
+  } finally { cleanup(root); }
+});
+
+test('config: a non-string prefix is refused by every command, without a stack', () => {
+  const root = makeProject();
+  try {
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: ['BS'], docs: 'docs', gates: [], lang: 'en' }, null, 2)}\n`);
+    assert.throws(() => loadConfig(root), /prefix “\["BS"\]” — expected 2–6 uppercase/);
+    for (const args of [
+      ['init'], ['new', 'x'], ['mv', '1', 'queue'], ['archive', '1'], ['fold', '1'], ['fold'], ['show', '1'],
+      ['adr', 'x'], ['brief', '1'], ['seed', '--scan'], ['status'], ['lint'], ['gates'], ['tracks'],
+      ['upgrade', '--dry-run'], ['migrate', '--dry-run'], ['changelog'], ['merge-changelog', '--ours', 'HEAD', '--theirs', 'HEAD'],
+    ]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+      assert.match(r.err, /^✖ backslop\.json: prefix “\["BS"\]” — expected 2–6 uppercase/, args.join(' '));
+      assert.doesNotMatch(r.err, /\n\s+at /, `${args.join(' ')}: a stack`);
+    }
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 7, docs: 'docs', gates: [] }, null, 2)}\n`);
+    assert.throws(() => loadConfig(root), /prefix «7»/);
+  } finally { cleanup(root); }
+});
+
+test('config: docs is a relative path inside the project on every OS', () => {
+  const root = makeProject({ git: false });
+  const setDocs = (docs) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs, gates: [], lang: 'en' }, null, 2)}\n`);
+  try {
+    for (const docs of ['my..docs', 'docs..v2', 'a/b', 'docs/', './docs']) {
+      setDocs(docs);
+      assert.equal(loadConfig(root).docs, docs, `«${docs}» was refused`);
+    }
+    for (const docs of ['', '.', './', '..', '../x', 'a/../b', 'a\\..\\b', '..\\x', '/x', '\\x', 'C:\\x', 'C:/x', 'c:x', '\\\\server\\x', 7]) {
+      setDocs(docs);
+      assert.throws(() => loadConfig(root), /docs “.*” — expected a relative path inside the project/, `«${docs}» was accepted`);
+    }
+  } finally { cleanup(root); }
+});
+
 // BS-66: у записи `gates` две законные формы. Строка — как было; объект несёт область.
 test('config: запись gates — строка или объект { command, when }', () => {
   const root = makeProject({ git: false });
@@ -94,6 +140,20 @@ test('config: запись gates — строка или объект { command,
     assert.throws(() => loadConfig(root), /gates\[0\]\.when — непустой список/);
     setGates(['npm test', null]);
     assert.throws(() => loadConfig(root), /gates\[1\] — строка-команда или объект/);
+  } finally { cleanup(root); }
+});
+
+test('config: a blank string gate is refused like a blank command', () => {
+  const root = makeProject();
+  try {
+    for (const gate of ['', '   ']) {
+      put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [gate], lang: 'en' }, null, 2)}\n`);
+      assert.throws(() => loadConfig(root), /gates\[0\] must be a non-empty command string/);
+      const r = cli(root, ['gates']);
+      assert.equal(r.code, 1, `«${gate}»: ${r.out}`);
+      assert.match(r.err, /^✖ backslop\.json: gates\[0\] must be a non-empty command string/);
+      assert.doesNotMatch(r.err, /\n\s+at /, `«${gate}»: a stack`);
+    }
   } finally { cleanup(root); }
 });
 

@@ -123,7 +123,7 @@ function projectLang(cwd) {
   const root = findRoot(cwd);
   if (!root) return null;
   try {
-    return JSON.parse(readFileSync(path.join(root, 'backslop.json'), 'utf8')).lang === 'en' ? 'en' : 'ru';
+    return JSON.parse(readFileSync(path.join(root, 'backslop.json'), 'utf8').replace(/^\uFEFF/, '')).lang === 'en' ? 'en' : 'ru';
   } catch { return 'ru'; }
 }
 
