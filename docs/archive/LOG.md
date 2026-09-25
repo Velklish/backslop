@@ -141,3 +141,4 @@
 - <a id="bs-92"></a>`BS-92-gates-tree-labels-globs` · 2026-09-25 · completed · — · gates: intact porcelain, root-relative diff paths, true outcome labels, `**/` rule
 - <a id="bs-102"></a>`BS-102-unverified-repo-state-reports` · 2026-09-25 · completed · — · Check and fix: monorepo-wide --require-clean in gates, prunable worktrees in tracks
 - <a id="bs-100"></a>`BS-100-unverified-bom-and-move-fallback` · 2026-09-25 · completed · — · Check and fix: BOM loss on card rewrite, mv rename on git failure
+- <a id="bs-88.1"></a>`BS-88.1-tracks-git-failure-reads-as-empty` · 2026-09-25 · completed · — · tracks: a failed git call outside pendingCommits reads as 'no repository' or 'no branches'
