@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CONFLICT_MARK, mergeChangelog } from '../lib/merge-changelog.js';
@@ -619,4 +619,206 @@ test('merge-changelog: имя метки с отступом — не метка
   const { text, report } = mergeChangelog(ours, theirs);
   assert.equal(report.marks, 0, 'отступная строка меткой не считается');
   assert.match(text, /- \*\*Своя у theirs\*\* — тело theirs/);
+});
+
+const SECTIONED = (unreleased) => `# Changelog\n\n## Unreleased\n\n${unreleased}## v0.1.0\n\n- **Old** — released\n`;
+const ADDED_FIXED = SECTIONED('### Added\n\n- **A1** — added\n\n### Fixed\n\n- **F1** — fixed\n\n');
+
+test('merge-changelog: a theirs-only heading arrives with its subgroup between the ours headings', () => {
+  const theirs = SECTIONED('### Added\n\n- **A1** — added\n\n### Changed\n\n**For workspace users:**\n\n- **C1** — changed\n\n### Fixed\n\n- **F1** — fixed\n\n');
+  const { text, report } = mergeChangelog(ADDED_FIXED, theirs, null, 'en');
+  assert.equal(text, theirs);
+  assert.deepEqual(report.placed, [
+    { heading: '### Changed', subgroup: null, before: '### Fixed' },
+    { heading: '### Changed', subgroup: '**For workspace users:**' },
+  ]);
+});
+
+test('merge-changelog: a theirs-only subgroup under a non-last ours heading stays under it', () => {
+  const theirs = SECTIONED('### Added\n\n- **A1** — added\n\n**For agents:**\n\n- **A2** — added\n\n### Fixed\n\n- **F1** — fixed\n\n');
+  const { text, report } = mergeChangelog(ADDED_FIXED, theirs, null, 'en');
+  assert.equal(text, theirs);
+  assert.deepEqual(report.placed, [{ heading: '### Added', subgroup: '**For agents:**' }]);
+});
+
+test('merge-changelog: a theirs-only heading with no preceding container goes to the end of the section', () => {
+  const theirs = SECTIONED('### Security\n\n- **S1** — security\n\n### Added\n\n- **A1** — added\n\n### Fixed\n\n- **F1** — fixed\n\n');
+  const { text, report } = mergeChangelog(ADDED_FIXED, theirs, null, 'en');
+  assert.equal(text, SECTIONED('### Added\n\n- **A1** — added\n\n### Fixed\n\n- **F1** — fixed\n\n### Security\n\n- **S1** — security\n\n'));
+  assert.deepEqual(report.placed, [{ heading: '### Security', subgroup: null, before: null }]);
+});
+
+test('merge-changelog: a heading theirs repeats and ours lacks is placed once, from its nearest instance', () => {
+  const ours = SECTIONED('### Fixed\n\n- **F1** — fixed\n- **C0** — changed\n\n');
+  const theirs = SECTIONED('### Changed\n\n- **C0** — changed\n\n### Fixed\n\n- **F1** — fixed\n\n### Changed\n\n- **C1** — changed\n\n');
+  const { text, report } = mergeChangelog(ours, theirs, null, 'en');
+  assert.equal(text, SECTIONED('### Fixed\n\n- **F1** — fixed\n- **C0** — changed\n\n### Changed\n\n- **C1** — changed\n\n'));
+  assert.deepEqual(report.placed, [{ heading: '### Changed', subgroup: null, before: null }]);
+});
+
+test('merge-changelog: heading-less theirs content goes to the top group of the section', () => {
+  const plain = SECTIONED('- **N1** — no heading\n\n### Added\n\n- **A1** — added\n\n### Fixed\n\n- **F1** — fixed\n\n');
+  let merged = mergeChangelog(ADDED_FIXED, plain, null, 'en');
+  assert.equal(merged.text, plain);
+  assert.deepEqual(merged.report.placed, [{ heading: null, subgroup: null }]);
+
+  const subgroup = SECTIONED('**For agents:**\n\n- **G1** — no heading\n\n### Added\n\n- **A1** — added\n\n### Fixed\n\n- **F1** — fixed\n\n');
+  merged = mergeChangelog(ADDED_FIXED, subgroup, null, 'en');
+  assert.equal(merged.text, subgroup, 'with no heading-less container in ours the subgroup opens the section');
+  assert.deepEqual(merged.report.placed, [{ heading: null, subgroup: '**For agents:**' }]);
+
+  const ours = SECTIONED('- **N1** — no heading\n\n### Added\n\n- **A1** — added\n\n');
+  const theirs = SECTIONED('- **N1** — no heading\n\n**For agents:**\n\n- **G1** — no heading\n\n### Added\n\n- **A1** — added\n\n');
+  assert.equal(mergeChangelog(ours, theirs, null, 'en').text, theirs, 'after the last heading-less container of ours');
+});
+
+test('merge-changelog: the command names each placement on stderr, in all four forms', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', ADDED_FIXED);
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', SECTIONED('- **N1** — no heading\n\n### Security\n\n- **S1** — security\n\n### Added\n\n- **A1** — added\n\n### Changed\n\n**For workspace users:**\n\n- **C1** — changed\n\n### Fixed\n\n- **F1** — fixed\n\n'));
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+    run(root, ['checkout', '-qb', 'security']);
+    put(root, 'CHANGELOG.md', SECTIONED('### Security\n\n- **S1** — security\n\n### Added\n\n- **A1** — added\n\n### Fixed\n\n- **F1** — fixed\n\n'));
+    gitAll(root, 'theirs with a leading heading only');
+    run(root, ['checkout', '-q', 'main']);
+
+    let r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /записи без заголовка добавлены в начало ## Unreleased/);
+    // The theirs-only N1 is placed first, so it anchors ### Security, and not the section end.
+    assert.match(r.err, /заголовок ### Security добавлен перед ### Added/);
+    assert.match(r.err, /заголовок ### Changed добавлен перед ### Fixed/);
+    assert.match(r.err, /подгруппа \*\*For workspace users:\*\* добавлена под ### Changed/);
+    assert.equal(read(root, 'CHANGELOG.md').match(/^### Changed$/gm)?.length, 1);
+
+    r = cli(root, ['merge-changelog', '--ours=main', '--theirs=security']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /заголовок ### Security добавлен в конец ## Unreleased/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: an indented bold line stays in the entry body', () => {
+  const entry = (tail) => SECTIONED(`- **A** — first line\n  **Note.**\n  ${tail}\n\n`);
+  const same = mergeChangelog(entry('tail of A'), entry('tail of A'), null, 'en');
+  assert.deepEqual(same.report.conflicts, []);
+  assert.equal(same.text, entry('tail of A'));
+
+  const diverged = mergeChangelog(entry('tail of A'), entry('tail of A CHANGED'), null, 'en');
+  assert.deepEqual(diverged.report.conflicts, ['A'], 'a body divergence past the bold line is a conflict');
+  assert.match(diverged.text, /tail of A CHANGED/);
+});
+
+test('merge-changelog: a diverging tail after an indented bold line is a conflict for the command', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', SECTIONED('- **A** — first line\n  **Note:**\n  tail of A\n\n'));
+    gitAll(root, 'base');
+    const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', SECTIONED('- **A** — first line\n  **Note:**\n  tail of A\n  theirs-only tail\n\n'));
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', `--base=${base}`, '--out=CHANGELOG.md']);
+    assert.equal(r.code, 1, r.err);
+    assert.match(read(root, 'CHANGELOG.md'), /^<!-- backslop:conflict A -->$/m);
+    assert.match(read(root, 'CHANGELOG.md'), /theirs-only tail/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+const CRLF = (text) => text.replace(/\n/g, '\r\n');
+const onlyCrlf = (text) => text.includes('\r\n') && !/(^|[^\r])\n/.test(text);
+
+test('merge-changelog: CRLF revisions give a CRLF result in --out and in stdout', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    run(root, ['config', 'core.autocrlf', 'false']);
+    put(root, 'CHANGELOG.md', CRLF(OURS));
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', CRLF(THEIRS));
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+
+    let r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=merged.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(onlyCrlf(read(root, 'merged.md')), JSON.stringify(read(root, 'merged.md')));
+    assert.match(read(root, 'merged.md'), /- \*\*Первое theirs\*\* — тело theirs\r\n/);
+    r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(onlyCrlf(r.out), JSON.stringify(r.out));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: an existing --out file keeps its line endings over the ours revision', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', OURS);
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', THEIRS);
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+    // core.autocrlf=true checks the LF blob out as CRLF, as on a Windows clone.
+    run(root, ['config', 'core.autocrlf', 'true']);
+    rmSync(path.join(root, 'CHANGELOG.md'));
+    run(root, ['checkout', '--', 'CHANGELOG.md']);
+    assert.ok(onlyCrlf(read(root, 'CHANGELOG.md')), 'the checkout is CRLF on disk');
+
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(onlyCrlf(read(root, 'CHANGELOG.md')), JSON.stringify(read(root, 'CHANGELOG.md')));
+    assert.match(read(root, 'CHANGELOG.md'), /- \*\*Первое theirs\*\* — тело theirs\r\n/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: an empty or blank --base is refused with the usage text', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', OURS);
+    gitAll(root, 'ours');
+    for (const args of [['--base='], ['--base', ''], ['--base=  ']]) {
+      const r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD', ...args]);
+      assert.equal(r.code, 1, JSON.stringify(args));
+      assert.match(r.err, /--base пуст: нужен --base <ref>/);
+      assert.equal(r.out, '', 'nothing is merged');
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: --out creates missing directories, and an fs failure is one ✖ line', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', OURS);
+    gitAll(root, 'ours');
+    let r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD', '--out=missing/dir/x.md']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'missing/dir/x.md'), OURS);
+
+    mkdirSync(path.join(root, 'outdir'));
+    // A file where a directory should be: the code is the platform's, EEXIST on macOS.
+    for (const [out, code] of [['outdir', 'EISDIR'], ['CHANGELOG.md/x.md', '(ENOTDIR|EEXIST)']]) {
+      r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD', `--out=${out}`]);
+      assert.equal(r.code, 1, out);
+      assert.equal(r.err.match(/✖/g)?.length, 1, r.err);
+      assert.match(r.err, new RegExp(`не записывается --out ${path.join(root, out).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}: ${code}`));
+      assert.doesNotMatch(r.err, /^\s+at /m, 'no stack');
+    }
+  } finally {
+    cleanup(root);
+  }
 });
