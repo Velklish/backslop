@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run } from './helpers.mjs';
@@ -417,7 +417,23 @@ test('fold: массовая свёртка, --older-than отбирает по 
 
     const empty = cli(root, ['fold']);
     assert.equal(empty.code, 0, empty.err);
-    assert.match(empty.out, /сворачивать нечего/);
+    assert.match(empty.err, /сворачивать нечего/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: nothing to fold reports on stderr and leaves stdout, the message draft, empty', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    gitAll(root);
+    for (const args of [['fold'], ['fold', '--dry-run']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(r.out, '', `${args.join(' ')}: stdout carries no report line`);
+      assert.match(r.err, /сворачивать нечего: несвёрнутых каталогов в архиве нет/);
+    }
   } finally {
     cleanup(root);
   }
@@ -710,6 +726,7 @@ test('fold: файл каталога расходится с ревизией �
     const bulk = cli(root, ['fold']);
     assert.equal(bulk.code, 1, bulk.out);
     assert.match(bulk.err, /docs\/archive\/BS-1-alpha\/result\.md: файл расходится со своей редакцией в [0-9a-f]{10}/);
+    assert.match(bulk.err, /\(assume-unchanged\)/, 'the index flag git reports is named');
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/result.md')), 'отказ не трогает каталог');
     assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'отказ не заводит журнал');
 
@@ -737,6 +754,87 @@ test('fold: рабочее дерево с CRLF над LF-блобом (core.aut
     const r = cli(root, ['fold']);
     assert.equal(r.code, 0, r.err);
     assert.match(logLines(root)[0], / · `[0-9a-f]{10}` · Альфа$/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: CRLF blobs that git calls clean under core.autocrlf get the revision instead of a refusal', () => {
+  for (const mode of ['true', 'input']) {
+    const root = makeProject();
+    try {
+      put(root, 'docs/reference/README.md', '# Справочник\n');
+      run(root, ['config', 'core.autocrlf', 'false']);
+      closed(root);
+      for (const name of ['task.md', 'result.md']) {
+        const file = `docs/archive/BS-1-alpha/${name}`;
+        put(root, file, read(root, file).replaceAll('\n', '\r\n'));
+      }
+      gitAll(root);
+      run(root, ['config', 'core.autocrlf', mode]);
+      assert.equal(run(root, ['status', '--porcelain', '--', 'docs/archive/BS-1-alpha']).stdout, '', `${mode}: git calls the directory clean`);
+
+      const r = cli(root, ['fold']);
+      assert.equal(r.code, 0, `${mode}: ${r.err}`);
+      assert.match(logLines(root)[0], / · `[0-9a-f]{10}` · Альфа$/, `${mode}: the line carries the revision`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('fold: a mismatch git confirms without an index flag names line-ending normalisation, not assume-unchanged', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    run(root, ['config', 'core.autocrlf', 'false']);
+    closed(root);
+    const file = 'docs/archive/BS-1-alpha/result.md';
+    put(root, file, read(root, file).replaceAll('\n', '\r\n'));
+    gitAll(root);
+    run(root, ['config', 'core.autocrlf', 'true']);
+    // git's second opinion, `git diff --quiet`, reports a difference: the mismatch is real.
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\n[ "$3" = "diff" ] && exit 1\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['fold'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /docs\/archive\/BS-1-alpha\/result\.md: файл расходится со своей редакцией в [0-9a-f]{10}/);
+    assert.doesNotMatch(r.err, /assume-unchanged|skip-worktree/, 'no index flag is set, so none is named');
+    assert.match(r.err, /git add --renormalize docs\/archive\/BS-1-alpha/);
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'the refusal writes no journal');
+
+    // git reads core.autocrlf as a boolean too: `yes` wins over an `input` in a lower scope.
+    run(root, ['config', 'core.autocrlf', 'yes']);
+    writeFileSync(path.join(shim, 'global.gitconfig'), '[core]\n\tautocrlf = input\n');
+    const yes = cli(root, ['fold'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}`, GIT_CONFIG_GLOBAL: path.join(shim, 'global.gitconfig') } });
+    assert.equal(yes.code, 1, yes.out);
+    assert.match(yes.err, /git add --renormalize docs\/archive\/BS-1-alpha/, 'core.autocrlf=yes names the remedy');
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('fold N: a CRLF journal stays CRLF', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    run(root, ['config', 'core.autocrlf', 'false']);
+    closed(root, { id: 'BS-1', slug: 'alpha', title: 'Альфа' });
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
+    gitAll(root);
+    assert.equal(cli(root, ['fold', '1']).code, 0);
+    put(root, 'docs/archive/LOG.md', read(root, 'docs/archive/LOG.md').replaceAll('\n', '\r\n'));
+    gitAll(root, 'CRLF journal');
+
+    const r = cli(root, ['fold', '2']);
+    assert.equal(r.code, 0, r.err);
+    const text = read(root, 'docs/archive/LOG.md');
+    assert.match(text, /\r\n- <a id="bs-2">/, 'fixture: the line is appended');
+    assert.doesNotMatch(text, /(?<!\r)\n/, 'every line of the journal ends in CRLF');
+    assert.match(run(root, ['ls-files', '--eol', 'docs/archive/LOG.md']).stdout, /w\/crlf/);
   } finally {
     cleanup(root);
   }
@@ -825,6 +923,46 @@ test('fold: пачка уходит вместе со своими minor-зап�
     const status = JSON.parse(cli(root, ['status', '--json']).out);
     assert.equal(status.archive, 1, 'запись пачки закрытой задачей не считается');
     assert.equal(cli(root, ['lint']).code, 0);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold N: batch entries go to the journal and the draft in numeric order', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root, { id: 'BS-1', slug: 'batch', title: 'Пачка' });
+    for (const sub of [11, 2, 10, 1, 3]) {
+      put(root, `docs/archive/BS-1-batch/minor/BS-1.${sub}-finding-${sub}.md`, `# BS-1.${sub} · Находка ${sub}\n\n- **Цена:** minor\n`);
+    }
+    gitAll(root);
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(logLines(root).map((l) => l.match(/^- <a id="([^"]+)">/)[1]), ['bs-1', 'bs-1.1', 'bs-1.2', 'bs-1.3', 'bs-1.10', 'bs-1.11']);
+    const sections = r.out.split('\n').map((l) => l.match(/^--- .*\/minor\/(BS-[\d.]+)-/)?.[1]).filter(Boolean);
+    assert.deepEqual(sections, ['BS-1.1', 'BS-1.2', 'BS-1.3', 'BS-1.10', 'BS-1.11']);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold N: a directory named like an entry in the batch minor/ is skipped, not read', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root, { id: 'BS-1', slug: 'batch', title: 'Пачка' });
+    put(root, 'docs/archive/BS-1-batch/minor/BS-1.2-finding.md', '# BS-1.2 · Находка\n\n- **Цена:** minor\n');
+    gitAll(root);
+    mkdirSync(path.join(root, 'docs/archive/BS-1-batch/minor/BS-1.1-dir-entry.md'));
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 1, lint.out);
+    assert.match(lint.err, /BS-1\.1-dir-entry\.md.*в minor\/ пачки только файлы записей/);
+
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /EISDIR|\n\s+at /, 'no stack trace');
+    assert.deepEqual(logLines(root).map((l) => l.match(/^- <a id="([^"]+)">/)[1]), ['bs-1', 'bs-1.2']);
   } finally {
     cleanup(root);
   }
