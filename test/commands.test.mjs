@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -664,6 +664,69 @@ test('mv: --top на задаче из тесной очереди перену�
     assert.equal(cli(root, ['lint']).code, 0);
   } finally {
     cleanup(root);
+  }
+});
+
+const BOM = '﻿';
+const withBom = (root, rel) => writeFileSync(path.join(root, rel), BOM + read(root, rel));
+const startsWithBom = (root, rel) => readFileSync(path.join(root, rel)).subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf]));
+
+test('mv, renumbering and archive keep the UTF-8 BOM of a rewritten card', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']); // 10
+    cli(root, ['new', 'b', '--queue', '--top']); // 5
+    cli(root, ['new', 'c', '--queue', '--top']); // 2
+    cli(root, ['new', 'd', '--queue', '--top']); // 1
+    for (const n of ['1-a', '2-b', '3-c', '4-d']) withBom(root, `docs/backlog/queue/BS-${n}.md`);
+    gitAll(root);
+
+    let r = cli(root, ['mv', '1', 'queue', '--top']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /перенумерована/);
+    for (const n of ['1-a', '2-b', '3-c', '4-d']) assert.ok(startsWithBom(root, `docs/backlog/queue/BS-${n}.md`), `renumbered ${n} keeps the BOM`);
+    r = cli(root, ['mv', '4', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(startsWithBom(root, 'docs/backlog/active/BS-4-d.md'), 'mv keeps the BOM');
+
+    put(root, 'docs/backlog/active/BS-5-e.md', `${BOM}# BS-5 · E\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n\nSee [f](BS-6-f.md).\n`);
+    put(root, 'docs/backlog/active/BS-6-f.md', `${BOM}# BS-6 · F\n\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n\nSee [e](BS-5-e.md).\n`);
+    gitAll(root);
+    r = cli(root, ['archive', '5']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/archive/BS-5-e/task.md'), /See \[f\]\(\.\.\/\.\.\/backlog\/active\/BS-6-f\.md\)/);
+    assert.ok(startsWithBom(root, 'docs/archive/BS-5-e/task.md'), 'archive keeps the BOM of a card whose link it rewrote');
+    assert.match(read(root, 'docs/backlog/active/BS-6-f.md'), /See \[e\]\(\.\.\/\.\.\/archive\/BS-5-e\/task\.md\)/);
+    assert.ok(startsWithBom(root, 'docs/backlog/active/BS-6-f.md'), 'a neighbour whose incoming link was rewritten keeps its BOM');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: a failed git ls-files refuses before touching the file; an untracked card still moves', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    cli(root, ['new', 'a', '--queue']);
+    gitAll(root);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = "$KILL_ON" ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const r = cli(root, ['mv', '1', 'active'], { env: { KILL_ON: '--error-unmatch', PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git ls-files --error-unmatch: оборван сигналом SIGKILL/);
+    assert.doesNotMatch(r.err, /без git mv/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')), 'the card stays where it was');
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')));
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '');
+
+    cli(root, ['new', 'b', '--queue']);
+    const untracked = cli(root, ['mv', '2', 'active']);
+    assert.equal(untracked.code, 0, untracked.err);
+    assert.match(untracked.err, /файл не в индексе git — перенесён без git mv/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-2-b.md')));
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 
