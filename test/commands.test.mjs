@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -131,6 +131,120 @@ test('new: номер и sub-ID учитывают файлы чужого workt
   } finally {
     cleanup(root);
     rmSync(path.dirname(wt), { recursive: true, force: true });
+  }
+});
+
+// BS-1 committed on main, BS-2 committed only on branch `worker`; `new c` then runs on main.
+function takenOnWorker(repo, project, docs = 'docs') {
+  put(project, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(project, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+  assert.equal(cli(project, ['new', 'a']).code, 0);
+  gitAll(repo, 'BS-1: a');
+  run(repo, ['checkout', '-q', '-b', 'worker']);
+  assert.equal(cli(project, ['new', 'b']).code, 0);
+  gitAll(repo, 'BS-2: b');
+  run(repo, ['checkout', '-q', 'main']);
+  const r = cli(project, ['new', 'c']);
+  assert.equal(r.code, 0, r.err);
+  assert.deepEqual(readdirSync(path.join(project, docs, 'backlog', 'triage')).sort(), ['BS-1-a.md', 'BS-3-c.md']);
+  assert.match(r.out, /BS-2 is taken: branch worker/);
+}
+
+test('new: a project in a repository subdirectory sees the numbers taken on another branch', () => {
+  const root = makeProject();
+  try {
+    const project = path.join(root, 'pkg', 'a');
+    mkdirSync(project, { recursive: true });
+    for (const name of ['backslop.json', 'docs']) renameSync(path.join(root, name), path.join(project, name));
+    takenOnWorker(root, project);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new: a non-ASCII docs directory sees the numbers taken on another branch', () => {
+  const root = makeProject({ docs: 'доки' });
+  try {
+    // Pinned against a global core.quotePath=false, which would hide the quoted listing.
+    run(root, ['config', 'core.quotePath', 'true']);
+    takenOnWorker(root, root, 'доки');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new: a committed predecessor on the only branch is not named as taken elsewhere', () => {
+  const root = makeProject();
+  try {
+    assert.equal(cli(root, ['new', 'alpha', '--queue']).code, 0);
+    assert.equal(cli(root, ['new', 'alpha-finding', '--parent', '1']).code, 0);
+    gitAll(root);
+    let r = cli(root, ['new', 'beta', '--queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /✔ BS-2: /);
+    assert.doesNotMatch(r.out, /занят|is taken/);
+    r = cli(root, ['new', 'beta-finding', '--parent', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /✔ BS-1\.2: /);
+    assert.doesNotMatch(r.out, /занят|is taken/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new: a git call that fails while scanning other worktrees and branches refuses instead of numbering blind', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'docs/archive/LOG.md', '# Log\n');
+    assert.equal(cli(root, ['new', 'a']).code, 0);
+    gitAll(root, 'BS-1: a');
+    run(root, ['branch', 'worker']);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = "$KILL_ON" ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const cases = [
+      ['--is-inside-work-tree', /git rev-parse --is-inside-work-tree: оборван сигналом SIGKILL/],
+      ['--show-toplevel', /git rev-parse --show-toplevel: оборван сигналом SIGKILL/],
+      ['worktree', /git worktree list --porcelain: оборван сигналом SIGKILL/],
+      ['for-each-ref', /git for-each-ref .*: оборван сигналом SIGKILL/],
+      ['ls-tree', /git ls-tree .*: оборван сигналом SIGKILL/],
+      ['show', /git show main:docs\/archive\/LOG\.md: оборван сигналом SIGKILL/],
+    ];
+    for (const [arg, cause] of cases) {
+      const r = cli(root, ['new', 'c'], { env: { KILL_ON: arg, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+      assert.equal(r.code, 1, `${arg}: ${r.out}`);
+      assert.match(r.err, cause);
+      assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/triage')), ['BS-1-a.md'], `${arg}: no file`);
+    }
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('new: without a git binary the number comes from the working tree', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const empty = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-no-git-')));
+  try {
+    const r = cli(root, ['new', 'a'], { env: { PATH: empty } });
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-1-a.md')));
+  } finally {
+    cleanup(root);
+    rmSync(empty, { recursive: true, force: true });
+  }
+});
+
+test('new: a translated "not a git repository" is still no repository', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    writeFileSync(path.join(shim, 'git'), '#!/bin/sh\nif [ "$LC_ALL" = C ]; then echo "fatal: not a git repository" >&2; else echo "fatal: не найден git-репозиторий" >&2; fi\nexit 128\n', { mode: 0o755 });
+    const r = cli(root, ['new', 'a'], { env: { LC_ALL: 'ru_RU.UTF-8', PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-1-a.md')));
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 
