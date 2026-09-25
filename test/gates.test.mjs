@@ -113,6 +113,24 @@ test('gates: --json — валидный JSON со снимком дерева, 
   }
 });
 
+test('gates: the tree snapshot keeps porcelain lines whole, the leading space included', () => {
+  const root = makeProject();
+  try {
+    withGates(root, ['node -e "process.exit(0)"']);
+    gitAll(root, 'base');
+    put(root, 'docs/README.md', 'edit\n');
+    put(root, 'docs/zz.md', 'new\n');
+    const r = cli(root, ['gates', '--json']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(r.out).tree.dirty, ' M docs/README.md\n?? docs/zz.md');
+    const refused = cli(root, ['gates', '--require-clean']);
+    assert.equal(refused.code, 1);
+    assert.match(refused.err, /^ M docs\/README\.md$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('gates: снимок дерева называет грязь и коммит; без git — tree null', () => {
   const root = makeProject();
   try {
@@ -248,7 +266,8 @@ test('gates: гейт с ошибкой запуска при коде 0 — н�
 
     let r = cli(root, ['gates'], { env });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /✖ trap .* — не запустился: spawnSync \S+ ETIMEDOUT, \d+ ms/);
+    assert.match(r.err, /✖ trap .* — превысил потолок 10 мин, \d+ ms/);
+    assert.doesNotMatch(r.err, /не запустился/);
     assert.doesNotMatch(r.out, /✔ trap/);
     assert.match(r.err, /гейтов 2, зелёных 0, не запущено 1/);
     assert.deepEqual(ran(root), [], 'без --keep-going прогон стоит на нём, как на красном');
@@ -264,6 +283,17 @@ test('gates: гейт с ошибкой запуска при коде 0 — н�
     assert.equal(report.gates[0].code, 0, 'код у гейта — ноль: красит его ошибка, а не код');
     assert.match(report.gates[0].error, /ETIMEDOUT/);
     assert.equal(report.green, 1);
+
+    // The usual cap: the shell dies of SIGTERM, and spawnSync reports ETIMEDOUT with the signal.
+    withGates(root, ['sleep 5']);
+    r = cli(root, ['gates'], { env });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /✖ sleep 5 — превысил потолок 10 мин, \d+ ms/);
+    assert.doesNotMatch(r.err, /сигнал/);
+    r = cli(root, ['gates', '--json'], { env });
+    const capped = JSON.parse(r.out).gates[0];
+    assert.equal(capped.signal, 'SIGTERM');
+    assert.match(capped.error, /ETIMEDOUT/);
   } finally {
     cleanup(root);
     rmSync(dir, { recursive: true, force: true });
@@ -324,6 +354,40 @@ test('gates: в монорепе пути приводятся к корню п�
     assert.equal(alien.scope.dropped, 1, 'но дифф непуст — он весь вне проекта');
     assert.equal(alien.outOfScope, 2, 'обе записи с областью пропущены честно');
     assert.equal(alien.green, 0);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('gates: diff.relative=true does not drop the paths of a monorepo subproject', () => {
+  const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-rel-')));
+  try {
+    run(repo, ['init', '-q', '-b', 'main']);
+    run(repo, ['config', 'user.email', 'test@example.com']);
+    run(repo, ['config', 'user.name', 'test']);
+    run(repo, ['config', 'commit.gpgsign', 'false']);
+    const proj = path.join(repo, 'pkg');
+    mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({
+      prefix: 'BS',
+      docs: 'docs',
+      gates: [{ command: mark('code', 0), when: ['lib/**'] }],
+    }, null, 2)}\n`);
+    writeFileSync(path.join(repo, '.gitignore'), 'ran.txt\n');
+    run(repo, ['add', '-A']);
+    run(repo, ['commit', '-qm', 'base']);
+    run(repo, ['tag', 'base']);
+    put(repo, 'pkg/lib/x.js', 'export const a = 1;\n');
+    run(repo, ['add', '-A']);
+    run(repo, ['commit', '-qm', 'code']);
+    run(repo, ['config', 'diff.relative', 'true']);
+
+    const r = cli(repo, ['gates', '--base', 'base', '--json'], { cwd: proj, env: { GATES_MARK: path.join(proj, 'ran.txt') } });
+    assert.equal(r.code, 0, r.err);
+    const report = JSON.parse(r.out);
+    assert.equal(report.scope.dropped, 0);
+    assert.deepEqual(report.scope.paths, ['lib/x.js']);
+    assert.equal(report.green, 1, 'the lib/** gate runs');
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -424,6 +488,8 @@ test('gates: glob — * не переходит слэш, ** переходит,
     ['**/*.md', ['a.md', 'docs/a/b.md'], ['a.mdx', 'docs/a.txt']],
     ['lib/?.js', ['lib/a.js'], ['lib/ab.js', 'lib/a/b.js']],
     ['docs/a.md', ['docs/a.md'], ['docs/aXmd', 'xdocs/a.md']],
+    ['src**/x.js', ['srcfoo/x.js', 'src/a/x.js'], ['srcx.js']],
+    ['a/**/b.md', ['a/b.md', 'a/c/d/b.md'], ['ab.md']],
   ]) {
     for (const p of hits) assert.ok(globToRe(pattern).test(p), `${pattern} обязан ловить ${p}`);
     for (const p of misses) assert.ok(!globToRe(pattern).test(p), `${pattern} не должен ловить ${p}`);
@@ -476,6 +542,10 @@ test('gates: исход различает код, сигнал и незапу�
     const killed = JSON.parse(r.out).gates[0];
     assert.equal(killed.code, null);
     assert.equal(killed.signal, 'SIGTERM');
+    r = cli(root, ['gates']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /— прерван сигналом SIGTERM, \d+ ms$/m);
+    assert.doesNotMatch(r.err, /потолок/, 'a self-kill is not the time cap');
 
     // Ненайденное имя — код самой оболочки (127 у sh, 1 или 9009 у cmd.exe), а не `r.error`: для
     // него ветка «не запустился» через shell недостижима, и число от оболочки не проверяем.
