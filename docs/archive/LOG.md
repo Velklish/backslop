@@ -138,3 +138,4 @@
 - <a id="bs-87"></a>`BS-87-merge-changelog-structure-and-io` · 2026-09-25 · completed · — · merge-changelog: keep subgroups and entry bodies, EOL, empty --base, --out errors
 - <a id="bs-88"></a>`BS-88-branch-scans-new-and-tracks` · 2026-09-25 · completed · — · new and tracks: see numbers on every branch, and tell a git failure from an empty list
 - <a id="bs-101"></a>`BS-101-unverified-command-input-forms` · 2026-09-25 · completed · — · Check and fix: merge-changelog --out base dir, archive --range single ref, pin grammar
+- <a id="bs-92"></a>`BS-92-gates-tree-labels-globs` · 2026-09-25 · completed · — · gates: intact porcelain, root-relative diff paths, true outcome labels, `**/` rule
