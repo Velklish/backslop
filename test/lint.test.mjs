@@ -3,11 +3,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { loadProject } from '../lib/config.js';
+import { loadProject, parseCli } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
+import { livePinFiles } from '../lib/mdwalk.js';
+import { rewriteProsePins } from '../lib/upgrade.js';
 import { cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run, toolCli, toolCopy } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
 
@@ -117,6 +119,28 @@ test('lint: 1. balanced parentheses and every URI scheme pass; a BOM hides no fi
     cleanup(root);
   }
 });
+probe('1. an upper-case .MD file is walked', (root) => put(root, 'docs/NOTE.MD', '[missing](reference/nope.md)\n'), /docs\/NOTE\.MD: битая ссылка reference\/nope\.md/);
+test('lint: 1, 10, 13. a root markdown symlink into the project is read; one leading outside is not', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-lint-outside-'));
+  try {
+    seedGreen(root);
+    seedLog(root);
+    rmSync(path.join(root, 'README.md'));
+    put(root, 'notes/README.md', '[broken](docs/none.md) [log](docs/archive/LOG.md#bs-55)\n\n<!-- quote:docs/none.md -->\ntext\n<!-- /quote -->\n');
+    symlinkSync(path.join(root, 'notes', 'README.md'), path.join(root, 'README.md'));
+    writeFileSync(path.join(outside, 'OUT.md'), '[broken](docs/none.md)\n');
+    symlinkSync(path.join(outside, 'OUT.md'), path.join(root, 'OUT.md'));
+    assert.deepEqual(problems(root), [
+      'README.md: битая ссылка docs/none.md',
+      'README.md: ссылка docs/archive/LOG.md#bs-55 ведёт на строку журнала, которой нет — якорь «bs-55» ни за одной записью',
+      'README.md: цитата ведёт на несуществующий файл docs/none.md',
+    ]);
+  } finally {
+    cleanup(root);
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
 probe('1. ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1](../triage) — карточка\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
 probe('1. reference-style ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1][f] — карточка\n\n[f]: ../triage\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
 probe('1. ссылка с номером задачи на каталог в generated adapter output', (root) => {
@@ -168,6 +192,23 @@ probe('2. находка без родителя', (root) => put(root, 'docs/bac
 probe('2. чужой файл в каталоге статуса', (root) => put(root, 'docs/backlog/queue/notes.md', '# заметки\n'), /имя не по шаблону/);
 probe('3. файл вне каталога статуса', (root) => put(root, 'docs/backlog/BS-9-x.md', '# BS-9 · Х\n'), /файл вне каталога статуса/);
 probe('3. каталог не статус', (root) => mkdirSync(path.join(root, 'docs/backlog/done')), /каталог не статус/);
+test('lint: 3. a status directory symlinked inside the project is a status; one leading outside is not followed', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-lint-outside-'));
+  try {
+    seedGreen(root);
+    renameSync(path.join(root, 'docs/backlog/queue'), path.join(root, 'store-queue'));
+    symlinkSync(path.join(root, 'store-queue'), path.join(root, 'docs/backlog/queue'));
+    assert.deepEqual(problems(root), []);
+    unlinkSync(path.join(root, 'docs/backlog/queue'));
+    renameSync(path.join(root, 'store-queue'), path.join(outside, 'queue'));
+    symlinkSync(path.join(outside, 'queue'), path.join(root, 'docs/backlog/queue'));
+    assert.ok(problems(root).some((p) => /^docs\/backlog\/queue: файл вне каталога статуса/.test(p)), problems(root).join(' | '));
+  } finally {
+    cleanup(root);
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
 probe('3. нет каталога статуса', (root) => rmSync(path.join(root, 'docs/backlog/deferred'), { recursive: true }), /каталога статуса нет/);
 probe('3. нет каталога minor', (root) => rmSync(path.join(root, 'docs/backlog/minor'), { recursive: true }), /docs\/backlog\/minor: каталога статуса нет/);
 probe('4. minor без цены', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Родитель:** BS-1\n'), /в minor\/ без поля «Цена»/);
@@ -307,8 +348,34 @@ test('lint: 6. упоминание номера внутри блока код�
 });
 
 probe('7. дубль заголовка записи в секции CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — раз\n- **Одно** — два\n'), /заголовок записи «Одно» уже есть/);
+test('lint: 7. a CHANGELOG code fence neither resets the section nor adds entries', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'CHANGELOG.md', '## 1.0.0\n\n- **Alpha** — one\n\n```\n## 0.9.0\n```\n\n- **Alpha** — two\n');
+    assert.deepEqual(problems(root), ['CHANGELOG.md: строка 9: заголовок записи «Alpha» уже есть в секции «1.0.0» (строка 3) — оставь одну редакцию']);
+    put(root, 'CHANGELOG.md', '## 1.0.0\n\n- **Entry format** — real\n\n```\n- **Entry format** — example\n- **Entry format** — example\n```\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('8. ADR без строки в таблице', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Сирота\n'), /adr-002-orphan\.md: нет строки/);
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
+probe('8. an ADR file with an upper-case .MD extension is name-checked', (root) => put(root, 'docs/adr/adr-002-x.MD', '# ADR-002: X\n'), /docs\/adr\/adr-002-x\.MD: имя не по шаблону adr-NNN-<slug>\.md/);
+test('lint: 8. an ADR file name is checked even when no ADR is named correctly', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    rmSync(path.join(root, 'docs/adr/adr-001-process.md'));
+    put(root, 'docs/adr/ADR-001-process.md', '# ADR-001: Process\n\n**Status:** Accepted\n');
+    put(root, 'docs/README.md', read(root, 'docs/README.md').replaceAll('adr/adr-001-process.md', 'adr/ADR-001-process.md'));
+    assert.deepEqual(problems(root), ['docs/adr/ADR-001-process.md: имя не по шаблону adr-NNN-<slug>.md']);
+    assert.equal(cli(root, ['lint']).code, 1);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
 test('lint: 8. an ADR row linked from the root, with ?query or with a %-escape counts as its row', () => {
   const root = makeProject({ git: false });
@@ -745,6 +812,17 @@ probe('2. битая ссылка с именем файла задачи в к�
 }, /BS-9-sub\.md: битая ссылка в каталоге статуса/);
 probe('3. каталога бэклога нет', (root) => rmSync(path.join(root, 'docs/backlog'), { recursive: true }), /каталога бэклога нет/);
 probe('5. посторонний файл в архиве', (root) => put(root, 'docs/archive/NOTES.txt', 'заметка\n'), /в архиве только каталоги задач, README\.md и LOG\.md/);
+test('lint: 5. an archive task directory symlinked inside the project is a task directory', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    renameSync(path.join(root, 'docs/archive/BS-4-e'), path.join(root, 'store-BS-4-e'));
+    symlinkSync(path.join(root, 'store-BS-4-e'), path.join(root, 'docs/archive/BS-4-e'));
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('5. каталог архива без task.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/task.md')), /нет task\.md — постановки/);
 probe('8. ADR есть, а индекса документации нет', (root) => rmSync(path.join(root, 'docs/README.md')), /нет индекса документации, а ADR есть/);
 
@@ -957,6 +1035,32 @@ test('lint: живой пин, расходящийся с cli, — ошибка
     setConfig({ cli: 'node bin/backslop.js', version: V });
     assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: an upper-case CHANGELOG.MD or card file stays a record of its moment for the pin gate and upgrade', () => {
+  const root = makeProject({ git: false });
+  const V = TOOL_VERSION;
+  const old = 'npx github:me/proj#v0.1.0';
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), cli: `npx github:me/proj#v${V}`, version: V }, null, 2)}\n`);
+    rmSync(path.join(root, 'CHANGELOG.md'));
+    const changelog = `## Unreleased\n\n- **Old** — ran \`${old}\`\n`;
+    put(root, 'CHANGELOG.MD', changelog);
+    put(root, 'docs/notes/BS-7-x.MD', `Measured on \`${old}\`.\n`);
+    // A lower-case prefix is no card, so the file stays live; its own name avoids an APFS clash.
+    put(root, 'docs/notes/bs-8-y.md', `Run \`${old} lint\`.\n`);
+    const live = livePinFiles(root, 'docs', 'BS').map(([rel]) => rel);
+    assert.ok(!live.includes('CHANGELOG.MD') && !live.includes('docs/notes/BS-7-x.MD'), live.join(' '));
+    assert.ok(live.includes('docs/notes/bs-8-y.md'), live.join(' '));
+    assert.equal(problems(root).length, 1, problems(root).join(' | '));
+    assert.match(problems(root)[0], /^docs\/notes\/bs-8-y\.md: строка 1: пин github:me\/proj#v0\.1\.0 расходится с cli/);
+    assert.deepEqual(rewriteProsePins(root, 'docs', 'BS', parseCli(`npx github:me/proj#v${V}`), `v${V}`), ['docs/notes/bs-8-y.md']);
+    assert.equal(read(root, 'CHANGELOG.MD'), changelog);
+    assert.equal(read(root, 'docs/notes/BS-7-x.MD'), `Measured on \`${old}\`.\n`);
   } finally {
     cleanup(root);
   }
