@@ -127,3 +127,4 @@
 - <a id="bs-78.4"></a>`BS-78.4-gates-green-gate-says-did-not-start` · 2026-09-24 · пачкой BS-82 · — · gates печатает «не запустился» у гейта, который отработал кодом 0 и посчитан зелёным
 - <a id="bs-83"></a>`BS-83-finding-verification-protocol` · 2026-09-25 · completed · — · Add the finding verification protocol to docs/reference
 - <a id="bs-90"></a>`BS-90-brief-follows-cli-pin` · 2026-09-25 · completed · — · brief: warn when the pinned CLI version lacks a command the brief names
+- <a id="bs-89"></a>`BS-89-link-gate-target-resolution` · 2026-09-25 · completed · — · Link gates and seed: one href normaliser, exact-case targets, CommonMark forms, BOM
