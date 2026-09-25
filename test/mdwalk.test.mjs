@@ -1,10 +1,12 @@
 // Обход markdown: одно множество файлов для гейтов и для правки ссылок при переезде.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { livePinFiles, mdFiles, repoMarkdown } from '../lib/mdwalk.js';
+import { parseCli } from '../lib/config.js';
+import { livePinFiles, mdFiles, repoMarkdown, rootMarkdown } from '../lib/mdwalk.js';
+import { rewriteProsePins } from '../lib/upgrade.js';
 
 function put(root, rel, text = '# x\n') {
   const abs = path.join(root, ...rel.split('/'));
@@ -118,5 +120,66 @@ test('livePinFiles: markdown и исполняемые package/CI входят, 
     ]);
   } finally {
     rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('rootMarkdown: a symlink counts once, only to a regular file inside the project; the non-link path wins', { skip: process.platform === 'win32' }, () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-outside-'));
+  try {
+    put(sb, 'AGENTS.md');
+    put(sb, 'NOTES.MD');
+    put(sb, 'notes/README.md');
+    put(sb, 'docs/guide.md');
+    mkdirSync(path.join(sb, 'dir.md'));
+    put(outside, 'OUT.md');
+    symlinkSync(path.join(sb, 'notes', 'README.md'), path.join(sb, 'README.md'));
+    symlinkSync(path.join(sb, 'notes', 'README.md'), path.join(sb, 'SECOND.md'));
+    symlinkSync(path.join(sb, 'AGENTS.md'), path.join(sb, 'CLAUDE.md'));
+    symlinkSync(path.join(sb, 'docs', 'guide.md'), path.join(sb, 'GUIDE.md'));
+    symlinkSync(path.join(outside, 'OUT.md'), path.join(sb, 'OUT.md'));
+    symlinkSync(path.join(sb, 'none.md'), path.join(sb, 'DANGLING.md'));
+    symlinkSync(path.join(sb, 'dir.md'), path.join(sb, 'LINKDIR.md'));
+    const walked = mdFiles(path.join(sb, 'docs'), 'docs');
+    const names = rootMarkdown(sb, walked).map(([name]) => name).sort();
+    const kept = names.filter((n) => n === 'README.md' || n === 'SECOND.md');
+    assert.equal(kept.length, 1, 'two links to one file count once');
+    assert.deepEqual(names.filter((n) => !kept.includes(n)), ['AGENTS.md', 'NOTES.MD']);
+    assert.deepEqual(rootMarkdown(sb).map(([name]) => name).filter((n) => n === 'GUIDE.md'), ['GUIDE.md'], 'unwalked docs file is read through the link');
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('mdFiles: an upper-case .MD extension is walked', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
+  try {
+    put(sb, 'docs/NOTE.MD');
+    put(sb, 'docs/b.Md');
+    put(sb, 'docs/c.txt');
+    assert.deepEqual(mdFiles(path.join(sb, 'docs'), 'docs').map(([rel]) => rel).sort(), ['docs/NOTE.MD', 'docs/b.Md']);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('upgrade prose pins: a root symlink to a file outside the project is left unchanged', { skip: process.platform === 'win32' }, () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-outside-'));
+  try {
+    const old = 'npx github:me/proj#v0.1.0';
+    put(sb, 'README.md', `Run \`${old} lint\`.\n`);
+    put(outside, 'OUT.md', `Run \`${old} lint\`.\n`);
+    symlinkSync(path.join(outside, 'OUT.md'), path.join(sb, 'OUT.md'));
+    put(sb, 'notes/x.md');
+    symlinkSync(path.join(sb, 'notes', 'x.md'), path.join(sb, 'LINKED.md'));
+    const live = livePinFiles(sb, 'docs', 'BS').map(([rel]) => rel);
+    assert.ok(live.includes('LINKED.md') && !live.includes('OUT.md'), live.join(' '));
+    assert.ok(rewriteProsePins(sb, 'docs', 'BS', parseCli(old), 'v0.2.0').includes('README.md'));
+    assert.equal(readFileSync(path.join(outside, 'OUT.md'), 'utf8'), `Run \`${old} lint\`.\n`);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   }
 });

@@ -10,6 +10,11 @@
 - **Bare link targets keep balanced parentheses** — `[foo](reference/foo(1).md)` is checked and rewritten as `reference/foo(1).md` instead of being cut at the first `)`.
 - **A leading BOM no longer hides links** — gate 1 reads markdown without its byte-order mark, so a reference definition or a code fence on the first line is seen.
 - **Self-links survive `mv` and `archive`** — a card's link to itself, relative or rooted, now points at the card's new place (`task.md` after `archive`) instead of the old directory.
+- **Root markdown symlinks are checked** — gates 1, 10 and 13 of `lint` and the live-pin set of `lint` and `upgrade` now read a project-root `*.md` symlink that resolves to a regular file inside the project. A symlink leading outside the project is not read, and one whose target is already walked is checked once, under the path without the link.
+- **Upper-case extensions are walked** — the markdown walks and the CI-directory walk of the live-pin set compare file extensions case-insensitively, so `docs/NOTE.MD` gets the link, mention and quote gates, a `.MD` file under `docs/backlog/` gets the placeholder check of gate 4, and `mv`, `archive` and `fold` rewrite links inside it. A root changelog named `CHANGELOG.md` in any letter case, and a card file with an upper-case extension, stay out of the live-pin set, as the lower-case forms do.
+- **Symlinked status and archive directories** — gates 3 and 5 treat a symlink to a directory inside the project as that directory instead of reporting a stray file; a symlink leading outside the project is not followed and is still reported.
+- **ADR names are checked without a valid ADR** — gate 8 reports a file in `docs/adr/` whose name does not match `adr-NNN-<slug>.md`, an upper-case `.MD` one included, even when no ADR there is named correctly.
+- **Code fences in CHANGELOG are examples for gate 7** — a section heading or an entry inside a fenced block no longer resets the section or counts as a duplicate entry title.
 
 ## v0.11.0 — 2026-09-24
 
