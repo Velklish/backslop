@@ -1,0 +1,43 @@
+# BS-156 · English ADRs for seeding and for the tracks command replace ADR-011 and ADR-014
+
+- **Order:** 740
+- **Scope:** [02. CLI](../../reference/02-cli.md) § seed
+- **Created:** 2026-09-25
+- **Dependencies:** BS-155, BS-98, BS-111
+
+## Context
+
+Two Russian ADRs have no cluster partner and are rewritten here as two English ADRs under new numbers: `docs/adr/adr-011-seed-scan-queue-reference.md` -> seeding; `docs/adr/adr-014-tracks-observation-command.md` -> tracks. Both mechanisms are live (evidence below). The BS-98 (`seed-scan-and-queue-reference`) card changed the scan (script filter, YAML block scalars, worktrees, quoted paths) and BS-111 (`git-query-helpers`) shared `localBranches` with `tracks`; record the code as it is when you start. Line numbers are at 6f6318e.
+
+**How to write a consolidated ADR (applies to every ADR this card creates).** Create it with `node bin/backslop.js adr <slug> --title "<title>"` (the repository runs with `lang: en`, so the English template with Context / Options / Decision / Consequences is used and the number is the next free one; if another card takes the same number first, renumber on rebase: lint gate 8 refuses duplicate numbers). Header: `Status: Accepted`, `Date:` the day you write it, `Deciders: Velklish`. The text must not mention the numbers or file names of the ADRs it replaces, task or finding numbers, run ids, commit hashes, dated measurements or "owner decision of <date>" notes. Cite code by file and function name, not by line number (line numbers below are at base commit 6f6318e and only help you find the code). Options keeps only the rejected alternatives that still explain the choice, each with its cost in one sentence. Then delete the replaced ADR files and replace their rows in `docs/README.md` with one row for the new ADR (topic in English, Status equal to the Status line of the file; keep the table's current column layout). Every remaining reference to a deleted file is handled in the same card: links in `CHANGELOG.md` lose their link markup and old ADR tokens (the CHANGELOG rewrite drops them anyway); links and citations in `docs/reference/`, `docs/GLOSSARY.md` and `AGENTS.md` are dropped, not repointed (rules there carry no ADR citations); code and test comments that cite an old ADR get the new ADR id (`ADR-NNN`) and lose quoted section names the new ADR does not have — comments stay at most two lines and 100 code points per line (`npm test` enforces it).
+
+**1. Seeding ADR (adr-011).** verified — read, one run.
+- Live: one mode per call, `--json` only with `--scan` (lib/seed.js:32-44); `--scan` writes nothing and prints candidates with a path as evidence, JSON `{ gates: [{ command, evidence }], subsystems: [{ name, evidence }] }` (:49-61); sources: package.json scripts named test|tests|lint|check|build|typecheck|type-check|fmt|format, targets with those names in Makefile/makefile/justfile and Taskfile.yml/.yaml, `run:` in .github/workflows, `script:`/`before_script:` in .gitlab-ci.yml/.yaml, `dotnet build`/`test` per *.csproj and *.sln, pytest/ruff/mypy in pyproject.toml/setup.cfg/tox.ini; subsystems: child dirs of src/, services/, apps/, packages/, each .csproj, entry files Program.cs, index.ts, index.js, main.go, main.py, main.ts, main.rs, script files directly in bin/ (lib/seed.js:13-22, :64-168); `--queue-reference` reads `<docs>/reference/README.md` (refuses if missing), takes the first link of each table row, skips rows whose first link is external or whose file exists, derives `describe-<basename>`, skips a slug any task already uses, and creates the task through `new <slug> --queue` (lib/seed.js:174-208).
+- adr-011:15 says `COMMANDS` in bin/backslop.js did not name `seed` — false today (bin/backslop.js:11).
+- adr-011:49 obliges every new source to be added both to the scanner and to the skill reference inventory.md, and nothing checks it; the two already differ both ways. Repro, en project with `cmd/app/`, `Directory.Build.props`, a `noxfile.py` session `tests`, and `CONTRIBUTING.md` naming `npm test`: `seed --scan --json` -> `{"gates": [], "subsystems": []}`, rc=0, although templates/en/skills/backslop-seed/references/inventory.md:5 says the scan "walks the sources of both tables below" (tables list Directory.Build.props :12, noxfile.py :13, README/CONTRIBUTING :16, `cli/` :23); the code reads makefile, Taskfile.yaml, index.js and the gate names fmt/format/type-check/check that the tables do not name (`bin/` and `before_script` are covered). The new ADR states the rule: the scanned list is the code in lib/seed.js; the skill reference separates what the scan reads from what the agent reads by eye. Editing inventory.md is the BS-167 (`backslop-seed-skill-fixes`) card's job.
+
+**2. Tracks ADR (adr-014).** verified — read, one run.
+- Live: `tracks [--json]` needs git and has no cleanup option (lib/tracks.js:40-49); lists every other worktree and every local branch without a worktree that has task commits outside HEAD (:56-86); each entry: kind, path, branch, head, merged, pending, dirty; JSON `{ tracks, total }`; merged = `git merge-base --is-ancestor <ref> HEAD`, a detached worktree measured by its own sha; pending = commits of the ref unreachable from HEAD whose subject starts with `<prefix>-<digit>`, `--grep` only prefilters (:17-29); dirty `[]` = clean, `null` = check failed (:33-37).
+- adr-014:41 says `git worktree list --porcelain` is parsed in two places with the merge deferred; it is one helper, `worktrees()` in lib/util.js:56-72, used by lib/tracks.js:56 and lib/tasks.js:296. adr-014:40 links a journal entry as history.
+- adr-014:21/:27 reject the alternative for misreporting squash-delivered work, but the chosen measure is reachability too. Repro: en project, branch `w1` with commit `BS-1: add a`, `git merge --squash w1` committed on main as `BS-1: closed — add a`; `tracks --json` -> `w1` with `merged: false` and one pending commit, although `git diff main w1` is empty. The new ADR states the limit: branches integrated by squash or cherry-pick stay listed until deleted; content-level detection would be a new decision.
+
+## Work to do
+
+- Seeding ADR (`node bin/backslop.js adr seed --title "Seeding: the seed command extracts candidates, the agent and the owner select"`): context (a hand inventory is silently incomplete, hand seeding re-decides settled questions and duplicates; choosing a real gate needs knowledge files do not show), the live rules of item 1, and the rule for the source list. Consequences: completeness is the code's responsibility; line-wise CI reading misses anchors, templates and matrices, Taskfile targets only at two-space indent; deduplication is by slug across all tasks, so a closed `describe-x` blocks re-seeding.
+- Tracks ADR (`node bin/backslop.js adr tracks --title "The tracks command observes a worker run and never removes anything"`): context (cleanup relied on memory; a forgotten merged worktree is litter, a deleted unmerged branch is lost work), the live rules of item 2, merged and pending printed separately, one worktree parser shared with numbering. Consequences: the run-end check is a command; worker sessions are harness state tracks does not see; removal stays explicit (`git worktree remove`, `git branch -D`) and a cleanup mode is a new decision; the squash/cherry-pick limit.
+- Delete adr-011 and adr-014 and replace rows `docs/README.md:22` and `:25` (numbers at 6f6318e) with the two new rows.
+- Repoint comments to the new tracks id: lib/tracks.js:2, :16. Remove any remaining link or token of the two deleted files in docs/reference, CHANGELOG.md (keep the entry text) and older ADRs.
+
+## Out of scope
+
+- Splitting inventory.md into scanned and read-by-eye sources — the BS-167 (`backslop-seed-skill-fixes`) card.
+- The Russian Scope text written by `seed --queue-reference` into English projects (lib/seed.js:207) — fixed by the BS-98 (`seed-scan-and-queue-reference`) card.
+- Content-level merge detection in `tracks` (patch-id).
+- The process, language and step-override ADRs (their own cards).
+
+## Verification
+
+- `ls docs/adr | grep -c -E '^adr-0(11|14)-'` -> `0`.
+- `git grep -n -E 'ADR-0(11|14)([^0-9]|$)|adr-0(11|14)-' -- . ':!docs/archive'; echo rc=$?` -> no output, `rc=1`.
+- `node bin/backslop.js lint; echo rc=$?` -> `rc=0` (gate 1 fails on any link to a deleted ADR file, gate 8 on an ADR without a `docs/README.md` link or a duplicate number).
+- `npm test; echo rc=$?` -> `rc=0` (base 6f6318e: 450 tests, 450 pass).
