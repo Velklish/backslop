@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.11.1 — 2026-09-25
 
 - **A pin in a journal entry is history** — `lint` reported, and `upgrade` rewrote, an old pin quoted in an entry line of `docs/archive/LOG.md`. Entry lines are now records of their moment for the pin gate, the `upgrade` rewrite and its "already on" check; the header of the journal stays live.
 - **Root links start at the repository root** — in a project inside a monorepo subdirectory, `/pkg/a/docs/README.md` was reported broken while `/docs/README.md` passed. A root link `/…` now resolves from the repository root, as GitHub and GitLab render it, in gates 1, 8 and 13, `seed --queue-reference` and the `mv`, `archive` and `fold` rewrites, which keep it rooted; outside a repository it resolves from the project root, and a git failure while finding the root makes the command refuse.
