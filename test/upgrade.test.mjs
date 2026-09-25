@@ -125,6 +125,33 @@ test('listReleaseTags: теги локального репозитория ка
   }
 });
 
+test('upgrade resolves a relative source from the project root', () => {
+  const mono = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-')));
+  try {
+    run(mono, ['init', '-q', '-b', 'main']);
+    const tool = path.join(mono, 'pkg', 'tool');
+    mkdirSync(tool, { recursive: true });
+    const g = (...a) => spawnSync('git', ['-C', tool, '-c', 'user.email=t@e', '-c', 'user.name=t', ...a], { encoding: 'utf8' });
+    g('init', '-q', '-b', 'main');
+    g('commit', '-q', '--allow-empty', '-m', 'r');
+    g('tag', `v${TOOL_VERSION}`);
+    const root = path.join(mono, 'pkg', 'a');
+    mkdirSync(path.join(root, 'sub'), { recursive: true });
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', cli: 'npx github:me/proj#v0.10.0', gates: [], version: '0.10.0', source: '../tool', lang: 'en' }, null, 2)}\n`);
+    const check = (cwd) => {
+      const r = cli(root, ['upgrade', '--dry-run'], { cwd });
+      assert.equal(r.code, 0, `${cwd}: ${r.err}`);
+      assert.ok(r.out.includes(`v0.10.0 → v${TOOL_VERSION}`), r.out);
+    };
+    check(root);
+    check(path.join(root, 'sub'));
+    rmSync(path.join(mono, '.git'), { recursive: true, force: true });
+    check(path.join(root, 'sub'));
+  } finally {
+    rmSync(mono, { recursive: true, force: true });
+  }
+});
+
 test('upgrade: git ls-remote, оборванный сигналом, — отказ называет сигнал, а не «код null»', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.2.0', 'v0.3.0']);
