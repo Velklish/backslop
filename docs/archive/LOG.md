@@ -134,3 +134,4 @@
 - <a id="bs-84"></a>`BS-84-upgrade-completes-pinned-consumers` · 2026-09-25 · completed · — · upgrade: complete runs from pinned consumers, move every pin, pin a floating cli
 - <a id="bs-93"></a>`BS-93-upgrade-source-path-from-root` · 2026-09-25 · completed · — · upgrade: resolve a relative `source` path from the project root
 - <a id="bs-85"></a>`BS-85-rewrite-guards-against-data-loss` · 2026-09-25 · completed · — · init, migrate, upgrade: never destroy user text when rewriting a file
+- <a id="bs-103"></a>`BS-103-unverified-lang-switch-redraw` · 2026-09-25 · completed · — · Check and fix: changing `lang` does not redraw the tool-owned rules pair
