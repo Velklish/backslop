@@ -224,6 +224,159 @@ test('fold N: archive N той же задачи после свёртки от�
   }
 });
 
+test('fold N: an unsaved attachment refuses the fold and stays on disk; committed, show N lists it by path', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/active/BS-1-alpha.md', '# BS-1 · Альфа\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст постановки\n');
+    gitAll(root, 'alpha taken');
+    assert.equal(cli(root, ['archive', '1']).code, 0);
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n');
+    put(root, 'docs/archive/BS-1-alpha/measurements.md', 'p95 = 12 ms\n');
+    put(root, 'docs/archive/BS-1-alpha/img/diagram.svg', '<svg/>\n');
+
+    const refused = cli(root, ['fold', '1']);
+    assert.equal(refused.code, 1, refused.out);
+    assert.match(refused.err, /вложения не сохранены в истории git/);
+    assert.match(refused.err, /docs\/archive\/BS-1-alpha\/measurements\.md/);
+    assert.match(refused.err, /docs\/archive\/BS-1-alpha\/img\/diagram\.svg/);
+    assert.equal(refused.out, '', 'no draft is printed before the refusal');
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/measurements.md')), 'the attachment stays on disk');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'the refusal writes no journal');
+
+    gitAll(root, 'alpha closed with attachments');
+    const folded = cli(root, ['fold', '1']);
+    assert.equal(folded.code, 0, folded.err);
+    assert.match(logLines(root)[0], / · `[0-9a-f]{10}` · Альфа$/, 'fixture: the line names a revision');
+    gitAll(root, 'fold');
+    const shown = cli(root, ['show', '1']);
+    assert.equal(shown.code, 0, shown.err);
+    assert.match(shown.out, /текст постановки/);
+    assert.match(shown.out, /^docs\/archive\/BS-1-alpha\/measurements\.md$/m);
+    assert.match(shown.out, /^docs\/archive\/BS-1-alpha\/img\/diagram\.svg$/m);
+    assert.doesNotMatch(shown.out, /p95 = 12 ms|<svg/, 'attachments are listed by path, not printed');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold N: an attachment committed in HEAD does not block a fold without revision; a changed one does', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    put(root, 'docs/archive/BS-1-alpha/notes.txt', 'attachment\n');
+    gitAll(root);
+    put(root, 'docs/archive/BS-1-alpha/notes.txt', 'attachment, edited\n');
+    const changed = cli(root, ['fold', '1']);
+    assert.equal(changed.code, 1, changed.out);
+    assert.match(changed.err, /вложения не сохранены в истории git.*docs\/archive\/BS-1-alpha\/notes\.txt/);
+
+    put(root, 'docs/archive/BS-1-alpha/notes.txt', 'attachment\n');
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог после ревью.\n');
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(logLines(root)[0], / · — · Альфа$/, 'fixture: the uncommitted result.md leaves the line without a revision');
+    assert.equal(run(root, ['cat-file', '-t', 'HEAD:docs/archive/BS-1-alpha/notes.txt']).stdout.trim(), 'blob');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold N: a file git ignores in a task directory is not an attachment; an unignored stray file still is', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.git/info/exclude', '.DS_Store\n');
+    closed(root);
+    gitAll(root);
+    put(root, 'docs/archive/BS-1-alpha/.DS_Store', 'finder\n');
+    put(root, 'docs/archive/BS-1-alpha/stray.txt', 'stray\n');
+    const refused = cli(root, ['fold', '1']);
+    assert.equal(refused.code, 1, refused.out);
+    assert.match(refused.err, /вложения не сохранены в истории git.*docs\/archive\/BS-1-alpha\/stray\.txt/);
+    assert.doesNotMatch(refused.err, /\.DS_Store/, 'the ignored file is not named');
+
+    rmSync(path.join(root, 'docs/archive/BS-1-alpha/stray.txt'));
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(logLines(root)[0], / · `[0-9a-f]{10}` · Альфа$/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold N: in a task directory ignored as a whole an ignored file still counts; outside a repository every file does', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.gitignore', 'docs/archive/BS-1-alpha/\n');
+    put(root, '.git/info/exclude', '.DS_Store\n');
+    gitAll(root);
+    closed(root);
+    put(root, 'docs/archive/BS-1-alpha/.DS_Store', 'finder\n');
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /вложения не сохранены в истории git.*docs\/archive\/BS-1-alpha\/\.DS_Store/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/.DS_Store')), 'the file stays on disk');
+  } finally {
+    cleanup(root);
+  }
+  const bare = makeProject({ git: false });
+  try {
+    put(bare, 'docs/reference/README.md', '# Справочник\n');
+    closed(bare);
+    put(bare, 'docs/archive/BS-1-alpha/.DS_Store', 'finder\n');
+    const r = cli(bare, ['fold', '1']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /вложения не сохранены в истории git.*docs\/archive\/BS-1-alpha\/\.DS_Store/);
+  } finally {
+    cleanup(bare);
+  }
+});
+
+test('fold N: a task directory ignored as a whole still counts its files once archive N has staged task.md', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.gitignore', 'docs/archive/BS-1-alpha/\n');
+    put(root, 'docs/backlog/active/BS-1-alpha.md', '# BS-1 · Альфа\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст постановки\n');
+    gitAll(root, 'alpha taken');
+    assert.equal(cli(root, ['archive', '1']).code, 0);
+    assert.match(run(root, ['status', '--porcelain']).stdout, /^R {2}.* -> docs\/archive\/BS-1-alpha\/task\.md$/m, 'fixture: task.md is staged');
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n');
+    put(root, 'docs/archive/BS-1-alpha/notes.txt', 'notes\n');
+
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /вложения не сохранены в истории git.*docs\/archive\/BS-1-alpha\/notes\.txt/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/notes.txt')), 'the attachment stays on disk');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold --embed-missing: an attachment beside a committed task.md in an ignored directory still refuses', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.gitignore', 'docs/archive/BS-1-alpha/\n');
+    closed(root);
+    run(root, ['add', '-f', 'docs/archive/BS-1-alpha/task.md']);
+    gitAll(root);
+    put(root, 'docs/archive/BS-1-alpha/scan.png', 'png bytes\n');
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'fixture: result.md and scan.png are ignored, the tree is clean');
+
+    const r = cli(root, ['fold', '--embed-missing']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /вложения не сохранены в истории git.*docs\/archive\/BS-1-alpha\/scan\.png/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/scan.png')), 'the attachment stays on disk');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'the refusal writes no journal');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold: массовая свёртка, --older-than отбирает по дате закрытия, --dry-run ничего не пишет', () => {
   const root = makeProject();
   try {
@@ -368,6 +521,60 @@ test('fold: тело вне истории — по умолчанию уход�
   }
 });
 
+test('fold --embed-missing: an attachment outside history refuses the bulk fold before any write', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.gitignore', 'docs/archive/BS-1-alpha/\n');
+    gitAll(root);
+    closed(root, { id: 'BS-1', slug: 'alpha', title: 'Альфа' });
+    put(root, 'docs/archive/BS-1-alpha/scan.png', 'png bytes\n');
+    const r = cli(root, ['fold', '--embed-missing']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /вложения не сохранены в истории git.*docs\/archive\/BS-1-alpha\/scan\.png/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/scan.png')), 'the attachment stays on disk');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'the refusal writes no journal');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('show N: bodies embedded by bulk fold --embed-missing are found in the commit body, each task printing only its own sections', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, '.gitignore', 'docs/archive/BS-1-alpha/\ndocs/archive/BS-2-beta/\n');
+    gitAll(root);
+    closed(root, { id: 'BS-1', slug: 'alpha', title: 'Альфа' });
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
+    // A worker commit named after the task holds no body and must not stand in for the fold commit.
+    put(root, 'docs/notes.md', 'work\n');
+    gitAll(root, 'BS-1: worker commit without the body');
+    const folded = cli(root, ['fold', '--embed-missing']);
+    assert.equal(folded.code, 0, folded.err);
+    assert.match(logLines(root)[0], / · — · Альфа$/, 'fixture: the body lives only in the message');
+    assert.match(folded.out.split('\n\n')[1], /BS-1, BS-2/, 'the intro names the lines without a revision');
+    const draft = path.join(root, '.git', 'BACKSLOP_DRAFT');
+    writeFileSync(draft, folded.out);
+    run(root, ['add', '-A']);
+    run(root, ['commit', '-q', '-F', draft]);
+
+    const one = cli(root, ['show', '1']);
+    assert.equal(one.code, 0, one.err);
+    assert.match(one.out, /^--- docs\/archive\/BS-1-alpha\/task\.md ---$/m);
+    assert.match(one.out, /^# BS-1 · Альфа$/m);
+    assert.match(one.out, /^--- docs\/archive\/BS-1-alpha\/result\.md ---$/m);
+    assert.doesNotMatch(one.out, /BS-2|worker commit|свёртка архива/, 'only the task\'s own sections are printed');
+    const two = cli(root, ['show', '2']);
+    assert.equal(two.code, 0, two.err);
+    assert.match(two.out, /^# BS-2 · Бета$/m);
+    assert.match(two.out, /^--- docs\/archive\/BS-2-beta\/result\.md ---$/m);
+    assert.doesNotMatch(two.out, /BS-1/, 'only the task\'s own sections are printed');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold: выброшенное тело и тело в истории в одной свёртке — последняя строка называет оба случая', () => {
   const root = makeProject();
   try {
@@ -379,6 +586,26 @@ test('fold: выброшенное тело и тело в истории в о�
     const r = cli(root, ['fold']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.err.trimEnd().split('\n').at(-1), /^⚠ заготовка сообщения коммита — в stdout, тел задач в ней нет: у строк с «—» \(задач 1\) тело ушло вместе с каталогом и не сохранено ни в заготовке, ни в истории; у строк с ревизией тело достаёт .+ show N$/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: the bulk draft intro names the lines without a revision instead of claiming every body is in history', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root, { id: 'BS-1', slug: 'alpha', title: 'Альфа' });
+    gitAll(root);
+    put(root, '.git/info/exclude', 'docs/archive/BS-5-delta/\n');
+    closed(root, { id: 'BS-5', slug: 'delta', title: 'Дельта' });
+    const r = cli(root, ['fold']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(logLines(root)[1], / · — · Дельта$/, 'fixture: the excluded directory gets no revision');
+    assert.doesNotMatch(r.out, /Тело задачи лежит в истории/, 'the draft claims no body in history for every line');
+    const intro = r.out.split('\n\n')[1];
+    assert.match(intro, /«—» \(BS-5\)/, 'the intro names the line without a revision');
+    assert.match(intro, /не сохранены ни в этом сообщении, ни в истории/);
   } finally {
     cleanup(root);
   }
@@ -698,13 +925,82 @@ test('show N: тело из сообщения коммита печатаетс
 
     const r = cli(root, ['show', '2']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /^BS-2: Бета$/m);
+    assert.doesNotMatch(r.out, /^BS-2: Бета$/m, 'the task sections of the message are printed, not its subject');
     assert.match(r.out, /^--- docs\/archive\/BS-2-beta\/task\.md ---$/m);
     assert.match(r.out, /текст постановки/);
     assert.match(r.out, /^--- docs\/archive\/BS-2-beta\/result\.md ---$/m);
     assert.doesNotMatch(r.out, /^diff --git/m, 'печатается сообщение, а не коммит с диффом');
     assert.doesNotMatch(r.out, /массовой переписи/);
     assert.match(r.err, /печатается сообщение коммита/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('show N: a fold draft committed under commit.cleanup=strip keeps its headings', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    gitAll(root);
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
+    const folded = cli(root, ['fold', '2']);
+    assert.equal(folded.code, 0, folded.err);
+    assert.match(logLines(root)[0], / · — · Бета$/, 'fixture: the body lives only in the message');
+    assert.match(folded.err, /git commit --cleanup=verbatim -F/, 'the fold note names the verbatim commit');
+    const draft = path.join(root, '.git', 'BACKSLOP_DRAFT');
+    writeFileSync(draft, folded.out);
+    run(root, ['add', '-A']);
+    run(root, ['-c', 'commit.cleanup=strip', 'commit', '-q', '-F', draft]);
+
+    const r = cli(root, ['show', '2']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^# BS-2 · Бета$/m);
+    assert.match(r.out, /^## Контекст$/m);
+    assert.match(r.out, /^# BS-2 · Результат$/m);
+    assert.doesNotMatch(r.out, /^>/m, 'the body marker is stripped back');
+    assert.doesNotMatch(r.err, /не открывается строкой/, 'an intact body raises no heading warning');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('show N: a fold commit written before the body marker prints its body as it is', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    gitAll(root);
+    const oldDraft = (id, slug, title) => [
+      `${id}: ${title}`, '',
+      `Свёрнута в строку docs/archive/LOG.md#${id.toLowerCase()}. Тело задачи — ниже: в дереве его больше нет, и это сообщение — его единственное хранилище.`, '',
+      `--- docs/archive/${id}-${slug}/task.md ---`, '',
+      `# ${id} · ${title}`, '', '- **Область:** [x](../../reference/README.md)', '', '## Контекст', '', '> цитата из обсуждения', '', 'текст постановки', '',
+      `--- docs/archive/${id}-${slug}/result.md ---`, '',
+      `# ${id} · Результат`, '', '**Закрыта 2026-09-03.** Выполнена. Итог одной строкой.', '',
+    ].join('\n');
+    const draft = path.join(root, '.git', 'OLD_DRAFT');
+
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Бета' });
+    assert.equal(cli(root, ['fold', '2']).code, 0);
+    writeFileSync(draft, oldDraft('BS-2', 'beta', 'Бета'));
+    run(root, ['add', '-A']);
+    run(root, ['commit', '-q', '-F', draft]);
+    const r = cli(root, ['show', '2']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(r.out.includes('# BS-2 · Бета\n\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\n> цитата из обсуждения\n\nтекст постановки\n'), r.out);
+    assert.ok(r.out.includes('# BS-2 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог одной строкой.\n'), r.out);
+    assert.doesNotMatch(r.err, /не открывается строкой/);
+
+    // The same format under git's cleanup lost its headings: printed as found, with a warning.
+    closed(root, { id: 'BS-3', slug: 'gamma', title: 'Гамма' });
+    assert.equal(cli(root, ['fold', '3']).code, 0);
+    writeFileSync(draft, oldDraft('BS-3', 'gamma', 'Гамма'));
+    run(root, ['add', '-A']);
+    run(root, ['-c', 'commit.cleanup=strip', 'commit', '-q', '-F', draft]);
+    const stripped = cli(root, ['show', '3']);
+    assert.equal(stripped.code, 0, stripped.err);
+    assert.match(stripped.out, /текст постановки/);
+    assert.doesNotMatch(stripped.out, /^# BS-3/m, 'fixture: the cleanup took the headings');
+    assert.match(stripped.err, /BS-3: тело не открывается строкой «# BS-3 · …»/);
   } finally {
     cleanup(root);
   }
