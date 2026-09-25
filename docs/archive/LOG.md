@@ -139,3 +139,4 @@
 - <a id="bs-88"></a>`BS-88-branch-scans-new-and-tracks` · 2026-09-25 · completed · — · new and tracks: see numbers on every branch, and tell a git failure from an empty list
 - <a id="bs-101"></a>`BS-101-unverified-command-input-forms` · 2026-09-25 · completed · — · Check and fix: merge-changelog --out base dir, archive --range single ref, pin grammar
 - <a id="bs-92"></a>`BS-92-gates-tree-labels-globs` · 2026-09-25 · completed · — · gates: intact porcelain, root-relative diff paths, true outcome labels, `**/` rule
+- <a id="bs-102"></a>`BS-102-unverified-repo-state-reports` · 2026-09-25 · completed · — · Check and fix: monorepo-wide --require-clean in gates, prunable worktrees in tracks

@@ -182,6 +182,37 @@ test('tracks: detached worktree меряется по своему sha, а не 
   }
 });
 
+test('tracks: a worktree whose directory is gone is named prunable, its status is not asked', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n');
+    run(root, ['add', '-A']);
+    run(root, ['commit', '-qm', 'init']);
+    run(root, ['worktree', 'add', '-q', '-b', 'gone', beside(root, 'gone'), 'HEAD']);
+    rmSync(beside(root, 'gone'), { recursive: true, force: true });
+    run(root, ['worktree', 'add', '-q', '-b', 'held', beside(root, 'held'), 'HEAD']);
+    run(root, ['worktree', 'lock', beside(root, 'held')]);
+
+    const report = JSON.parse(cli(root, ['tracks', '--json']).out);
+    const gone = report.tracks.find((t) => t.branch === 'gone');
+    assert.equal(gone.prunable, true);
+    assert.equal(gone.locked, false);
+    assert.equal(gone.dirty, null);
+    const held = report.tracks.find((t) => t.branch === 'held');
+    assert.equal(held.prunable, false);
+    assert.equal(held.locked, true);
+    assert.deepEqual(held.dirty, []);
+
+    const text = cli(root, ['tracks']);
+    assert.equal(text.code, 0, text.err);
+    assert.match(text.out, /\(gone\)\n {4}влит в HEAD\n {4}не влитых коммитов задач нет\n {4}каталога нет — git worktree prune\n/);
+    assert.doesNotMatch(text.out, /спросить не удалось/, 'the status of a gone directory is not asked');
+  } finally {
+    rmSync(beside(root, 'held'), { recursive: true, force: true });
+    cleanup(root);
+  }
+});
+
 test('tracks: a branch named like a path is read as a branch, its task commit listed', () => {
   const root = makeProject();
   try {

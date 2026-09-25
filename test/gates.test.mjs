@@ -359,6 +359,129 @@ test('gates: в монорепе пути приводятся к корню п�
   }
 });
 
+test('gates: in a monorepo the tree snapshot and --require-clean see only the project', () => {
+  const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-tree-')));
+  try {
+    run(repo, ['init', '-q', '-b', 'main']);
+    run(repo, ['config', 'user.email', 'test@example.com']);
+    run(repo, ['config', 'user.name', 'test']);
+    run(repo, ['config', 'commit.gpgsign', 'false']);
+    run(repo, ['config', 'status.renames', 'true']);
+    const proj = path.join(repo, 'pkg');
+    mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [] }, null, 2)}\n`);
+    put(repo, 'pkg/a.md', 'a\n');
+    put(repo, 'other/a.txt', 'x\n');
+    run(repo, ['add', '-A']);
+    run(repo, ['commit', '-qm', 'init']);
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({
+      prefix: 'BS', docs: 'docs', gates: [{ command: 'node -e "process.exit(0)"', when: ['backslop.json'] }],
+    }, null, 2)}\n`);
+    run(repo, ['commit', '-qam', 'cfg']);
+    put(repo, 'other/b.txt', 'y\n');
+
+    const inProject = { cwd: proj };
+    let r = cli(repo, ['gates', '--require-clean', '--base', 'HEAD~1', '--json'], inProject);
+    assert.equal(r.code, 0, `a file outside the project does not make it dirty: ${r.err}`);
+    let tree = JSON.parse(r.out).tree;
+    assert.equal(tree.clean, true);
+    assert.equal(tree.dirty, '');
+
+    run(repo, ['mv', 'pkg/a.md', 'pkg/b c.md']);
+    put(repo, 'pkg/new.txt', 'n\n');
+    r = cli(repo, ['gates', '--require-clean', '--base', 'HEAD~1'], inProject);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^R {2}a\.md -> "b c\.md"$/m, 'both sides of a rename are relative to the project');
+    assert.match(r.err, /^\?\? new\.txt$/m);
+    assert.doesNotMatch(r.err, /other\/b\.txt|pkg\//);
+
+    r = cli(repo, ['gates', '--base', 'HEAD~1', '--json'], inProject);
+    assert.equal(r.code, 0, r.err);
+    tree = JSON.parse(r.out).tree;
+    assert.equal(tree.clean, false);
+    assert.equal(tree.dirty, 'R  a.md -> "b c.md"\n?? new.txt');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('gates: neighbour dirt in a monorepo does not lift the empty-set refusal of --require-clean', () => {
+  const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-empty-')));
+  try {
+    run(repo, ['init', '-q', '-b', 'main']);
+    run(repo, ['config', 'user.email', 'test@example.com']);
+    run(repo, ['config', 'user.name', 'test']);
+    run(repo, ['config', 'commit.gpgsign', 'false']);
+    const proj = path.join(repo, 'pkg');
+    mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({
+      prefix: 'BS', docs: 'docs', gates: [{ command: 'node -e "process.exit(0)"', when: ['src/**'] }],
+    }, null, 2)}\n`);
+    put(repo, 'other/a.txt', 'x\n');
+    run(repo, ['add', '-A']);
+    run(repo, ['commit', '-qm', 'init']);
+    put(repo, 'other/b.txt', 'y\n');
+
+    let r = cli(repo, ['gates', '--require-clean'], { cwd: proj });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /--require-clean без --base/);
+    r = cli(repo, ['gates', '--require-clean', '--base', 'HEAD'], { cwd: proj });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /--require-clean --base HEAD: набор изменённых путей пуст/);
+    assert.match(cli(repo, ['gates', '--base', 'HEAD'], { cwd: proj }).out, /отброшено 1 вне проекта/, 'the printed count stays');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('gates: a non-ASCII project directory is stripped from quoted porcelain paths too', () => {
+  const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-quoted-')));
+  try {
+    run(repo, ['init', '-q', '-b', 'main']);
+    run(repo, ['config', 'core.quotePath', 'true']);
+    const proj = path.join(repo, 'пакет');
+    mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: ['node -e "process.exit(0)"'] }, null, 2)}\n`);
+    let r = cli(repo, ['gates', '--json'], { cwd: proj });
+    assert.equal(JSON.parse(r.out).tree.dirty, '?? ./', 'the untracked project directory itself');
+    put(proj, 'docs/backlog/README.md', '# Backlog\n');
+    run(repo, ['config', 'user.email', 'test@example.com']);
+    run(repo, ['config', 'user.name', 'test']);
+    run(repo, ['config', 'commit.gpgsign', 'false']);
+    run(repo, ['add', '-A']);
+    run(repo, ['commit', '-qm', 'init']);
+    put(repo, 'пакет/plain.md', 'a\n');
+    put(repo, 'пакет/a b.md', 'b\n');
+    r = cli(repo, ['gates', '--json'], { cwd: proj });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(r.out).tree.dirty, '?? "a b.md"\n?? plain.md');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
+test('gates: a bare porcelain path with a Unicode space loses the project prefix too', () => {
+  const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-nbsp-')));
+  try {
+    run(repo, ['init', '-q', '-b', 'main']);
+    run(repo, ['config', 'core.quotePath', 'false']);
+    run(repo, ['config', 'user.email', 'test@example.com']);
+    run(repo, ['config', 'user.name', 'test']);
+    run(repo, ['config', 'commit.gpgsign', 'false']);
+    const proj = path.join(repo, 'pkg');
+    mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: ['node -e "process.exit(0)"'] }, null, 2)}\n`);
+    run(repo, ['add', '-A']);
+    run(repo, ['commit', '-qm', 'init']);
+    put(repo, 'pkg/a b.md', 'x\n');
+    const r = cli(repo, ['gates', '--json'], { cwd: proj });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(r.out).tree.dirty, '?? a b.md');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 test('gates: diff.relative=true does not drop the paths of a monorepo subproject', () => {
   const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-rel-')));
   try {
