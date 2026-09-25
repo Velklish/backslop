@@ -83,6 +83,40 @@ test('lint: EN project accepts RU metadata and reports errors in English', () =>
 
 probe('1. битая ссылка в docs', (root) => put(root, 'docs/note.md', '[нет](reference/none.md)\n'), /docs\/note\.md: битая ссылка reference\/none\.md/);
 probe('1. битая ссылка в корневом README', (root) => put(root, 'README.md', '[нет](docs/none.md)\n'), /README\.md: битая ссылка/);
+test('lint: 1. a link whose target differs only in letter case is an error on any filesystem', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"en","tools":[]}\n');
+    put(root, 'docs/note.md', '[overview](reference/readme.md)\n');
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /docs\/note\.md: link target differs in case: docs\/reference\/README\.md \(link reference\/readme\.md\)/);
+    assert.match(r.err, /lint: errors 1\b/);
+  } finally {
+    cleanup(root);
+  }
+});
+test('lint: 1. balanced parentheses and every URI scheme pass; a BOM hides no first-line link', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/reference/foo(1).md', '# Foo\n');
+    const links = '[foo](reference/foo(1).md) [ftp](ftp://host/f.txt) [file](file:///etc/hosts) [tel](tel:+123) '
+      + '[up](HTTPS://example.com) [proto](//cdn.example.com/a.png)\n';
+    put(root, 'docs/note.md', links);
+    put(root, 'README.md', links.replace('reference/', 'docs/reference/'));
+    assert.deepEqual(problems(root), []);
+    put(root, 'docs/bom.md', '\uFEFF[missing]: reference/nope.md\n');
+    put(root, 'docs/fence.md', '\uFEFF```\nexample\n```\n\nSee [missing](reference/nope.md).\n');
+    assert.deepEqual(problems(root), [
+      'docs/bom.md: битая ссылка reference/nope.md',
+      'docs/fence.md: битая ссылка reference/nope.md',
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('1. ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1](../triage) — карточка\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
 probe('1. reference-style ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1][f] — карточка\n\n[f]: ../triage\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
 probe('1. ссылка с номером задачи на каталог в generated adapter output', (root) => {
@@ -276,6 +310,19 @@ probe('7. дубль заголовка записи в секции CHANGELOG',
 probe('8. ADR без строки в таблице', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Сирота\n'), /adr-002-orphan\.md: нет строки/);
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
 probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
+test('lint: 8. an ADR row linked from the root, with ?query or with a %-escape counts as its row', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    for (const href of ['/docs/adr/adr-001-process.md', 'adr/adr-001-process.md?plain=1', 'adr/adr-001-process%2Emd']) {
+      put(root, 'docs/README.md', read(root, 'docs/README.md').replace(/\(\/?[^)]*adr-001-process[^)]*\)/, `(${href})`));
+      assert.ok(read(root, 'docs/README.md').includes(`(${href})`), 'the ADR row carries the href form');
+      assert.deepEqual(problems(root), [], href);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
 test('lint: находка под закрытым родителем остаётся предупреждением для approver', () => {
   const root = makeProject({ git: false });
   try {
@@ -748,6 +795,22 @@ probe('13. ссылка из корневого файла на промахну
   seedLog(root);
   put(root, 'README.md', 'См. [BS-5](docs/archive/LOG.md#bs-55)\n');
 }, /README\.md: ссылка docs\/archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
+
+test('lint: 13. the journal anchor is checked behind ?query and a %-escape; a malformed escape does not throw', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    seedLog(root);
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](archive/LOG.md?plain=1#bs-5) [q](archive/LOG.md?plain=1#bs-99) [e](archive/LOG%2Emd#bs-9) [m](a%E0%A4%A.md#bs-5)\n');
+    assert.deepEqual(problems(root), [
+      'docs/ROADMAP.md: битая ссылка a%E0%A4%A.md#bs-5',
+      'docs/ROADMAP.md: ссылка archive/LOG.md?plain=1#bs-99 ведёт на строку журнала, которой нет — якорь «bs-99» ни за одной записью',
+      'docs/ROADMAP.md: ссылка archive/LOG%2Emd#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью',
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
 
 // Закрытая задача, закоммиченная между `archive N` и `fold N`:
 // этот коммит и становится ревизией строки журнала.

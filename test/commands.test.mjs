@@ -683,6 +683,24 @@ test('mv: входящие ссылки на задачу переписываю
   }
 });
 
+test('mv: a card linking to itself still resolves after the move, relative and rooted', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--title', 'A']);
+    fillArea(root, 'docs/backlog/triage/BS-1-a.md');
+    put(root, 'docs/backlog/triage/BS-1-a.md', `${read(root, 'docs/backlog/triage/BS-1-a.md')}\n[self](BS-1-a.md#context) [root](/docs/backlog/triage/BS-1-a.md)\n`);
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    const card = read(root, 'docs/backlog/queue/BS-1-a.md');
+    assert.match(card, /\[self\]\(BS-1-a\.md#context\) \[root\]\(\/docs\/backlog\/queue\/BS-1-a\.md\)/);
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv: файл из плоского docs/backlog/ переезжает в каталог статуса с пересчётом исходящих ссылок', () => {
   const root = makeProject();
   try {

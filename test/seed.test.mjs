@@ -111,6 +111,28 @@ test('seed --queue-reference: задача на строку без раздел
   }
 });
 
+test('seed --queue-reference: a row linking an existing section with ?query or a %-escape creates no task', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', [
+      '# Reference', '',
+      '| Section | About |', '|---|---|',
+      '| [Layout](01-layout.md?plain=1) | layout |',
+      '| [Lint](03%2Dlint.md#gates) | gates |',
+      '| [Rooted](/docs/reference/01-layout.md) | layout |', '',
+    ].join('\n'));
+    put(root, 'docs/reference/01-layout.md', '# Layout\n');
+    put(root, 'docs/reference/03-lint.md', '# Lint\n');
+    const r = cli(root, ['seed', '--queue-reference']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /заведено задач 0, пропущено как уже посеянные 0/);
+    assert.equal(r.err, '', 'no row is taken for an unwritten section');
+    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/queue')).filter((n) => n !== '.gitkeep'), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('seed: без reference/README.md и без режима — отказ, а не тихая работа', () => {
   const root = makeProject();
   try {

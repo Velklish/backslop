@@ -6,7 +6,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  blankCode, brokenLinks, directoryLinks, refDefinitions, relativeLinks, rewriteFoldedLinks, rewriteIncomingLinks, rewriteMovedLinks,
+  EXTERNAL, blankCode, brokenLinks, directoryLinks, normalizeHrefTarget, refDefinitions, relativeLinks, rewriteFoldedLinks,
+  rewriteIncomingLinks, rewriteMovedLinks, splitHref,
 } from '../lib/links.js';
 
 const FROM = 'docs/backlog/active';
@@ -172,7 +173,7 @@ test('битые ссылки файла: цель резолвится от е�
     writeFileSync(path.join(sb, 'docs', 'reference', 'README.md'), '# Справочник\n');
     const file = path.join(sb, 'docs', 'note.md');
     writeFileSync(file, '[ж](reference/README.md#верх) [м](reference/missing.md) [в](https://x.y) [к](/docs/reference/README.md?plain=1) [н](/nope.md)\n');
-    assert.deepEqual(brokenLinks(file, sb), ['reference/missing.md', '/nope.md']);
+    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/missing.md', real: null }, { href: '/nope.md', real: null }]);
   } finally {
     rmSync(sb, { recursive: true, force: true });
   }
@@ -243,4 +244,76 @@ test('ссылки на каталог: текст — от ближайшей �
   } finally {
     rmSync(sb, { recursive: true, force: true });
   }
+});
+
+test('splitHref and normalizeHrefTarget: one cut at # or ?, decoded, / from the project root', () => {
+  assert.deepEqual(splitHref('a.md?plain=1#x'), { target: 'a.md', rest: '?plain=1#x' });
+  assert.deepEqual(splitHref('a.md#x?y'), { target: 'a.md', rest: '#x?y' });
+  assert.deepEqual(splitHref('a.md'), { target: 'a.md', rest: '' });
+  assert.equal(normalizeHrefTarget('docs', 'adr/adr-001-process%2Emd'), 'docs/adr/adr-001-process.md');
+  assert.equal(normalizeHrefTarget('docs', '/docs/adr/../README.md'), 'docs/README.md');
+  assert.equal(normalizeHrefTarget('docs/reference', '../../README.md'), 'README.md');
+  assert.equal(normalizeHrefTarget('', 'docs/a b.md'), 'docs/a b.md');
+  assert.equal(normalizeHrefTarget('docs', 'a%E0%A4%A.md'), null, 'a malformed escape resolves to nothing');
+});
+
+test('broken links: a target that differs only in letter case is reported with its real spelling', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
+  try {
+    mkdirSync(path.join(sb, 'docs', 'reference'), { recursive: true });
+    writeFileSync(path.join(sb, 'docs', 'reference', 'README.md'), '# Reference\n');
+    const file = path.join(sb, 'docs', 'note.md');
+    writeFileSync(file, '[ok](reference/README.md) [a](reference/readme.md#top) [b](/DOCS/reference/README.md) [c](Reference/)\n');
+    assert.deepEqual(brokenLinks(file, sb), [
+      { href: 'reference/readme.md#top', real: 'docs/reference/README.md' },
+      { href: '/DOCS/reference/README.md', real: 'docs/reference/README.md' },
+      { href: 'Reference/', real: 'docs/reference' },
+    ]);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('broken links: a bare destination keeps balanced parentheses, and so does the rewrite', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
+  try {
+    mkdirSync(path.join(sb, 'docs', 'reference'), { recursive: true });
+    writeFileSync(path.join(sb, 'docs', 'reference', 'foo(1).md'), '# Foo\n');
+    const file = path.join(sb, 'docs', 'README.md');
+    writeFileSync(file, '[foo](reference/foo(1).md) [t](reference/foo(1).md "title") [gone](reference/bar(2).md)\n');
+    assert.deepEqual(relativeLinks('[foo](reference/foo(1).md)'), ['reference/foo(1).md']);
+    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/bar(2).md', real: null }]);
+    assert.equal(rewriteMovedLinks('[f](../queue/foo(1).md)', FROM, TO), '[f](../../backlog/queue/foo(1).md)');
+    assert.equal(
+      rewriteIncomingLinks('[f](foo(1).md#a)', FROM, `${FROM}/foo(1).md`, NEW),
+      '[f](../../archive/BS-42-x/task.md#a)',
+    );
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('broken links: a leading BOM hides neither a first-line definition nor a first-line fence', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
+  try {
+    mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
+    const file = path.join(sb, 'docs', 'NOTE.md');
+    writeFileSync(file, '\uFEFF[missing]: reference/nope.md\n');
+    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/nope.md', real: null }]);
+    writeFileSync(file, '\uFEFF```\nexample\n```\n\nSee [missing](reference/nope.md).\n');
+    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/nope.md', real: null }]);
+    writeFileSync(file, '\uFEFF[BS-5]: triage\n\nSee [BS-5].\n');
+    assert.deepEqual(directoryLinks(file, sb), [{ text: 'BS-5', href: 'triage' }]);
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('external hrefs: any URI scheme, a drive letter, //host and #anchor are neither checked nor rewritten', () => {
+  const text = '[ftp](ftp://host/f.txt) [file](file:///etc/hosts) [tel](tel:+123) [up](HTTPS://example.com) '
+    + '[proto](//cdn.example.com/a.png) [drive](C:/docs/x.md) [a](#top) [r](/docs/x.md) [q](x.md?plain=1)';
+  assert.deepEqual(relativeLinks(text), ['/docs/x.md', 'x.md?plain=1']);
+  assert.ok(EXTERNAL.test('mailto:a@b') && !EXTERNAL.test('/docs/x.md') && !EXTERNAL.test('x.md'));
+  const external = text.split(' [r]')[0];
+  assert.equal(rewriteMovedLinks(external, FROM, TO), external);
 });

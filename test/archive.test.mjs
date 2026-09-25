@@ -186,3 +186,22 @@ test('archive: корневая входящая ссылка на переех�
     cleanup(root);
   }
 });
+
+test('archive: a card linking to itself points at task.md after the move', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    put(root, 'docs/backlog/active/BS-3-gamma.md', '# BS-3 · Gamma\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n\n'
+      + 'See [self](BS-3-gamma.md#context), [query](./BS-3-gamma.md?plain=1) and [root](/docs/backlog/active/BS-3-gamma.md).\n');
+    gitAll(root);
+    const r = cli(root, ['archive', '3']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/archive/BS-3-gamma/task.md'),
+      /See \[self\]\(task\.md#context\), \[query\]\(task\.md\?plain=1\) and \[root\]\(\/docs\/archive\/BS-3-gamma\/task\.md\)\./);
+    put(root, 'docs/archive/BS-3-gamma/result.md', '# BS-3 · Результат\n\n**Закрыта 2026-09-02.** Выполнена.\n');
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
