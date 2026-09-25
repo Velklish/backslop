@@ -7,7 +7,7 @@
 
 ## Context
 
-The BS-89 (`link-gate-target-resolution`) card added `splitHref` and `normalizeHrefTarget` to lib/links.js and moved gates 1, 8, 13 and `seed --queue-reference` onto them: cut at the first `#` or `?`, `decodeURI` inside try/catch (a URIError means "cannot resolve", never a throw), `/x` from the project root. The link rewrites of `mv`, `archive` and `fold` still carry their own copies of the prologue and never decode, so a percent-encoded link is left pointing at the old directory.
+The BS-89 (`link-gate-target-resolution`) card added `splitHref` and `normalizeHrefTarget` to lib/links.js and moved gates 1, 8, 13 and `seed --queue-reference` onto them: cut at the first `#` or `?`, `decodeURI` inside try/catch (a URIError means "cannot resolve", never a throw), `/x` from the repository root (the project root outside a repository; the BS-99 (`unverified-lint-gate-gaps`) card). The link rewrites of `mv`, `archive` and `fold` still carry their own copies of the prologue and never decode, so a percent-encoded link is left pointing at the old directory.
 
 Repro commands below run in an empty scratch directory with `B() { node "$BACKSLOP/bin/backslop.js" "$@"; }`, where `$BACKSLOP` is this repository's checkout; projects are created with `git init -q -b main && B init --tools none --lang en`.
 

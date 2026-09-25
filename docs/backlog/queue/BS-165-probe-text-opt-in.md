@@ -37,11 +37,13 @@ Tests that pin the current strings:
 ## Work to do
 
 - Make every probe sentence conditional on `probe`, in both languages. brief.md:36 (the whole bullet) and the probe item of :40, backslop-task SKILL.md:26 (from "A mutation probe is deliberate breakage" to "fix the input, not the gate"), SKILL.md:28 and the "mutation probe" in acceptance step 2 (:51), and result.md:5 must all render nothing about the probe when the field is absent. Choose the mechanism, e.g. a slot that renders a whole passage or bullet, or the empty string. Keep one text source per sentence, and declare every new key in `TEMPLATE_KEYS` (lint's key gate checks the pairs).
+- Owner decision: the probe-slot mechanism is recorded by updating the consolidated probe-command ADR written by BS-145 (`probe-command-adr`) in place, not in a new ADR: its Decision names every slot key and place that renders probe text.
 - With `probe` declared, the brief states "commit first" once. Either the bullet keeps only the reason ("reverting the mutation would take your fix with it") and the slot adds the rule with the command, or the brief renders only the command.
 - result.md: add `cli` to the result.md key set (lib/templates.js:19), pass `cli: cfg.cli` from lib/archive.js:44, and write `{{cli}} gates` in both result.md templates.
 - Leave the `init` and `brief` notes unchanged: after this card, the init note ("neither the block nor the skill carries …") is true.
 - Tests: extend test/init.test.mjs:342-356. Without `probe`, the rendered AGENTS.md block, backslop-task skill, `brief` stdout and an `archive` result.md contain neither "probe" nor "проба". With `probe`, the brief contains the commit-first rule exactly once (count the matches). Update brief.test.mjs:50-53 (the probe bullet is no longer fixed) and :226-233. Add a test: `archive` in a project with `"cli": "npx backslop@1.2.3"` writes a result.md that contains `` `npx backslop@1.2.3 gates` ``.
 - CHANGELOG, Unreleased section: without `probe`, the skill, the brief and the result stub no longer ask for a mutation probe; with it, the brief states the rule once; the result stub names the project's CLI.
+- The acceptance redraws this repository's own AGENTS.md block with `node bin/backslop.js init` and commits it with the task, so later workers follow the new rules.
 
 ## Out of scope
 
@@ -54,4 +56,6 @@ Tests that pin the current strings:
 - Project without `probe`: `$B init --lang en --tools claude; grep -ci probe AGENTS.md .claude/skills/backslop-task/SKILL.md` prints 0 for both files. `$B new a --queue; $B brief 1 --track x 2>/dev/null | grep -ci probe` prints 0. `$B archive 1; grep -ci probe docs/archive/*/result.md` prints 0.
 - Same project with `"probe": "npm run probe"`: `$B brief 1 --track x | grep -o "commit first" | wc -l` prints 1, and the rendered skill's step 4 names `npm run probe`.
 - Project whose cli is the default npx pin: after `$B archive 1`, result.md contains `<that cli> gates`.
+- No new file under docs/adr; the probe-command ADR names every new slot key.
+- After the acceptance commit: `node bin/backslop.js init && git diff --exit-code AGENTS.md; echo rc=$?` → rc=0 (this repository's block equals the rendered template).
 - `npm test` exits 0 with no failing test (450 at the base commit, plus the tests this card adds); `node bin/backslop.js lint` exits 0 (templateParity and the key check stay clean).

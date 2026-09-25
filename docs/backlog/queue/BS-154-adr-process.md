@@ -3,7 +3,7 @@
 - **Order:** 720
 - **Scope:** [01. Layout](../../reference/01-layout.md) § Task file
 - **Created:** 2026-09-25
-- **Dependencies:** BS-153, BS-151, BS-152
+- **Dependencies:** BS-153, BS-151, BS-152, BS-121, BS-126
 
 ## Context
 
@@ -21,19 +21,20 @@ Two Russian ADRs describe how tasks and decisions live as files: `docs/adr/adr-0
 - adr-001:19 "gates are `lint` plus `gates` from backslop.json" double-counts lint: lint is the default first entry of `gates` (lib/config.js:33, :112) and `gates` runs only that list.
 - adr-001:23 "a status change is `git mv` of one file: two branches conflict only on the same task" — reproduced false: in a fresh project `new a --queue; new b --queue; new c`, a link to BS-3 appended to AGENTS.md, BS-2 Order set to 11 and committed; `mv 3 queue --after 1` rewrote AGENTS.md (incoming link, `relocateTask` lib/tasks.js:604-611) and renumbered BS-2 from 11 to 30 (lib/tasks.js:551-567, written at lib/mv.js:170-172).
 - adr-001:3 says `Superseded in part by ADR-019` while its row `docs/README.md:12` says `Accepted`; a script comparing all 38 rows with each file's Status line finds this as the only mismatch; gate 8 compares links only (lib/lint.js:566-570), so `node bin/backslop.js lint` is rc=0. The new rows carry the file's Status.
-- adr-001:17 and docs/README.md principle 2 say an accepted ADR is not edited but replaced, the old one keeping a "replaced by" mark. The consolidation deletes the old files; the new process ADR keeps the rule for future decisions only: a changed decision is a new ADR whose Status names what it replaces, and the replaced ADR's Status names its successor.
+- adr-001:17 and docs/README.md principle 2 say an accepted ADR is not edited but replaced, the old one keeping a "replaced by" mark. The consolidation deletes the old files. Owner decision: for future decisions too, a topic has one ADR, and a changed decision rewrites it, in place or as a new file that replaces it; a replaced file is deleted and nothing cites its number (no "Superseded by" chains).
 
 ## Work to do
 
 - Process ADR (`node bin/backslop.js adr process --title "Tasks and decisions live as files; a task's status is its directory"`). Context: a tracker and decision log next to the code, readable by an agent without services, without conflicts between parallel branches; a single list file conflicts on every take and close. Options: one task-list file or an index (conflicts); an external tracker (unreadable offline). Decision: the live rules of item 1 with the five statuses, closing as `archive N` then `fold N` into `<docs>/archive/LOG.md` (the unfolded directory is legal), minor entries closed into a batch (see the findings ADR by its new id), the numbering sources, `mv` as the status change (git mv or rename, link rewriting, status-owned fields), the change procedure and roles in the AGENTS.md block and skills, gates = the `gates` list (default `<cli> lint`) run by `<cli> gates`, ADR rules including the future-change rule of item 1. Consequences: a move can also touch files that link to the task and, in the queue, other queue files, so branches conflict there too; seeing the queue costs a command; lint holds links, numbers, layout and status fields while content quality stays with the author; gate 8 checks the link, not the Status column.
+- The process ADR also records the command-line contract as the code has it after the BS-121 (`strict-command-argv`) and BS-126 (`json-contract-nulls-total`) cards: unknown flags and extra positionals are refused with rc 1 in the project language, and `status --json` prints `null` for a blank status field.
 - Delete adr-001 and adr-002 and replace rows `docs/README.md:12` and `:13` (numbers at 6f6318e) with the one new row.
 - Drop the ADR-002 citation in docs/reference/02-cli.md:49 if it is still there, and any remaining link to the two deleted files (CHANGELOG.md: remove the old ADR tokens and link markup, keep the entry text). Leave the paths of the consumer template `templates/docs/adr/adr-001-process.md` (docs/reference/01-layout.md:12, docs/reference/02-cli.md:11, lib/init.js:103, :134) and test fixtures that create their own adr-001/adr-002 files as they are: they are not citations of this repository's ADRs.
 
 ## Out of scope
 
 - The consumer process ADR template (templates/docs/adr/adr-001-process.md and its en twin: the closed-task line and the one-file conflict claim) — BS-166 (`docs-skeleton-adr001-index`).
-- Gating the Status column of docs/README.md against the ADR files, or dropping the column (not decided).
-- A lint check for stray Order fields (not decided).
+- Gating the Status column of docs/README.md against the ADR files, or dropping the column (minor hypothesis BS-154.1).
+- A lint check for stray Order fields (minor hypothesis BS-153.1).
 - The language, step-override, seed and tracks ADRs (their own cards).
 
 ## Verification

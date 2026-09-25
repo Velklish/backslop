@@ -39,9 +39,9 @@ Files: `templates/{en/,}docs/adr/adr-001-process.md` (the process ADR that `init
 
 ## Out of scope
 
-- Consumer copies of ADR-001 and docs/README.md: they belong to the project, and no migration touches them.
+- Consumer copies of ADR-001 and docs/README.md: they belong to the project. No migration touches ADR-001; the only migration that edits docs/README.md is the ROADMAP one of BS-157 (`remove-roadmap-from-layout`), and only in lines equal to their old rendered form.
 - The ROADMAP links in the index (the BS-157 (`remove-roadmap-from-layout`) card, which this card depends on).
-- The ADR stub template adr.md, and the rule for committing ADR stubs and flipping their Status (BS-167 (`backslop-seed-skill-fixes`)).
+- The ADR stub template adr.md (no card changes it), and the rule for committing ADRs migrated from foreign sources and flipping their Status (BS-167 (`backslop-seed-skill-fixes`)).
 
 ## Verification
 

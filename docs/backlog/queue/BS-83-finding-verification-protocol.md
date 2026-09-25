@@ -23,10 +23,9 @@ The document also states what the protocol does not cover: Windows behaviour is 
 
 ## Work to do
 
-- Add `docs/reference/04-verification.md` (English) with the seven steps above as the normative procedure for confirming a finding, a dead-code candidate and a test-deletion candidate, each step with its evidence requirement and its failure condition.
-- Add the file to the table in `docs/reference/README.md` and to the reference table template in `templates/en/docs/reference/README.md` and `templates/docs/reference/README.md` only if the owner decides the protocol ships to consumers; otherwise keep it repo-local and say so in the document's first paragraph.
-- Point to the document from the card template's Verification section guidance in `AGENTS.md` (outside the managed block): an unverified item in a card starts with the protocol's steps 1–4 (bugs), 5 (dead code) or 6 (tests).
-- Reference the document from the consolidated ADR on findings and their evidence when that ADR is written, without duplicating the steps there.
+- Add `docs/reference/04-verification.md` (English) with the seven steps above as the normative procedure for confirming a finding, a dead-code candidate and a test-deletion candidate, each step with its evidence requirement and its failure condition. The page keeps number 04; the planned orchestrator-contract and module-map pages (the BS-176 (`orchestrator-contract-reference`) and BS-177 (`lib-module-map-reference`) cards) take 05 and 06.
+- Owner decision: the verification protocol is repo-local — it is not shipped to consumer projects. Add the file to the table in `docs/reference/README.md`; the document's first paragraph says it is repo-local.
+- Point to the document from a short new paragraph in `AGENTS.md` outside the managed block (AGENTS.md has no Verification section there): an unverified item in a card starts with the protocol's steps 1–4 (bugs), 5 (dead code) or 6 (tests).
 
 ## Out of scope
 
@@ -36,5 +35,6 @@ The document also states what the protocol does not cover: Windows behaviour is 
 ## Verification
 
 - `node bin/backslop.js lint` exits 0 with the new file linked from the reference table.
-- `grep -n '04-verification' docs/reference/README.md AGENTS.md` shows both pointers.
+- `grep -n '04-verification' docs/reference/README.md AGENTS.md` shows both pointers, and the AGENTS.md line lies outside the managed block.
+- `grep -rn '04-verification' templates; echo rc=$?` → no output, rc=1: the protocol is not shipped to consumer projects, and the document's first paragraph says it is repo-local.
 - A reader with only the document can run steps 5 and 6 on `lib/log.js:177 hasLog` (known dead export) and on `test/init.test.mjs:733` (known delete-safe test) and reach the recorded verdicts.

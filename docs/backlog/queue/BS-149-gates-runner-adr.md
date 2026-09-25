@@ -3,7 +3,7 @@
 - **Order:** 670
 - **Scope:** [02. CLI](../../reference/02-cli.md) § gates
 - **Created:** 2026-09-25
-- **Dependencies:** BS-113, BS-136, BS-92, BS-106
+- **Dependencies:** BS-113, BS-136, BS-92, BS-106, BS-102
 
 ## Context
 
@@ -28,6 +28,7 @@
 ## Work to do
 
 - Create the ADR (`node bin/backslop.js adr gates-runner --title "Gates runner and path-scoped gates"`). Context: gate rules run by hand stayed unenforced (exit code of a pipe, a tree that differs from the commit, gate counts from memory), and running every command on every change costs full suites on edits that cannot affect them while some checks must run exactly on such edits. Decision: everything in item 1, the refusals of item 2, the corrected outcome labels of item 3, the glob rule (`*` and `?` do not cross `/`, `**` does, `**/` at a segment start also matches zero segments, everything else literal). Consequences: gate counts come from the runner; with scoped entries "gates N, green N" is not a full readiness criterion — reports name skipped entries and acceptance runs `--require-clean --base <branch point>`; the tool never judges a red gate or a dirty tree (no fix mode, no autocommit, not embedded in other commands or CI); the cap kills only the shell (measured on POSIX sh, unmeasured on Windows); a project that declares a scope must pin a tool version that supports it (older versions refuse in config loading); a refusal and a red gate share exit code 1 and a refusal leaves `--json` stdout empty; no result cache between runs.
+- The ADR also records, as the code has it after the BS-102 (`unverified-repo-state-reports`) card, what `--require-clean` and `tree.dirty` see in a monorepo subproject.
 - Delete both ADR files and replace rows `docs/README.md:20` and `:34` with one row.
 - Repoint code comments to the new ADR id: lib/gates.js:24, :43, :61, :86, :137, :199, :239 (drop the quoted Russian section names) and lib/config.js:157. Drop the ADR links in docs/reference/01-layout.md:43 and docs/reference/02-cli.md:23, and in the same `gates` row make the sentence on outcome labels match the corrected labels. Drop the ADR link in docs/GLOSSARY.md:54. CHANGELOG.md:49: remove the link markup to adr-023.
 

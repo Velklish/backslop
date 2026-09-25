@@ -26,7 +26,7 @@ Three verified bugs in argument handling. docs/reference/02-cli.md:5 states that
 ## Work to do
 
 - Bug 1: call `parseCommandArgs(argv, {})` at the top of `lint.run`, before `loadProject`, so an unknown flag fails with the same CliError as in other commands.
-- Bug 2: in lib/new.js and lib/adr.js use `const title = (values.title ?? '').trim() || slug` (or refuse a blank `--title` like a blank `--evidence`; pick one and state it in docs/reference/02-cli.md).
+- Bug 2: Owner decision: a blank or whitespace-only `--title` falls back to the slug. In lib/new.js and lib/adr.js use `const title = (values.title ?? '').trim() || slug`; docs/reference/02-cli.md states the fallback.
 - Bug 3: register `help: { type: 'boolean', short: 'h' }` inside `parseCommandArgs` and, when it is set, throw an exported `HelpRequest`; bin/backslop.js catches it and prints the help it prints today, and the blanket `rest.includes('--help') || rest.includes('-h')` check at bin/backslop.js:145 goes away. Every module calls `parseCommandArgs` before touching the project, so `<command> --help` still works outside a project; `--title -h` is then glued as a value, because the dash-value rule matches only `--long` names of the command. `new --help` must keep printing help with rc=0.
 - CHANGELOG.md, unreleased section: unknown `lint` flags are refused with exit 1; `-h`/`--help` given as the value of an option no longer prints help.
 - Add the regression tests listed under Verification (test/lint.test.mjs, test/commands.test.mjs, test/review.test.mjs).
@@ -38,6 +38,6 @@ Three verified bugs in argument handling. docs/reference/02-cli.md:5 states that
 ## Verification
 
 - New test (bug 1): `lint --bogus` → rc=1 with `Unknown option` naming `--bogus`; `lint` alone unchanged.
-- New test (bug 2): `new a --title ""` → first line `# BS-1 · a` (or rc=1 refusal, matching the chosen rule); same for `adr`.
+- New test (bug 2): `new a --title ""` → rc=0, first line `# BS-1 · a`; a whitespace-only `--title "   "` falls back to the slug the same way; same for `adr`.
 - New test (bug 3): `new x --title -h` and `new x --evidence --help` and `adr x --title -h` → a task/ADR titled `-h`/`--help` is created, rc=0; `new --help` → help, rc=0.
 - `npm test` → rc=0; `node bin/backslop.js lint` → rc=0.

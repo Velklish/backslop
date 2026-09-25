@@ -26,7 +26,7 @@ Queue order is described by three ADRs: the queue part of `docs/adr/adr-002-stat
 - adr-027:25 "`mv N queue` without a flag is refused" — only for a task already in `queue/` (lib/mv.js:93-95); from `active/`: BS-1 with Previous order 20, `mv 1 queue` -> rc=0, `✔ BS-1: active/ → queue/`, `BS-1: saved position 20 discarded — --restore would have put it back`, Order 40 (the test at test/commands.test.mjs:497 asserts the same).
 - adr-027:13 says the task lay deferred "a year"; `git log --reverse --format='%h %ad' --date=short | head -1` -> `affdef0 2026-09-03`.
 - adr-002:26 names only `mv --top | --after` as ways to set priority (the code also has `--restore` and `new --queue [--top]`), and adr-002 carries no mark that another ADR extends its rank model.
-- adr-002:34 "lint holds the fields a status carries" is overbroad: gate 4 checks Order only inside `queue/` (lib/lint.js:344-352). Repro, en project: `active/BS-1` with `- **Order:** 10` and `- **Previous order:** 20`, `queue/BS-2` with `- **Order:** 30` and `- **Previous order:** 5`, committed -> `backslop lint` prints `✔ lint: no errors`, rc=0. The new ADR states what lint checks; whether it should flag stray fields is not decided here.
+- adr-002:34 "lint holds the fields a status carries" is overbroad: gate 4 checks Order only inside `queue/` (lib/lint.js:344-352). Repro, en project: `active/BS-1` with `- **Order:** 10` and `- **Previous order:** 20`, `queue/BS-2` with `- **Order:** 30` and `- **Previous order:** 5`, committed -> `backslop lint` prints `✔ lint: no errors`, rc=0. The new ADR states what lint checks; whether it should flag stray fields is the minor hypothesis BS-153.1.
 - "Two branches conflict only on the same task": a move also rewrites incoming links in other markdown files (lib/tasks.js:604-611), and a renumbering rewrites other queue files.
 
 ## Work to do
@@ -38,7 +38,7 @@ Queue order is described by three ADRs: the queue part of `docs/adr/adr-002-stat
 
 ## Out of scope
 
-- Making lint flag an Order outside `queue/` or a Previous order inside it (not decided).
+- Making lint flag an Order outside `queue/` or a Previous order inside it (minor hypothesis BS-153.1).
 - The status-directory half of adr-002 and deleting adr-002 (the BS-154 (`adr-process`) card).
 - Any change to placement, restore or output behaviour.
 

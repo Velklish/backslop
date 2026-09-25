@@ -26,8 +26,7 @@ Base run: test/init.test.mjs 36 tests, 36 pass.
 ## Out of scope
 
 - Merges and deletions of redundant init tests — BS-134 (`init-test-merges-deletions`).
-- init.test.mjs:458 (`existsSync(templates/en)`): removed by the BS-140 (`comment-length-templates-tests`) card, which depends on this one.
-- Legacy-config tests (:449, :467): the dead-code work for versions below 0.9.0 decides their fate.
+- Legacy-config tests (:449, :467): the BS-107 (`marker-only-adapter-ownership`) card removes :467 and cuts :449 down to its re-run half, dropping the `existsSync(templates/en)` assert at :458, together with the legacy inference.
 - PREFIX_RE accepting a non-string prefix in backslop.json: a bug card, not this one.
 - Any change under lib/ or templates/.
 

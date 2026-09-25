@@ -11,14 +11,14 @@ Every item in this card is **unverified — run the check first**. The behaviour
 
 Module: tool-owned rules redraw (lib/migrate.js `planRules` and `RULES_DOCS`, lib/init.js skeleton loop).
 
-- **Switching `lang` leaves the rules pair in the old language** — unverified — run the check first (the behaviour was observed; whether it is a bug is not settled). Observed in a fresh project: `init --tools none`, commit, set `"lang": "en"` in backslop.json. Then `node <repo>/bin/backslop.js init` gave rc=0 with `files created 0, left unchanged 9`, and `node <repo>/bin/backslop.js migrate` gave rc=0 with `nothing to migrate: file format did not change from v0.11.0 through v0.11.0`. After both, `head -1 docs/archive/README.md` still printed `# Архив закрытых задач`, line 3 of docs/backlog/README.md was still Russian, and `lint` gave rc=0. `migrate` redraws `RULES_DOCS = ['backlog/README.md', 'archive/README.md']` (lib/migrate.js:43) only when the stamp is below the tool version (lib/migrate.js:82); `init` never overwrites an existing skeleton file (lib/init.js:131-143). This repository switched to `lang: en` in the commit that filed this card, so its own copies are affected; the BS-162 (`backlog-archive-rules-english`) card re-renders them.
+- **Switching `lang` leaves the rules pair in the old language** — unverified — run the check first. Observed in a fresh project: `init --tools none`, commit, set `"lang": "en"` in backslop.json. Then `node <repo>/bin/backslop.js init` gave rc=0 with `files created 0, left unchanged 9`, and `node <repo>/bin/backslop.js migrate` gave rc=0 with `nothing to migrate: file format did not change from v0.11.0 through v0.11.0`. After both, `head -1 docs/archive/README.md` still printed `# Архив закрытых задач`, line 3 of docs/backlog/README.md was still Russian, and `lint` gave rc=0. `migrate` redraws `RULES_DOCS = ['backlog/README.md', 'archive/README.md']` (lib/migrate.js:43) only when the stamp is below the tool version (lib/migrate.js:82); `init` never overwrites an existing skeleton file (lib/init.js:131-143). This repository switched to `lang: en` in the commit that filed this card, so its own copies are affected; the BS-162 (`backlog-archive-rules-english`) card re-renders them.
 
 ## Work to do
 
 - [ ] Lang switch and the rules pair (lib/migrate.js, lib/init.js)
     1. Blind repro: `git init -q -b main && $BS init --tools none && git add -A && git commit -qm init && node -e 'const f="backslop.json",fs=require("fs"),c=JSON.parse(fs.readFileSync(f,"utf8"));c.lang="en";fs.writeFileSync(f,JSON.stringify(c,null,2)+"\n")' && $BS init; echo rc=$?; $BS migrate; echo rc=$?; head -1 docs/archive/README.md; $BS lint; echo rc=$?` — expected wrong output: init `left unchanged`, migrate `nothing to migrate`, the Russian title `# Архив закрытых задач`, lint rc=0.
-    2. Refutation check: the localization ADR (docs/adr/adr-005-localization.md at 6f6318e: "a lang change does not translate existing docs"), docs/reference/01-layout.md (tool-owned rules and the `lang` row), README.md's `lang` text, test/init.test.mjs and the migrate tests in test/upgrade.test.mjs. If any of them says the pair changes language only at the next version bump, record the sanction, add that sentence to the `lang` row of 01-layout.md, and stop.
-    3. Fix only if confirmed: make `migrate` (or `init`, whichever the docs name as the step after a config edit) redraw `RULES_DOCS` whenever the render in `cfg.lang` differs from the file, even when the stamp equals the tool version, keeping the uncommitted-edit refusal and the symlink skip of `planRules`. Test: a ru project switched to en has both files equal to the en render after the command.
+    2. Owner decision: changing `lang` redraws the tool-owned rules pair (docs/backlog/README.md and docs/archive/README.md); this is a fix, not a sanctioned behaviour.
+    3. Fix only if step 1 reproduces: make `migrate` (or `init`, whichever the docs name as the step after a config edit) redraw `RULES_DOCS` whenever the render in `cfg.lang` differs from the file, even when the stamp equals the tool version, keeping the uncommitted-edit refusal and the symlink skip of `planRules`; state the redraw in the `lang` row of docs/reference/01-layout.md. Test: a ru project switched to en has both files equal to the en render after the command.
 
 ## Out of scope
 
@@ -27,6 +27,6 @@ Module: tool-owned rules redraw (lib/migrate.js `planRules` and `RULES_DOCS`, li
 
 ## Verification
 
-- The result names the outcome of steps 1–2 with the command output and rc.
-- If confirmed, a red-then-green test in test/upgrade.test.mjs (or test/init.test.mjs); if sanctioned, the 01-layout sentence and no code change.
+- The result names the outcome of step 1 with the command output and rc.
+- If step 1 reproduces, a red-then-green test in test/upgrade.test.mjs (or test/init.test.mjs), and the `lang` row of docs/reference/01-layout.md states the redraw.
 - `npm test` → rc=0; `node bin/backslop.js lint` → rc=0.

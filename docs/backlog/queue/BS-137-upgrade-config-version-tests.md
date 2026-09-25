@@ -37,11 +37,11 @@ Earlier cards changed this file: the BS-108 (`drop-pre-floor-version-gates`) car
 - Replace :412 and :213's :230-236 with `changelog CLI: границы --since/--to и пустая выжимка` over the five rows above (argv, code, match, doesNotMatch); the `--since latest` row also matches the error text (read it from lib/changelog.js), not only code 1.
 - Delete :163-165 in :142 and drop `, lint предупреждает` from its name.
 - Delete :191-193 and :201-202 in :185; keep the rest of :185.
-- Unverified — run the check first (version.test.mjs:7-9): (1) blind probe: skip :7 (`test.skip`), set package.json:3 to `"0.11"`, run `node --test --test-timeout=60000 test/version.test.mjs test/config.test.mjs; echo rc=$?` -> expect rc 1 with version :31 and config :6/:15 red, the config failure naming `version «0.11»`; restore package.json; (2) refutation: check that no doc or release step relies on this test's message (`grep -rn 'форма X.Y.Z' docs scripts`), and that scripts/release.mjs does not run version.test.mjs alone; (3) only if both hold, delete :7-9 — no test to add.
+- Unverified — run the check first (version.test.mjs:7-9): (1) blind probe: skip :7 (`test.skip`), set package.json:3 to `"0.11"`, run `node --test --test-timeout=60000 test/version.test.mjs test/config.test.mjs; echo rc=$?` -> expect rc 1 with version :31 red; config.test.mjs :6 and :15 are removed by the BS-107 (`marker-only-adapter-ownership`) card, so version :31 is the only red test; restore package.json; (2) refutation: check that no doc or release step relies on this test's message (`grep -rn 'форма X.Y.Z' docs scripts`), and that scripts/release.mjs does not run version.test.mjs alone; (3) only if both hold, delete :7-9 — no test to add.
 
 ## Out of scope
 
-- The legacy `tools` resolution tests (config.test.mjs:6, :15): the dead-code work for versions below 0.9.0 removes that inference and its tests.
+- The legacy config tests (config.test.mjs:6, :15): removed by the BS-107 (`marker-only-adapter-ownership`) card together with the legacy inference.
 - Running the pinned-form upgrade tests on Windows (the BS-138 (`upgrade-tests-windows-npx-shim`) card, which depends on this one).
 - The refusal of a full upgrade on a pinned git project and its regression test: done by the BS-84 (`upgrade-completes-pinned-consumers`) card.
 - Switching the changelog CLI rows to a fixture CHANGELOG: the BS-175 (`changelog-compress-english`) card moves this table onto a fixture later.

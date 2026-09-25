@@ -37,13 +37,13 @@ Constraints on the block. `init` parses steps with `STEP_RE = /^([1-7])\. /` (li
 **Cost routing and the acceptance recipe are restated.** verified — a side-by-side read (part of it is by design). Cost routing appears in agents-section:10, brief.md:35, backlog/README.md:21-22, task SKILL:42 and batch SKILL:36/66. The copies do not contradict each other.
 - The block must stay self-sufficient because it is written for every project. The default is `tools: []`, which installs no skills.
 - The brief must stay self-contained.
-- The real divergence is the two commit-subject forms: `{{prefix}}-N: closed — …` (agents-section:14, task SKILL:53) and `{{prefix}}-N: <what was done>` (agents-section:16, batch SKILL:103). This card picks one form. BS-169 (`backslop-task-skill-fixes`) and the two backslop-batch cards align to it; BS-170 (`batch-integration-steps`) owns the restatement finding and checks that each rule keeps one home.
+- The real divergence is the two commit-subject forms: `{{prefix}}-N: closed — …` (agents-section:14, task SKILL:53) and `{{prefix}}-N: <what was done>` (agents-section:16, batch SKILL:103). This card keeps one form. BS-169 (`backslop-task-skill-fixes`) and the two backslop-batch cards align to it; BS-170 (`batch-integration-steps`) owns the restatement finding and checks that each rule keeps one home.
 
 ## Work to do
 
 - Block step 4 (both languages): add the worker commit before `{{probeRule}}`, for example "Commit to your branch with the `{{prefix}}-N:` prefix before reporting; nothing stays uncommitted." The probe's "commit first" then follows naturally.
-- Block step 5: delete the last sentence ("A worker does not declare their work accepted or move task files between directories."). Delete the alternative subject `{{prefix}}-N: closed — …` and keep the single form `{{prefix}}-N: <what was done>`. Move "`{{cli}} lint` is green on the final commit, before pushing" out of step 5 into step 7.
-- Block step 7: keep the number and the bold title. Give it its own action: after the acceptance commit, commit the triage-review moves of step 6 as a separate commit (not squashed into task N's commit, which should not carry other tasks' status moves); `{{cli}} lint` is green on the final commit; then push. Keep the sentence that nothing is squashed after the fold.
+- Block step 5: delete the last sentence ("A worker does not declare their work accepted or move task files between directories."). Owner decision: the single commit-subject form is `{{prefix}}-N: <what was done>`; delete the alternative subject `{{prefix}}-N: closed — …`. Move "`{{cli}} lint` is green on the final commit, before pushing" out of step 5 into step 7.
+- Block step 7: keep the number and the bold title. Give it its own action. Owner decision: after the acceptance commit, the triage-review moves of step 6 are committed as a separate commit (not squashed into task N's commit, which should not carry other tasks' status moves); `{{cli}} lint` is green on the final commit; then push. Keep the sentence that nothing is squashed after the fold.
 - Block step 1 and brief.md:35, same wording in both files: "file `major` outside it with `{{cli}} new <slug> --parent N[.M]`, then fill the `Evidence:` line of its Context". Keep the minor route as it is.
 - Block step 1 (both languages): a `major` or `critical` hypothesis is filed with `{{cli}} new <slug> --parent N[.M] --minor --cost <level> --hypothesis --evidence "…"`; only a minor finding uses plain `--minor --evidence`.
 - Block line 18: keep the `Worker boundaries:` / `Границы worker'а:` prefix and reword the rest: change only the assigned branch or worktree; create new finding files only with `{{cli}} new`; never move or archive existing task files (no `mv`, no `archive`); closure and triage belong to the approver.
@@ -52,6 +52,7 @@ Constraints on the block. `init` parses steps with `STEP_RE = /^([1-7])\. /` (li
 - backslop-task SKILL.md:42, both languages: replace "Status directories stay untouched." with "The worker never moves or archives an existing task file." Leave the rest of the skill to the BS-169 (`backslop-task-skill-fixes`) card.
 - Tests: update the ru strings pinned in test/brief.test.mjs:45-56 that carry the major-route sentence, and anything else `grep -rn` finds for the sentences you changed. Keep test/init.test.mjs:222-226 passing without editing it: the step-5 title and the boundary prefix stay.
 - CHANGELOG, Unreleased section: block steps 1, 4, 5 and 7 changed (projects with `agents.stepOverrides` for these steps should review their overrides); the status line names minor entries.
+- The acceptance redraws this repository's own AGENTS.md block with `node bin/backslop.js init` and commits it with the task, so later workers follow the new rules.
 
 ## Out of scope
 
@@ -66,4 +67,5 @@ Constraints on the block. `init` parses steps with `STEP_RE = /^([1-7])\. /` (li
 - Throwaway en project: `$B init --lang en --prefix ZZ --tools none; grep -n -i commit AGENTS.md` shows a commit instruction in step 4 and a step 7 that names the triage commit, lint and push. `grep -c "move task files between directories" AGENTS.md` = 0. `grep -c "^Worker boundaries:" AGENTS.md` = 1.
 - Same project with `"agents": {"stepOverrides": {"7": "custom"}}` in backslop.json: `$B init` exits 0, and the override replaces step 7 up to the `Worker boundaries:` line. The existing override tests in test/init.test.mjs stay green.
 - Throwaway en project: `$B status` output matches the words of block line 4; after `$B new t --queue --title T; $B brief 1 --track x > b.out`, the major-route bullet of b.out uses the same wording as block step 1 (evidence goes into the `Evidence:` line, not a flag).
+- After the acceptance commit: `node bin/backslop.js init && git diff --exit-code AGENTS.md; echo rc=$?` → rc=0 (this repository's block equals the rendered template).
 - `npm test` exits 0 with no failing test (450 at the base commit, plus the tests this card adds); `node bin/backslop.js lint` exits 0 (templateParity and the key check stay clean).
