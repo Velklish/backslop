@@ -1056,6 +1056,23 @@ test('lint: каталог с именем файла задачи — диаг�
   }
 });
 
+test('lint: a layout directory that is a file is a gate error naming the path, not a stack', () => {
+  for (const rel of ['docs/backlog/queue', 'docs/adr', 'docs/archive/BS-4-e/minor', 'docs/archive']) {
+    const root = makeProject({ git: false });
+    try {
+      seedGreen(root);
+      rmSync(path.join(root, ...rel.split('/')), { recursive: true, force: true });
+      put(root, rel, 'x\n');
+      const r = cli(root, ['lint']);
+      assert.equal(r.code, 1, `${rel}: ${r.out}`);
+      assert.ok(r.err.split('\n').includes(`✖ ${rel}: файл, а нужен каталог`), `${rel}: ${r.err}`);
+      assert.doesNotMatch(r.err, /ENOTDIR|node:fs|\n\s+at /, `${rel}: a stack`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test('lint: a stale pin in a gate command or probe is an error naming gates[i]', () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
