@@ -120,6 +120,28 @@ test('lint: 1. balanced parentheses and every URI scheme pass; a BOM hides no fi
   }
 });
 probe('1. an upper-case .MD file is walked', (root) => put(root, 'docs/NOTE.MD', '[missing](reference/nope.md)\n'), /docs\/NOTE\.MD: битая ссылка reference\/nope\.md/);
+test('lint: 1, 8, 13. a git failure while finding the repository root refuses instead of resolving blind', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    seedGreen(root);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = "$KILL_ON" ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    assert.equal(cli(root, ['lint']).code, 0);
+    for (const [arg, cause] of [
+      ['--is-inside-work-tree', /git rev-parse --is-inside-work-tree: оборван сигналом SIGKILL/],
+      ['--show-prefix', /git rev-parse --show-prefix: оборван сигналом SIGKILL/],
+    ]) {
+      const r = cli(root, ['lint'], { env: { KILL_ON: arg, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+      assert.equal(r.code, 1, `${arg}: ${r.out}`);
+      assert.match(r.err, cause);
+    }
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
 test('lint: 1, 10, 13. a root markdown symlink into the project is read; one leading outside is not', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-lint-outside-'));
@@ -240,6 +262,10 @@ probe('4. заглушка в любом файле backlog', (root) => put(root
 probe('4. каноническая улика находки', (root) => put(root, 'docs/backlog/queue/BS-5-finding.md', '# BS-5 · Находка\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\nЦитату файла оборачивай в блок.\n'), /BS-5-finding\.md: строка 4: осталась заглушка \[TODO\]/);
 probe('4. поле с двоеточием вне жирного', (root) => put(root, 'docs/backlog/queue/BS-6-reason.md', '# BS-6 · Причина\n\n- **Reason**: [TODO]\n'), /BS-6-reason\.md: строка 3: осталась заглушка \[TODO\]/);
 probe('4. заглушка списка с подсказкой внутри скобок', (root) => put(root, 'docs/backlog/queue/BS-5-hint.md', '# BS-5 · Подсказка\n\n- [TODO: ход назначается при разборе triage]\n'), /docs\/backlog\/queue\/BS-5-hint\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('4. placeholder in a numbered item', (root) => put(root, 'docs/backlog/queue/BS-5-num.md', '# BS-5 · N\n\n1. [TODO]\n2) [TODO: command]\n'), /BS-5-num\.md: строка 4: осталась заглушка \[TODO\]/);
+probe('4. placeholder in a task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-box.md', '# BS-5 · B\n\n- [ ] [TODO]\n'), /BS-5-box\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('4. placeholder in a checked task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-done.md', '# BS-5 · D\n\n- [x] [TODO: step]\n'), /BS-5-done\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('4. placeholder in a table cell', (root) => put(root, 'docs/backlog/queue/BS-5-table.md', '# BS-5 · T\n\n| a | b |\n|---|---|\n| done | [TODO] |\n'), /BS-5-table\.md: строка 5: осталась заглушка \[TODO\]/);
 
 test('lint: «Прежний порядок» вне queue/ гейт полей не красит', () => {
   const root = makeProject({ git: false });
@@ -258,7 +284,7 @@ test('lint: текст о TODO внутри заполненного значе�
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** заполнено; проверка [TODO] не должна искать подстроку\n');
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** заполнено; проверка [TODO] не должна искать подстроку\n\n| a | b |\n|---|---|\n| заполнено; [TODO] внутри | 1. [TODO] в тексте |\n');
     assert.deepEqual(problems(root), []);
   } finally {
     cleanup(root);
@@ -808,6 +834,30 @@ probe('10. второй маркер закрывает незакрытый б�
 probe('10. цитата разошлась с файлом', (root) => put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — два имени.\n'), /quoting\.md: цитата разошлась с reference\/README\.md/);
 probe('10. цитата ведёт на несуществующий файл', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\nтекст\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);
 probe('10. блок цитаты не закрыт', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n'), /quoting\.md: блок цитаты .* не закрыт/);
+probe('10. a spaced opener is a quote block', (root) => put(root, 'docs/quoting.md', '<!-- quote: reference/README.md -->\n\nnot the text\n\n<!-- /quote -->\n'), /quoting\.md: цитата разошлась с reference\/README\.md: «not the text»/);
+probe('10. a spaced quote:before opener still checks the target', (root) => put(root, 'docs/quoting.md', '<!-- quote: before: reference/none.md -->\n\ntext\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);
+probe('10. a closer with no open block', (root) => put(root, 'docs/quoting.md', `${read(root, 'docs/quoting.md')}\n<!-- /quote -->\n`), /quoting\.md: строка 21: «\/quote» не закрывает ни одного блока цитаты/);
+probe('10. a quote marker that does not parse', (root) => put(root, 'docs/quoting.md', '<!-- quote reference/README.md -->\n\ntext\n'), /quoting\.md: строка 1: маркер цитаты не разбирается/);
+test('lint: 10. a quote marker inside inline code or mid-prose is prose', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/howto-inline.md', '# Q\n\nClose a block with `<!-- /quote -->`; open it with `<!-- quote:<path> -->`.\n\nWrap it in a “<!-- quote:path --> … <!-- /quote -->” block.\n\n`<!-- quote -->`\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+test('lint: 10. a finding card fresh from new passes the quote gate', () => {
+  const root = makeProject();
+  try {
+    seedGreen(root);
+    assert.equal(cli(root, ['new', 'finding', '--parent', '1']).code, 0);
+    assert.ok(!problems(root).some((p) => /цитат/.test(p)), problems(root).join(' | '));
+  } finally {
+    cleanup(root);
+  }
+});
 
 // BS-19: пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
 probe('2. каталог вместо файла задачи в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), /каталог внутри каталога статуса/);
@@ -1107,6 +1157,30 @@ test('lint: живой пин, расходящийся с cli, — ошибка
     setConfig({ cli: 'node bin/backslop.js', version: V });
     assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: a pin in a journal entry is a record of its moment, the LOG.md header stays live', () => {
+  const root = makeProject({ git: false });
+  const V = TOOL_VERSION;
+  const old = 'npx github:me/proj#v0.1.0';
+  const now = `npx github:me/proj#v${V}`;
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), cli: now, version: V }, null, 2)}\n`);
+    const entry = `- <a id="bs-6"></a>\`BS-6-y\` · 2026-09-01 · completed · — · Measured with \`${old} lint\``;
+    put(root, 'docs/archive/LOG.md', `# Log\n\nBodies: \`${now} show N\`.\n\n${entry}\n`);
+    assert.deepEqual(problems(root), []);
+    assert.deepEqual(rewriteProsePins(root, 'docs', 'BS', parseCli(now), V), []);
+
+    put(root, 'docs/archive/LOG.md', `# Log\n\nBodies: \`${old} show N\`.\n\n${entry}\n`);
+    assert.equal(problems(root).length, 1, problems(root).join(' | '));
+    assert.match(problems(root)[0], /^docs\/archive\/LOG\.md: строка 3: пин github:me\/proj#v0\.1\.0 расходится с cli/);
+    assert.deepEqual(rewriteProsePins(root, 'docs', 'BS', parseCli(now), V), ['docs/archive/LOG.md']);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `# Log\n\nBodies: \`${now} show N\`.\n\n${entry}\n`);
+    assert.deepEqual(problems(root), []);
   } finally {
     cleanup(root);
   }

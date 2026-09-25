@@ -142,3 +142,5 @@
 - <a id="bs-102"></a>`BS-102-unverified-repo-state-reports` · 2026-09-25 · completed · — · Check and fix: monorepo-wide --require-clean in gates, prunable worktrees in tracks
 - <a id="bs-100"></a>`BS-100-unverified-bom-and-move-fallback` · 2026-09-25 · completed · — · Check and fix: BOM loss on card rewrite, mv rename on git failure
 - <a id="bs-88.1"></a>`BS-88.1-tracks-git-failure-reads-as-empty` · 2026-09-25 · completed · — · tracks: a failed git call outside pendingCommits reads as 'no repository' or 'no branches'
+- <a id="bs-98"></a>`BS-98-seed-scan-and-queue-reference` · 2026-09-25 · completed · — · seed: English Scope, script filter, YAML block scalars, worktrees, quoted paths, slugs
+- <a id="bs-99"></a>`BS-99-unverified-lint-gate-gaps` · 2026-09-25 · completed · — · Check and fix: journal pins, monorepo root links, malformed quote markers, [TODO] forms

@@ -1385,6 +1385,19 @@ test('mv N.k minor: без улики — отказ до переноса; с -
   }
 });
 
+test('mv N minor keeps a table row with a filled cell, a numbered item and a task box as text', () => {
+  const root = makeProject();
+  try {
+    const rows = '| a | b |\n|---|---|\n| done | [TODO] |\n\n1. [TODO]\n- [ ] [TODO]\n';
+    put(root, 'docs/backlog/triage/BS-1-a.md', `# BS-1 · A\n\n## Контекст\n\nзамер\n\n## Что сделать\n\n${rows}`);
+    const r = cli(root, ['mv', '1', 'minor', '--evidence', 'lib/x.js:1 — код 1']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(read(root, 'docs/backlog/minor/BS-1-a.md').includes(`## Что сделать\n\n${rows}`), read(root, 'docs/backlog/minor/BS-1-a.md'));
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv N minor: написанный текст остаётся, готовая «Улика» улики флагом не требует, отказы флага', () => {
   const root = makeProject();
   try {
