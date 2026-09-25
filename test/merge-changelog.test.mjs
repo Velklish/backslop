@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { CONFLICT_MARK, mergeChangelog } from '../lib/merge-changelog.js';
@@ -285,6 +285,27 @@ test('merge-changelog: команда читает редакции из git и 
     assert.match(r.err, /записей: ours 2, theirs 2, в результате 3/);
     assert.match(r.err, /только у theirs: Первое theirs/);
     assert.equal(r.out, '', 'с --out данные в файл, stdout пуст');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: a BOM CHANGELOG on both sides and on disk keeps exactly one BOM', () => {
+  const root = makeProject({ prefix: 'BS' });
+  try {
+    put(root, 'CHANGELOG.md', `﻿${OURS}`);
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', `﻿${THEIRS}`);
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+
+    for (let i = 0; i < 2; i += 1) {
+      const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+      assert.equal(r.code, 0, r.err);
+      const bytes = readFileSync(path.join(root, 'CHANGELOG.md'));
+      assert.deepEqual([...bytes.subarray(0, 4)], [0xef, 0xbb, 0xbf, 0x23], `run ${i + 1}: one BOM, then "#"`);
+    }
   } finally {
     cleanup(root);
   }

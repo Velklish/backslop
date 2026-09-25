@@ -21,7 +21,7 @@ test('CRLF и BOM: заголовок читается, lint зелёный, mv 
     r = cli(root, ['mv', '1', 'deferred']);
     assert.equal(r.code, 0, r.err);
     const moved = read(root, 'docs/backlog/deferred/BS-1-crlf.md');
-    assert.ok(!moved.includes('﻿'));
+    assert.ok(moved.startsWith('\uFEFF') && !moved.slice(1).includes('\uFEFF'), 'a rewrite keeps the one BOM');
     assert.ok(!/[^\r]\n/.test(moved), 'все переводы строк остались CRLF');
     assert.match(moved, /\r\n## Отложено\r\n\r\n- \*\*Отложена:\*\*/);
     assert.doesNotMatch(moved, /Порядок/);
