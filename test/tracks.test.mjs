@@ -255,6 +255,16 @@ test('tracks: a git log that fails reports pending as unchecked, not as empty', 
     const list = cli(root, ['tracks'], { env: { ...env, KILL_ON: 'worktree' } });
     assert.equal(list.code, 1, list.out);
     assert.match(list.err, /git worktree list --porcelain: оборван сигналом SIGKILL/);
+
+    const refs = cli(root, ['tracks'], { env: { ...env, KILL_ON: 'for-each-ref' } });
+    assert.equal(refs.code, 1, refs.out);
+    assert.match(refs.err, /git for-each-ref refs\/heads\/: оборван сигналом SIGKILL/);
+    assert.doesNotMatch(refs.out, /worktree и веток/, 'no listing is printed');
+
+    const top = cli(root, ['tracks'], { env: { ...env, KILL_ON: '--show-toplevel' } });
+    assert.equal(top.code, 1, top.out);
+    assert.match(top.err, /git rev-parse --show-toplevel: оборван сигналом SIGKILL/);
+    assert.doesNotMatch(top.err, /git-репозитория нет/);
   } finally {
     rmSync(shim, { recursive: true, force: true });
     dropRun(root);
