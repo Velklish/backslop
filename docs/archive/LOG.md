@@ -145,3 +145,4 @@
 - <a id="bs-98"></a>`BS-98-seed-scan-and-queue-reference` · 2026-09-25 · completed · — · seed: English Scope, script filter, YAML block scalars, worktrees, quoted paths, slugs
 - <a id="bs-99"></a>`BS-99-unverified-lint-gate-gaps` · 2026-09-25 · completed · — · Check and fix: journal pins, monorepo root links, malformed quote markers, [TODO] forms
 - <a id="bs-94"></a>`BS-94-config-validation-one-rule-set` · 2026-09-25 · completed · — · backslop.json: one validator for init and every command; BOM, prefix type, gate strings
+- <a id="bs-96"></a>`BS-96-fs-shape-refusals-not-stacks` · 2026-09-25 · completed · — · File-system shape errors from user input become CliError refusals before any write

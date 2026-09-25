@@ -772,6 +772,44 @@ test('status: EN human output, JSON contract unchanged, RU metadata accepted', (
   } finally { cleanup(root); }
 });
 
+test('new and adr: a slug past the 255-byte file name is refused before anything is written', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · A\n\n- **Порядок:** 1\n');
+    put(root, 'docs/backlog/queue/BS-2-b.md', '# BS-2 · B\n\n- **Порядок:** 2\n');
+    gitAll(root);
+    const slug = 'a'.repeat(300);
+    for (const args of [['new', slug], ['new', slug, '--queue', '--top'], ['adr', slug]]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${args.slice(2).join(' ')}: ${r.out}`);
+      assert.match(r.err, /^✖ slug слишком длинный: имя файла \d+ байт, предел файловой системы — 255/);
+      assert.doesNotMatch(r.err, /ENAMETOOLONG|node:fs|\n\s+at /);
+    }
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'the queue was renumbered or a file was written');
+    const over = cli(root, ['new', 'a'.repeat(256 - 'BS-3-.md'.length)]);
+    assert.equal(over.code, 1, 'a 256-byte file name was accepted');
+    assert.match(over.err, /имя файла 256 байт/);
+    const fits = cli(root, ['new', 'a'.repeat(255 - 'BS-3-.md'.length)]);
+    assert.equal(fits.code, 0, fits.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('adr: docs/adr as a file is refused by name, not with a stack', () => {
+  const root = makeProject();
+  try {
+    rmSync(path.join(root, 'docs/adr'), { recursive: true });
+    put(root, 'docs/adr', 'x\n');
+    const r = cli(root, ['adr', 'x']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /^✖ docs\/adr — файл, а нужен каталог/);
+    assert.doesNotMatch(r.err, /ENOTDIR|node:fs|\n\s+at /);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('adr: следующий номер и напоминание про таблицу', () => {
   const root = makeProject();
   try {
@@ -834,6 +872,31 @@ test('mv: каталог с именем файла задачи в плоско
     assert.doesNotMatch(r.err, /EISDIR|node:fs/);
     assert.ok(existsSync(path.join(root, 'docs/backlog/BS-9-sub.md')), 'каталог остался на месте');
     assert.ok(!existsSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md')));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: a taken destination is refused before the first move of the batch', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · A\n\n- **Порядок:** 10\n');
+    put(root, 'docs/backlog/queue/BS-2-b.md', '# BS-2 · B\n\n- **Порядок:** 20\n');
+    gitAll(root);
+    mkdirSync(path.join(root, 'docs/backlog/active/BS-2-b.md'), { recursive: true });
+    const before = run(root, ['status', '--porcelain']).stdout;
+    let r = cli(root, ['mv', '1', '2', 'active']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /^✖ docs\/backlog\/active\/BS-2-b\.md уже существует — BS-2 поверх него не переносится/);
+    assert.doesNotMatch(r.err, /EISDIR|node:fs|\n\s+at /);
+    assert.equal(run(root, ['status', '--porcelain']).stdout, before, 'the batch moved something before the refusal');
+
+    rmSync(path.join(root, 'docs/backlog/active'), { recursive: true });
+    put(root, 'docs/backlog/active', 'x\n');
+    r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /^✖ docs\/backlog\/active — файл, а нужен каталог/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')));
   } finally {
     cleanup(root);
   }

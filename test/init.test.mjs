@@ -1,7 +1,7 @@
 // init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -809,6 +809,64 @@ test('init: symlink на корне harness — отказ только для �
   } finally {
     cleanup(shared);
     cleanup(root);
+  }
+});
+
+test('init: an unselected adapter behind a link below its root or with a file root is skipped', { skip: process.platform === 'win32' }, () => {
+  const root = emptyRepo();
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  try {
+    put(shared, 'SKILL.md', '<!-- backslop:generated -->\n# shared\n');
+    mkdirSync(path.join(root, '.claude/skills'), { recursive: true });
+    symlinkSync(shared, path.join(root, '.claude/skills/backslop-task'));
+    put(root, '.cursor/rules', 'a file, not a directory\n');
+    for (const args of [['init', '--tools', 'codex'], ['init'], ['init', '--tools', 'none']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 0, `${args.join(' ')}: ${r.err}`);
+    }
+    assert.equal(read(shared, 'SKILL.md'), '<!-- backslop:generated -->\n# shared\n', 'backslop cleaned through the link');
+    assert.equal(read(root, '.cursor/rules'), 'a file, not a directory\n');
+  } finally {
+    cleanup(shared);
+    cleanup(root);
+  }
+});
+
+test('init: an unselected adapter with a directory on an owned path is skipped', () => {
+  const root = emptyRepo();
+  try {
+    mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'), { recursive: true });
+    for (const args of [['init', '--tools', 'none'], ['init'], ['init', '--tools', 'cursor']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 0, `${args.join(' ')}: ${r.err}`);
+    }
+    assert.ok(statSync(path.join(root, '.claude/skills/backslop-task/SKILL.md')).isDirectory());
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init refuses a file where it needs a directory and a directory where it needs a file, before any write', () => {
+  for (const [shape, args, why] of [
+    [(root) => put(root, 'docs', 'x\n'), [], /^✖ docs is a file, expected a directory/],
+    [(root) => put(root, 'docs/backlog', 'x\n'), [], /^✖ docs\/backlog is a file, expected a directory/],
+    [(root) => mkdirSync(path.join(root, 'AGENTS.md')), [], /^✖ AGENTS\.md is a directory, expected a file/],
+    [(root) => mkdirSync(path.join(root, '.gitignore')), [], /^✖ \.gitignore is a directory, expected a file/],
+    [(root) => mkdirSync(path.join(root, 'docs/README.md'), { recursive: true }), [], /^✖ docs\/README\.md is not a file/],
+    [(root) => put(root, '.cursor/rules', 'x\n'), ['--tools', 'cursor'], /^✖ \.cursor\/rules is a file, expected a directory/],
+    [(root) => put(root, '.cursor', 'x\n'), ['--tools', 'cursor'], /^✖ \.cursor is a file, expected a directory/],
+  ]) {
+    const root = emptyRepo();
+    try {
+      shape(root);
+      const r = cli(root, ['init', '--lang', 'en', ...(args.length ? args : ['--tools', 'none'])]);
+      assert.equal(r.code, 1, `${why}: ${r.out}`);
+      assert.match(r.err, why);
+      assert.doesNotMatch(r.err, /EEXIST|EISDIR|ENOTDIR|node:fs|\n\s+at /, `${why}: a stack`);
+      assert.equal(existsSync(path.join(root, 'backslop.json')), false, `${why}: the config was written`);
+    } finally {
+      cleanup(root);
+    }
   }
 });
 
