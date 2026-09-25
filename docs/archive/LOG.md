@@ -129,3 +129,4 @@
 - <a id="bs-90"></a>`BS-90-brief-follows-cli-pin` · 2026-09-25 · completed · — · brief: warn when the pinned CLI version lacks a command the brief names
 - <a id="bs-89"></a>`BS-89-link-gate-target-resolution` · 2026-09-25 · completed · — · Link gates and seed: one href normaliser, exact-case targets, CommonMark forms, BOM
 - <a id="bs-95"></a>`BS-95-lint-walk-and-gate-coverage` · 2026-09-25 · completed · — · lint: walk symlinked and upper-case markdown, fence-aware gate 7, gate 8 name check
+- <a id="bs-86"></a>`BS-86-fold-keeps-bodies-retrievable` · 2026-09-25 · completed · — · fold: keep attachments and headings, findable embedded bodies, honest bulk draft intro
