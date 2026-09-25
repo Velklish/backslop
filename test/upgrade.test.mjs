@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { parseCli } from '../lib/config.js';
@@ -777,5 +777,65 @@ test('upgrade: the printed after-pin recovery sequence completes the run', { ski
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
     rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('upgrade skips a live file behind a symlink or not in UTF-8 and names it', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  const old = 'npx github:me/proj#v0.1.0';
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, { cli: old, gates: [`${old} lint`], version: '0.1.0', source: src, lang: 'en' });
+    writeFileSync(path.join(shared, 'package.json'), `{"scripts":{"l":"${old} lint"}}\n`);
+    symlinkSync(shared, path.join(root, 'vendor'));
+    const notes = Buffer.concat([Buffer.from([0xC7, 0xE0, 0xEC, 0xE5, 0xF2, 0xEA, 0xE8]), Buffer.from(`: \`${old} lint\`\n`)]);
+    writeFileSync(path.join(root, 'docs', 'NOTES.md'), notes);
+    put(root, 'docs/reference/README.md', `# Reference\n\nRun \`${old} status\`.\n`);
+    put(root, 'misc/notes.md', `Run \`${old} status\`.\n`);
+    symlinkSync(path.join(root, 'misc', 'notes.md'), path.join(root, 'NOTES.md'));
+    writeFileSync(path.join(root, 'docs', 'PLAIN.md'), Buffer.from([0xC7, 0xE0, 0xEC, 0xE5, 0xF2, 0xEA, 0xE8, 0x0A]));
+    put(root, 'misc/plain.md', 'No pin here.\n');
+    symlinkSync(path.join(root, 'misc', 'plain.md'), path.join(root, 'PLAIN-LINK.md'));
+    const r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /PLAIN/, 'a skipped file without a stale pin is not named');
+    assert.match(r.err, /vendor\/package\.json: the path goes through the symlink vendor — pin not rewritten/);
+    assert.match(r.err, /NOTES\.md: the path goes through the symlink NOTES\.md — pin not rewritten/);
+    assert.ok(read(root, 'misc/notes.md').includes(old), 'a root markdown symlink was written through');
+    assert.match(r.err, /docs\/NOTES\.md: not valid UTF-8 — pin not rewritten/);
+    assert.match(r.out, /pin in prose: 1 files/);
+    assert.ok(read(shared, 'package.json').includes(old), 'a file outside the project was rewritten');
+    assert.ok(readFileSync(path.join(root, 'docs', 'NOTES.md')).equals(notes), 'NOTES.md bytes changed');
+    assert.ok(read(root, 'docs/reference/README.md').includes(`#v${TOOL_VERSION}`));
+    const again = cli(root, ['upgrade'], { env });
+    assert.equal(again.code, 0, again.err);
+    assert.match(again.out, /already on/, 'a skipped file does not make every later upgrade rerun');
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+    rmSync(shared, { recursive: true, force: true });
+  }
+});
+
+test('migrate: a failing git status is a refusal, not "no git"', () => {
+  const root = makeProject();
+  const index = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-index-')));
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0', lang: 'en' });
+    gitAll(root);
+    put(root, 'docs/backlog/README.md', `${read(root, 'docs/backlog/README.md')}MY LOCAL EDIT\n`);
+    const r = cli(root, ['migrate'], { env: { GIT_INDEX_FILE: index } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git status --porcelain -- docs\/backlog\/README\.md: fatal: /);
+    assert.doesNotMatch(r.out, /no git/);
+    assert.match(read(root, 'docs/backlog/README.md'), /MY LOCAL EDIT/);
+    assert.equal(config(root).version, '0.10.0');
+  } finally {
+    cleanup(root);
+    rmSync(index, { recursive: true, force: true });
   }
 });

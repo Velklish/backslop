@@ -1,7 +1,7 @@
 // init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -302,6 +302,65 @@ test('init: свой префикс и каталог, существующий 
     assert.match(r.err, /prefix = «DFL»/);
     r = cli(root, ['init', '--prefix', 'bad']);
     assert.equal(r.code, 1);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Windows-1251 bytes of a Cyrillic text: А–я sit at 0xC0–0xFF, ASCII passes as is.
+const cp1251 = (text) => Buffer.from([...text].map((ch) => (/[А-я]/.test(ch) ? 0xC0 + ch.codePointAt(0) - 0x410 : ch.codePointAt(0))));
+
+test('init refuses a non-UTF-8 AGENTS.md or rewritten .gitignore before any write', () => {
+  const root = emptyRepo();
+  try {
+    const bytes = cp1251('# Проект\n\nПравила команды: не трогать prod.\n');
+    writeFileSync(path.join(root, 'AGENTS.md'), bytes);
+    let r = cli(root, ['init', '--lang', 'en', '--tools', 'none']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /AGENTS\.md: not valid UTF-8 — convert it, then retry/);
+    assert.ok(readFileSync(path.join(root, 'AGENTS.md')).equals(bytes), 'AGENTS.md bytes changed');
+    assert.ok(!existsSync(path.join(root, 'backslop.json')), 'the refusal came after the first write');
+    assert.ok(!existsSync(path.join(root, 'docs')), 'the refusal came after the first write');
+
+    rmSync(path.join(root, 'AGENTS.md'));
+    const ignore = cp1251('# кэш\nnode_modules/\n');
+    writeFileSync(path.join(root, '.gitignore'), ignore);
+    r = cli(root, ['init', '--lang', 'en', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(readFileSync(path.join(root, '.gitignore')).equals(ignore), 'init without adapters leaves .gitignore alone');
+    r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /\.gitignore: not valid UTF-8/);
+    assert.ok(readFileSync(path.join(root, '.gitignore')).equals(ignore), '.gitignore bytes changed');
+    assert.ok(!existsSync(path.join(root, '.claude')), 'the refusal came after the first write');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init: markers quoted in prose are not the block; a marker line twice is refused', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init', '--lang', 'en', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    const rendered = read(root, 'AGENTS.md');
+    const prose = 'The managed block sits between `<!-- backslop:start -->` and `<!-- backslop:end -->`.';
+    put(root, 'AGENTS.md', `${prose}\n\n${rendered}`);
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    const agents = read(root, 'AGENTS.md');
+    assert.equal(agents, `${prose}\n\n${rendered}`, 'the prose line is kept and one rendered block remains');
+    assert.equal(agents.split('\n').filter((l) => l === '<!-- backslop:start -->').length, 1);
+    assert.equal(agents.split('\n').filter((l) => l === '<!-- backslop:end -->').length, 1);
+
+    const twice = `${rendered}\n${rendered}`;
+    put(root, 'AGENTS.md', twice);
+    const config = read(root, 'backslop.json');
+    r = cli(root, ['init']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /AGENTS\.md: a backslop block marker stands on its own line more than once — fix it manually/);
+    assert.equal(read(root, 'AGENTS.md'), twice);
+    assert.equal(read(root, 'backslop.json'), config);
   } finally {
     cleanup(root);
   }

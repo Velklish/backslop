@@ -1018,6 +1018,30 @@ test('lint: a stale pin in a gate command or probe is an error naming gates[i]',
   }
 });
 
+test('lint: a stale pin in a file upgrade skips names a hand edit as the remedy', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  try {
+    seedGreen(root);
+    const now = `npx github:me/proj#v${TOOL_VERSION}`;
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), cli: now, lang: 'en' }, null, 2)}\n`);
+    writeFileSync(path.join(shared, 'package.json'), '{"scripts":{"l":"npx github:me/proj#v0.1.0 lint"}}\n');
+    symlinkSync(shared, path.join(root, 'vendor'));
+    writeFileSync(path.join(root, 'docs', 'NOTES.md'), Buffer.concat([Buffer.from([0xC7, 0xE0, 0xEC]), Buffer.from(': `npx github:me/proj#v0.1.0 lint`\n')]));
+    put(root, 'docs/reference/README.md', `${read(root, 'docs/reference/README.md')}\nRun \`npx github:me/proj#v0.1.0 status\`.\n`);
+    put(root, 'misc/notes.md', 'Run `npx github:me/proj#v0.1.0 status`.\n');
+    symlinkSync(path.join(root, 'misc', 'notes.md'), path.join(root, 'NOTES.md'));
+    const found = problems(root);
+    assert.ok(found.some((p) => p.startsWith('NOTES.md: line 1:') && p.endsWith('upgrade does not rewrite it (the path goes through the symlink NOTES.md) — edit it by hand')), found.join(' | '));
+    assert.ok(found.some((p) => p.startsWith('vendor/package.json: line 1: pin github:me/proj#v0.1.0 differs from cli') && p.endsWith('upgrade does not rewrite it (the path goes through the symlink vendor) — edit it by hand')), found.join(' | '));
+    assert.ok(found.some((p) => p.startsWith('docs/NOTES.md: line 1:') && p.endsWith('upgrade does not rewrite it (the file is not UTF-8) — edit it by hand')), found.join(' | '));
+    assert.ok(found.some((p) => p.startsWith('docs/reference/README.md:') && p.endsWith(`${now} upgrade rewrites it`)), found.join(' | '));
+  } finally {
+    cleanup(root);
+    rmSync(shared, { recursive: true, force: true });
+  }
+});
+
 test('lint: живой пин, расходящийся с cli, — ошибка с файлом и строкой', () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
