@@ -131,3 +131,4 @@
 - <a id="bs-95"></a>`BS-95-lint-walk-and-gate-coverage` · 2026-09-25 · completed · — · lint: walk symlinked and upper-case markdown, fence-aware gate 7, gate 8 name check
 - <a id="bs-86"></a>`BS-86-fold-keeps-bodies-retrievable` · 2026-09-25 · completed · — · fold: keep attachments and headings, findable embedded bodies, honest bulk draft intro
 - <a id="bs-91"></a>`BS-91-fold-journal-eol-and-order` · 2026-09-25 · completed · — · fold: CRLF blobs git calls clean, journal EOL, numeric minor scan, reports off stdout
+- <a id="bs-84"></a>`BS-84-upgrade-completes-pinned-consumers` · 2026-09-25 · completed · — · upgrade: complete runs from pinned consumers, move every pin, pin a floating cli
