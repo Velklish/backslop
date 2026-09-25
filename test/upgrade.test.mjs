@@ -369,6 +369,100 @@ test('migrate: файл пары за symlink не перерисовывает�
   }
 });
 
+// A project laid out by `init` and committed, then switched to `lang: en` by a config edit.
+function switchedToEn(edit = (root) => root) {
+  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-lang-')));
+  run(root, ['init', '-q', '-b', 'main']);
+  run(root, ['config', 'user.email', 'test@example.com']);
+  run(root, ['config', 'user.name', 'test']);
+  const r = cli(root, ['init', '--tools', 'none']);
+  assert.equal(r.code, 0, r.err);
+  edit(root);
+  gitAll(root);
+  setConfig(root, { lang: 'en' });
+  return root;
+}
+
+test('migrate: a ru project switched to en redraws the untouched rules pair', () => {
+  const root = switchedToEn();
+  try {
+    const vars = { cli: config(root).cli, prefix: 'BS', project: path.basename(root) };
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /rewritten docs\/backlog\/README\.md, docs\/archive\/README\.md/);
+    for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
+      assert.equal(read(root, rel), renderTemplate(`en/${rel}`, vars), `${rel} is not the en render`);
+    }
+    assert.equal(config(root).version, TOOL_VERSION);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: an edited rules file keeps its local edits on a lang switch, with a note', () => {
+  const root = switchedToEn((dir) => put(dir, 'docs/backlog/README.md', `${read(dir, 'docs/backlog/README.md')}\nСвоё правило.\n`));
+  try {
+    const edited = read(root, 'docs/backlog/README.md');
+    const vars = { cli: config(root).cli, prefix: 'BS', project: path.basename(root) };
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /docs\/backlog\/README\.md: matches neither the en nor the ru render — kept until the next version update/);
+    assert.equal(read(root, 'docs/backlog/README.md'), edited);
+    assert.equal(read(root, 'docs/archive/README.md'), renderTemplate('en/docs/archive/README.md', vars));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: at its own version a rules file off by a pin is redrawn, off by CRLF left alone', () => {
+  const root = switchedToEn((dir) => put(dir, 'docs/archive/README.md', read(dir, 'docs/archive/README.md').replaceAll('\n', '\r\n')));
+  try {
+    setConfig(root, { lang: 'ru' });
+    const archive = read(root, 'docs/archive/README.md');
+    let r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /не совпадает|перерисованы/);
+    assert.equal(read(root, 'docs/archive/README.md'), archive, 'a CRLF-only difference is not rewritten');
+
+    const cliNow = 'npx github:Velklish/backslop#v0.10.0';
+    setConfig(root, { cli: cliNow });
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /не совпадает/);
+    assert.match(r.out, /перерисованы docs\/backlog\/README\.md, docs\/archive\/README\.md/);
+    const vars = { cli: cliNow, prefix: 'BS', project: path.basename(root) };
+    for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
+      assert.equal(read(root, rel), renderTemplate(rel, vars), `${rel} is not the render with the cli pin`);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('upgrade pins a floating cli inside an init-rendered rules pair, with no note', { skip: process.platform === 'win32' }, () => {
+  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-float-')));
+  const src = releasesRepo([`v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    let r = cli(root, ['init', '--lang', 'en', '--tools', 'none', '--cli', 'npx github:me/proj']);
+    assert.equal(r.code, 0, r.err);
+    setConfig(root, { source: src });
+    r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /matches neither/);
+    const vars = { cli: now, prefix: 'BS', project: path.basename(root) };
+    for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
+      assert.equal(read(root, rel), renderTemplate(`en/${rel}`, vars), `${rel} keeps the floating cli`);
+    }
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
 // Полный путь пользователя: форма npx, перепись пина, запуск новой версии тем самым cli.
 // Сеть подменяет шим `npx` в PATH: он отбрасывает спеку и запускает локальный bin.
 function npxShim() {
