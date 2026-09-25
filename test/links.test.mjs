@@ -2,13 +2,15 @@
 // что трогать нельзя.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import {
   EXTERNAL, blankCode, brokenLinks, directoryLinks, normalizeHrefTarget, refDefinitions, relativeLinks, rewriteFoldedLinks,
-  rewriteIncomingLinks, rewriteMovedLinks, splitHref,
+  repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, splitHref,
 } from '../lib/links.js';
+import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 
 const FROM = 'docs/backlog/active';
 const TO = 'docs/archive/BS-42-move-breaks-links';
@@ -255,6 +257,112 @@ test('splitHref and normalizeHrefTarget: one cut at # or ?, decoded, / from the 
   assert.equal(normalizeHrefTarget('docs/reference', '../../README.md'), 'README.md');
   assert.equal(normalizeHrefTarget('', 'docs/a b.md'), 'docs/a b.md');
   assert.equal(normalizeHrefTarget('docs', 'a%E0%A4%A.md'), null, 'a malformed escape resolves to nothing');
+});
+
+test('root links under a repository prefix start at the repository root', () => {
+  const P = 'pkg/a/';
+  assert.equal(normalizeHrefTarget('docs', '/pkg/a/docs/README.md', P), 'docs/README.md');
+  assert.equal(normalizeHrefTarget('docs', '/docs/README.md', P), '../../docs/README.md');
+  assert.equal(normalizeHrefTarget('docs', 'README.md', P), 'docs/README.md', 'a relative link ignores the prefix');
+  assert.equal(
+    rewriteIncomingLinks('[t](/pkg/a/docs/backlog/queue/BS-1-x.md#a) [o](/docs/backlog/queue/BS-1-x.md)', 'docs', 'docs/backlog/queue/BS-1-x.md', 'docs/archive/BS-1-x/task.md', P),
+    '[t](/pkg/a/docs/archive/BS-1-x/task.md#a) [o](/docs/backlog/queue/BS-1-x.md)',
+  );
+  const resolve = (target) => (target === 'docs/archive/BS-1-x/task.md' ? { path: 'docs/archive/LOG.md', anchor: 'bs-1' } : null);
+  assert.equal(
+    rewriteFoldedLinks('[t](/pkg/a/docs/archive/BS-1-x/task.md) [o](/docs/archive/BS-1-x/task.md)', 'docs', resolve, P),
+    '[t](/pkg/a/docs/archive/LOG.md#bs-1) [o](/docs/archive/BS-1-x/task.md)',
+  );
+});
+
+function makeMonorepo() {
+  const top = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-')));
+  run(top, ['init', '-q', '-b', 'main']);
+  run(top, ['config', 'user.email', 'test@example.com']);
+  run(top, ['config', 'user.name', 'test']);
+  run(top, ['config', 'commit.gpgsign', 'false']);
+  const root = path.join(top, 'pkg', 'a');
+  mkdirSync(root, { recursive: true });
+  const r = cli(root, ['init', '--lang', 'ru', '--tools', 'none']);
+  assert.equal(r.code, 0, r.err);
+  return { top, root };
+}
+
+test('monorepo: gates 1, 8, 13 and seed resolve a root link from the repository root', () => {
+  const { top, root } = makeMonorepo();
+  try {
+    assert.equal(repoPrefix(root), 'pkg/a/');
+    assert.equal(repoPrefix(top), '');
+    put(root, 'docs/note.md', [
+      '[a](/pkg/a/docs/README.md)', '[b](/docs/README.md)',
+      '[j](/pkg/a/docs/archive/LOG.md#bs-9)', '',
+    ].join('\n'));
+    put(root, 'docs/adr/adr-002-x.md', '# ADR-002: X\n\n**Status:** Accepted\n');
+    put(root, 'docs/README.md', `${read(root, 'docs/README.md')}| [ADR-002](/pkg/a/docs/adr/adr-002-x.md) | x | Accepted |\n`);
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1, r.out);
+    const errors = r.err.split('\n').filter((l) => l.startsWith('✖ docs/'));
+    assert.deepEqual(errors, [
+      '✖ docs/note.md: битая ссылка /docs/README.md',
+      '✖ docs/note.md: ссылка /pkg/a/docs/archive/LOG.md#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью',
+    ]);
+
+    put(root, 'docs/reference/01-x.md', '# X\n');
+    put(root, 'docs/reference/README.md', '# Справочник\n\n| Раздел | О чём |\n|---|---|\n| [X](/pkg/a/docs/reference/01-x.md) | x |\n');
+    const seed = cli(root, ['seed', '--queue-reference']);
+    assert.equal(seed.code, 0, seed.err);
+    assert.match(seed.out, /заведено задач 0, пропущено как уже посеянные 0/, 'seed reads the row by the same rule');
+  } finally {
+    cleanup(top);
+  }
+});
+
+test('monorepo: mv, archive and fold keep a root link rooted at the repository root', () => {
+  const { top, root } = makeMonorepo();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    assert.equal(cli(root, ['new', 'alpha', '--queue', '--title', 'Альфа']).code, 0);
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-1](/pkg/a/docs/backlog/queue/BS-1-alpha.md#контекст)\n');
+    gitAll(top);
+    let r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/ROADMAP.md'), /\(\/pkg\/a\/docs\/backlog\/active\/BS-1-alpha\.md#контекст\)/);
+    r = cli(root, ['archive', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/ROADMAP.md'), /\(\/pkg\/a\/docs\/archive\/BS-1-alpha\/task\.md#контекст\)/);
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог одной строкой.\n');
+    gitAll(top);
+    r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/ROADMAP.md'), /\[BS-1\]\(\/pkg\/a\/docs\/archive\/LOG\.md#bs-1\)/);
+  } finally {
+    cleanup(top);
+  }
+});
+
+test('mv, archive and fold refuse before any write when git fails to name the repository root', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    assert.equal(cli(root, ['new', 'alpha', '--queue', '--title', 'Альфа']).code, 0);
+    put(root, 'docs/archive/BS-2-beta/task.md', '# BS-2 · Бета\n\n- **Область:** [x](../../reference/README.md)\n');
+    put(root, 'docs/archive/BS-2-beta/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[a](backlog/queue/BS-1-alpha.md) [b](archive/BS-2-beta/task.md)\n');
+    gitAll(root);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = --show-prefix ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    for (const args of [['mv', '1', 'active'], ['archive', '1'], ['fold', '2']]) {
+      const r = cli(root, args, { env });
+      assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+      assert.match(r.err, /git rev-parse --show-prefix: оборван сигналом SIGKILL/);
+      assert.equal(run(root, ['status', '--porcelain']).stdout, '', `${args.join(' ')} left the tree unchanged`);
+    }
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
 });
 
 test('broken links: a target that differs only in letter case is reported with its real spelling', () => {

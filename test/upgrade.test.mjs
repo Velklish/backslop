@@ -626,6 +626,30 @@ test('upgrade: пин в прозе docs переставляется, запи�
   }
 });
 
+test('upgrade leaves a pin in a journal entry, rewrites the LOG.md header, then says already on', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const old = 'npx github:me/proj#v0.1.0';
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  const entry = `- <a id="bs-6"></a>\`BS-6-y\` · 2026-09-01 · completed · — · Measured with \`${old} lint\``;
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, { cli: old, version: '0.1.0', source: src });
+    put(root, 'docs/archive/LOG.md', `# Log\n\nBodies: \`${old} show N\`.\n\n${entry}\n`);
+    let r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `# Log\n\nBodies: \`${now} show N\`.\n\n${entry}\n`);
+    r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /уже на/);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
 // Пин пишется только после пробного запуска новой версии, и `--pin-only` пробу не сокращает:
 // иначе проект остался бы с пином на команду, которая не поднимается.
 test('upgrade --pin-only: сбой пробного запуска не пишет пин и гейты', { skip: process.platform === 'win32' }, () => {
