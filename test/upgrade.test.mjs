@@ -8,10 +8,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseCli } from '../lib/config.js';
 import { changelogSince } from '../lib/changelog.js';
-import { listReleaseTags, rewriteGates } from '../lib/upgrade.js';
+import { listReleaseTags, rewriteCommand, rewriteGates } from '../lib/upgrade.js';
 import { renderTemplate } from '../lib/templates.js';
 import { TOOL_VERSION } from '../lib/version.js';
-import { BIN, cleanup, cli, gitAll, makeProject, put, read } from './helpers.mjs';
+import { BIN, cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 
 function releasesRepo(tags) {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-src-')));
@@ -63,7 +63,7 @@ test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; др�
 
 test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
-  const src = releasesRepo(['v0.2.0', 'v0.3.0']);
+  const src = releasesRepo(['v0.2.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
   try {
     const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
@@ -76,9 +76,9 @@ test('upgrade npm-пина: теги только из explicit source, флаг
     setConfig(root, { source: src });
     r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /→ npx --yes -q backslop@0\.3\.0 version/, 'проба новой версии идёт и при --pin-only');
-    assert.equal(config(root).cli, 'npx --yes -q backslop@0.3.0');
-    assert.deepEqual(config(root).gates, ['npx --yes -q backslop@0.3.0 lint', 'npm test']);
+    assert.ok(r.out.includes(`→ npx --yes -q backslop@${TOOL_VERSION} version`), 'проба новой версии идёт и при --pin-only');
+    assert.equal(config(root).cli, `npx --yes -q backslop@${TOOL_VERSION}`);
+    assert.deepEqual(config(root).gates, [`npx --yes -q backslop@${TOOL_VERSION} lint`, 'npm test']);
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
@@ -86,17 +86,24 @@ test('upgrade npm-пина: теги только из explicit source, флаг
   }
 });
 
-test('rewriteGates: меняется только команда, начинающаяся со старого cli', () => {
+test('rewriteGates: every pin of the cli spec in a command moves, a scoped entry keeps when', () => {
+  const old = 'npx github:me/proj#v0.1.0';
+  const form = parseCli(old);
   assert.deepEqual(
-    rewriteGates(['npx github:me/proj#v0.1.0 lint', 'npm test', 'npx github:me/proj#v0.1.0'], 'npx github:me/proj#v0.1.0', 'npx github:me/proj#v0.2.0'),
-    ['npx github:me/proj#v0.2.0 lint', 'npm test', 'npx github:me/proj#v0.2.0'],
+    rewriteGates([`${old} lint`, 'npm test', old, `cd . && ${old} lint && ${old} gates --dry-run`, 'npx --yes github:me/proj#v0.0.9 status'], old, form, '0.2.0'),
+    ['npx github:me/proj#v0.2.0 lint', 'npm test', 'npx github:me/proj#v0.2.0', 'cd . && npx github:me/proj#v0.2.0 lint && npx github:me/proj#v0.2.0 gates --dry-run', 'npx --yes github:me/proj#v0.2.0 status'],
   );
-  assert.deepEqual(rewriteGates(['npx github:me/proj#v0.1.0x lint'], 'npx github:me/proj#v0.1.0', 'npx github:me/proj#v0.2.0'),
-    ['npx github:me/proj#v0.1.0x lint'], 'подстрока без пробела — другая команда');
+  const floating = parseCli('npx github:me/proj');
+  assert.deepEqual(rewriteGates(['npx github:me/proj lint && npx github:me/proj status', 'npx github:me/projx lint'], 'npx github:me/proj', floating, '0.2.0'),
+    ['npx github:me/proj#v0.2.0 lint && npx github:me/proj#v0.2.0 status', 'npx github:me/projx lint'], 'a floating cli moves as a whole word only');
+  assert.equal(rewriteCommand('npx --yes backslop@0.1.0 lint', 'npx --yes backslop@0.1.0', parseCli('npx --yes backslop@0.1.0'), '0.2.0'), 'npx --yes backslop@0.2.0 lint');
+  // `pinRe` has no end boundary: a suffixed pin moves its version prefix and keeps the suffix.
+  assert.deepEqual(rewriteGates(['npx github:me/proj#v0.1.0x lint', 'npx github:me/proj#v0.1.0-rc.1 lint'], old, form, '0.2.0'),
+    ['npx github:me/proj#v0.2.0x lint', 'npx github:me/proj#v0.2.0-rc.1 lint']);
   // Запись с областью правится внутрь и сохраняет `when`, нетронутая возвращается той же ссылкой —
   // иначе число заменённых было бы числом записей с областью.
   const gates = [{ command: 'npx github:me/proj#v0.1.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }];
-  const next = rewriteGates(gates, 'npx github:me/proj#v0.1.0', 'npx github:me/proj#v0.2.0');
+  const next = rewriteGates(gates, old, form, '0.2.0');
   assert.deepEqual(next, [{ command: 'npx github:me/proj#v0.2.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }]);
   assert.equal(next[1], gates[1], 'нетронутая запись — та же ссылка');
 });
@@ -141,7 +148,8 @@ test('upgrade: git ls-remote, оборванный сигналом, — отк�
 
 test('upgrade --dry-run показывает план и ничего не пишет; --pin-only переставляет пин, lint предупреждает', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
-  const src = releasesRepo(['v0.1.0', 'v0.2.0']);
+  const V = TOOL_VERSION;
+  const src = releasesRepo(['v0.1.0', `v${V}`]);
   const shim = npxShim();
   try {
     const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
@@ -149,32 +157,32 @@ test('upgrade --dry-run показывает план и ничего не пи�
     const before = read(root, 'backslop.json');
     let r = cli(root, ['upgrade', '--dry-run'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /v0\.1\.0 → v0\.2\.0/);
-    assert.match(r.out, /npx github:me\/proj#v0\.2\.0/);
+    assert.ok(r.out.includes(`v0.1.0 → v${V}`), r.out);
+    assert.ok(r.out.includes(`npx github:me/proj#v${V}`), r.out);
     assert.equal(read(root, 'backslop.json'), before);
 
     r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
     const cfg = config(root);
-    assert.equal(cfg.cli, 'npx github:me/proj#v0.2.0');
-    assert.deepEqual(cfg.gates, ['npx github:me/proj#v0.2.0 lint', 'npm test']);
+    assert.equal(cfg.cli, `npx github:me/proj#v${V}`);
+    assert.deepEqual(cfg.gates, [`npx github:me/proj#v${V} lint`, 'npm test']);
     assert.equal(cfg.version, '0.1.0', 'штамп ставит только новая версия через migrate/init');
 
     r = cli(root, ['lint'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.err, /пин в cli v0\.2\.0 расходится со штампом v0\.1\.0/);
+    assert.ok(r.err.includes(`пин в cli v${V} расходится со штампом v0.1.0`), r.err);
 
-    setConfig(root, { version: '0.2.0' });
+    setConfig(root, { version: V });
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /уже на v0\.2\.0/);
+    assert.ok(r.out.includes(`уже на v${V}`), r.out);
     r = cli(root, ['upgrade', '--to', 'v9.9.9'], { env });
     assert.equal(r.code, 1);
     assert.match(r.err, /тега v9\.9\.9/);
     r = cli(root, ['upgrade', '--to', 'v0.1.0'], { env });
     assert.equal(r.code, 1);
     assert.match(r.err, /старше v0\.2\.0/);
-    assert.equal(config(root).cli, 'npx github:me/proj#v0.2.0', 'отказ ничего не переставил');
+    assert.equal(config(root).cli, `npx github:me/proj#v${V}`, 'отказ ничего не переставил');
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
@@ -503,5 +511,244 @@ test('upgrade --pin-only: сбой пробного запуска не пише
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
     rmSync(broken, { recursive: true, force: true });
+  }
+});
+
+// An en consumer on an older pin: the rules pair differs from this template in more than the pin.
+function pinnedConsumer(root, old, version, src) {
+  setConfig(root, { cli: old, gates: [`${old} lint`], version, source: src, lang: 'en' });
+  const vars = { cli: old, prefix: 'BS', project: path.basename(root) };
+  const stale = (text) => text.replace(/^The operational tracker .*$/m, 'The tracker of an earlier version.');
+  put(root, 'docs/backlog/README.md', stale(renderTemplate('en/docs/backlog/README.md', vars)));
+  put(root, 'docs/archive/README.md', renderTemplate('en/docs/archive/README.md', vars));
+}
+
+test('migrate: a rules pair whose only uncommitted change is a moved pin is redrawn', () => {
+  const root = makeProject();
+  const old = 'npx github:me/proj#v0.10.0';
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  try {
+    pinnedConsumer(root, old, '0.10.0', undefined);
+    gitAll(root);
+    const rules = ['docs/backlog/README.md', 'docs/archive/README.md'];
+    for (const rel of rules) put(root, rel, read(root, rel).replaceAll(old, now));
+    setConfig(root, { cli: now });
+    const vars = { cli: now, prefix: 'BS', project: path.basename(root) };
+    let r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /rewritten docs\/backlog\/README\.md/);
+    for (const rel of rules) assert.equal(read(root, rel), renderTemplate(`en/${rel}`, vars), `${rel} is not the template render`);
+
+    run(root, ['checkout', '--', ...rules]);
+    setConfig(root, { version: '0.10.0' });
+    for (const rel of rules) put(root, rel, read(root, rel).replaceAll(old, now));
+    put(root, rules[0], `${read(root, rules[0])}\nMY LOCAL EDIT\n`);
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /docs\/backlog\/README\.md: uncommitted edit/);
+    assert.match(read(root, rules[0]), /MY LOCAL EDIT/);
+    assert.equal(config(root).version, '0.10.0');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: a moved pin in a CRLF checkout under core.autocrlf is still the only change', () => {
+  const origin = makeProject();
+  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-crlf-')));
+  const old = 'npx github:me/proj#v0.10.0';
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  try {
+    pinnedConsumer(origin, old, '0.10.0', undefined);
+    gitAll(origin);
+    run(root, ['clone', '-q', '-c', 'core.autocrlf=true', origin, '.']);
+    const rules = ['docs/backlog/README.md', 'docs/archive/README.md'];
+    assert.ok(read(root, rules[0]).includes('\r\n'), 'the checkout has CRLF');
+    for (const rel of rules) put(root, rel, read(root, rel).replaceAll(old, now));
+    setConfig(root, { cli: now });
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /rewritten docs\/backlog\/README\.md/);
+  } finally {
+    cleanup(origin);
+    cleanup(root);
+  }
+});
+
+test('upgrade from a pinned consumer with committed rules completes in one run', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const src = releasesRepo(['v0.10.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    pinnedConsumer(root, 'npx github:me/proj#v0.10.0', '0.10.0', src);
+    rmSync(path.join(root, 'docs', 'README.md'));
+    gitAll(root);
+    let r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /uncommitted edit/);
+    const lines = r.out.split('\n').filter((l) => l.startsWith('  → ') || /^ {2}pin in prose/.test(l));
+    assert.match(lines[1], /migrate$/);
+    assert.match(lines[2], /init$/);
+    assert.match(lines[3], /pin in prose/, 'prose pins move after migrate and init');
+    assert.equal(config(root).version, TOOL_VERSION);
+    assert.equal(config(root).cli, `npx github:me/proj#v${TOOL_VERSION}`);
+    r = cli(root, ['lint'], { env });
+    assert.equal(r.code, 0, r.err);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('upgrade refuses when the probed cli still runs an older version', () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.10.0', `v${TOOL_VERSION}`]);
+  const tool = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-old-tool-')));
+  try {
+    const marker = path.join(tool, 'ran.txt');
+    writeFileSync(path.join(tool, 'old.cjs'), `if (process.argv[2] === 'version') console.log('backslop 0.10.0');\nelse { require('fs').writeFileSync(${JSON.stringify(marker)}, process.argv[2]); console.log('✔ migrate'); }\n`);
+    setConfig(root, { cli: `node "${path.join(tool, 'old.cjs')}"`, version: '0.10.0', source: src, lang: 'en' });
+    let r = cli(root, ['upgrade']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /cli still runs v0\.10\.0, not v\d+\.\d+\.\d+ — update the installation, then retry/);
+    assert.doesNotMatch(r.out, /✔ migrate|✔ upgrade/);
+    assert.ok(!existsSync(marker), 'neither migrate nor init ran');
+    assert.equal(config(root).version, '0.10.0');
+
+    setConfig(root, { cli: `node "${BIN}"` });
+    r = cli(root, ['upgrade', '--pin-only']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /pin updated/, 'a cli without a pin reports no pin update');
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(tool, { recursive: true, force: true });
+  }
+});
+
+// npx prints its install prompt on stdout: the first probe run must reach the terminal as is.
+test('upgrade shows the first probe run and compares the version of a second one', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  try {
+    const seen = path.join(shim, 'seen');
+    writeFileSync(path.join(shim, 'npx'), `#!/bin/sh\nif [ ! -e "${seen}" ]; then : > "${seen}"; echo 'Need to install the following packages: Ok to proceed? (y)'; echo 'backslop 0.1.0'; exit 0; fi\nwhile [ $# -gt 0 ]; do case "$1" in -*) shift ;; *) shift; break ;; esac; done\nexec "${process.execPath}" "${BIN}" "$@"\n`, { mode: 0o755 });
+    setConfig(root, { cli: 'npx github:me/proj#v0.1.0', gates: [], version: '0.1.0', source: src, lang: 'en' });
+    const r = cli(root, ['upgrade', '--pin-only'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /→ npx github:me\/proj#v\S+ version\nNeed to install the following packages: Ok to proceed\? \(y\)\n/);
+    assert.equal(r.out.match(/→ npx github:me\/proj#v\S+ version/g).length, 1, 'the second run prints nothing');
+    assert.equal(config(root).cli, `npx github:me/proj#v${TOOL_VERSION}`);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('upgrade takes the lower of pin and stamp as the from-version', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.9.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, { cli: now, gates: [`${now} lint`], version: '0.9.0', source: src, lang: 'en' });
+    let r = cli(root, ['upgrade', '--dry-run'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.ok(r.out.includes(`upgrade: v0.9.0 → v${TOOL_VERSION} (cli pin v${TOOL_VERSION}, version stamp v0.9.0; source`), r.out);
+    r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.ok(r.out.includes(`→ ${now} changelog --since v0.9.0 --to v${TOOL_VERSION}`), r.out);
+    assert.match(r.out, /## v0\.10\.0/, 'entries after the stamp are printed');
+    assert.equal(config(root).version, TOOL_VERSION);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('upgrade moves every pin inside gate commands and probe', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const old = 'npx github:me/proj#v0.1.0';
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, {
+      cli: old, version: '0.1.0', source: src, lang: 'en', probe: `cd . && ${old} status`,
+      gates: [`${old} lint && ${old} gates --dry-run`, { command: `cd . && ${old} lint`, when: ['docs/**'] }],
+    });
+    const r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /gates with the new pin: 2 of 2/);
+    const cfg = config(root);
+    assert.deepEqual(cfg.gates, [`${now} lint && ${now} gates --dry-run`, { command: `cd . && ${now} lint`, when: ['docs/**'] }]);
+    assert.equal(cfg.probe, `cd . && ${now} status`);
+    assert.ok(!read(root, 'backslop.json').includes('#v0.1.0'), read(root, 'backslop.json'));
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('upgrade pins a floating cli already on the latest version', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo([`v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, { cli: 'npx github:me/proj', gates: ['npx github:me/proj lint'], source: src, lang: 'en' });
+    let r = cli(root, ['lint'], { env });
+    assert.match(r.err, /an unpinned cli fetches a fresh version/);
+    r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /→ npx github:me\/proj#v\d+\.\d+\.\d+ version/);
+    assert.equal(config(root).cli, `npx github:me/proj#v${TOOL_VERSION}`);
+    assert.deepEqual(config(root).gates, [`npx github:me/proj#v${TOOL_VERSION} lint`]);
+    r = cli(root, ['lint'], { env });
+    assert.doesNotMatch(r.err, /unpinned/);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('upgrade: the printed after-pin recovery sequence completes the run', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const old = 'npx github:me/proj#v0.1.0';
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  try {
+    const env = { ...process.env, NO_COLOR: '1', PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, { cli: old, gates: [`${old} lint`], version: '0.1.0', source: src, lang: 'en' });
+    rmSync(path.join(root, 'docs', 'README.md'));
+    put(root, 'docs/reference/README.md', `# Reference\n\nRun \`${old} status\`.\n`);
+    put(root, 'AGENTS.md', '<!-- backslop:start -->\nunpaired\n');
+    let r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 1, r.out);
+    const m = r.err.match(/Pin is already v\S+: finish manually with (.+ migrate) && (.+ init), then (.+ upgrade) for live pins/);
+    assert.ok(m, r.err);
+    put(root, 'AGENTS.md', '# Agents\n');
+    for (const command of m.slice(1)) {
+      const step = spawnSync(command, { cwd: root, shell: true, encoding: 'utf8', env });
+      assert.equal(step.status, 0, `${command}: ${step.stderr}`);
+    }
+    assert.equal(config(root).version, TOOL_VERSION);
+    assert.ok(read(root, 'docs/reference/README.md').includes(now), 'the prose pin moved');
+    r = cli(root, ['lint'], { env });
+    assert.equal(r.code, 0, r.err);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
   }
 });

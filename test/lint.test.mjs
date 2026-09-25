@@ -996,6 +996,28 @@ test('lint: каталог с именем файла задачи — диаг�
   }
 });
 
+test('lint: a stale pin in a gate command or probe is an error naming gates[i]', () => {
+  const root = makeProject({ git: false });
+  const V = TOOL_VERSION;
+  try {
+    seedGreen(root);
+    const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
+    const now = `npx github:me/proj#v${V}`;
+    setConfig({ cli: now, version: V, lang: 'en', gates: [`${now} lint`, { command: `cd . && ${now} lint && npx github:me/proj#v0.1.0 gates`, when: ['docs/**'] }] });
+    assert.ok(problems(root).includes(`backslop.json: gates[1]: pin github:me/proj#v0.1.0 differs from cli — expected github:me/proj#v${V}; ${now} upgrade rewrites it`), problems(root).join(' | '));
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /backslop\.json: gates\[1\]: pin/);
+
+    setConfig({ gates: [`${now} lint`], probe: 'npx github:me/proj#v0.1.0 status' });
+    assert.ok(problems(root).some((p) => p.startsWith('backslop.json: probe: pin github:me/proj#v0.1.0 differs from cli')), problems(root).join(' | '));
+    setConfig({ probe: `${now} status` });
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('lint: живой пин, расходящийся с cli, — ошибка с файлом и строкой', () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
