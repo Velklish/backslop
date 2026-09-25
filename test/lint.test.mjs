@@ -575,6 +575,16 @@ test('lint: 11. устаревший пин в прозе README', () => {
   } finally { if (project) cleanup(project.dir); }
 });
 
+test('lint: 11. a stale release pin with a .git suffix or without v in README', () => {
+  let project;
+  try {
+    project = toolProject((dir) => put(dir, 'README.md', 'Install `npx github:Velklish/backslop.git#v0.2.0` or `npx github:Velklish/backslop#0.2.0`\n'));
+    assert.equal(project.code, 1, project.out);
+    assert.match(project.err, /README\.md: строка 1: пин github:Velklish\/backslop\.git#v0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
+    assert.match(project.err, /README\.md: строка 1: пин github:Velklish\/backslop#0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
+  } finally { if (project) cleanup(project.dir); }
+});
+
 test('lint: 11. устаревший npm-пин в прозе AGENTS.md', () => {
   let project;
   try {
@@ -1018,6 +1028,22 @@ test('lint: a stale pin in a gate command or probe is an error naming gates[i]',
   }
 });
 
+test('lint: a stale pin with a .git suffix or without v in gates[i] or probe is an error too', () => {
+  const root = makeProject({ git: false });
+  const V = TOOL_VERSION;
+  try {
+    seedGreen(root);
+    const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
+    const now = `npx github:me/proj#v${V}`;
+    setConfig({ cli: now, version: V, lang: 'en', gates: ['npx github:me/proj.git#v0.1.0 lint'], probe: 'npx github:me/proj#0.1.0 status' });
+    const found = problems(root);
+    assert.ok(found.includes(`backslop.json: gates[0]: pin github:me/proj.git#v0.1.0 differs from cli — expected github:me/proj#v${V}; ${now} upgrade rewrites it`), found.join(' | '));
+    assert.ok(found.some((p) => p.startsWith('backslop.json: probe: pin github:me/proj#0.1.0 differs from cli')), found.join(' | '));
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('lint: a stale pin in a file upgrade skips names a hand edit as the remedy', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
@@ -1081,6 +1107,23 @@ test('lint: живой пин, расходящийся с cli, — ошибка
     setConfig({ cli: 'node bin/backslop.js', version: V });
     assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: a prose pin in the other forms parseCli accepts, .git suffix or no v, is checked too', () => {
+  const root = makeProject({ git: false });
+  const V = TOOL_VERSION;
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), cli: `npx github:me/proj#v${V}`, version: V }, null, 2)}\n`);
+    put(root, 'docs/ROADMAP.md', 'Run `npx github:me/proj.git#v0.1.0 lint` or `npx github:me/proj#0.1.0 lint`.\n');
+    const found = problems(root);
+    assert.ok(found.some((p) => p.includes('docs/ROADMAP.md: строка 1: пин github:me/proj.git#v0.1.0 расходится с cli')), found.join(' | '));
+    assert.ok(found.some((p) => p.includes('docs/ROADMAP.md: строка 1: пин github:me/proj#0.1.0 расходится с cli')), found.join(' | '));
+    put(root, 'docs/ROADMAP.md', `Run \`npx github:me/proj.git#v${V} lint\` or \`npx github:me/proj#${V} lint\`.\n`);
+    assert.deepEqual(problems(root), [], 'the current version in another form is no drift');
   } finally {
     cleanup(root);
   }
