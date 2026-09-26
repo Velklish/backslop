@@ -29,6 +29,11 @@
 - **A failed release `push --dry-run` names `git tag -d`** — the `next:` line of that refusal now carries the command that deletes the local tag, not only the advice to delete it.
 - **The `--bump` downgrade refusal says "not newer"** — the refusal for a version that is not above the current one said the version was "not older" (не старше); it now says "не новее".
 
+- **`changelog` and `merge-changelog` run with an otherwise invalid `backslop.json`** — both only read the tool's own CHANGELOG or two git revisions, yet refused when the project config failed validation, for example with a lowercase `prefix`. They now take only the message language from it, as `help` does: English for `"lang": "en"`, Russian for anything else.
+- **`merge-changelog` outside a project speaks both languages** — with no `backslop.json` in the working directory or above it, its refusals and report lines were Russian only. They now carry the English and the Russian text, as `help` and `changelog` do there.
+- **`init` takes the project name from a `package.json` with a BOM** — a UTF-8 BOM at the start of `package.json` made `init` fall back to the directory name in the `docs/README.md` heading. The manifest is now read without the BOM, as `seed --scan` already read it.
+- **Gate 11 reports a malformed `package.json` in the tool repository** — `lint` stopped with a `SyntaxError` stack trace, no gate list and no summary. It now reports the file as `cannot be parsed` with the parser's message, skips the version checks, and the other gates run and report as usual.
+
 ## v0.11.1 — 2026-09-25
 
 - **A pin in a journal entry is history** — `lint` reported, and `upgrade` rewrote, an old pin quoted in an entry line of `docs/archive/LOG.md`. Entry lines are now records of their moment for the pin gate, the `upgrade` rewrite and its "already on" check; the header of the journal stays live.

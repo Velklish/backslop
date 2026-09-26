@@ -95,13 +95,20 @@ test('config: a non-string prefix is refused by every command, without a stack',
     for (const args of [
       ['init'], ['new', 'x'], ['mv', '1', 'queue'], ['archive', '1'], ['fold', '1'], ['fold'], ['show', '1'],
       ['adr', 'x'], ['brief', '1'], ['seed', '--scan'], ['status'], ['lint'], ['gates'], ['tracks'],
-      ['upgrade', '--dry-run'], ['migrate', '--dry-run'], ['changelog'], ['merge-changelog', '--ours', 'HEAD', '--theirs', 'HEAD'],
+      ['upgrade', '--dry-run'], ['migrate', '--dry-run'],
     ]) {
       const r = cli(root, args);
       assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
       assert.match(r.err, /^✖ backslop\.json: prefix “\["BS"\]” — expected 2–6 uppercase/, args.join(' '));
       assert.doesNotMatch(r.err, /\n\s+at /, `${args.join(' ')}: a stack`);
     }
+    // changelog and merge-changelog take only lang from the config and run on.
+    let r = cli(root, ['changelog', '--since', 'v99.0.0']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^no entries after v99\.0\.0/);
+    r = cli(root, ['merge-changelog']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^✖ both --ours <ref> and --theirs <ref> are required/);
     put(root, 'backslop.json', `${JSON.stringify({ prefix: 7, docs: 'docs', gates: [], lang: 'ru', tools: [] }, null, 2)}\n`);
     assert.throws(() => loadConfig(root), /prefix «7»/);
   } finally { cleanup(root); }

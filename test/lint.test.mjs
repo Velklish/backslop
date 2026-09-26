@@ -10,7 +10,7 @@ import { loadProject, parseCli } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
 import { livePinFiles } from '../lib/mdwalk.js';
 import { rewriteProsePins } from '../lib/upgrade.js';
-import { cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run, toolCli, toolCopy } from './helpers.mjs';
+import { REPO, cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run, toolCli, toolCopy } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
 
 function seedGreen(root) {
@@ -634,6 +634,28 @@ test('lint: 11. устаревший npm-пин в прозе AGENTS.md', () => 
     assert.equal(project.code, 1, project.out);
     assert.match(project.err, /AGENTS\.md: .*пин backslop@0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
   } finally { if (project) cleanup(project.dir); }
+});
+
+// A `templates` link to the running tool's own directory wakes the self-host gates.
+test('lint: 11. a malformed package.json is a gate error, and the other gates still report', { skip: process.platform === 'win32' }, () => {
+  for (const [lang, parsed] of [['ru', /^✖ .*package\.json: не разбирается: .*JSON/m], ['en', /^✖ .*package\.json: cannot be parsed: .*JSON/m]]) {
+    const root = makeProject({ git: false });
+    try {
+      seedGreen(root);
+      put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }, null, 2)}\n`);
+      symlinkSync(path.join(REPO, 'templates'), path.join(root, 'templates'), 'dir');
+      put(root, 'package.json', '{ "version": "0.11.0", }\n');
+      put(root, 'docs/stray.md', '[x](nowhere.md)\n');
+      const r = cli(root, ['lint']);
+      assert.equal(r.code, 1, `${lang}: ${r.out}`);
+      assert.match(r.err, parsed, lang);
+      assert.match(r.err, /stray\.md: .*nowhere\.md/, `${lang}: the links gate still reports`);
+      assert.match(r.err, /^✖ lint: (ошибок|errors) 2\b/m, lang);
+      assert.doesNotMatch(r.err, /SyntaxError|lintReleaseVersions/, lang);
+    } finally {
+      cleanup(root);
+    }
+  }
 });
 
 // Гейт парности работает только в дереве самого инструмента, поэтому проба идёт на копии
