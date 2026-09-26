@@ -165,3 +165,4 @@
 - <a id="bs-126"></a>`BS-126-json-contract-nulls-total` · 2026-09-26 · completed · — · JSON contract: null for blank status fields, a total in seed --scan, documented tree.dirty
 - <a id="bs-127"></a>`BS-127-release-script-messages-windows` · 2026-09-26 · completed · — · Release script: node via execPath, npm on Windows, honest refusals, git tag -d hint
 - <a id="bs-115"></a>`BS-115-project-lang-fallback` · 2026-09-26 · completed · — · One lenient project-language resolver, a null-language i18n helper, shared JSON readers
+- <a id="bs-118"></a>`BS-118-command-module-exports` · 2026-09-26 · completed · — · Move shared code out of command modules: isToolRepo, probeRule, projectName, createTask

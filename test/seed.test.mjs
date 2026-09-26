@@ -227,6 +227,29 @@ test('seed --queue-reference: an English project gets an English Scope', () => {
   }
 });
 
+test('seed --queue-reference prints a \u2714 line per task and the number another branch holds', () => {
+  const root = makeEnProject();
+  try {
+    gitAll(root, 'init');
+    run(root, ['checkout', '-q', '-b', 'other']);
+    assert.equal(cli(root, ['new', 'held']).code, 0);
+    gitAll(root, 'BS-1: held');
+    run(root, ['checkout', '-q', 'main']);
+    put(root, 'docs/reference/README.md', '# Reference\n\n| Section | About |\n|---|---|\n| [API](api.md) | a |\n| [Worker](worker.md) | w |\n');
+    const r = cli(root, ['seed', '--queue-reference']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(r.out, [
+      '\u2714 BS-2: docs/backlog/queue/BS-2-describe-api.md',
+      '  BS-1 is taken: branch other',
+      '\u2714 BS-3: docs/backlog/queue/BS-3-describe-worker.md',
+      '\u2714 seed --queue-reference: tasks created 2, skipped as already seeded 0',
+      '',
+    ].join('\n'));
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('seed --queue-reference: two rows sharing a basename get two tasks, a re-run adds none', () => {
   const root = makeEnProject();
   try {
