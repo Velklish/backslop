@@ -566,8 +566,8 @@ probe('adapter output — каталог на owned-пути, на которо�
   rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
   mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
 }, /SKILL\.md: owned adapter output не является файлом/);
-// ADR-015. Не-legacy owned-путь есть только у копии инструмента с лишним шаблоном; в копии
-// работает и гейт парности, поэтому шаблон кладётся в оба слоя.
+// ADR-015: ownership is the marker alone, so an unmarked file at a template path is foreign.
+// The copy adds the template to both layers, since the parity gate runs there too.
 test('lint: adapter output без маркера — чужой файл на owned-пути выбранного adapter\'а', () => {
   let project;
   try {

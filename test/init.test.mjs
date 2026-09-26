@@ -479,13 +479,13 @@ test('init: a repeated --dir spelling the stored docs differently is not a confl
 test('init: шаг 4 скилла называет команду пробы проекта; поля probe нет — нет и предложения', () => {
   const root = emptyRepo();
   try {
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [] }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [] }, null, 2)}\n`);
     assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
     const bare = read(root, '.claude/skills/backslop-task/SKILL.md');
     assert.doesNotMatch(bare, /потом проба —/, 'нечего исполнять — требования в скилле нет');
     assert.ok(!bare.includes('{{'), 'пустая подстановка не оставляет {{…}} читателю');
 
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], probe: 'npm run probe' }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [], probe: 'npm run probe' }, null, 2)}\n`);
     assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
     assert.match(read(root, '.claude/skills/backslop-task/SKILL.md'), /сначала коммит, потом проба — `npm run probe`\./);
   } finally {
@@ -582,34 +582,14 @@ test('init: неизвестные, пустые и повторные adapter i
   }
 });
 
-test('init: legacy config получает lang=ru и tools=[]; mutable flags сохраняются', () => {
+test('init: a rerun with --tools and --lang rewrites both fields of an existing config', () => {
   const root = emptyRepo();
   try {
-    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","cli":"node backslop.js","gates":[]}\n');
-    let r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    assert.deepEqual(JSON.parse(read(root, 'backslop.json')).tools, []);
-    assert.equal(JSON.parse(read(root, 'backslop.json')).lang, 'ru');
-    r = cli(root, ['init', '--tools', 'cursor', '--lang', 'en']);
-    assert.ok(existsSync(new URL('../templates/en/', import.meta.url)), 'templates/en/ обязателен в репозитории инструмента');
+    assert.equal(cli(root, ['init']).code, 0);
+    const r = cli(root, ['init', '--tools', 'cursor', '--lang', 'en']);
     assert.equal(r.code, 0, r.err);
     assert.equal(JSON.parse(read(root, 'backslop.json')).lang, 'en');
     assert.deepEqual(JSON.parse(read(root, 'backslop.json')).tools, ['cursor']);
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('init: legacy Claude skills сохраняют adapter и материализуют tools', () => {
-  const root = emptyRepo();
-  try {
-    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","cli":"node backslop.js","gates":[]}\n');
-    put(root, '.claude/skills/backslop-task/SKILL.md', '# legacy skill\n');
-    const r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    assert.deepEqual(JSON.parse(read(root, 'backslop.json')).tools, ['claude']);
-    assert.match(read(root, '.claude/skills/backslop-task/SKILL.md'), /<!-- backslop:generated -->/);
-    assert.equal(read(root, 'CLAUDE.md'), '@AGENTS.md\n');
   } finally {
     cleanup(root);
   }
@@ -722,9 +702,6 @@ test('init в пустом проекте: строка таблицы docs/READ
   }
 });
 
-// Owned-путь выводится из templates/skills/**, legacy-набор зашит в lib/adapter-ownership.js:
-// разойтись они могут только сменой шаблонов, поэтому проба меняет их в копии (toolCopy).
-
 test('init --tools none: файл без маркера на пути текущего шаблона остаётся и назван предупреждением', () => {
   const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
   const root = emptyRepo();
@@ -743,18 +720,17 @@ test('init --tools none: файл без маркера на пути текущ
   }
 });
 
-test('init --tools none: legacy-путь без маркера, выпавший из состава шаблонов, снимается', () => {
-  const legacy = '.claude/skills/backslop-batch/references/measurements.md';
-  const tool = toolCopy((dir) => rmSync(path.join(dir, 'templates', 'skills', 'backslop-batch', 'references', 'measurements.md')));
+test('init --tools none: an unmarked file at a shipped skill path is left byte for byte and named foreign', () => {
+  const rel = '.claude/skills/backslop-batch/references/measurements.md';
   const root = emptyRepo();
   try {
-    assert.equal(toolCli(tool, ['init', '--tools', 'none'], { cwd: root }).code, 0);
-    put(root, legacy, 'legacy без маркера\n');
-    const r = toolCli(tool, ['init', '--tools', 'none'], { cwd: root });
+    assert.equal(cli(root, ['init', '--tools', 'none']).code, 0);
+    put(root, rel, 'my own file, no marker\n');
+    const r = cli(root, ['init', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
-    assert.ok(!existsSync(path.join(root, ...legacy.split('/'))), 'legacy-путь снимается по предикату владения');
+    assert.equal(read(root, rel), 'my own file, no marker\n');
+    assert.match(r.err, /оставлены как есть: \.claude\/skills\/backslop-batch\/references\/measurements\.md/);
   } finally {
-    cleanup(tool);
     cleanup(root);
   }
 });
@@ -960,31 +936,38 @@ test('init: файл с маркером вне backslop-* под корнем h
   }
 });
 
-// ADR-015. Шаблоны сегодня совпадают с legacy-набором, и чужой файл на owned-пути всегда legacy —
-// не-legacy owned-путь даёт только копия инструмента с лишним шаблоном.
+// ADR-015: only the marker makes a file ours, so an unmarked one at a shipped path is foreign.
 test('init --tools claude: чужой файл без маркера на пути owned output не переписывается и назван предупреждением', () => {
-  const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
   const root = emptyRepo();
   try {
-    assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0);
-    const rel = '.claude/skills/backslop-task/references/extra.md';
+    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+    const rel = '.claude/skills/backslop-batch/references/measurements.md';
     assert.match(read(root, rel), /<!-- backslop:generated -->/);
     put(root, rel, '# мой файл на этом пути\n');
-    const r = toolCli(tool, ['init', '--tools', 'claude'], { cwd: root });
+    const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, rel), '# мой файл на этом пути\n', 'файл без маркера — не owned, не переписан');
-    assert.match(r.err, /не переписаны: \.claude\/skills\/backslop-task\/references\/extra\.md/);
-    const lint = toolCli(tool, ['lint'], { cwd: root });
+    assert.match(r.err, /не переписаны: \.claude\/skills\/backslop-batch\/references\/measurements\.md/);
+    const lint = cli(root, ['lint']);
     assert.equal(lint.code, 1);
-    assert.match(lint.err, /extra\.md: на пути adapter output claude чужой файл без маркера/);
-
-    // Legacy-путь owned без маркера — переписывается, как раньше.
-    const legacy = '.claude/skills/backslop-batch/references/measurements.md';
-    put(root, legacy, 'без маркера, но legacy-путь\n');
-    assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0);
-    assert.match(read(root, legacy), /<!-- backslop:generated -->/, 'legacy-путь owned без маркера — переписан');
+    assert.match(lint.err, /measurements\.md: на пути adapter output claude чужой файл без маркера/);
   } finally {
-    cleanup(tool);
+    cleanup(root);
+  }
+});
+
+test('init --tools cursor: a user rule without the marker at a skill path is kept and named foreign', () => {
+  const rel = '.cursor/rules/backslop-task.mdc';
+  const root = emptyRepo();
+  try {
+    assert.equal(cli(root, ['init', '--tools', 'none']).code, 0);
+    put(root, rel, 'my own cursor rule, no marker\n');
+    const r = cli(root, ['init', '--tools', 'cursor']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, rel), 'my own cursor rule, no marker\n');
+    assert.equal(r.err, '⚠ на путях adapter outputs лежат файлы без маркера <!-- backslop:generated --> — не переписаны: '
+      + '.cursor/rules/backslop-task.mdc; скилл backslop на этом пути не установлен — убери или переименуй файл и повтори init, либо сними adapter\n');
+  } finally {
     cleanup(root);
   }
 });

@@ -313,7 +313,7 @@ test('gates: в монорепе пути приводятся к корню п�
     mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
     writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({
       prefix: 'BS',
-      docs: 'docs',
+      docs: 'docs', lang: 'ru', tools: [],
       gates: [{ command: mark('code', 0), when: ['lib/**'] }, { command: mark('docs', 0), when: ['docs/**'] }],
     }, null, 2)}\n`);
     writeFileSync(path.join(repo, '.gitignore'), 'ran.txt\n');
@@ -369,13 +369,13 @@ test('gates: in a monorepo the tree snapshot and --require-clean see only the pr
     run(repo, ['config', 'status.renames', 'true']);
     const proj = path.join(repo, 'pkg');
     mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
-    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [] }, null, 2)}\n`);
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [] }, null, 2)}\n`);
     put(repo, 'pkg/a.md', 'a\n');
     put(repo, 'other/a.txt', 'x\n');
     run(repo, ['add', '-A']);
     run(repo, ['commit', '-qm', 'init']);
     writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({
-      prefix: 'BS', docs: 'docs', gates: [{ command: 'node -e "process.exit(0)"', when: ['backslop.json'] }],
+      prefix: 'BS', docs: 'docs', lang: 'ru', tools: [], gates: [{ command: 'node -e "process.exit(0)"', when: ['backslop.json'] }],
     }, null, 2)}\n`);
     run(repo, ['commit', '-qam', 'cfg']);
     put(repo, 'other/b.txt', 'y\n');
@@ -415,7 +415,7 @@ test('gates: neighbour dirt in a monorepo does not lift the empty-set refusal of
     const proj = path.join(repo, 'pkg');
     mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
     writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({
-      prefix: 'BS', docs: 'docs', gates: [{ command: 'node -e "process.exit(0)"', when: ['src/**'] }],
+      prefix: 'BS', docs: 'docs', lang: 'ru', tools: [], gates: [{ command: 'node -e "process.exit(0)"', when: ['src/**'] }],
     }, null, 2)}\n`);
     put(repo, 'other/a.txt', 'x\n');
     run(repo, ['add', '-A']);
@@ -441,7 +441,7 @@ test('gates: a non-ASCII project directory is stripped from quoted porcelain pat
     run(repo, ['config', 'core.quotePath', 'true']);
     const proj = path.join(repo, 'пакет');
     mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
-    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: ['node -e "process.exit(0)"'] }, null, 2)}\n`);
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: ['node -e "process.exit(0)"'], lang: 'ru', tools: [] }, null, 2)}\n`);
     let r = cli(repo, ['gates', '--json'], { cwd: proj });
     assert.equal(JSON.parse(r.out).tree.dirty, '?? ./', 'the untracked project directory itself');
     put(proj, 'docs/backlog/README.md', '# Backlog\n');
@@ -470,7 +470,7 @@ test('gates: a bare porcelain path with a Unicode space loses the project prefix
     run(repo, ['config', 'commit.gpgsign', 'false']);
     const proj = path.join(repo, 'pkg');
     mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
-    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: ['node -e "process.exit(0)"'] }, null, 2)}\n`);
+    writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: ['node -e "process.exit(0)"'], lang: 'ru', tools: [] }, null, 2)}\n`);
     run(repo, ['add', '-A']);
     run(repo, ['commit', '-qm', 'init']);
     put(repo, 'pkg/a b.md', 'x\n');
@@ -493,7 +493,7 @@ test('gates: diff.relative=true does not drop the paths of a monorepo subproject
     mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
     writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({
       prefix: 'BS',
-      docs: 'docs',
+      docs: 'docs', lang: 'ru', tools: [],
       gates: [{ command: mark('code', 0), when: ['lib/**'] }],
     }, null, 2)}\n`);
     writeFileSync(path.join(repo, '.gitignore'), 'ran.txt\n');

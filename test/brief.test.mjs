@@ -6,7 +6,7 @@ import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
 
 function seed(root) {
   put(root, 'backslop.json', `${JSON.stringify({
-    prefix: 'BL', docs: 'docs', cli: 'npx backslop@1.2.3', gates: ['npm test', 'npx backslop@1.2.3 lint'], tools: [],
+    prefix: 'BL', docs: 'docs', cli: 'npx backslop@1.2.3', gates: ['npm test', 'npx backslop@1.2.3 lint'], lang: 'ru', tools: [],
   }, null, 2)}\n`);
   put(root, 'docs/backlog/queue/BL-3-configs.md', [
     '# BL-3 · Миграция конфигов', '',
@@ -266,7 +266,7 @@ test('brief: команда пробы — из поля probe проекта; �
     assert.doesNotMatch(r.out, /probe в backslop\.json не объявлен/, 'нота в stdout уехала бы worker’у частью постановки');
 
     put(root, 'backslop.json', `${JSON.stringify({
-      prefix: 'BL', docs: 'docs', cli: 'npx backslop@1.2.3', gates: [], tools: [], probe: 'npm run probe',
+      prefix: 'BL', docs: 'docs', cli: 'npx backslop@1.2.3', gates: [], lang: 'ru', tools: [], probe: 'npm run probe',
     }, null, 2)}\n`);
     r = cli(root, ['brief', '3', '--track', 'миграция конфигов']);
     assert.equal(r.code, 0, r.err);

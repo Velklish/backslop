@@ -14,7 +14,7 @@ export const REPO = fileURLToPath(new URL('..', import.meta.url));
 // из defaultCli() с той же версией: иначе предупреждение lint мешало бы ассертам на пустой stderr.
 export function makeProject({ prefix = 'BS', docs = 'docs', git = true, stamp = true } = {}) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-proj-')));
-  const cfg = { prefix, docs, gates: [] };
+  const cfg = { prefix, docs, gates: [], lang: 'ru', tools: [] };
   if (stamp) cfg.version = TOOL_VERSION;
   writeFileSync(path.join(root, 'backslop.json'), `${JSON.stringify(cfg, null, 2)}\n`);
   for (const d of ['backlog/triage', 'backlog/queue', 'backlog/active', 'backlog/deferred', 'backlog/minor', 'archive', 'adr', 'reference']) {

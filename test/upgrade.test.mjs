@@ -151,7 +151,7 @@ test('upgrade resolves a relative source from the project root', () => {
     g('tag', `v${TOOL_VERSION}`);
     const root = path.join(mono, 'pkg', 'a');
     mkdirSync(path.join(root, 'sub'), { recursive: true });
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', cli: 'npx github:me/proj#v0.10.0', gates: [], version: '0.10.0', source: '../tool', lang: 'en' }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', cli: 'npx github:me/proj#v0.10.0', gates: [], version: '0.10.0', source: '../tool', lang: 'en', tools: [] }, null, 2)}\n`);
     const check = (cwd) => {
       const r = cli(root, ['upgrade', '--dry-run'], { cwd });
       assert.equal(r.code, 0, `${cwd}: ${r.err}`);

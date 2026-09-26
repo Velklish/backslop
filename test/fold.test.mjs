@@ -1208,7 +1208,7 @@ test('show N: проект в подкаталоге репозитория — 
     run(top, ['config', 'commit.gpgsign', 'false']);
     run(top, ['config', 'status.renames', 'true']);
     const root = path.join(top, 'sub');
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], version: TOOL_VERSION }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], version: TOOL_VERSION, lang: 'ru', tools: [] }, null, 2)}\n`);
     for (const dir of ['triage', 'queue', 'active', 'deferred', 'minor']) put(root, `docs/backlog/${dir}/.gitkeep`, '');
     put(root, 'docs/archive/README.md', '# Архив\n');
     put(root, 'docs/reference/README.md', '# Справочник\n');

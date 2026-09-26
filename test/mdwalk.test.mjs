@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { markGenerated } from '../lib/adapter-ownership.js';
 import { parseCli } from '../lib/config.js';
 import { livePinFiles, mdFiles, repoMarkdown, rootMarkdown } from '../lib/mdwalk.js';
 import { rewriteProsePins } from '../lib/upgrade.js';
@@ -24,7 +25,7 @@ test('repoMarkdown: корень и каталоги вглубь, без .git, 
     put(sb, '.git/COMMIT_EDITMSG.md');
     put(sb, 'node_modules/pkg/README.md');
     put(sb, '.claude/worktrees/w1/docs/README.md');
-    put(sb, '.claude/skills/backslop-task/SKILL.md');
+    put(sb, '.claude/skills/backslop-task/SKILL.md', markGenerated('# x\n'));
     const rels = repoMarkdown(sb).map(([rel]) => rel).sort();
     assert.deepEqual(rels, [
       'README.md',
