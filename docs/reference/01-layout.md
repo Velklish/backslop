@@ -65,7 +65,7 @@ Owned outputs — локальный generated результат, и в git и�
 
 - **Порядок / Order:** 10               только в queue/; целое, шаг 10, меньше — раньше
 - **Прежний порядок / Previous order:** 20   вне queue/; ранг, с которым задача ушла из очереди
-- **Область / Scope / Area:** [раздел](../../reference/01-layout.md)
+- **Область / Scope:** [раздел](../../reference/01-layout.md)
 - **Создана / Created:** 2026-09-03
 - **Взята / Taken:** 2026-09-04         ставит mv … active
 - **Зависимости / Dependencies:** нет

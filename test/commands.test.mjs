@@ -892,7 +892,7 @@ test('release-related CLI messages follow project lang without changing their fl
     put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","cli":"node bin/backslop.js","gates":[],"lang":"en","tools":[]}\n');
     let r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /migration through v0\.9\.0: status directory minor\/ \(--dry-run\)/);
+    assert.match(r.out, /migration through v0\.10\.0: closed task journal docs\/archive\/LOG\.md \(--dry-run\)/);
     assert.doesNotMatch(r.out + r.err, /[А-Яа-яЁё]/);
     r = cli(root, ['changelog', '--since', 'v99.0.0']);
     assert.equal(r.code, 0, r.err);
@@ -1549,30 +1549,6 @@ test('mv N minor в EN-проекте: Context становится Evidence, с
     r = cli(root, ['mv', '1', 'minor', '--evidence', 'lib/mv.js:95 → exit 0']);
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, 'docs/backlog/minor/BS-1-a.md'), '# BS-1 · A\n\n- **Cost:** minor\n\n## Evidence\n\nFinding discovered while working on BS-7.\nEvidence: lib/mv.js:95 → exit 0\n');
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('migrate до v0.9.0 создаёт каталог minor/ в проекте со старым штампом', () => {
-  const root = makeProject({ git: false });
-  try {
-    rmSync(path.join(root, 'docs/backlog/minor'), { recursive: true });
-    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"version":"0.8.0"}\n');
-    // Правила ведения, перерисованные migrate, ссылаются на скелет, который кладёт init.
-    put(root, 'docs/ROADMAP.md', '# Roadmap\n');
-    put(root, 'docs/reference/README.md', '# Справочник\n');
-    let r = cli(root, ['lint']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /docs\/backlog\/minor: каталога статуса нет/);
-    r = cli(root, ['migrate', '--dry-run']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /миграция до v0\.9\.0: каталог статуса minor\/ .*--dry-run/);
-    assert.ok(!existsSync(path.join(root, 'docs/backlog/minor')));
-    r = cli(root, ['migrate']);
-    assert.equal(r.code, 0, r.err);
-    assert.ok(existsSync(path.join(root, 'docs/backlog/minor/.gitkeep')));
-    assert.equal(cli(root, ['lint']).code, 0);
   } finally {
     cleanup(root);
   }

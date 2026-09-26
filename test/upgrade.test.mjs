@@ -222,7 +222,7 @@ test('upgrade --dry-run показывает план и ничего не пи�
     assert.match(r.err, /тега v9\.9\.9/);
     r = cli(root, ['upgrade', '--to', 'v0.1.0'], { env });
     assert.equal(r.code, 1);
-    assert.match(r.err, /старше v0\.2\.0/);
+    assert.ok(r.err.includes(`понижение v${V} → v0.1.0 не поддерживается`), r.err);
     assert.equal(config(root).cli, `npx github:me/proj#v${V}`, 'отказ ничего не переставил');
   } finally {
     cleanup(root);
@@ -269,7 +269,7 @@ test('upgrade без источника релизов отказывает; mig
 
     r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /миграция до v0\.9\.0: каталог статуса minor\/ \(--dry-run\)/, 'без штампа проект считается старше любой миграции');
+    assert.match(r.out, /миграция до v0\.10\.0: журнал закрытых docs\/archive\/LOG\.md \(--dry-run\)/, 'без штампа проект считается старше любой миграции');
     assert.equal(config(root).version, undefined);
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);

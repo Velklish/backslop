@@ -218,24 +218,14 @@ test('brief: три слота решения оркестратора — за�
   }
 });
 
-test('brief: шаг гейтов — по тому, что умеет пинованная версия, а не запущенная', () => {
+test('brief: the gates step names the runner through the project cli', () => {
   const root = makeProject();
   try {
     seed(root);
-    // Пин 1.2.3 старше v0.5.0, где появился раннер: блок зовёт команду.
+    // The gates step names the runner of the pinned cli.
     const fresh = cli(root, ['brief', '3']);
     assert.equal(fresh.code, 0, fresh.err);
     assert.match(fresh.out, /`npx backslop@1\.2\.3 gates` печатает итог «гейтов N, зелёных N»/);
-
-    const cfg = JSON.parse(read(root, 'backslop.json'));
-    const old = { ...cfg, cli: 'npx backslop@0.4.0', gates: ['npm test', 'npx backslop@0.4.0 lint'] };
-    put(root, 'backslop.json', `${JSON.stringify(old, null, 2)}\n`);
-    const stale = cli(root, ['brief', '3']);
-    assert.equal(stale.code, 0, stale.err);
-    assert.doesNotMatch(stale.out, /`npx backslop@0\.4\.0 gates`/, 'неисполнимую команду блок не называет');
-    assert.match(stale.out, /Раннера `gates` в пинованной версии нет \(команда появилась в v0\.5\.0\)/);
-    assert.match(stale.out, /`npm test`, `npx backslop@0\.4\.0 lint`/);
-    assert.match(stale.out, /Сводку «гейтов N, зелёных N» не выдумывай/);
   } finally {
     cleanup(root);
   }
