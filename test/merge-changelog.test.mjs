@@ -562,7 +562,6 @@ test('merge-changelog: повтор блока у ours — отказ назыв
   const ours = '# Changelog\n\n## Не выпущено\n\n- Повторённый буллет без заголовка\n- Повторённый буллет без заголовка\n';
   assert.throws(() => mergeChangelog(ours, ours), (e) => {
     assert.match(e.message, /сторона ours несёт повтор блока, второе вхождение снято: «Повторённый буллет без заголовка»/);
-    assert.doesNotMatch(e.message, /потеряло строк/);
     return true;
   });
 });

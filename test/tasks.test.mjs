@@ -6,7 +6,7 @@ import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, formatId, getField, idMentionRe,
   nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
-import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, namedResultOutcome, outcomeFromResult, parseLogLine } from '../lib/log.js';
+import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, hasNamedOutcome, outcomeFromResult, parseLogLine } from '../lib/log.js';
 
 test('имя файла задачи: номер, sub-ID и slug', () => {
   const re = taskFileRe('BS');
@@ -198,7 +198,7 @@ test('строка журнала: разбор, обратная сборка, 
   );
   assert.equal(formatLogLine({ id: 'BS-12.3', slug: 'finding', date: '2026-09-03', outcome: 'слита в BS-4', commit: 'a1b2c3d4e5', title: 'Заголовок · с точкой' }), line);
   // Коммит и исход, которых свёртка не узнала, — длинным тире; строка остаётся разбираемой.
-  const bare = formatLogLine({ id: 'BS-1', slug: 'a', date: '2026-09-03', outcome: '', commit: null, title: null });
+  const bare = formatLogLine({ id: 'BS-1', slug: 'a', date: '2026-09-03', outcome: '—', commit: null, title: null });
   assert.equal(bare, '- <a id="bs-1"></a>`BS-1-a` · 2026-09-03 · — · — · —');
   assert.equal(parseLogLine(bare, 'BS').commit, null);
   assert.equal(parseLogLine('- обычный пункт списка', 'BS'), null);
@@ -303,7 +303,7 @@ test('маркер «Исход:» / «Outcome:» без слова словар
   assert.equal(read('BL-1', '**Исход — обе формы понимаются.**'), '—', 'форма с тире — не маркер');
   assert.equal(read('BL-1', 'Исходы: два, оба в разделе ниже.'), '—');
   // Маркер — фолбэк свёртки старых записей, а не слово исхода: гейт 5 и `fold N` его не принимают.
-  assert.equal(namedResultOutcome('# BL-1 · Результат\n\n**Исход: обе формы понимаются.**\n', 'BL'), null);
+  assert.equal(hasNamedOutcome('# BL-1 · Результат\n\n**Исход: обе формы понимаются.**\n', 'BL'), false);
 });
 
 test('«слиянием в <номер>» — слияние, как «слита в»: номер проекта сразу после формы, отрицание отсекается', () => {
@@ -313,7 +313,7 @@ test('«слиянием в <номер>» — слияние, как «слит
   assert.equal(read('**Закрыта 2026-09-12 слиянием в `BL-565.2`.**'), 'слита в BL-565.2');
   assert.equal(read('**Закрыта.** Не слиянием в BL-3: предмет другой.'), 'выполнена');
   assert.equal(read('**Закрыта** слиянием в main.'), 'выполнена');
-  assert.equal(namedResultOutcome('# BL-1 · Результат\n\n**Закрыта 2026-09-12 слиянием в `BL-604`.**\n', 'BL'), 'слита в BL-604');
+  assert.equal(hasNamedOutcome('# BL-1 · Результат\n\n**Закрыта 2026-09-12 слиянием в `BL-604`.**\n', 'BL'), true);
 });
 
 // Первые фразы записей потребителей, чей исход журнал называет иначе; «…» — сокращение, пути сняты.

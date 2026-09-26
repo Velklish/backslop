@@ -148,3 +148,4 @@
 - <a id="bs-96"></a>`BS-96-fs-shape-refusals-not-stacks` · 2026-09-25 · completed · — · File-system shape errors from user input become CliError refusals before any write
 - <a id="bs-97"></a>`BS-97-cli-arguments-edge-cases` · 2026-09-25 · completed · — · CLI arguments: lint parses argv, blank --title falls back, -h/--help as an option value
 - <a id="bs-104"></a>`BS-104-unexport-lib-internals` · 2026-09-26 · completed · — · Make lib names that nothing outside their file uses module-private
+- <a id="bs-105"></a>`BS-105-dead-branches-markdown-journal` · 2026-09-26 · completed · — · Remove never-passed parameters and unreachable branches in links, lint, log, changelog
