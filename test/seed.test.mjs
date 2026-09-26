@@ -30,7 +30,8 @@ test('seed --scan: кандидаты из package.json, Makefile и CI — ка
 
     const r = cli(root, ['seed', '--scan', '--json']);
     assert.equal(r.code, 0, r.err);
-    const { gates, subsystems } = JSON.parse(r.out);
+    const { gates, subsystems, total } = JSON.parse(r.out);
+    assert.equal(total, subsystems.length, 'total counts the subsystem candidates');
     const has = (list, command, evidence) => assert.ok(
       list.some((c) => c.command === command && c.evidence === evidence),
       `ожидался «${command}» с уликой «${evidence}», найдено: ${list.map((c) => `${c.command} @ ${c.evidence}`).join(' | ')}`,

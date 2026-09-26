@@ -162,3 +162,4 @@
 - <a id="bs-110"></a>`BS-110-text-lines-eol-module` · 2026-09-26 · completed · — · Leaf lib/text.js for line splitting; init blocks and adapter outputs keep line endings
 - <a id="bs-114"></a>`BS-114-changelog-section-parser` · 2026-09-26 · completed · — · One CHANGELOG section parser and version rule for changelog, merge-changelog and release
 - <a id="bs-120"></a>`BS-120-mdwalk-pin-scan-unreadable-dirs` · 2026-09-26 · completed · — · mdwalk: one stale-pin scan for lint and upgrade; srcFiles refuses an unreadable directory
+- <a id="bs-126"></a>`BS-126-json-contract-nulls-total` · 2026-09-26 · completed · — · JSON contract: null for blank status fields, a total in seed --scan, documented tree.dirty
