@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Pins and stamps below 0.9.0 are no longer supported** — `brief` names the `gates` runner in its gates step for every pin: the fallback that listed gate commands one by one for a pin without the runner is gone. `migrate` no longer creates `docs/backlog/minor/` for a stamp below 0.9.0 or no stamp; `init` still creates it. `upgrade` no longer has a separate refusal for targets below 0.2.0: with a pin or a stamp, such a target is refused as a downgrade. The `Area` alias of the task header field `Scope` is gone.
+
 ## v0.11.1 — 2026-09-25
 
 - **A pin in a journal entry is history** — `lint` reported, and `upgrade` rewrote, an old pin quoted in an entry line of `docs/archive/LOG.md`. Entry lines are now records of their moment for the pin gate, the `upgrade` rewrite and its "already on" check; the header of the journal stays live.

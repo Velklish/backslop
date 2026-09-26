@@ -150,3 +150,4 @@
 - <a id="bs-104"></a>`BS-104-unexport-lib-internals` · 2026-09-26 · completed · — · Make lib names that nothing outside their file uses module-private
 - <a id="bs-105"></a>`BS-105-dead-branches-markdown-journal` · 2026-09-26 · completed · — · Remove never-passed parameters and unreachable branches in links, lint, log, changelog
 - <a id="bs-106"></a>`BS-106-dead-branches-project-modules` · 2026-09-26 · completed · — · Remove unused defaults and redundant guards in config, tasks, status, upgrade, gates
+- <a id="bs-108"></a>`BS-108-drop-pre-floor-version-gates` · 2026-09-26 · completed · — · Remove pre-0.9.0 version gates: GATES_SINCE, 0.9.0 migration, MIN_UPGRADE_TARGET, Area
