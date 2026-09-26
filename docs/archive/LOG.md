@@ -167,3 +167,4 @@
 - <a id="bs-115"></a>`BS-115-project-lang-fallback` · 2026-09-26 · completed · — · One lenient project-language resolver, a null-language i18n helper, shared JSON readers
 - <a id="bs-118"></a>`BS-118-command-module-exports` · 2026-09-26 · completed · — · Move shared code out of command modules: isToolRepo, probeRule, projectName, createTask
 - <a id="bs-121"></a>`BS-121-strict-command-argv` · 2026-09-26 · completed · — · Parse argv strictly everywhere; help lists aliases and describes show correctly
+- <a id="bs-122"></a>`BS-122-init-flag-validation-messages` · 2026-09-26 · completed · — · init messages: localized flag errors, flag names, seed hint only with an adapter

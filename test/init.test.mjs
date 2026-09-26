@@ -103,9 +103,9 @@ test('init: a BOM-prefixed package.json gives its name to docs/README.md', () =>
 // первой записи, каталог остаётся пустым. Проверка общая: закрыт класс полей, а не одно.
 test('init: --cli с меткой блока — отказ до первой записи', () => {
   for (const [flag, value, why] of [
-    ['--cli', 'node bin/backslop.js <!-- backslop:end -->', /cli — значение без меток backslop/],
-    ['--dir', 'docs <!-- backslop:end -->', /docs — значение без меток backslop/],
-    ['--dir', 'docs`', /docs — значение без обратной кавычки/],
+    ['--cli', 'node bin/backslop.js <!-- backslop:end -->', /^✖ --cli must not contain the backslop:start or backslop:end markers: .* \/ --cli — значение без меток backslop/m],
+    ['--dir', 'docs <!-- backslop:end -->', /^✖ --dir must not contain the backslop:start or backslop:end markers: .* \/ --dir — значение без меток backslop/m],
+    ['--dir', 'docs`', /^✖ --dir must not contain a backtick: .* \/ --dir — значение без обратной кавычки/m],
   ]) {
     const root = emptyRepo();
     try {
@@ -126,7 +126,7 @@ test('init refuses --cli and --dir values that later commands would refuse, befo
     try {
       const r = cli(root, ['init', '--lang', 'en', '--tools', 'none', ...args]);
       assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
-      assert.match(r.err, /^✖ .*(cli must be a non-empty command string|expected a relative path inside the project)/, args.join(' '));
+      assert.match(r.err, /^✖ (--cli must be a non-empty command string|--dir “.*”: expected a relative path inside the project)$/m, args.join(' '));
       assert.doesNotMatch(r.err, /\n\s+at /, `${args.join(' ')}: a stack`);
       assert.equal(existsSync(path.join(root, 'backslop.json')), false, `${args.join(' ')}: the config was written`);
       assert.equal(existsSync(path.join(root, 'AGENTS.md')), false, `${args.join(' ')}: the block was written`);
@@ -475,7 +475,7 @@ test('init: a repeated --dir spelling the stored docs differently is not a confl
     assert.match(r.err, /docs = «docs»/);
     r = cli(root, ['init', '--dir', 'docs/../docs']);
     assert.equal(r.code, 1, 'a .. segment passed because it normalises to the stored docs');
-    assert.match(r.err, /^✖ --dir “docs\/\.\.\/docs”: expected a relative path inside the project/);
+    assert.match(r.err, /^✖ --dir «docs\/\.\.\/docs»: нужен относительный путь внутри проекта/, 'a ru project answers in Russian');
     put(root, 'backslop.json', read(root, 'backslop.json').replace('"docs": "docs"', '"docs": "./docs"'));
     for (const dir of ['./docs', 'docs', 'docs/']) {
       r = cli(root, ['init', '--dir', dir, '--tools', 'none']);
@@ -606,7 +606,7 @@ test('init: неизвестные, пустые и повторные adapter i
     try {
       const r = cli(root, ['init', '--tools', tools]);
       assert.equal(r.code, 1);
-      assert.match(r.err, /claude,cursor,codex/);
+      assert.match(r.err, /claude, cursor, codex/);
     } finally { cleanup(root); }
   }
 });
@@ -1107,5 +1107,95 @@ test('init renders LF adapter outputs from a CRLF checkout of the tool; a CRLF A
   } finally {
     cleanup(tool);
     cleanup(root);
+  }
+});
+
+test('init suggests the backslop-seed skill only when an adapter is selected', () => {
+  const bare = emptyRepo();
+  const withAdapter = emptyRepo();
+  try {
+    let r = cli(bare, ['init', '--lang', 'en']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /backslop-seed/, 'no skill is installed without an adapter');
+    assert.match(r.out, /--tools/, 'the hint names the flag that installs the skills');
+    r = cli(withAdapter, ['init', '--lang', 'en', '--tools', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /backslop-seed/);
+  } finally {
+    cleanup(bare);
+    cleanup(withAdapter);
+  }
+});
+
+test('init flag errors follow --lang and stay bilingual only when the language is unknown', () => {
+  const cyrillic = /[А-Яа-яЁё]/;
+  for (const args of [['--lang', 'en', '--tools', 'bogus'], ['--lang', 'en', '--prefix', 'x'], ['--lang', 'en', '--dir', '../x']]) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', ...args]);
+      assert.equal(r.code, 1, args.join(' '));
+      assert.match(r.err, /^✖ --(tools|prefix|dir) /m);
+      assert.doesNotMatch(r.err, cyrillic, `${args.join(' ')}: English only`);
+    } finally {
+      cleanup(root);
+    }
+  }
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--tools', 'bogus']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none \/ --tools «bogus»: claude, cursor, codex через запятую или none$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init --cli with a backtick names the flag, in English with --lang en, and writes nothing', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--lang', 'en', '--cli', 'a`b']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^✖ --cli must not contain a backtick/m);
+    assert.equal(existsSync(path.join(root, 'backslop.json')), false);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('an en project with an invalid tools field fails in English only', () => {
+  const root = emptyRepo();
+  try {
+    assert.equal(cli(root, ['init', '--lang', 'en']).code, 0);
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    writeFileSync(path.join(root, 'backslop.json'), `${JSON.stringify({ ...cfg, tools: ['vim'] }, null, 2)}\n`);
+    const r = cli(root, ['status']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^✖ backslop\.json: tools must be a unique array of claude, cursor, codex$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init in a ru project: an empty adapter list is “нет”, and the success line starts with init:', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^✔ init: docs\/ /m);
+    assert.match(r.out, /^ {2}adapter outputs: нет$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init in the tool repository does not advise --tools, which it refuses there', () => {
+  const tool = toolCopy();
+  try {
+    const r = toolCli(tool, ['init', '--lang', 'en']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^ {2}next: /m);
+    assert.doesNotMatch(r.out, /--tools|backslop-seed/);
+  } finally {
+    cleanup(tool);
   }
 });

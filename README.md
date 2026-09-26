@@ -42,7 +42,7 @@ To adapt a numbered step in the managed `AGENTS.md` block, set `agents.stepOverr
 
 A repeated `init` does not touch existing `docs/` files; it updates selected adapter outputs and the section in `AGENTS.md`. `--tools none` clears the list and removes only backslop-owned files. Adapter outputs are generated and are not committed: `init` keeps a block for them in `.gitignore` between `# backslop:start` and `# backslop:end` — one `<harness root>/backslop-*` line per selected adapter, plus `/CLAUDE.md` when the file on disk is our stub. Your own lines are preserved; a project with no adapters gets no `.gitignore`. Flags: `--dir <directory>` instead of `docs`, `--prefix <KEY>` instead of `BS`, `--cli <command>`, `--lang ru|en`.
 
-Once the skeleton is ready, ask an agent to “populate docs using backslop”: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs, and reference without inventing anything without evidence.
+Once the skeleton is ready, with an adapter selected (`init --tools …`), ask an agent to “populate docs using backslop”: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs, and reference without inventing anything without evidence.
 
 ## Commands
 
