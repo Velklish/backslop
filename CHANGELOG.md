@@ -24,6 +24,10 @@
 - **`lint` names an unreadable directory instead of crashing** — a directory the markdown and pin walk could not list stopped `lint` with an uncaught `EACCES` stack trace. That walk covers `docs/` and the project tree searched for `package.json` and CI files, and a typical case is a directory left with `chmod 000`. `lint` now refuses with the directory's path from the project root and the error code, in the project language; `upgrade`, `archive`, `fold` and `mv` refuse on the same directories with the bare path and code. An unreadable status directory, `docs/archive` or `archive/…/minor` directory is listed before that walk and still ends in a stack trace.
 - **Blank `created` and `taken` in `status --json` are `null`** — a blank `Created` or `Taken` field gave an empty string (a missing one already gave `null`), while blank `area` and `cost` already gave `null`. All four fields now give `null` when blank or missing.
 - **`seed --scan --json` carries a `total`** — the scan JSON adds `total`, the number of subsystem candidates, next to `gates` and `subsystems`, as `gates --json` and `tracks --json` already carry theirs.
+- **`release --bump` runs `init` with the running Node** — the bump spawned the first `node` on `PATH` for `bin/backslop.js init`; it now spawns the Node that runs the script.
+- **The release fast-forward refusal matches `--no-publish`** — with `--no-publish`, the refusal for a local `main` that is not a fast-forward of `origin/main` no longer says the atomic push would fail after `npm publish`.
+- **A failed release `push --dry-run` names `git tag -d`** — the `next:` line of that refusal now carries the command that deletes the local tag, not only the advice to delete it.
+- **The `--bump` downgrade refusal says "not newer"** — the refusal for a version that is not above the current one said the version was "not older" (не старше); it now says "не новее".
 
 ## v0.11.1 — 2026-09-25
 
