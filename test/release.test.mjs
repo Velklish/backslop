@@ -51,6 +51,14 @@ function cleanup(f) {
   rmSync(f.root, { recursive: true, force: true });
 }
 
+// bump must run `init` with the running node; a PATH `node` shim would log a bare `node`.
+function putFakeCli(f) {
+  const log = (name) => `import { appendFileSync } from 'node:fs';\nappendFileSync(process.env.RELEASE_LOG, ['${name}', ...process.argv.slice(2)].join(' ') + '\\n');\n`;
+  putExecutable(path.join(f.bin, 'node'), `#!${process.execPath}\n${log('node')}`);
+  mkdirSync(path.join(f.root, 'bin'));
+  writeFileSync(path.join(f.root, 'bin', 'backslop.js'), log('bin/backslop.js'));
+}
+
 test('release: все preflight и gates идут до tag, publish и atomic push', () => {
   const f = fixture();
   try {
@@ -102,7 +110,7 @@ test('release: argument, package version, branch, dirty tree и tag collision о
     { env: { FAKE_FETCH_FAIL: '1' }, match: /git fetch origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin'] },
     { version: ['0.2.0', '--nope'], match: /неизвестный флаг --nope/, log: [] },
     { version: ['0.2.0', '--bump', '--no-publish'], match: /вместе бессмысленны/, log: [] },
-    { version: ['0.1.0', '--bump'], match: /bump идёт только вверх/, log: [] },
+    { version: ['0.1.0', '--bump'], match: /bump идёт только вверх, 0\.1\.0 не новее/, log: [] },
     { version: ['0.3.0', '--bump'], setup: (f) => writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\nбез секций\n'), match: /нет ни одной секции/, log: [] },
     { env: { FAKE_DIVERGED: '1' }, match: /не является fast-forward от origin\/main/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin', 'git merge-base --is-ancestor refs/remotes/origin/main HEAD'] },
   ];
@@ -140,8 +148,23 @@ test('release: отказ push --dry-run оставляет local tag и не п
     const r = runRelease(f, '0.2.0', { FAKE_PUSH_DRY_FAIL: '1' });
     assert.equal(r.code, 1);
     assert.match(r.err, /state: локальный тег v0\.2\.0 создан; origin не изменён; npm registry не тронут/);
+    assert.match(r.err, /git tag -d v0\.2\.0(\s|$)/, 'the tag command is copyable, no punctuation after it');
     assert.match(r.log, /git tag v0\.2\.0\ngit push --atomic --dry-run origin main v0\.2\.0\n$/);
     assert.doesNotMatch(r.log, /npm publish|git push --atomic origin/);
+  } finally {
+    cleanup(f);
+  }
+});
+
+test('release --no-publish: the fast-forward refusal does not mention npm publish', () => {
+  const f = fixture();
+  try {
+    const r = runRelease(f, ['0.2.0', '--no-publish'], { FAKE_DIVERGED: '1' });
+    assert.equal(r.code, 1);
+    assert.match(r.err, /не является fast-forward от origin\/main: atomic push отказал бы\n/);
+    assert.doesNotMatch(r.err, /npm publish/);
+    const published = runRelease(f, '0.2.0', { FAKE_DIVERGED: '1' });
+    assert.match(published.err, /atomic push отказал бы после npm publish/);
   } finally {
     cleanup(f);
   }
@@ -266,8 +289,7 @@ test('packed tarball matches files, installs locally and its bin passes version,
 test('release --bump: версия, заголовок секции CHANGELOG и штамп через init; preflight и тег не трогаются', () => {
   const f = fixture();
   try {
-    // Шим node: bump зовёт `node bin/backslop.js init`, а самого CLI во временном дереве нет.
-    putExecutable(path.join(f.bin, 'node'), `#!${process.execPath}\nimport { appendFileSync } from 'node:fs';\nappendFileSync(process.env.RELEASE_LOG, ['node', ...process.argv.slice(2)].join(' ') + '\\n');\n`);
+    putFakeCli(f);
     writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\n## Не выпущено\n\n- **Одно** — раз\n\n## v0.1.0 — 2026-09-01\n\n- **Прежнее** — было\n');
     const r = runRelease(f, ['0.3.0', '--bump']);
     assert.equal(r.code, 0, r.err);
@@ -276,7 +298,7 @@ test('release --bump: версия, заголовок секции CHANGELOG и
     assert.match(changelog, /^## v0\.3\.0 — \d{4}-\d{2}-\d{2}$/m);
     assert.doesNotMatch(changelog, /Не выпущено/);
     assert.match(changelog, /^## v0\.1\.0 — 2026-09-01$/m);
-    assert.deepEqual(r.log.trim().split('\n'), ['node bin/backslop.js init']);
+    assert.deepEqual(r.log.trim().split('\n'), ['bin/backslop.js init'], 'init ran through the running node, not a PATH node');
 
     // Повторный bump переименовал бы уже выпущенную секцию — отказ до записи файлов.
     const again = runRelease(f, ['0.4.0', '--bump']);
@@ -289,11 +311,10 @@ test('release --bump: версия, заголовок секции CHANGELOG и
 });
 
 test('release --bump renames `## Unreleased (after v0.1.0)` and refuses a released `## [0.2.0] - date`', () => {
-  const nodeShim = `#!${process.execPath}\nimport { appendFileSync } from 'node:fs';\nappendFileSync(process.env.RELEASE_LOG, ['node', ...process.argv.slice(2)].join(' ') + '\\n');\n`;
   const f = fixture();
   const kac = fixture();
   try {
-    putExecutable(path.join(f.bin, 'node'), nodeShim);
+    putFakeCli(f);
     writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\n## Unreleased (after v0.1.0)\n\n- **One** — x\n\n## v0.1.0 — 2026-09-01\n\n- **Old** — y\n');
     const r = runRelease(f, ['0.3.0', '--bump']);
     assert.equal(r.code, 0, r.err);
@@ -301,7 +322,7 @@ test('release --bump renames `## Unreleased (after v0.1.0)` and refuses a releas
     assert.match(changelog, /^## v0\.3\.0 — \d{4}-\d{2}-\d{2}\n\n- \*\*One\*\*/m);
     assert.doesNotMatch(changelog, /Unreleased/);
 
-    putExecutable(path.join(kac.bin, 'node'), nodeShim);
+    putFakeCli(kac);
     const released = '# Changelog\n\n## [0.2.0] - 2026-09-01\n\n- **Old** — y\n';
     writeFileSync(path.join(kac.root, 'CHANGELOG.md'), released);
     const again = runRelease(kac, ['0.3.0', '--bump']);

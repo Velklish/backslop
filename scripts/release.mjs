@@ -48,7 +48,7 @@ function bump(version) {
   const current = packageVersion();
   // Только вверх: понижение прошло бы оба guard'а и оставило дерево полубампнутым —
   // package.json на новой версии, а `init` уже отказал бы «штамп новее инструмента».
-  if (compareVersions(version, current) <= 0) throw new Error(`package.json на version ${current}: bump идёт только вверх, ${version} не старше`);
+  if (compareVersions(version, current) <= 0) throw new Error(`package.json на version ${current}: bump идёт только вверх, ${version} не новее`);
   const bumped = pkg.replace(`"version": "${current}"`, `"version": "${version}"`);
   if (bumped === pkg) throw new Error(`package.json: строки "version": "${current}" нет — бампни руками`);
   const changelog = readFileSync('CHANGELOG.md', 'utf8');
@@ -61,7 +61,7 @@ function bump(version) {
   // `init` этим не покрыт и может отказать после двух записей — тогда штамп останется прежним.
   writeFileSync('package.json', bumped);
   writeFileSync('CHANGELOG.md', changelog.replace(heading[0], section));
-  command('node', ['bin/backslop.js', 'init']);
+  command(process.execPath, ['bin/backslop.js', 'init']);
   process.stdout.write(`release: bump ${current} → ${version}: package.json, CHANGELOG.md («${heading[0]}» → «${section}»), штамп backslop.json через init\n`);
   process.stdout.write(`release: проверь дифф и закоммить, затем npm run release -- ${version}\n`);
 }
@@ -83,8 +83,8 @@ function main(argv) {
     bump(version);
     return;
   }
-  // Публикация в npm не планируется (владелец отклонил BS-2.1), а тег и atomic push нужны:
-  // `--no-publish` — штатный путь релиза, а не обход скрипта.
+  // The tag and the atomic push are needed even without an npm publish:
+  // `--no-publish` is the regular release path, not a way around the script.
   const publish = !flags.includes('--no-publish');
   const tag = `v${version}`;
   const actualVersion = packageVersion();
@@ -99,7 +99,8 @@ function main(argv) {
   command('git', ['fetch', 'origin']);
   const ancestor = command('git', ['merge-base', '--is-ancestor', 'refs/remotes/origin/main', 'HEAD'], { capture: true, allow: [1] });
   if (ancestor.status !== 0) {
-    throw new Error('локальный main не является fast-forward от origin/main: atomic push отказал бы после npm publish');
+    const tail = publish ? 'atomic push отказал бы после npm publish' : 'atomic push отказал бы';
+    throw new Error(`локальный main не является fast-forward от origin/main: ${tail}`);
   }
 
   command('npm', ['test']);
@@ -111,7 +112,7 @@ function main(argv) {
   try {
     command('git', ['push', '--atomic', '--dry-run', 'origin', 'main', tag]);
   } catch (error) {
-    throw new Error(`${error.message}\nstate: локальный тег ${tag} создан; origin не изменён; npm registry не тронут\nnext: устрани отказ push (или удали локальный тег ${tag} и повтори release)`);
+    throw new Error(`${error.message}\nstate: локальный тег ${tag} создан; origin не изменён; npm registry не тронут\nnext: устрани отказ push или откати тег — git tag -d ${tag} — и повтори release`);
   }
 
   if (publish) {
