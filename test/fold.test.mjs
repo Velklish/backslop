@@ -50,6 +50,8 @@ test('fold N: каталог уходит, строка журнала на ме
     assert.match(r.out, /Итог одной строкой/);
     assert.doesNotMatch(r.out, /свёрнуто задач/);
     assert.match(r.err, /свёрнуто задач 1/);
+    assert.doesNotMatch(r.err, /⚠/, 'a successful fold is a report, not a warning');
+    assert.match(r.err, /^ {4}docs\/ROADMAP\.md$/m);
   } finally {
     cleanup(root);
   }
@@ -255,6 +257,8 @@ test('fold N: an unsaved attachment refuses the fold and stays on disk; committe
     assert.match(shown.out, /^docs\/archive\/BS-1-alpha\/measurements\.md$/m);
     assert.match(shown.out, /^docs\/archive\/BS-1-alpha\/img\/diagram\.svg$/m);
     assert.doesNotMatch(shown.out, /p95 = 12 ms|<svg/, 'attachments are listed by path, not printed');
+    assert.match(shown.err, /^ {2}attachments are listed by path|^ {2}вложения названы путём/m);
+    assert.doesNotMatch(shown.err, /⚠/, 'the header and the attachment hint are notes');
   } finally {
     cleanup(root);
   }
@@ -389,13 +393,15 @@ test('fold: массовая свёртка, --older-than отбирает по 
     const dry = cli(root, ['fold', '--dry-run']);
     assert.equal(dry.code, 0, dry.err);
     assert.match(dry.out, /задач 3/);
+    assert.match(dry.err, /^ {2}--dry-run: свернулось бы задач 3, ничего не записано$/m);
+    assert.doesNotMatch(dry.err, /⚠/, 'a dry run is a report, not a warning');
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha')), '--dry-run каталогов не трогает');
     assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), '--dry-run журнала не заводит');
 
     const older = cli(root, ['fold', '--older-than', '2026-06-01']);
     assert.equal(older.code, 0, older.err);
     // Тел в заготовке массовой свёртки нет: коммитить её ради тел незачем, они в истории.
-    assert.match(older.err.trimEnd().split('\n').at(-1), /^⚠ заготовка сообщения коммита — в stdout, тел задач в ней нет: строка журнала называет ревизию, в которой лежит тело, и .+ show N достаёт его оттуда$/);
+    assert.match(older.err.trimEnd().split('\n').at(-1), /^ {2}заготовка сообщения коммита — в stdout, тел задач в ней нет: строка журнала называет ревизию, в которой лежит тело, и .+ show N достаёт его оттуда$/);
     assert.doesNotMatch(older.err, /потеряется|потеряются/);
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-alpha')));
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-2-beta')));
@@ -433,6 +439,7 @@ test('fold: nothing to fold reports on stderr and leaves stdout, the message dra
       assert.equal(r.code, 0, r.err);
       assert.equal(r.out, '', `${args.join(' ')}: stdout carries no report line`);
       assert.match(r.err, /сворачивать нечего: несвёрнутых каталогов в архиве нет/);
+      assert.doesNotMatch(r.err, /⚠/);
     }
   } finally {
     cleanup(root);
@@ -516,7 +523,7 @@ test('fold: тело вне истории — по умолчанию уход�
     assert.match(dropped.err, /--embed-missing/);
     assert.doesNotMatch(dropped.out, /текст постановки/, 'умолчание тело не сохраняет');
     // Выброшенное тело не достать ничем: последняя строка не обещает для него show N.
-    assert.match(dropped.err.trimEnd().split('\n').at(-1), /^⚠ заготовка сообщения коммита — в stdout, тел задач в ней нет: у строк с «—» \(задач 1\) тело ушло вместе с каталогом и не сохранено ни в заготовке, ни в истории$/);
+    assert.match(dropped.err.trimEnd().split('\n').at(-1), /^ {2}заготовка сообщения коммита — в stdout, тел задач в ней нет: у строк с «—» \(задач 1\) тело ушло вместе с каталогом и не сохранено ни в заготовке, ни в истории$/);
     assert.doesNotMatch(dropped.err, /потеряется|потеряются|show N/, 'без --embed-missing тел в заготовке нет, а у выброшенного — и в истории');
     assert.match(logLines(root)[0], / · — · Альфа$/, 'коммита у такой записи нет');
 
@@ -577,6 +584,8 @@ test('show N: bodies embedded by bulk fold --embed-missing are found in the comm
 
     const one = cli(root, ['show', '1']);
     assert.equal(one.code, 0, one.err);
+    assert.match(one.err, /^ {2}тела файлом в \S+ нет — печатается сообщение коммита/m);
+    assert.doesNotMatch(one.err, /⚠/, 'reading the body from the message is the normal route');
     assert.match(one.out, /^--- docs\/archive\/BS-1-alpha\/task\.md ---$/m);
     assert.match(one.out, /^# BS-1 · Альфа$/m);
     assert.match(one.out, /^--- docs\/archive\/BS-1-alpha\/result\.md ---$/m);
@@ -601,7 +610,7 @@ test('fold: выброшенное тело и тело в истории в о�
     closed(root, { id: 'BS-1', slug: 'alpha', title: 'Альфа' });
     const r = cli(root, ['fold']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.err.trimEnd().split('\n').at(-1), /^⚠ заготовка сообщения коммита — в stdout, тел задач в ней нет: у строк с «—» \(задач 1\) тело ушло вместе с каталогом и не сохранено ни в заготовке, ни в истории; у строк с ревизией тело достаёт .+ show N$/);
+    assert.match(r.err.trimEnd().split('\n').at(-1), /^ {2}заготовка сообщения коммита — в stdout, тел задач в ней нет: у строк с «—» \(задач 1\) тело ушло вместе с каталогом и не сохранено ни в заготовке, ни в истории; у строк с ревизией тело достаёт .+ show N$/);
   } finally {
     cleanup(root);
   }
@@ -1282,5 +1291,26 @@ test('fold: номера свёрнутых задач чужого worktree и 
   } finally {
     rmSync(path.dirname(wt), { recursive: true, force: true });
     cleanup(root);
+  }
+});
+
+test('fold N: a failed git rm prints one error line that carries the cause and the recovery', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    gitAll(root);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rm ] && { echo "rm refused" >&2; exit 1; }; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const r = cli(root, ['fold', '1'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1);
+    const errors = r.err.split('\n').filter((l) => l.startsWith('✖'));
+    assert.equal(errors.length, 1, r.err);
+    assert.match(errors[0], /^✖ git rm отказал: rm refused — каталоги задач не удалены, журнал не тронут; разбери дерево и повтори$/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/task.md')), 'the task directory stays');
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
   }
 });
