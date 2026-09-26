@@ -41,6 +41,7 @@
 - **`init` flag errors speak the project language** — a refused `--tools`, `--prefix` or `--dir` answers in the `--lang` language, or in the existing config's language; only when neither is known does it print one line with both texts, `EN / RU`. A `--cli` or `--dir` value refused by the managed-block rules names the flag instead of `backslop.json`, and an invalid `tools` field in `backslop.json` is reported in the project language. The success line starts with `init:`, and an empty adapter list reads `нет` in a Russian project.
 - **`init` suggests the seed skill only when an adapter is selected** — without an adapter no skill is installed, so the `next:` hint points to `init --tools` instead of `backslop-seed`.
 - **Runnable hints name the project's `cli`** — every error message and hint that tells you what to run (`new`, `adr`, `mv`, `archive`, `seed`, `brief`, the `lint` notes and the unknown-command hint inside a project) prints the command from the `cli` field, not a bare `backslop`. Outside a project the unknown-command hint still says `backslop help`.
+- **Git failures, template checks and `mv` quotes follow the project language** — a failed `git mv` during `mv` or `archive` names the git exit code in the project language, and the template parity and template slot errors of `lint` in the tool's own repository are worded in the project language instead of always in English. English `mv` output quotes field names with English quotes: `✔ BS-2: queue/ “Order” 5`.
 
 ## v0.11.1 — 2026-09-25
 

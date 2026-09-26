@@ -21,11 +21,22 @@ test('template parity: называет missing, extra и mismatch placeholders'
     put(root, 'en/task.md', '{{id}}\n');
     put(root, 'en/only-en.md', 'en\n');
     put(root, 'en/repeat.md', '{{cli}} and again {{cli}}\n');
-    assert.deepEqual(templateParity(root), [
+    assert.deepEqual(templateParity(root, 'en'), [
       'templates/en/only-ru.md is missing',
       'templates/en/only-en.md has no source counterpart',
       'templates/en/task.md placeholders differ: id != id, title',
     ]);
+  } finally { cleanup(root); }
+});
+
+test('template parity and slot messages follow the project language', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
+  try {
+    put(root, 'adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
+    put(root, 'only-ru.md', 'ru\n');
+    put(root, 'en/adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
+    assert.deepEqual(templateParity(root, 'ru'), ['templates/en/only-ru.md нет']);
+    assert.ok(templateSlots(root, 'ru').includes('templates/adr.md: подстановке {{budget}} не передан ключ'));
   } finally { cleanup(root); }
 });
 
@@ -34,7 +45,7 @@ function parity(files) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
   try {
     for (const [rel, text] of Object.entries(files)) put(root, rel, text);
-    return templateParity(root);
+    return templateParity(root, 'en');
   } finally { cleanup(root); }
 }
 
@@ -136,7 +147,7 @@ test('template slots: имя без ключа и шаблон вне реест
     put(root, 'adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
     put(root, 'stray.md', '{{cli}}\n');
     put(root, 'en/adr.md', '{{date}} {{number}} {{title}}\n');
-    assert.deepEqual(templateSlots(root).filter((m) => !m.startsWith('TEMPLATE_KEYS:')).sort(), [
+    assert.deepEqual(templateSlots(root, 'en').filter((m) => !m.startsWith('TEMPLATE_KEYS:')).sort(), [
       'templates/adr.md placeholder {{budget}} has no key in vars',
       'templates/stray.md has placeholders but no TEMPLATE_KEYS row',
     ]);
@@ -148,7 +159,7 @@ test('template slots: объявленный ключ, которому не н�
   try {
     put(root, 'adr.md', '{{date}} {{number}}\n');
     put(root, 'en/adr.md', '{{date}} {{number}}\n');
-    assert.ok(templateSlots(root).includes('TEMPLATE_KEYS: title is declared but no template uses it'));
+    assert.ok(templateSlots(root, 'en').includes('TEMPLATE_KEYS: title is declared but no template uses it'));
   } finally { cleanup(root); }
 });
 

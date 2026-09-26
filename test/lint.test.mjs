@@ -677,7 +677,7 @@ test('lint: template parity: переименование canonical-скилла
       }
     });
     assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /skills\/backslop-tsk\/SKILL\.md frontmatter name is backslop-task, expected backslop-tsk/);
+    assert.match(project.err, /skills\/backslop-tsk\/SKILL\.md: name во фронтматтере — backslop-task, ожидался backslop-tsk/);
   } finally { if (project) cleanup(project.dir); }
 });
 
@@ -755,8 +755,8 @@ test('lint: 12. слот шаблона без ключа в vars красит �
   try {
     red = toolProject((dir) => withSlot(dir, 'budget'));
     assert.equal(red.code, 1, red.out);
-    assert.match(red.err, /templates\/brief\.md placeholder \{\{budget\}\} has no key in vars/);
-    assert.match(red.err, /templates\/en\/brief\.md placeholder \{\{budget\}\} has no key in vars/);
+    assert.match(red.err, /templates\/brief\.md: подстановке \{\{budget\}\} не передан ключ/);
+    assert.match(red.err, /templates\/en\/brief\.md: подстановке \{\{budget\}\} не передан ключ/);
 
     green = toolProject((dir) => {
       withSlot(dir, 'budget');
@@ -775,8 +775,21 @@ test('lint: template parity: пропавший английский слой �
   try {
     project = toolProject((dir) => rmSync(path.join(dir, 'templates', 'en'), { recursive: true }));
     assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /templates\/en\/ is missing/);
+    assert.match(project.err, /templates\/en\/ нет/);
   } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: template parity and slot errors follow an en project language', () => {
+  const dir = toolCopy();
+  try {
+    assert.equal(toolCli(dir, ['init', '--lang', 'en']).code, 0);
+    rmSync(path.join(dir, 'templates', 'en', 'skills', 'backslop-batch', 'SKILL.md'));
+    put(dir, 'templates/brief.md', `${read(dir, 'templates/brief.md')}{{budget}}\n`);
+    const r = toolCli(dir, ['lint']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /templates\/en\/skills\/backslop-batch\/SKILL\.md is missing/);
+    assert.match(r.err, /templates\/brief\.md placeholder \{\{budget\}\} has no key in vars/);
+  } finally { cleanup(dir); }
 });
 
 test('lint: чужой проект получает ошибок парности не больше, чем каталогов templates/', () => {
