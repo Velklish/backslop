@@ -1609,6 +1609,23 @@ test('mv N minor keeps a table row with a filled cell, a numbered item and a tas
   }
 });
 
+test('mv N minor keeps a Scope that only starts with [TODO and blanks the placeholder from new', () => {
+  const root = makeProject();
+  try {
+    assert.equal(cli(root, ['new', 'area-probe']).code, 0);
+    assert.equal(cli(root, ['new', 'area-stub']).code, 0);
+    const probe = 'docs/backlog/triage/BS-1-area-probe.md';
+    put(root, probe, read(root, probe).replace(/- \*\*Область:\*\* .*/, '- **Область:** [TODO] owner decides; notes kept here'));
+    const stub = 'docs/backlog/triage/BS-2-area-stub.md';
+    put(root, stub, read(root, stub).replace(/- \*\*Область:\*\* .*/, '- **Область:** [TODO: section](../../reference/README.md)'));
+    for (const id of ['1', '2']) assert.equal(cli(root, ['mv', id, 'minor', '--evidence', 'lib/mv.js:1']).code, 0);
+    assert.match(read(root, 'docs/backlog/minor/BS-1-area-probe.md'), /^- \*\*Область:\*\* \[TODO\] owner decides; notes kept here$/m);
+    assert.match(read(root, 'docs/backlog/minor/BS-2-area-stub.md'), /^- \*\*Область:\*\*[ \t]*$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv N minor: написанный текст остаётся, готовая «Улика» улики флагом не требует, отказы флага', () => {
   const root = makeProject();
   try {

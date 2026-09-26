@@ -17,6 +17,7 @@
 - **`upgrade` stops on a step that hit the time cap and names the cause** — `upgrade` judged a step only by its exit code, so a step that hit the 10-minute cap passed when the shell survived SIGTERM and exited 0, and a failure read as "exited with code SIGKILL" or "code null". Steps now run through the `gates` runner: a time cap or a start error fails the step even with code 0, and the refusal names the code, the signal, the cap or the start error, followed by the same recovery advice.
 
 - **`mv --after` names the task with its prefix** — the refusal for a task that is not in the queue, or has no integer Order there, read `task 12 is not in the queue`; it now names `BS-12`, as every other message does.
+- **`mv … minor` keeps a written Scope** — moving a task to `minor/` erased any Scope value that merely started with `[TODO`, such as `[TODO] owner decides; notes kept here`, which `lint` reads as filled. Only a value that is wholly the placeholder, by the rule of gate 4, is cleared now.
 
 ## v0.11.1 — 2026-09-25
 
