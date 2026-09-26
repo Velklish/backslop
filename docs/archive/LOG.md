@@ -164,3 +164,4 @@
 - <a id="bs-120"></a>`BS-120-mdwalk-pin-scan-unreadable-dirs` · 2026-09-26 · completed · — · mdwalk: one stale-pin scan for lint and upgrade; srcFiles refuses an unreadable directory
 - <a id="bs-126"></a>`BS-126-json-contract-nulls-total` · 2026-09-26 · completed · — · JSON contract: null for blank status fields, a total in seed --scan, documented tree.dirty
 - <a id="bs-127"></a>`BS-127-release-script-messages-windows` · 2026-09-26 · completed · — · Release script: node via execPath, npm on Windows, honest refusals, git tag -d hint
+- <a id="bs-115"></a>`BS-115-project-lang-fallback` · 2026-09-26 · completed · — · One lenient project-language resolver, a null-language i18n helper, shared JSON readers

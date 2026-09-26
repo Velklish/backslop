@@ -993,6 +993,59 @@ test('команды вне проекта отказывают с подска�
   }
 });
 
+test('changelog and merge-changelog take the language from an otherwise invalid backslop.json', () => {
+  const root = makeProject();
+  try {
+    put(root, 'backslop.json', '{"prefix":"bs","lang":"en"}\n');
+    let r = cli(root, ['changelog', '--since', '0.10.0', '--to', '0.10.1']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^## v0\.10\.1 /);
+    r = cli(root, ['changelog', '--since', 'v99.0.0']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^no entries after v99\.0\.0 and through v/);
+    r = cli(root, ['changelog', '--since', 'bad']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ --since “bad”: expected X.Y.Z\n');
+    r = cli(root, ['merge-changelog']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ both --ours <ref> and --theirs <ref> are required: two CHANGELOG.md revisions from git\n');
+  } finally { cleanup(root); }
+});
+
+test('merge-changelog outside a project refuses in both languages', () => {
+  const root = makeProject();
+  try {
+    const r = cli(root, ['merge-changelog'], { cwd: path.dirname(root) });
+    assert.equal(r.code, 1);
+    assert.match(r.err, /both --ours <ref> and --theirs <ref> are required/);
+    assert.match(r.err, /нужны --ours <ref> и --theirs <ref>/);
+  } finally { cleanup(root); }
+});
+
+test('merge-changelog outside a project gives a git failure cause in each language', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    rmSync(path.join(root, 'backslop.json'));
+    put(root, 'CHANGELOG.md', '# Changelog\n\n## Unreleased\n\n- **A** — a\n');
+    gitAll(root, 'changelog');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    for (const [arg, en, ru] of [
+      ['*:./CHANGELOG.md', 'cannot read HEAD:CHANGELOG.md', 'не читается HEAD:CHANGELOG.md'],
+      ['tag', 'cannot read the tag list', 'не читается список тегов'],
+    ]) {
+      writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do case "$a" in ${arg}) kill -9 $$;; esac; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+      const r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD'], { env });
+      assert.equal(r.code, 1, r.out);
+      assert.equal(r.err, `✖ ${en} — killed by SIGKILL / ${ru} — оборван сигналом SIGKILL\n`);
+    }
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
 test('release-related CLI messages follow project lang without changing their flow', () => {
   const root = makeProject({ git: false });
   try {

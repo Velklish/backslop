@@ -87,6 +87,18 @@ test('init: раскладка, lint зелёный, сквозной цикл �
   }
 });
 
+test('init: a BOM-prefixed package.json gives its name to docs/README.md', () => {
+  const root = emptyRepo();
+  try {
+    writeFileSync(path.join(root, 'package.json'), '\uFEFF{"name":"foo-pkg","scripts":{"test":"node t.js"}}\n');
+    const r = cli(root, ['init', '--tools', 'none', '--lang', 'en']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/README.md'), /^# foo-pkg documentation\n/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 // Первый init loadConfig не зовёт, и метку из `--cli` или `--dir` ловит его своя проверка — до
 // первой записи, каталог остаётся пустым. Проверка общая: закрыт класс полей, а не одно.
 test('init: --cli с меткой блока — отказ до первой записи', () => {

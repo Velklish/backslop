@@ -2,11 +2,10 @@
 // Точка входа CLI: первый аргумент — команда, остальное уходит в `run(argv, { cwd })` модуля
 // lib/<команда>.js; CliError — отказ человеку, прочее исключение — ошибка кода (02-cli.md).
 import process from 'node:process';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { CliError, HelpRequest, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
-import { findRoot } from '../lib/config.js';
+import { projectLangOrNull } from '../lib/config.js';
+import { pick } from '../lib/i18n.js';
 
 const COMMANDS = ['init', 'new', 'mv', 'archive', 'fold', 'show', 'adr', 'brief', 'seed', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
 
@@ -119,35 +118,31 @@ accepted unless it matches a flag name of that command; -h and --help in a value
 Run without installing: npx github:Velklish/backslop#v${TOOL_VERSION} <command>
 `;
 
-function projectLang(cwd) {
-  const root = findRoot(cwd);
-  if (!root) return null;
-  try {
-    return JSON.parse(readFileSync(path.join(root, 'backslop.json'), 'utf8').replace(/^\uFEFF/, '')).lang === 'en' ? 'en' : 'ru';
-  } catch { return 'ru'; }
-}
+const help = (lang) => pick(lang, HELP_RU, HELP_EN, `${HELP_EN}\n${HELP_RU}`);
 
 async function main(argv) {
   const [name, ...rest] = argv;
-  const lang = projectLang(process.cwd());
+  const lang = projectLangOrNull(process.cwd());
   if (!name || name === 'help' || name === '--help' || name === '-h') {
-    process.stdout.write(lang === 'en' ? HELP_EN : lang === 'ru' ? HELP_RU : `${HELP_EN}\n${HELP_RU}`);
+    process.stdout.write(help(lang));
     return 0;
   }
   if (name === 'version' || name === '--version' || name === '-v') {
     process.stdout.write(`backslop ${TOOL_VERSION}\n`);
     return 0;
   }
-  if (!COMMANDS.includes(name)) throw new CliError(lang === 'en'
-    ? `unknown command “${name}”; see backslop help`
-    : lang === 'ru' ? `неизвестная команда «${name}»; список — backslop help`
-      : `Unknown command “${name}” / Неизвестная команда «${name}»; see / список — backslop help`);
+  if (!COMMANDS.includes(name)) {
+    throw new CliError(pick(lang,
+      `неизвестная команда «${name}»; список — backslop help`,
+      `unknown command “${name}”; see backslop help`,
+      `Unknown command “${name}” / Неизвестная команда «${name}»; see / список — backslop help`));
+  }
   const mod = await import(`../lib/${name}.js`);
   try {
     return (await mod.run(rest, { cwd: process.cwd() })) ?? 0;
   } catch (e) {
     if (!(e instanceof HelpRequest)) throw e;
-    process.stdout.write(lang === 'en' ? HELP_EN : lang === 'ru' ? HELP_RU : `${HELP_EN}\n${HELP_RU}`);
+    process.stdout.write(help(lang));
     return 0;
   }
 }
