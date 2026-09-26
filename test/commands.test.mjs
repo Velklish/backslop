@@ -1846,7 +1846,7 @@ test('archive N.k --into M: minor уезжает в minor/ архива пачк
 
     let r = cli(root, ['archive', '1.1', '--into', '2']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /пачка BS-2 ещё в queue\/ — сначала закрой её: backslop archive BS-2/);
+    assert.match(r.err, /пачка BS-2 ещё в queue\/ — сначала закрой её: npx github:\S+ archive BS-2/);
     assert.ok(existsSync(path.join(root, 'docs/backlog/minor/BS-1.1-leak.md')));
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-2-batch')));
 
@@ -1902,5 +1902,52 @@ test('upgrade: список тегов источника больше 1 МиБ 
     assert.equal(listReleaseTags(src).length, 20_000);
   } finally {
     rmSync(src, { recursive: true, force: true });
+  }
+});
+
+test('runnable hints in error messages name the project cli', () => {
+  const root = makeProject();
+  try {
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, lang: 'en', cli: 'npx mybs' }, null, 2)}\n`);
+    for (const command of ['new', 'adr', 'mv', 'archive', 'seed', 'brief']) {
+      const r = cli(root, [command]);
+      assert.equal(r.code, 1, command);
+      assert.match(r.err, /npx mybs /, `${command}: ${r.err}`);
+    }
+    const r = cli(root, ['frob']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /see npx mybs help$/m);
+    const hints = [
+      [['new', 'a'], 0, 'out', /with npx mybs mv <N> queue$/m],
+      [['mv', '1', 'bogus'], 1, 'err', /Close tasks with npx mybs archive$/m],
+      [['new', 'y', '--parent', '1', '--minor', '--evidence', 'e'], 0, 'out', /closed with npx mybs archive N\.k --into M$/m],
+      [['new', 'z', '--parent', '1'], 0, 'out', /npx mybs mv <N> queue$/m],
+      [['mv', '1.2', 'minor'], 1, 'err', /Give it with the flag: npx mybs mv N minor --evidence/],
+      [['archive', '1', '--into', '2'], 1, 'err', /merge cards with npx mybs archive N and/],
+      [['new', 'q1', '--queue'], 0, 'out', /BS-2/],
+      [['new', 'q2', '--queue'], 0, 'out', /BS-3/],
+    ];
+    for (const [args, code, stream, re] of hints) {
+      const h = cli(root, args);
+      assert.equal(h.code, code, `${args.join(' ')}: ${h.err}`);
+      assert.match(h[stream], re, args.join(' '));
+    }
+    put(root, 'docs/backlog/minor/BS-1.1-y.md', read(root, 'docs/backlog/minor/BS-1.1-y.md').replace('**Cost:** minor', '**Cost:** major'));
+    put(root, 'docs/backlog/queue/BS-3-q2.md', read(root, 'docs/backlog/queue/BS-3-q2.md').replace(/\*\*Order:\*\* \d+/, '**Order:** 10'));
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 1);
+    assert.match(lint.err, /fix it or npx mybs mv N\.k triage$/m);
+    assert.match(lint.err, /reorder with npx mybs mv N queue --top \| --after M$/m);
+  } finally {
+    cleanup(root);
+  }
+  const outside = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-noproj-')));
+  try {
+    const r = cli(outside, ['frob']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /backslop help$/m);
+  } finally {
+    cleanup(outside);
   }
 });
