@@ -153,3 +153,6 @@
 - <a id="bs-108"></a>`BS-108-drop-pre-floor-version-gates` · 2026-09-26 · completed · — · Remove pre-0.9.0 version gates: GATES_SINCE, 0.9.0 migration, MIN_UPGRADE_TARGET, Area
 - <a id="bs-107"></a>`BS-107-marker-only-adapter-ownership` · 2026-09-26 · completed · — · Make adapter ownership marker-only, drop the legacy tools inference, simplify cleanup
 - <a id="bs-119"></a>`BS-119-shared-validation-rules` · 2026-09-26 · completed · — · Share validation rules: frontmatter description, tool list, stamp, single-line value
+- <a id="bs-109"></a>`BS-109-util-fs-format-helpers` · 2026-09-26 · completed · — · Move duplicated fs probes, escapeRe, DATE_RE, printJson, readText/writeText to util.js
+- <a id="bs-111"></a>`BS-111-git-query-helpers` · 2026-09-26 · completed · — · Shared git helpers in util.js replace duplicated queries; comment scan skips deleted files
+- <a id="bs-113"></a>`BS-113-shared-shell-runner` · 2026-09-26 · completed · — · upgrade runs steps through the gates shell runner: a time cap fails and the cause is named

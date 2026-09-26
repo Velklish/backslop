@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { CliError, insideRepo } from '../lib/util.js';
-import { cleanup, makeProject } from './helpers.mjs';
+import { CliError, insideRepo, isSameTree, lsFiles, porcelainPaths } from '../lib/util.js';
+import { scannedCode } from './comment-scan.mjs';
+import { cleanup, gitAll, makeProject, put, run } from './helpers.mjs';
 
 // Runs `fn` with process.env patched; git inherits the environment of this process.
 function withEnv(patch, fn) {
@@ -53,5 +54,66 @@ test('insideRepo: any other git failure is a CliError with the git cause', { ski
   } finally {
     cleanup(repo);
     rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('isSameTree: realpath when both sides resolve; two unresolved paths never match', () => {
+  const raw = mkdtempSync(path.join(os.tmpdir(), 'backslop-tree-'));
+  try {
+    assert.equal(isSameTree(raw, `${raw}/.`), true);
+    assert.equal(isSameTree(raw, realpathSync(raw)), true, 'a symlinked tmpdir is the same tree');
+    assert.equal(isSameTree(path.join(raw, 'gone'), path.join(raw, 'gone')), false, 'two missing paths');
+    assert.equal(isSameTree(raw, path.join(raw, 'gone')), false);
+  } finally {
+    rmSync(raw, { recursive: true, force: true });
+  }
+});
+
+test('porcelainPaths: files from the repository root, both names of a rename, non-ASCII unquoted', () => {
+  const root = makeProject();
+  const plain = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-plain-')));
+  try {
+    put(root, 'docs/old.md', 'old\n');
+    gitAll(root);
+    run(root, ['mv', 'docs/old.md', 'docs/new.md']);
+    put(root, 'docs/тест.md', 'new\n');
+    put(root, 'notes/deep/a.md', 'untracked\n');
+    assert.deepEqual(porcelainPaths(root).sort(), ['docs/new.md', 'docs/old.md', 'docs/тест.md', 'notes/deep/a.md'].sort());
+    assert.equal(withEnv({ GIT_CEILING_DIRECTORIES: path.dirname(plain) }, () => porcelainPaths(plain)), null);
+  } finally {
+    cleanup(root);
+    rmSync(plain, { recursive: true, force: true });
+  }
+});
+
+test('lsFiles: a non-ASCII path arrives unquoted; a git failure is a CliError', () => {
+  const root = makeProject();
+  const plain = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-plain-')));
+  try {
+    put(root, 'lib/a.js', '');
+    put(root, 'lib/тест.js', '');
+    run(root, ['add', 'lib']);
+    put(root, 'lib/new.js', '');
+    assert.deepEqual(lsFiles(root, ['lib']), ['lib/a.js', 'lib/тест.js']);
+    assert.deepEqual(lsFiles(root, ['lib'], ['--others', '--exclude-standard']), ['lib/new.js']);
+    assert.throws(() => withEnv({ GIT_CEILING_DIRECTORIES: path.dirname(plain) }, () => lsFiles(plain, ['lib'], [], 'en')),
+      (e) => e instanceof CliError && e.message.startsWith('git ls-files -z -- lib: '));
+  } finally {
+    cleanup(root);
+    rmSync(plain, { recursive: true, force: true });
+  }
+});
+
+test('scannedCode: a staged non-ASCII file is judged, a tracked file deleted from the tree is not', () => {
+  const root = makeProject();
+  try {
+    put(root, 'lib/a.js', '');
+    put(root, 'lib/тест.js', '');
+    put(root, 'lib/gone.js', '');
+    run(root, ['add', 'lib']);
+    rmSync(path.join(root, 'lib/gone.js'));
+    assert.deepEqual(scannedCode(root, ['lib']), { files: ['lib/a.js', 'lib/тест.js'], empty: [] });
+  } finally {
+    cleanup(root);
   }
 });

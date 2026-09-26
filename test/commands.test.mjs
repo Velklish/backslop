@@ -222,6 +222,61 @@ test('new: a git call that fails while scanning other worktrees and branches ref
   }
 });
 
+test('show and fold: a git failure other than "not a repository" refuses with the cause', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    for (const [n, slug] of [[1, 'alpha'], [2, 'beta']]) {
+      put(root, `docs/archive/BS-${n}-${slug}/task.md`, `# BS-${n} · ${slug}\n\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\ntext\n`);
+      put(root, `docs/archive/BS-${n}-${slug}/result.md`, `# BS-${n} · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n`);
+    }
+    gitAll(root);
+    assert.equal(cli(root, ['fold', '1']).code, 0);
+    gitAll(root, 'fold');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = "$KILL_ON" ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const env = (arg) => ({ env: { KILL_ON: arg, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+
+    let r = cli(root, ['show', '1'], env('rev-parse'));
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git rev-parse --is-inside-work-tree: оборван сигналом SIGKILL/);
+    assert.doesNotMatch(r.err, /репозитория git нет/);
+
+    r = cli(root, ['fold', '2'], env('ls-files'));
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git ls-files --error-unmatch: оборван сигналом SIGKILL/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-2-beta/task.md')), 'the directory stays');
+    assert.doesNotMatch(read(root, 'docs/archive/LOG.md'), /bs-2/, 'the journal is untouched');
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('archive --range: a git failure other than "not a repository" refuses with the cause, the card stays', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · A\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n');
+    gitAll(root, 'base');
+    put(root, 'docs/reference/README.md', '# Справочник\n\nправка\n');
+    gitAll(root, 'BS-1: docs');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rev-parse ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['archive', '1', '--range', 'HEAD~1..HEAD'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git rev-parse --is-inside-work-tree: оборван сигналом SIGKILL/);
+    assert.doesNotMatch(r.err, /репозитория git нет/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')), 'the card is not moved');
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
 test('new: without a git binary the number comes from the working tree', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
   const empty = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-no-git-')));
@@ -743,6 +798,22 @@ test('mv, renumbering and archive keep the UTF-8 BOM of a rewritten card', () =>
     assert.ok(startsWithBom(root, 'docs/archive/BS-5-e/task.md'), 'archive keeps the BOM of a card whose link it rewrote');
     assert.match(read(root, 'docs/backlog/active/BS-6-f.md'), /See \[e\]\(\.\.\/\.\.\/archive\/BS-5-e\/task\.md\)/);
     assert.ok(startsWithBom(root, 'docs/backlog/active/BS-6-f.md'), 'a neighbour whose incoming link was rewritten keeps its BOM');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init rewrites an owned adapter output with a BOM as the render, without the BOM', () => {
+  const root = makeProject();
+  try {
+    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+    const rel = '.claude/skills/backslop-task/SKILL.md';
+    const rendered = read(root, rel);
+    withBom(root, rel);
+    const r = cli(root, ['init', '--tools', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(read(root, rel).startsWith('---'), 'the rewrite starts with the frontmatter');
+    assert.equal(read(root, rel), rendered);
   } finally {
     cleanup(root);
   }

@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -243,6 +243,74 @@ test('gates --base: git diff, оборванный сигналом, — отк�
   } finally {
     cleanup(root);
     rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('gates: a failing git rev-parse --show-prefix in a repository refuses instead of an empty prefix', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    withGates(root, [{ command: mark('docs-only', 0), when: ['docs/**'] }]);
+    gitAll(root, 'base');
+    put(root, 'docs/a.md', 'dirty\n');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = --show-prefix ] && { echo "fatal: prefix lost" >&2; exit 128; }; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    const r = cli(root, ['gates'], { env: { ...marked(root).env, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git rev-parse --show-prefix: fatal: prefix lost/);
+    assert.deepEqual(ran(root), [], 'refused before the first command');
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('gates: a failing --show-prefix refuses before the first command even with no scope, base or clean check', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    withGates(root, [mark('plain', 0)]);
+    gitAll(root, 'base');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = --show-prefix ] && { echo "fatal: prefix lost" >&2; exit 128; }; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    for (const args of [['gates'], ['gates', '--json']]) {
+      const r = cli(root, args, { env: { ...marked(root).env, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+      assert.equal(r.code, 1, r.out);
+      assert.match(r.err, /git rev-parse --show-prefix: fatal: prefix lost/);
+      assert.equal(r.out, '', `${args.join(' ')}: no report replaced by the refusal`);
+      assert.deepEqual(ran(root), [], `${args.join(' ')}: refused before the first command`);
+    }
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('gates: a git failure other than no repository or no git refuses before the first command', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  const empty = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-no-git-')));
+  try {
+    withGates(root, [mark('plain', 0)]);
+    gitAll(root, 'base');
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = --is-inside-work-tree ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+
+    let r = cli(root, ['gates'], { env: { ...marked(root).env, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /git rev-parse --is-inside-work-tree: оборван сигналом SIGKILL/);
+    assert.deepEqual(ran(root), [], 'refused before the first command');
+
+    symlinkSync(process.execPath, path.join(empty, 'node'));
+    r = cli(root, ['gates'], { env: { ...marked(root).env, PATH: empty } });
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(ran(root), ['plain'], 'without git every gate runs, as before');
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+    rmSync(empty, { recursive: true, force: true });
   }
 });
 

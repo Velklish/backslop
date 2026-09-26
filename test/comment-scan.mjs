@@ -1,6 +1,8 @@
 // Где комментарий начинается и кончается — лексером с состоянием между строками, а не
 // догадкой по одной строке. Что гейт над ним ловит, а что нет — ADR-028.
-import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { lsFiles } from '../lib/util.js';
 
 const REGEX_KEYWORDS = new Set([
   'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw',
@@ -179,8 +181,8 @@ export function commentBlocks(text) {
 
 /** Код деревьев, который git не игнорирует: индекс и ещё не он. Гейт идёт раньше `git add`. */
 export function scannedCode(root, trees) {
-  const ls = (args) => execFileSync('git', ['ls-files', ...args, ...trees], { cwd: root, encoding: 'utf8' })
-    .split('\n').filter((f) => f && /\.(js|mjs)$/.test(f));
+  // A deleted file is not judged: the index still lists it until `git add`.
+  const ls = (flags) => lsFiles(root, trees, flags).filter((f) => /\.(js|mjs)$/.test(f) && existsSync(path.join(root, f)));
   // Новый файл судится с рождения: `--others` без `--exclude-standard` тащил бы игнорируемое.
   const files = [...new Set([...ls([]), ...ls(['--others', '--exclude-standard'])])].sort();
   // Дерево, разрешающееся в пустоту, — тихая дыра: обход по нему читает ноль файлов молча
