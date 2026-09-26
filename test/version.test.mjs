@@ -22,8 +22,8 @@ test('сравнение по числам, а не по строкам; ста�
   assert.equal(compareVersions('v1.0.0', '1.0.0'), 0);
   assert.equal(compareVersions('0.1.0', '0.1.1'), -1);
   assert.throws(() => compareVersions('x', '1.0.0'), /не разбирается: «x»/);
-  assert.equal(latestVersion(['v0.1.0', 'v0.10.0', 'v0.9.0', 'junk', 'v0.2.0']), '0.10.0');
-  assert.equal(latestVersion(['junk']), null);
+  assert.equal(latestVersion(['v0.1.0', 'v0.10.0', 'v0.9.0', 'v0.2.0']), '0.10.0');
+  assert.equal(latestVersion([]), null);
 });
 
 // Миграция со `since` выше версии инструмента в рантайме не ловится — печаталась бы должной вечно

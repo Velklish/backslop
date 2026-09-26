@@ -149,3 +149,4 @@
 - <a id="bs-97"></a>`BS-97-cli-arguments-edge-cases` · 2026-09-25 · completed · — · CLI arguments: lint parses argv, blank --title falls back, -h/--help as an option value
 - <a id="bs-104"></a>`BS-104-unexport-lib-internals` · 2026-09-26 · completed · — · Make lib names that nothing outside their file uses module-private
 - <a id="bs-105"></a>`BS-105-dead-branches-markdown-journal` · 2026-09-26 · completed · — · Remove never-passed parameters and unreachable branches in links, lint, log, changelog
+- <a id="bs-106"></a>`BS-106-dead-branches-project-modules` · 2026-09-26 · completed · — · Remove unused defaults and redundant guards in config, tasks, status, upgrade, gates
