@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOOL_VERSION } from '../lib/version.js';
+import { renderTemplate, templateRel } from '../lib/templates.js';
 
 export const BIN = fileURLToPath(new URL('../bin/backslop.js', import.meta.url));
 export const REPO = fileURLToPath(new URL('..', import.meta.url));
@@ -97,7 +98,6 @@ export function cleanup(root) {
 // Абзацы шаблона `result.md` после заголовка — с подставленными номером и датой, как их кладёт
 // `archive`. Проба заглушки идёт на них, а не на выдуманную строку.
 export function resultTemplateParagraphs(lang, { id = 'BS-4', date = '2026-08-01' } = {}) {
-  const text = readFileSync(path.join(REPO, 'templates', ...(lang === 'en' ? ['en'] : []), 'result.md'), 'utf8')
-    .replaceAll('{{id}}', id).replaceAll('{{date}}', date).replaceAll('{{prefix}}', id.split('-')[0]);
+  const text = renderTemplate(templateRel(lang, 'result.md'), { id, date, prefix: id.split('-')[0] });
   return text.trim().split(/\n\s*\n/).slice(1);
 }
