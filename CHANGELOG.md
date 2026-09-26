@@ -4,6 +4,10 @@
 
 - **Pins and stamps below 0.9.0 are no longer supported** — `brief` names the `gates` runner in its gates step for every pin: the fallback that listed gate commands one by one for a pin without the runner is gone. `migrate` no longer creates `docs/backlog/minor/` for a stamp below 0.9.0 or no stamp; `init` still creates it. `upgrade` no longer has a separate refusal for targets below 0.2.0: with a pin or a stamp, such a target is refused as a downgrade. The `Area` alias of the task header field `Scope` is gone.
 
+- **Only the generated marker makes an adapter file backslop's** — an unmarked file at one of the shipped skill paths (`.claude/skills/backslop-task/SKILL.md`, `.cursor/rules/backslop-task.mdc` and 19 more) was owned by its path: `init` overwrote it with the skill, and removing the adapter deleted it. Such a file is now foreign, like any unmarked file at an adapter path: `init` leaves it byte for byte and names it in a warning, `lint` reports it for a selected adapter, and `mv` and `archive` rewrite its links like those of any project markdown.
+- **A BOM does not hide the generated marker** — a generated file whose editor added a leading BOM, or whose marker ends the file without a newline, was read as foreign. Both now count as generated, so `init` rewrites or removes the file as before.
+- **`backslop.json` without `lang` or `tools` is refused** — such a config was read with inferred values: `lang` as `ru`, `tools` as `["claude"]` when `.claude/skills/backslop-task/SKILL.md` existed and `[]` otherwise. Every command that reads the project, `init` included, now refuses it and names the missing field with its allowed values; add the field to `backslop.json` by hand, because `init` reads the config before it writes one.
+
 ## v0.11.1 — 2026-09-25
 
 - **A pin in a journal entry is history** — `lint` reported, and `upgrade` rewrote, an old pin quoted in an entry line of `docs/archive/LOG.md`. Entry lines are now records of their moment for the pin gate, the `upgrade` rewrite and its "already on" check; the header of the journal stays live.

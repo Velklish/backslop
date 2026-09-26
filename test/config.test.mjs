@@ -1,24 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BLOCK_END, BLOCK_MARKER_RE, BLOCK_START, PREFIX_RE, loadConfig } from '../lib/config.js';
-import { cleanup, cli, makeProject, put } from './helpers.mjs';
+import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
 
-test('config: legacy projects read as ru with no adapters', () => {
-  const root = makeProject({ git: false });
+test('config: a config without lang or tools is refused by commands that read it, init included', () => {
+  const root = makeProject();
+  const setConfig = (fields) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], ...fields }, null, 2)}\n`);
+  const cases = [
+    [{ tools: [] }, 'backslop.json: поля lang нет — нужен ru или en; допиши его в backslop.json руками: init сначала читает конфиг и сам поле не добавит'
+      + ' / lang is missing — must be ru or en; add it to backslop.json by hand: init reads the config first and cannot add the field'],
+    [{ lang: 'en' }, 'backslop.json: tools is missing — expected a unique array of claude, cursor, codex, [] for no adapters; add it to backslop.json by hand: init reads the config first and cannot add the field'],
+  ];
   try {
-    const cfg = loadConfig(root);
-    assert.equal(cfg.lang, 'ru');
-    assert.deepEqual(cfg.tools, []);
-  } finally { cleanup(root); }
-});
-
-test('config: legacy Claude output materializes missing tools as claude', () => {
-  const root = makeProject({ git: false });
-  try {
-    put(root, '.claude/skills/backslop-task/SKILL.md', '# legacy\n');
-    assert.deepEqual(loadConfig(root).tools, ['claude']);
-    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"tools":[]}\n');
-    assert.deepEqual(loadConfig(root).tools, [], 'явное пустое поле сильнее файла на диске');
+    for (const [fields, message] of cases) {
+      setConfig(fields);
+      const before = read(root, 'backslop.json');
+      assert.throws(() => loadConfig(root), (e) => e.message === message);
+      for (const args of [['status'], ['init']]) {
+        const r = cli(root, args);
+        assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+        assert.equal(r.err, `✖ ${message}\n`, args.join(' '));
+      }
+      assert.equal(read(root, 'backslop.json'), before, 'init left the config as it was');
+    }
   } finally { cleanup(root); }
 });
 
@@ -35,11 +39,11 @@ test('config: top level must be an object', () => {
 test('config: lang and tools reject unknown or duplicate ids', () => {
   const root = makeProject({ git: false });
   try {
-    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"de"}\n');
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"de","tools":[]}\n');
     assert.throws(() => loadConfig(root), /lang/);
-    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"tools":["vscode"]}\n');
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"ru","tools":["vscode"]}\n');
     assert.throws(() => loadConfig(root), /claude, cursor, codex/);
-    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"tools":["codex","codex"]}\n');
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"ru","tools":["codex","codex"]}\n');
     assert.throws(() => loadConfig(root), /без повторов/);
   } finally { cleanup(root); }
 });
@@ -48,7 +52,7 @@ test('config: lang and tools reject unknown or duplicate ids', () => {
 // npm test. Базовый конфиг валиден, каждый случай портит ровно одно поле.
 test('config: prefix, docs, cli и gates проверяются формой', () => {
   const root = makeProject({ git: false });
-  const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], ...patch }, null, 2)}\n`);
+  const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [], ...patch }, null, 2)}\n`);
   try {
     setConfig({ prefix: 'bs' });
     assert.throws(() => loadConfig(root), /prefix «bs»/);
@@ -75,7 +79,7 @@ test('config: prefix, docs, cli и gates проверяются формой', (
 test('config: a leading BOM is ignored on read', () => {
   const root = makeProject({ git: false });
   try {
-    put(root, 'backslop.json', `\uFEFF${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'en' }, null, 2)}\n`);
+    put(root, 'backslop.json', `\uFEFF${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'en', tools: [] }, null, 2)}\n`);
     assert.equal(loadConfig(root).lang, 'en');
     const r = cli(root, ['help']);
     assert.equal(r.code, 0, r.err);
@@ -86,7 +90,7 @@ test('config: a leading BOM is ignored on read', () => {
 test('config: a non-string prefix is refused by every command, without a stack', () => {
   const root = makeProject();
   try {
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: ['BS'], docs: 'docs', gates: [], lang: 'en' }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: ['BS'], docs: 'docs', gates: [], lang: 'en', tools: [] }, null, 2)}\n`);
     assert.throws(() => loadConfig(root), /prefix “\["BS"\]” — expected 2–6 uppercase/);
     for (const args of [
       ['init'], ['new', 'x'], ['mv', '1', 'queue'], ['archive', '1'], ['fold', '1'], ['fold'], ['show', '1'],
@@ -98,14 +102,14 @@ test('config: a non-string prefix is refused by every command, without a stack',
       assert.match(r.err, /^✖ backslop\.json: prefix “\["BS"\]” — expected 2–6 uppercase/, args.join(' '));
       assert.doesNotMatch(r.err, /\n\s+at /, `${args.join(' ')}: a stack`);
     }
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 7, docs: 'docs', gates: [] }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 7, docs: 'docs', gates: [], lang: 'ru', tools: [] }, null, 2)}\n`);
     assert.throws(() => loadConfig(root), /prefix «7»/);
   } finally { cleanup(root); }
 });
 
 test('config: docs is a relative path inside the project on every OS', () => {
   const root = makeProject({ git: false });
-  const setDocs = (docs) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs, gates: [], lang: 'en' }, null, 2)}\n`);
+  const setDocs = (docs) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs, gates: [], lang: 'en', tools: [] }, null, 2)}\n`);
   try {
     for (const docs of ['my..docs', 'docs..v2', 'a/b', 'docs/', './docs']) {
       setDocs(docs);
@@ -121,7 +125,7 @@ test('config: docs is a relative path inside the project on every OS', () => {
 // BS-66: у записи `gates` две законные формы. Строка — как было; объект несёт область.
 test('config: запись gates — строка или объект { command, when }', () => {
   const root = makeProject({ git: false });
-  const setGates = (gates) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates }, null, 2)}\n`);
+  const setGates = (gates) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates, lang: 'ru', tools: [] }, null, 2)}\n`);
   try {
     setGates(['npm test', { command: 'npm run e2e', when: ['src/**', '**/*.mjs'] }, { command: 'lint' }]);
     assert.deepEqual(loadConfig(root).gates, ['npm test', { command: 'npm run e2e', when: ['src/**', '**/*.mjs'] }, { command: 'lint' }], 'конфиг читается как написан, без нормализации');
@@ -147,7 +151,7 @@ test('config: a blank string gate is refused like a blank command', () => {
   const root = makeProject();
   try {
     for (const gate of ['', '   ']) {
-      put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [gate], lang: 'en' }, null, 2)}\n`);
+      put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [gate], lang: 'en', tools: [] }, null, 2)}\n`);
       assert.throws(() => loadConfig(root), /gates\[0\] must be a non-empty command string/);
       const r = cli(root, ['gates']);
       assert.equal(r.code, 1, `«${gate}»: ${r.out}`);
@@ -159,7 +163,7 @@ test('config: a blank string gate is refused like a blank command', () => {
 
 test('config: probe — непустая строка команды или поля нет вовсе', () => {
   const root = makeProject({ git: false });
-  const setConfig = (probe) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], probe }, null, 2)}\n`);
+  const setConfig = (probe) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [], probe }, null, 2)}\n`);
   try {
     setConfig('npm run probe');
     assert.equal(loadConfig(root).probe, 'npm run probe');
@@ -190,7 +194,7 @@ test('config: probe — непустая строка команды или по
       setConfig(text);
       assert.throws(() => loadConfig(root), /без меток backslop/);
     }
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [] }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [] }, null, 2)}\n`);
     assert.equal(loadConfig(root).probe, undefined, 'умолчания у probe нет');
   } finally { cleanup(root); }
 });
@@ -199,7 +203,7 @@ test('config: probe — непустая строка команды или по
 // Проверка одна на всех: запрет, снятый с общего места, обязан красить каждое поле, а не одно.
 test('config: docs и cli проверяются тем же запретом, что и probe', () => {
   const root = makeProject({ git: false });
-  const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', cli: 'node bin/backslop.js', gates: [], ...patch }, null, 2)}\n`);
+  const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', cli: 'node bin/backslop.js', gates: [], lang: 'ru', tools: [], ...patch }, null, 2)}\n`);
   try {
     for (const field of ['docs', 'cli']) {
       for (const value of [`значение ${BLOCK_END}`, `значение ${BLOCK_START}`, 'значение # backslop:end']) {
@@ -221,7 +225,7 @@ test('config: docs и cli проверяются тем же запретом, �
 
 test('config: переопределения шагов AGENTS.md проверяются формой', () => {
   const root = makeProject({ git: false });
-  const setConfig = (agents) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], agents }, null, 2)}\n`);
+  const setConfig = (agents) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [], agents }, null, 2)}\n`);
   try {
     setConfig({ stepOverrides: { '4': 'свой текст' } });
     assert.deepEqual(loadConfig(root).agents, { stepOverrides: { '4': 'свой текст' } });

@@ -139,7 +139,7 @@ test('help, version, --help у команды, неизвестная коман
     // флаги позиции, а справка — первое, куда смотрит человек. Проверяются обе половины.
     const flags = /mv <N…> <triage\|queue\|active\|deferred\|minor> \[--top \| --after M \| --restore\]/;
     assert.match(cli(root, ['help']).out, flags);
-    put(root, 'backslop.json', read(root, 'backslop.json').replace(/^{/, '{\n  "lang": "en",'));
+    put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
     r = cli(root, ['help']);
     assert.equal(r.code, 0);
     assert.match(r.out, /change status with git mv/);

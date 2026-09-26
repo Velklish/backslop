@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpath
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
+import { markGenerated } from '../lib/adapter-ownership.js';
 import { loadProject } from '../lib/config.js';
 import { toPosix } from '../lib/util.js';
 import { listReleaseTags } from '../lib/upgrade.js';
@@ -1023,12 +1024,26 @@ test('mv: generated adapter outputs исключены из repository-wide reli
   const root = makeProject();
   try {
     cli(root, ['new', 'a', '--queue']);
-    const generated = '[BS-1](../../../docs/backlog/queue/BS-1-a.md)\n';
+    const generated = markGenerated('[BS-1](../../../docs/backlog/queue/BS-1-a.md)\n');
     put(root, '.agents/skills/backslop-task/SKILL.md', generated);
     gitAll(root);
     const r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, '.agents/skills/backslop-task/SKILL.md'), generated);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: an unmarked file at an adapter path is project markdown, and its links move', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']);
+    put(root, '.agents/skills/backslop-task/SKILL.md', '[BS-1](../../../docs/backlog/queue/BS-1-a.md)\n');
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, '.agents/skills/backslop-task/SKILL.md'), '[BS-1](../../../docs/backlog/active/BS-1-a.md)\n');
   } finally {
     cleanup(root);
   }
@@ -1168,7 +1183,7 @@ test('archive --range: проект в подкаталоге репозитор
     // нормализацией, и deepEqual с NFC-литералом покраснел бы не по предмету теста.
     run(top, ['config', 'core.precomposeunicode', 'true']);
     const root = path.join(top, 'sub');
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [] }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [] }, null, 2)}\n`);
     put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n');
     put(root, 'docs/reference/README.md', '# Справочник\n');
     put(top, 'docs/reference/outer.md', '# вне проекта\n');

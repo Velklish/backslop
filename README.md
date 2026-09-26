@@ -28,7 +28,7 @@ AGENTS.md                        procedure section between <!-- backslop:start -
 docs/…                           documentation skeleton, backlog, archive, first ADR
 ```
 
-Adapters are written only when selected: `init --tools claude,cursor,codex`. Default `tools` is `[]`. A legacy config without `tools` preserves Claude when the old canonical `.claude/skills/backslop-task/SKILL.md` exists; otherwise it remains adapter-free. An explicit `tools: []` or `--tools none` always wins.
+Adapters are written only when selected: `init --tools claude,cursor,codex`. Default `tools` is `[]`. A `backslop.json` without `tools` or `lang` is refused by every command that reads the project, `init` included: add the field by hand.
 
 Step 4 of the managed block demands a mutation probe only where there is something to run it with: the command comes from the `probe` field in `backslop.json` — a single-line command without a backtick and without the `backslop:start`/`backslop:end` markers: the template puts the value in a code span, and the block bounds are found in raw text. Every value substituted into the block shares that form and one check: `prefix`, `docs`, `cli` and `probe`. When the field is declared, the step names the command; when it is missing, the probe sentence is absent from the block — a rule nothing can execute costs more than no rule at all. `init` says so on its output (“probe is not declared in backslop.json…”) instead of dropping the requirement silently. A repository without the field describes its own probe in a section outside the managed block, and that section survives `init`.
 

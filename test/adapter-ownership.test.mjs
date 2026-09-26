@@ -46,7 +46,8 @@ test('isOwnedAdapterFile: цитата маркера в docs не владее�
     assert.equal(isAdapterRel('docs/adr.md'), false);
     assert.equal(isOwnedAdapterFile('docs/adr.md', docs), false);
     assert.equal(isOwnedAdapterFile('.claude/skills/other/note.md', skill), true);
-    assert.equal(isOwnedAdapterFile('.claude/skills/backslop-task/SKILL.md', put(dir, 'missing.md', '# x\n')), true);
+    assert.equal(isOwnedAdapterFile('.claude/skills/backslop-task/SKILL.md', put(dir, 'unmarked.md', '# x\n')), false);
+    assert.equal(isOwnedAdapterFile('.claude/skills/backslop-task/SKILL.md', path.join(dir, 'missing.md')), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -74,6 +75,30 @@ test('hasGeneratedMarker: маркер терпит CRLF, в том числе �
     // Маркер лёг после CRLF-фронтматтера, а не перед ним: перед ним он владел бы файлом,
     // стоя не в своей позиции, и cursor rule уехал бы с испорченной шапкой.
     assert.match(readFileSync(cursor, 'utf8'), /^---\r\n[\s\S]*?\r\n---\r\n<!-- backslop:generated -->/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('hasGeneratedMarker: a leading BOM does not hide the marker', () => {
+  const dir = scratch();
+  try {
+    const plain = put(dir, 'bom.md', `\uFEFF${markGenerated('# skill\n')}`);
+    const cursor = put(dir, 'bom.mdc', `\uFEFF${markGenerated('---\ndescription: "x"\n---\n\n# rule\n')}`);
+    const quoted = put(dir, 'quoted.md', `\uFEFF# note\n\n${GENERATED_MARKER}\n`);
+    assert.equal(hasGeneratedMarker(plain), true);
+    assert.equal(hasGeneratedMarker(cursor), true);
+    assert.equal(hasGeneratedMarker(quoted), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('hasGeneratedMarker: the marker may end the file without a newline', () => {
+  const dir = scratch();
+  try {
+    assert.equal(hasGeneratedMarker(put(dir, 'bare.md', GENERATED_MARKER)), true);
+    assert.equal(hasGeneratedMarker(put(dir, 'glued.md', `${GENERATED_MARKER}# skill\n`)), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
