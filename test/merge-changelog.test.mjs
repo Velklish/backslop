@@ -393,6 +393,7 @@ test('merge-changelog: без --out слитый файл идёт в stdout, б
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /^# Changelog\n/);
     assert.doesNotMatch(r.out, /записей:/, 'отчёт не попадает в данные');
+    assert.match(r.err, /^ {2}записей: /m, 'the report is an unmarked stderr note');
     r = cli(root, ['merge-changelog', '--ours=HEAD']);
     assert.equal(r.code, 1);
     assert.match(r.err, /нужны --ours <ref> и --theirs <ref>/);

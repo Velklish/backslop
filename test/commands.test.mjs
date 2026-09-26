@@ -1366,10 +1366,10 @@ function touchedList(out) {
   return at === -1 ? '' : out.slice(at);
 }
 
-// Состав списка целиком, отсортированный: «есть три пути» пропустило бы лишнее. Список последний в
-// stdout только под `--dry-run`: без него ниже печатается «допиши … result.md».
+// The whole list, sorted: "three paths are there" would miss an extra one. Paths sit at column 4,
+// the lines below the list at column 2.
 function touchedPaths(out) {
-  return touchedList(out).split('\n').slice(1).map((l) => l.trim()).filter(Boolean).sort();
+  return touchedList(out).split('\n').slice(1).filter((l) => l.startsWith('    ')).map((l) => l.trim()).sort();
 }
 
 test('archive --range: печатает файлы docs и CHANGELOG, изменённые ходом задачи', () => {
@@ -1851,6 +1851,13 @@ test('archive N.k --into M: minor уезжает в minor/ архива пачк
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-2-batch')));
 
     assert.equal(cli(root, ['archive', '2']).code, 0);
+    r = cli(root, ['archive', '1.1', '--into', 'BS-2', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /^✔/m, 'a dry run prints no success line');
+    assert.match(r.out, /^ {2}ссылки поправились бы в файлах: 1$/m);
+    assert.match(r.out, /^ {4}docs\/notes\.md$/m);
+    assert.match(r.out.trimEnd().split('\n').at(-1), /^ {2}--dry-run: ничего не записано$/);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/minor/BS-1.1-leak.md')), 'the entry stays in minor/');
     r = cli(root, ['archive', '1.1', '--into', 'BS-2']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /archive: BS-1\.1 → пачка BS-2 — файлов с поправленными ссылками 1/);

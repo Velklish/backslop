@@ -33,6 +33,7 @@ test('archive: переезд с правкой исходящих и входя
   const root = makeProject();
   try {
     seed(root);
+    const statusBefore = run(root, ['status', '--short']).stdout;
     const dry = cli(root, ['archive', '1', '--dry-run']);
     assert.equal(dry.code, 0, dry.err);
     assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')), 'dry-run ничего не двигает');
@@ -40,7 +41,7 @@ test('archive: переезд с правкой исходящих и входя
     // Отсортированный перечень, а не число: ловит и пропавший путь, и лишний. Блок тронутых доков
     // режем по заголовку, иначе он попадёт в deepEqual, как только коммит seed назовётся `BS-1: …`.
     const before = dry.out.split('доки, которых коснулся ход')[0];
-    const listed = before.split('\n').filter((l) => l.startsWith('  ') && !l.includes('переезд:')).map((l) => l.slice(2));
+    const listed = before.split('\n').filter((l) => l.startsWith('    ')).map((l) => l.slice(4));
     assert.deepEqual(listed.sort(), [
       'CHANGELOG.md',
       'README.md',
@@ -49,10 +50,14 @@ test('archive: переезд с правкой исходящих и входя
       'docs/backlog/queue/BS-2-b.md',
       'docs/reference/README.md',
     ]);
-    assert.match(dry.out, new RegExp(`файлов с поправленными ссылками ${listed.length}`));
+    assert.match(dry.out, new RegExp(`^ {2}ссылки поправились бы в файлах: ${listed.length}$`, 'm'));
+    assert.doesNotMatch(dry.out, /^✔/m, 'a dry run prints no success line');
+    assert.match(dry.out, /^ {2}--dry-run: ничего не записано$/m);
+    assert.equal(run(root, ['status', '--short']).stdout, statusBefore, 'a dry run leaves the tree as it was');
 
     const r = cli(root, ['archive', 'BS-1']);
     assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^ {4}docs\/backlog\/queue\/BS-2-b\.md$/m, 'the link list sits at column 4');
     assert.ok(!existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')));
     const task = read(root, 'docs/archive/BS-1-a/task.md');
     assert.match(task, /\(\.\.\/\.\.\/reference\/README\.md\)/);
