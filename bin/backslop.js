@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Точка входа CLI: первый аргумент — команда, остальное уходит в `run(argv, { cwd })` модуля
-// lib/<команда>.js; CliError — отказ человеку, прочее исключение — ошибка кода (02-cli.md).
+// CLI entry: the first argument is the command, the rest goes to `run(argv, { cwd, lang })` of
+// lib/<command>.js; a CliError is a refusal, any other exception a code error (02-cli.md).
 import process from 'node:process';
 import { CliError, HelpRequest, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
@@ -31,7 +31,8 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
                                                       свернуть накопленный архив: тело каждой задачи обязано лежать в истории,
                                                       строка журнала называет его ревизию; --embed-missing уносит тело,
                                                       которого в истории нет, в заготовку сообщения коммита
-  show <N>                                            git show коммита, в котором лежит тело свёрнутой задачи
+  show <N>                                            напечатать тело свёрнутой задачи (stdout) из ревизии, которую называет
+                                                      её строка журнала; шапка — в stderr
   adr <slug> [--title "…"]                            завести ADR со следующим номером
   brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"]
         [--autonomy "…"] [--handover "…"] [--measurements]
@@ -55,8 +56,8 @@ const HELP_RU = `backslop — бэклог для слопа: задачи фа�
   merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <файл>]
                                                       слить две редакции CHANGELOG.md: записи секции невыпущенного
                                                       по заголовку; результат в stdout или в --out, отчёт в stderr
-  version                                             версия backslop
-  help                                                эта справка
+  version | --version | -v                            версия backslop
+  help | --help | -h | <команда> --help               эта справка
 
 Значение флага, начинающееся с дефиса, — формой с «=»: --title="--…". Без «=» оно принимается,
 если не совпадает с именем флага этой команды; -h и --help на месте значения — тоже значение.
@@ -86,7 +87,8 @@ Commands:
                                                       fold the accumulated archive: every task body must already be in history,
                                                       and its journal line names the revision; --embed-missing carries a body
                                                       that is not in history into the commit message draft
-  show <N>                                            git show of the commit holding the body of a folded task
+  show <N>                                            print the body of a folded task (stdout) from the revision its journal
+                                                      line names; header on stderr
   adr <slug> [--title "…"]                            create the next numbered ADR
   brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"]
         [--autonomy "…"] [--handover "…"] [--measurements]
@@ -109,8 +111,8 @@ Commands:
   merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]
                                                       merge two CHANGELOG.md revisions: unreleased entries by
                                                       heading; result on stdout or in --out, report on stderr
-  version                                             print the backslop version
-  help                                                show this help
+  version | --version | -v                            print the backslop version
+  help | --help | -h | <command> --help               show this help
 
 A flag value that starts with a dash goes in the “=” form: --title="--…". Without “=” it is
 accepted unless it matches a flag name of that command; -h and --help in a value position are values.
@@ -139,7 +141,7 @@ async function main(argv) {
   }
   const mod = await import(`../lib/${name}.js`);
   try {
-    return (await mod.run(rest, { cwd: process.cwd() })) ?? 0;
+    return (await mod.run(rest, { cwd: process.cwd(), lang })) ?? 0;
   } catch (e) {
     if (!(e instanceof HelpRequest)) throw e;
     process.stdout.write(help(lang));

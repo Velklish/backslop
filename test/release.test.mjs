@@ -29,6 +29,7 @@ function fixture({ version = '0.2.0' } = {}) {
   copyFileSync(path.join(REPO, 'lib', 'version.js'), path.join(root, 'lib', 'version.js'));
   copyFileSync(path.join(REPO, 'lib', 'changelog-format.js'), path.join(root, 'lib', 'changelog-format.js'));
   copyFileSync(path.join(REPO, 'lib', 'text.js'), path.join(root, 'lib', 'text.js'));
+  copyFileSync(path.join(REPO, 'lib', 'i18n.js'), path.join(root, 'lib', 'i18n.js'));
   // `type: module` — не украшение: без него node перечитывает скопированные lib/*.js как CJS,
   // и предупреждение MODULE_TYPELESS_PACKAGE_JSON садится в stderr, который тесты сверяют.
   writeFileSync(path.join(root, 'package.json'), `${JSON.stringify({ name: 'backslop', version, type: 'module' }, null, 2)}\n`);

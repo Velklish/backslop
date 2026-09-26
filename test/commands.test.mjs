@@ -372,6 +372,76 @@ test('new/adr: -h and --help given as an option value are the value, not a help 
   }
 });
 
+test('an extra positional is refused with exit 1 and named; mv and brief take several', () => {
+  const root = makeProject();
+  try {
+    let r = cli(root, ['new', 'ee', '--title', 'My', 'Title']);
+    assert.equal(r.code, 1, r.out);
+    assert.equal(r.err, '✖ лишний аргумент «Title»: позиционных аргументов не больше 1; значение с пробелами берётся в кавычки\n');
+    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/triage')), [], 'the task was created anyway');
+    for (const [args, extra] of [
+      [['lint', 'extra'], 'extra'], [['status', 'bogus'], 'bogus'], [['gates', 'extra', '--dry-run'], 'extra'],
+      [['init', 'extra-positional'], 'extra-positional'], [['new', 'a', '--', '--queue'], '--queue'],
+      [['adr', 'x', 'extra'], 'extra'], [['show', '1', '2'], '2'], [['archive', '1', '999', '--dry-run'], '999'],
+      [['tracks', 'x'], 'x'], [['seed', '--scan', 'x'], 'x'], [['changelog', 'x'], 'x'], [['merge-changelog', 'x'], 'x'],
+      [['upgrade', 'x'], 'x'], [['migrate', 'x'], 'x'],
+    ]) {
+      r = cli(root, args);
+      assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+      assert.match(r.err, new RegExp(`^✖ лишний аргумент «${extra}»`), args.join(' '));
+    }
+    r = cli(root, ['fold', '1', '2']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ номер задачи один: массовая свёртка — та же команда без номера\n');
+    r = cli(root, ['status', 'bogus', '--help']);
+    assert.equal(r.code, 1, 'an extra positional wins over --help, as an unknown flag does');
+    assert.equal(cli(root, ['new', 'a']).code, 0);
+    assert.equal(cli(root, ['new', 'b']).code, 0);
+    r = cli(root, ['mv', '1', '2', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    r = cli(root, ['brief', '1', '2']);
+    assert.equal(r.code, 0, r.err);
+    r = cli(root, ['new', 'beta', '--help']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /Команды:/);
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/triage/BS-3-beta.md')), 'new --help created a task');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('argv refusals speak the project language, and both languages outside a project', () => {
+  const root = makeProject();
+  try {
+    let r = cli(root, ['status', '--bogus']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ неизвестный флаг «--bogus»; флаги команды — в её --help\n');
+    r = cli(root, ['new', 'x', '--title']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ --title: нужно значение\n');
+    r = cli(root, ['new', 'x', '--queue=yes']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ --queue — флаг без значения\n');
+    r = cli(root, ['status', '--help=1']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ --help — флаг без значения\n');
+    r = cli(root, ['new', 'x', '--title', '--queue']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^✖ --title: на месте значения флаг этой команды; .* формой --title=…\n$/);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+    r = cli(root, ['status', '--bogus']);
+    assert.equal(r.err, '✖ unknown option “--bogus”; see the command’s --help for its flags\n');
+    r = cli(root, ['status', 'bogus']);
+    assert.equal(r.err, '✖ extra argument “bogus”: the command takes no positional arguments; quote a value with spaces\n');
+    r = cli(root, ['status', '--bogus'], { cwd: path.dirname(root) });
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ unknown option “--bogus”; see the command’s --help for its flags / неизвестный флаг «--bogus»; флаги команды — в её --help\n');
+    assert.doesNotMatch(r.err, /To specify a positional argument/, 'Node’s hint about -- is gone');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('new: даты — локальная календарная дата машины, не UTC', () => {
   const root = makeProject({ git: false });
   try {

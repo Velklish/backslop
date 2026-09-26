@@ -172,6 +172,19 @@ test('upgrade resolves a relative source from the project root', () => {
   }
 });
 
+test('upgrade --to is checked for form before the release source is read', () => {
+  const root = makeProject();
+  try {
+    setConfig(root, { cli: 'npx github:me/proj#v0.10.0', source: path.join(root, 'no-such-repo'), lang: 'en' });
+    const r = cli(root, ['upgrade', '--to', '1']);
+    assert.equal(r.code, 1, r.out);
+    assert.equal(r.err, '✖ --to “1”: expected X.Y.Z\n');
+    assert.doesNotMatch(r.err, /ls-remote/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('upgrade: git ls-remote, оборванный сигналом, — отказ называет сигнал, а не «код null»', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.2.0', 'v0.3.0']);
