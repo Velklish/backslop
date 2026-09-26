@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { today } from '../lib/util.js';
+import { sectionVersion } from '../lib/changelog-format.js';
 import { compareVersions } from '../lib/version.js';
 
 function fail(message) {
@@ -51,9 +52,9 @@ function bump(version) {
   const bumped = pkg.replace(`"version": "${current}"`, `"version": "${version}"`);
   if (bumped === pkg) throw new Error(`package.json: строки "version": "${current}" нет — бампни руками`);
   const changelog = readFileSync('CHANGELOG.md', 'utf8');
-  const heading = changelog.match(/^## .*$/m);
+  const heading = changelog.match(/^## (.*)$/m);
   if (!heading) throw new Error('CHANGELOG.md: нет ни одной секции «## »');
-  if (/^## v\d/.test(heading[0])) throw new Error(`CHANGELOG.md: верхняя секция «${heading[0]}» уже выпущена — нечего переименовывать в v${version}`);
+  if (sectionVersion(heading[1].trim()) !== null) throw new Error(`CHANGELOG.md: верхняя секция «${heading[0]}» уже выпущена — нечего переименовывать в v${version}`);
   const section = `## v${version} — ${today()}`;
 
   // Все проверки — до первой записи: отказ на середине дал бы рассинхрон, который ловит гейт 11.

@@ -211,6 +211,31 @@ test('merge-changelog: верхняя секция версии с тегом в
   assert.throws(() => mergeChangelog(BUMPED('- **Одна** — ours\n'), THEIRS, null, 'ru', tagged), /нет секции невыпущенного/);
 });
 
+test('merge-changelog: a Keep a Changelog heading `## [1.2.3] - date` is a version, merged only while untagged', () => {
+  const kac = (body) => `# Changelog\n\n## [1.2.3] - 2026-01-01\n\n${body}\n## [1.2.2] - 2025-12-01\n\n- **Old** — released\n`;
+  const asked = [];
+  const onlyOldTagged = (version) => {
+    asked.push(version);
+    return version === '1.2.2';
+  };
+  const ours = kac('- **Ours** — o\n');
+  const theirs = kac('- **Theirs** — t\n');
+  const { text, report } = mergeChangelog(ours, theirs, null, 'en', onlyOldTagged);
+  assert.deepEqual(report.section, { ours: '[1.2.3] - 2026-01-01', theirs: '[1.2.3] - 2026-01-01', base: null });
+  assert.ok(asked.includes('1.2.3'), `the tag check got ${asked.join(', ')}`);
+  assert.deepEqual(headings(text), ['## [1.2.3] - 2026-01-01', '## [1.2.2] - 2025-12-01']);
+  assert.deepEqual(entries(text).sort(), ['Old', 'Ours', 'Theirs']);
+  assert.throws(() => mergeChangelog(ours, theirs, null, 'en', () => true), /has no unreleased section/);
+});
+
+test('merge-changelog: a version in the middle of a heading leaves the section unreleased', () => {
+  const after = (body) => `# Changelog\n\n## Unreleased (after v0.1.0)\n\n${body}\n## v0.1.0 — 2026-01-01\n\n- **Old** — released\n`;
+  const { text, report } = mergeChangelog(after('- **Ours** — o\n'), after('- **Theirs** — t\n'), null, 'en', () => true);
+  assert.deepEqual(report.section, { ours: 'Unreleased (after v0.1.0)', theirs: 'Unreleased (after v0.1.0)', base: null });
+  assert.deepEqual(headings(text), ['## Unreleased (after v0.1.0)', '## v0.1.0 — 2026-01-01']);
+  assert.deepEqual(entries(text).sort(), ['Old', 'Ours', 'Theirs']);
+});
+
 test('merge-changelog: у theirs нет секции невыпущенного — отчёт говорит, что его записи не читались', () => {
   const root = makeProject({ prefix: 'BS' });
   try {

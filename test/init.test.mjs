@@ -8,6 +8,7 @@ import path from 'node:path';
 import { cleanup, cli, put, read, toolCli, toolCopy } from './helpers.mjs';
 import { isOwnedAdapterFile } from '../lib/adapter-ownership.js';
 import { TOOL_VERSION } from '../lib/version.js';
+import { srcFiles } from '../lib/mdwalk.js';
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
@@ -1032,6 +1033,65 @@ test('init --tools в корне самого backslop — отказ до за�
     assert.deepEqual(JSON.parse(read(tool, 'backslop.json')).tools, [], 'отказ не трогает конфиг');
     assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0, 'стенд в своём каталоге');
     assert.ok(existsSync(path.join(root, 'CLAUDE.md')));
+  } finally {
+    cleanup(tool);
+    cleanup(root);
+  }
+});
+
+// Lines of a text that end in a bare LF: a CRLF file keeps none.
+const bareLf = (text) => text.split('\n').slice(0, -1).filter((line) => !line.endsWith('\r')).length;
+
+test('init keeps a CRLF AGENTS.md and .gitignore CRLF, an LF pair LF, and a rerun changes no byte', () => {
+  const crlf = emptyRepo();
+  const lf = emptyRepo();
+  const files = ['AGENTS.md', '.gitignore'];
+  try {
+    put(crlf, 'AGENTS.md', '# Project\r\n\r\nOwn rules\r\n');
+    put(crlf, '.gitignore', 'node_modules\r\n');
+    put(lf, 'AGENTS.md', '# Project\n\nOwn rules\n');
+    put(lf, '.gitignore', 'node_modules\n');
+    for (const root of [crlf, lf]) {
+      const r = cli(root, ['init', '--lang', 'en', '--tools', 'claude']);
+      assert.equal(r.code, 0, r.err);
+    }
+    for (const rel of files) {
+      const text = read(crlf, rel);
+      assert.match(text, /backslop:start/, `${rel}: no managed block`);
+      assert.equal(bareLf(text), 0, `${rel}: an LF line in a CRLF file`);
+      assert.ok(text.endsWith('\r\n'), `${rel}: the last line lost its CRLF`);
+      assert.ok(!read(lf, rel).includes('\r'), `${rel}: a CR in an LF file`);
+    }
+    const before = files.map((rel) => readFileSync(path.join(crlf, rel)));
+    const r = cli(crlf, ['init', '--lang', 'en', '--tools', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    files.forEach((rel, i) => assert.ok(readFileSync(path.join(crlf, rel)).equals(before[i]), `${rel} changed on rerun`));
+  } finally {
+    cleanup(crlf);
+    cleanup(lf);
+  }
+});
+
+test('init renders LF adapter outputs from a CRLF checkout of the tool; a CRLF AGENTS.md stays put', () => {
+  const tool = toolCopy((dir) => {
+    for (const [, abs] of srcFiles(path.join(dir, 'templates'), '', ['.md'])) {
+      writeFileSync(abs, readFileSync(abs, 'utf8').replace(/\n/g, '\r\n'));
+    }
+  });
+  const root = emptyRepo();
+  try {
+    assert.ok(read(tool, 'templates/en/skills/backslop-batch/SKILL.md').includes('\r\n'), 'the copy is not CRLF');
+    put(root, 'AGENTS.md', '# Project\r\n\r\nOwn rules\r\n');
+    let r = toolCli(tool, ['init', '--lang', 'en', '--tools', 'cursor'], { cwd: root });
+    assert.equal(r.code, 0, r.err);
+    const rules = srcFiles(path.join(root, '.cursor', 'rules'), '', ['.md', '.mdc']);
+    assert.ok(rules.some(([rel]) => rel === 'backslop-batch.mdc'), 'no backslop-batch.mdc');
+    for (const [rel, abs] of rules) assert.ok(!readFileSync(abs, 'utf8').includes('\r'), `${rel} carries a CR`);
+    assert.equal(bareLf(read(root, 'AGENTS.md')), 0, 'AGENTS.md got an LF line');
+    const before = readFileSync(path.join(root, 'AGENTS.md'));
+    r = toolCli(tool, ['init', '--lang', 'en', '--tools', 'cursor'], { cwd: root });
+    assert.equal(r.code, 0, r.err);
+    assert.ok(readFileSync(path.join(root, 'AGENTS.md')).equals(before), 'AGENTS.md changed on rerun');
   } finally {
     cleanup(tool);
     cleanup(root);
