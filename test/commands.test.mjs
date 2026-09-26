@@ -906,6 +906,23 @@ test('status: EN human output, JSON contract unchanged, RU metadata accepted', (
   } finally { cleanup(root); }
 });
 
+test('status --json: blank or missing created and taken are null, like area and cost', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"en","tools":[]}\n');
+    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · A\n\n- **Created:**\n- **Taken:**\n');
+    put(root, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · B\n');
+    put(root, 'docs/backlog/minor/BS-3-c.md', '# BS-3 · C\n\n- **Created:** 2026-09-01\n- **Cost:**\n');
+    const r = cli(root, ['status', '--json']);
+    assert.equal(r.code, 0, r.err);
+    const s = JSON.parse(r.out);
+    assert.equal(s.active[0].created, null);
+    assert.equal(s.active[0].taken, null);
+    assert.equal(s.triage[0].created, null);
+    assert.deepEqual([s.minor[0].created, s.minor[0].area, s.minor[0].cost], ['2026-09-01', null, null]);
+  } finally { cleanup(root); }
+});
+
 test('new and adr: a slug past the 255-byte file name is refused before anything is written', () => {
   const root = makeProject();
   try {
