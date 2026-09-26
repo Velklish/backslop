@@ -1951,3 +1951,37 @@ test('runnable hints in error messages name the project cli', () => {
     cleanup(outside);
   }
 });
+
+test('mv: a failed git mv names the exit code in the project language', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  try {
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, lang: 'en' }, null, 2)}\n`);
+    assert.equal(cli(root, ['new', 'a']).code, 0);
+    gitAll(root);
+    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = mv ] && exit 1; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const r = cli(root, ['mv', '1', 'queue'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^✖ git mv -- .*: exit code 1$/m);
+  } finally {
+    cleanup(root);
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('mv in an en project quotes the Order field with English quotes', () => {
+  const root = makeProject();
+  try {
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, lang: 'en' }, null, 2)}\n`);
+    assert.equal(cli(root, ['new', 'one', '--queue']).code, 0);
+    assert.equal(cli(root, ['new', 'two', '--queue']).code, 0);
+    const r = cli(root, ['mv', '2', 'queue', '--top']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^✔ BS-2: queue\/ “Order” \d+$/m);
+  } finally {
+    cleanup(root);
+  }
+});
