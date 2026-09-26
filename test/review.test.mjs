@@ -128,6 +128,12 @@ test('help, version, --help у команды, неизвестная коман
     assert.match(r.out, /--evidence обязателен с --minor/);
     r = cli(root, ['version']);
     assert.match(r.out, /^backslop \d+\.\d+\.\d+\n$/);
+    r = cli(root, ['-v']);
+    assert.equal(r.code, 0);
+    assert.match(r.out, /^backslop \d+\.\d+\.\d+\n$/);
+    r = cli(root, ['help']);
+    assert.match(r.out, /\n {2}version \| --version \| -v {28}версия backslop\n {2}help \| --help \| -h \| <команда> --help {15}эта справка\n/);
+    assert.match(r.out, /\n {2}show <N> {44}напечатать тело свёрнутой задачи \(stdout\) из ревизии/);
     r = cli(root, ['new', '--help']);
     assert.equal(r.code, 0);
     assert.match(r.out, /Команды:/);

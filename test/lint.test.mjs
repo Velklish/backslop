@@ -77,7 +77,7 @@ test('lint: an unknown flag is refused like in every other command', () => {
     for (const args of [['--bogus'], ['--json'], ['--nope', '--json', 'foo']]) {
       const r = cli(root, ['lint', ...args]);
       assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
-      assert.match(r.err, new RegExp(`^✖ Unknown option '${args[0]}'`), args.join(' '));
+      assert.match(r.err, new RegExp(`^✖ неизвестный флаг «${args[0]}»`), args.join(' '));
       assert.doesNotMatch(r.out, /ошибок нет/, `${args.join(' ')}: lint ran anyway`);
     }
     assert.equal(cli(root, ['lint']).code, 0);
