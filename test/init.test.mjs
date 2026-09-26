@@ -249,7 +249,7 @@ test('init: stepOverrides отклоняет переводы строк и со
       put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
       r = cli(root, ['init']);
       assert.equal(r.code, 1);
-      assert.match(r.err, /однострочный текст/);
+      assert.match(r.err, /однострочное значение/);
       assert.equal(read(root, 'AGENTS.md'), before, 'отказ не меняет managed-блок');
     }
     for (const override of ['свой текст <!-- backslop:end -->', 'свой текст <script>']) {
@@ -513,6 +513,22 @@ test('init: значение description в adapter outputs закавычено
     const cursor = frontmatterValue(read(root, '.cursor/rules/backslop-task.mdc'), 'description');
     assert.equal(JSON.parse(cursor), JSON.parse(claude), 'в .mdc уезжает текст, а не экранированные кавычки');
   } finally {
+    cleanup(root);
+  }
+});
+
+test('init --tools cursor: a malformed quoted description in a skill template is refused by name', () => {
+  const tool = toolCopy((dir) => {
+    const file = path.join(dir, 'templates', 'skills', 'backslop-task', 'SKILL.md');
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/^description: .*$/m, 'description: "unterminated'));
+  });
+  const root = emptyRepo();
+  try {
+    const r = toolCli(tool, ['init', '--tools', 'cursor'], { cwd: root });
+    assert.equal(r.code, 1, r.out);
+    assert.equal(r.err, '✖ шаблон templates/skills/backslop-task/SKILL.md: description во фронтматтере — не JSON-строка\n');
+  } finally {
+    cleanup(tool);
     cleanup(root);
   }
 });

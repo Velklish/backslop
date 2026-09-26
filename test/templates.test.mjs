@@ -89,6 +89,27 @@ test('template parity: пустой description и чужое name в SKILL.md',
   ]);
 });
 
+test('template parity: a quoted empty description is an error', () => {
+  assert.deepEqual(parity({
+    'skills/x/SKILL.md': '---\nname: x\ndescription: ""\n---\n\n# X\n',
+    'en/skills/x/SKILL.md': '---\nname: x\ndescription: "Does x"\n---\n\n# X\n',
+  }), ['templates/skills/x/SKILL.md frontmatter has no description']);
+});
+
+test('template parity: a malformed quoted description is an error, not a throw', () => {
+  assert.deepEqual(parity({
+    'skills/x/SKILL.md': '---\nname: x\ndescription: "Делает x"\n---\n\n# X\n',
+    'en/skills/x/SKILL.md': '---\nname: x\ndescription: "abc\n---\n\n# X\n',
+  }), ['templates/en/skills/x/SKILL.md frontmatter description is not a valid JSON string']);
+});
+
+test('template parity: a malformed quoted name is an error, not a throw', () => {
+  assert.deepEqual(parity({
+    'skills/x/SKILL.md': '---\nname: "x\ndescription: "Делает x"\n---\n\n# X\n',
+    'en/skills/x/SKILL.md': '---\nname: x\ndescription: "Does x"\n---\n\n# X\n',
+  }), ['templates/skills/x/SKILL.md frontmatter name is not a valid JSON string']);
+});
+
 test('template parity: разное число заголовков; `# ` в блоке кода заголовком не считается', () => {
   assert.deepEqual(parity({
     'docs/README.md': '# Один\n\n## Два\n',
