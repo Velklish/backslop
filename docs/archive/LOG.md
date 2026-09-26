@@ -152,3 +152,4 @@
 - <a id="bs-106"></a>`BS-106-dead-branches-project-modules` · 2026-09-26 · completed · — · Remove unused defaults and redundant guards in config, tasks, status, upgrade, gates
 - <a id="bs-108"></a>`BS-108-drop-pre-floor-version-gates` · 2026-09-26 · completed · — · Remove pre-0.9.0 version gates: GATES_SINCE, 0.9.0 migration, MIN_UPGRADE_TARGET, Area
 - <a id="bs-107"></a>`BS-107-marker-only-adapter-ownership` · 2026-09-26 · completed · — · Make adapter ownership marker-only, drop the legacy tools inference, simplify cleanup
+- <a id="bs-119"></a>`BS-119-shared-validation-rules` · 2026-09-26 · completed · — · Share validation rules: frontmatter description, tool list, stamp, single-line value

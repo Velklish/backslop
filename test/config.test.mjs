@@ -237,7 +237,7 @@ test('config: переопределения шагов AGENTS.md проверя
     assert.throws(() => loadConfig(root), /непустой текст/);
     for (const text of ['текст\n5.\n   **ложный шаг**', 'текст\r\n5. ложный шаг', 'текст\u2028ещё']) {
       setConfig({ stepOverrides: { '4': text } });
-      assert.throws(() => loadConfig(root), /однострочный текст/);
+      assert.throws(() => loadConfig(root), /однострочное значение/);
     }
     for (const text of ['текст <!-- backslop:start -->', 'текст <script>']) {
       setConfig({ stepOverrides: { '4': text } });
