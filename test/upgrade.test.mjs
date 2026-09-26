@@ -125,9 +125,9 @@ test('rewriteGates: every pin of the cli spec in a command moves, a scoped entry
 test('changelogSince: секции строго после since и не позже to, без «Не выпущено»', () => {
   const text = '# Changelog\n\n## Не выпущено\n\n- **x**\n\n## v0.3.0 — 2026-10-01\n\n- **три**\n\n## v0.2.0 — 2026-09-03\n\n- **два**\n\n## v0.1.0 — 2026-09-03\n\n- **один**\n';
   assert.equal(changelogSince(text, '0.1.0', '0.2.0'), '## v0.2.0 — 2026-09-03\n- **два**');
-  assert.match(changelogSince(text, '0.1.0', null), /три[\s\S]*два/);
-  assert.doesNotMatch(changelogSince(text, '0.1.0', null), /один|Не выпущено/);
-  assert.equal(changelogSince(text, '0.3.0', null), '');
+  assert.match(changelogSince(text, '0.1.0', '9.9.9'), /три[\s\S]*два/);
+  assert.doesNotMatch(changelogSince(text, '0.1.0', '9.9.9'), /один|Не выпущено/);
+  assert.equal(changelogSince(text, '0.3.0', '9.9.9'), '');
 });
 
 test('listReleaseTags: теги локального репозитория как у GitHub', () => {
