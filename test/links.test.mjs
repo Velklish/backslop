@@ -259,6 +259,46 @@ test('splitHref and normalizeHrefTarget: one cut at # or ?, decoded, / from the 
   assert.equal(normalizeHrefTarget('docs', 'a%E0%A4%A.md'), null, 'a malformed escape resolves to nothing');
 });
 
+test('rewrites: encoding alone never triggers a rewrite', () => {
+  const text = '[a](a%20b.md) [b](<a b.md>) [c](a%20b.md#x) [d](a%2Db.md) [e](%c3%a9.md)';
+  assert.equal(rewriteMovedLinks(text, FROM, FROM), text);
+});
+
+test('rewrites: a percent-encoded link moves and stays encoded; a malformed escape is never decoded', () => {
+  assert.equal(rewriteMovedLinks('[q](../queue/BS-40%20y.md#a) [m](../queue/100%.md)', FROM, TO),
+    '[q](../../backlog/queue/BS-40%20y.md#a) [m](../../backlog/queue/100%.md)');
+  assert.equal(rewriteIncomingLinks('[i](BS-42%2Dx.md?plain=1#a) [p](BS-42-x.md) [m](BS-42%-x.md)', FROM, OLD, NEW),
+    '[i](../../archive/BS-42-x/task.md?plain=1#a) [p](../../archive/BS-42-x/task.md) [m](BS-42%-x.md)');
+  assert.equal(rewriteIncomingLinks('[s](my%20docs/a.md) [r](/my%20docs/a.md)', '', 'my docs/a.md', 'my docs/b c.md'),
+    '[s](my%20docs/b%20c.md) [r](/my%20docs/b%20c.md)');
+  const resolve = (target) => (target === 'my docs/archive/BS-1-x' ? { path: 'my docs/archive/LOG.md', anchor: 'bs-1' } : null);
+  assert.equal(rewriteFoldedLinks('[f](../archive/BS-1-x/) [g](../archive/BS-1-x%/)', 'my docs/backlog', resolve),
+    '[f](../archive/LOG.md#bs-1) [g](../archive/BS-1-x%/)');
+  assert.equal(rewriteFoldedLinks('[e](my%20docs/archive/BS-1-x/)', '', resolve), '[e](my%20docs/archive/LOG.md#bs-1)');
+  const seen = [];
+  const hitAll = (target) => { seen.push(target); return { path: 'my docs/archive/LOG.md', anchor: 'bs-1' }; };
+  assert.equal(rewriteFoldedLinks('[t](../archive/BS-1-x/task%.md)', 'my docs/backlog', hitAll), '[t](../archive/BS-1-x/task%.md)');
+  assert.deepEqual(seen, ['my docs/archive/BS-1-x/task%.md'], 'resolve sees the raw path of a malformed escape');
+});
+
+test('fold names a link with a malformed escape into the folded directory and leaves it as written', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/archive/BS-1-alpha/task.md', '# BS-1 · Альфа\n\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n');
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[t](archive/BS-1-alpha/task%.md) [ok](archive/BS-1-alpha/task.md)\n');
+    gitAll(root);
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROADMAP.md'), '# Roadmap\n\n[t](archive/BS-1-alpha/task%.md) [ok](archive/LOG.md#bs-1)\n');
+    assert.match(r.err, /ссылок в свёрнутое без переписи 1\n/);
+    assert.match(r.err, / {2}docs\/ROADMAP\.md: archive\/BS-1-alpha\/task%\.md\n/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('root links under a repository prefix start at the repository root', () => {
   const P = 'pkg/a/';
   assert.equal(normalizeHrefTarget('docs', '/pkg/a/docs/README.md', P), 'docs/README.md');
