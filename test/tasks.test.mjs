@@ -3,9 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, formatId, getField, idMentionRe,
+  FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, getField, idMentionRe,
   nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
+import { formatId } from '../lib/ids.js';
 import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, hasNamedOutcome, outcomeFromResult, parseLogLine } from '../lib/log.js';
 
 test('имя файла задачи: номер, sub-ID и slug', () => {
@@ -112,10 +113,10 @@ test('место в очереди: конец, верх, после задач�
   const rows = [row(1, 10), row(2, 20), row(3, 30)];
   assert.deepEqual(placeInQueue(rows), { rank: 40, renumbered: [] });
   assert.deepEqual(placeInQueue([]), { rank: 10, renumbered: [] });
-  assert.deepEqual(placeInQueue(rows, { after: { num: 1, sub: null } }), { rank: 15, renumbered: [] });
-  assert.deepEqual(placeInQueue(rows, { after: { num: 3, sub: null } }), { rank: 40, renumbered: [] });
+  assert.deepEqual(placeInQueue(rows, { after: { num: 1, sub: null } }, 'BS'), { rank: 15, renumbered: [] });
+  assert.deepEqual(placeInQueue(rows, { after: { num: 3, sub: null } }, 'BS'), { rank: 40, renumbered: [] });
   assert.deepEqual(placeInQueue([row(1, 30)], { top: true }), { rank: 15, renumbered: [] });
-  assert.throws(() => placeInQueue(rows, { after: { num: 9, sub: null } }), /в очереди нет/);
+  assert.throws(() => placeInQueue(rows, { after: { num: 9, sub: null } }, 'BS'), /задачи BS-9 в очереди нет/);
 });
 
 test('место в очереди: без целого места очередь перенумеровывается шагом 10', () => {

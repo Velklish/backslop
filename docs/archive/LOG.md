@@ -156,3 +156,4 @@
 - <a id="bs-109"></a>`BS-109-util-fs-format-helpers` · 2026-09-26 · completed · — · Move duplicated fs probes, escapeRe, DATE_RE, printJson, readText/writeText to util.js
 - <a id="bs-111"></a>`BS-111-git-query-helpers` · 2026-09-26 · completed · — · Shared git helpers in util.js replace duplicated queries; comment scan skips deleted files
 - <a id="bs-113"></a>`BS-113-shared-shell-runner` · 2026-09-26 · completed · — · upgrade runs steps through the gates shell runner: a time cap fails and the cause is named
+- <a id="bs-116"></a>`BS-116-task-id-leaf-module` · 2026-09-26 · completed · — · Move task id format, parsing, slug patterns and the commit-subject rule into lib/ids.js

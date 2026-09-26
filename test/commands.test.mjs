@@ -449,6 +449,24 @@ test('mv: очередь → работа ставит «Взята» и сни�
   }
 });
 
+test('mv: an --after refusal names the task with its prefix', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'a', '--queue']);
+    cli(root, ['new', 'b', '--queue']);
+    cli(root, ['new', 'c']);
+    put(root, 'docs/backlog/queue/BS-2-b.md', read(root, 'docs/backlog/queue/BS-2-b.md').replace(/Порядок:\*\* 20/, 'Порядок:** x'));
+    let r = cli(root, ['mv', '3', 'queue', '--after', '12']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /задачи BS-12 в очереди нет/);
+    r = cli(root, ['mv', '3', 'queue', '--after', '2']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /у задачи BS-2 в очереди нет целого/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv: готовый раздел «Отложено» не дублируется и подсказывает проверить его', () => {
   const root = makeProject();
   try {

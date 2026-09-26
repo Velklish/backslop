@@ -16,6 +16,8 @@
 - **`fold` refuses when git cannot say whether a task directory is tracked** — a failing `git ls-files` read as "not tracked", and `fold` deleted the directory without `git rm`. It now refuses with the git cause before anything is removed; without a repository the directory is still removed as before.
 - **`upgrade` stops on a step that hit the time cap and names the cause** — `upgrade` judged a step only by its exit code, so a step that hit the 10-minute cap passed when the shell survived SIGTERM and exited 0, and a failure read as "exited with code SIGKILL" or "code null". Steps now run through the `gates` runner: a time cap or a start error fails the step even with code 0, and the refusal names the code, the signal, the cap or the start error, followed by the same recovery advice.
 
+- **`mv --after` names the task with its prefix** — the refusal for a task that is not in the queue, or has no integer Order there, read `task 12 is not in the queue`; it now names `BS-12`, as every other message does.
+
 ## v0.11.1 — 2026-09-25
 
 - **A pin in a journal entry is history** — `lint` reported, and `upgrade` rewrote, an old pin quoted in an entry line of `docs/archive/LOG.md`. Entry lines are now records of their moment for the pin gate, the `upgrade` rewrite and its "already on" check; the header of the journal stays live.
