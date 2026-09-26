@@ -1075,6 +1075,25 @@ test('mv: a card linking to itself still resolves after the move, relative and r
   }
 });
 
+test('mv: a percent-encoded link to the task moves with it and stays encoded', () => {
+  const root = makeProject({ docs: 'my docs' });
+  try {
+    cli(root, ['new', 'link-probe']);
+    fillArea(root, 'my docs/backlog/triage/BS-1-link-probe.md');
+    put(root, 'README.md', '[encoded](my%20docs/backlog/triage/BS-1-link-probe.md) and [angled](<my docs/backlog/triage/BS-1-link-probe.md>)\n');
+    gitAll(root);
+    assert.equal(cli(root, ['lint']).code, 0);
+    const r = cli(root, ['mv', '1', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'README.md'),
+      '[encoded](my%20docs/backlog/queue/BS-1-link-probe.md) and [angled](<my docs/backlog/queue/BS-1-link-probe.md>)\n');
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv: файл из плоского docs/backlog/ переезжает в каталог статуса с пересчётом исходящих ссылок', () => {
   const root = makeProject();
   try {

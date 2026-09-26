@@ -158,3 +158,4 @@
 - <a id="bs-113"></a>`BS-113-shared-shell-runner` · 2026-09-26 · completed · — · upgrade runs steps through the gates shell runner: a time cap fails and the cause is named
 - <a id="bs-116"></a>`BS-116-task-id-leaf-module` · 2026-09-26 · completed · — · Move task id format, parsing, slug patterns and the commit-subject rule into lib/ids.js
 - <a id="bs-117"></a>`BS-117-mv-reuses-task-model` · 2026-09-26 · completed · — · mv reuses task-model helpers: TODO placeholder rule, section scanner, evidence hint
+- <a id="bs-112"></a>`BS-112-shared-href-resolver` · 2026-09-26 · completed · — · mv, archive and fold link rewrites resolve hrefs through the shared link helpers

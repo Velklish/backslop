@@ -18,6 +18,7 @@
 
 - **`mv --after` names the task with its prefix** — the refusal for a task that is not in the queue, or has no integer Order there, read `task 12 is not in the queue`; it now names `BS-12`, as every other message does.
 - **`mv … minor` keeps a written Scope** — moving a task to `minor/` erased any Scope value that merely started with `[TODO`, such as `[TODO] owner decides; notes kept here`, which `lint` reads as filled. Only a value that is wholly the placeholder, by the rule of gate 4, is cleared now.
+- **`mv`, `archive` and `fold` rewrite percent-encoded links** — a link such as `my%20docs/backlog/triage/BS-1-x.md` was left pointing at the old place, and `lint` then reported it broken. The rewrites now read a link target by the rule of gate 1 — cut at `#` or `?`, decoded — and keep an encoded link encoded. A link with a malformed `%` escape is not decoded: the moved card's own link is rebased as written, as before, and a link to the moved or folded file is left alone.
 
 ## v0.11.1 — 2026-09-25
 
