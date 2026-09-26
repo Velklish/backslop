@@ -40,6 +40,7 @@
 - **Help lists the aliases and describes `show` as it works** — `help` now lists `version | --version | -v`, `help | --help | -h` and `<command> --help`, and the `show` line says it prints the body of a folded task (stdout) from the revision its journal line names, with the header on stderr.
 - **`init` flag errors speak the project language** — a refused `--tools`, `--prefix` or `--dir` answers in the `--lang` language, or in the existing config's language; only when neither is known does it print one line with both texts, `EN / RU`. A `--cli` or `--dir` value refused by the managed-block rules names the flag instead of `backslop.json`, and an invalid `tools` field in `backslop.json` is reported in the project language. The success line starts with `init:`, and an empty adapter list reads `нет` in a Russian project.
 - **`init` suggests the seed skill only when an adapter is selected** — without an adapter no skill is installed, so the `next:` hint points to `init --tools` instead of `backslop-seed`.
+- **Runnable hints name the project's `cli`** — every error message and hint that tells you what to run (`new`, `adr`, `mv`, `archive`, `seed`, `brief`, the `lint` notes and the unknown-command hint inside a project) prints the command from the `cli` field, not a bare `backslop`. Outside a project the unknown-command hint still says `backslop help`.
 
 ## v0.11.1 — 2026-09-25
 

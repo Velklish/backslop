@@ -4,7 +4,7 @@
 import process from 'node:process';
 import { CliError, HelpRequest, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
-import { projectLangOrNull } from '../lib/config.js';
+import { projectHintsOrNull } from '../lib/config.js';
 import { pick } from '../lib/i18n.js';
 
 const COMMANDS = ['init', 'new', 'mv', 'archive', 'fold', 'show', 'adr', 'brief', 'seed', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
@@ -124,7 +124,8 @@ const help = (lang) => pick(lang, HELP_RU, HELP_EN, `${HELP_EN}\n${HELP_RU}`);
 
 async function main(argv) {
   const [name, ...rest] = argv;
-  const lang = projectLangOrNull(process.cwd());
+  const project = projectHintsOrNull(process.cwd());
+  const lang = project?.lang ?? null;
   if (!name || name === 'help' || name === '--help' || name === '-h') {
     process.stdout.write(help(lang));
     return 0;
@@ -135,8 +136,8 @@ async function main(argv) {
   }
   if (!COMMANDS.includes(name)) {
     throw new CliError(pick(lang,
-      `неизвестная команда «${name}»; список — backslop help`,
-      `unknown command “${name}”; see backslop help`,
+      `неизвестная команда «${name}»; список — ${project?.cli} help`,
+      `unknown command “${name}”; see ${project?.cli} help`,
       `Unknown command “${name}” / Неизвестная команда «${name}»; see / список — backslop help`));
   }
   const mod = await import(`../lib/${name}.js`);
