@@ -8,7 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { parseCli } from '../lib/config.js';
 import { changelogSince } from '../lib/changelog.js';
-import { listReleaseTags, rewriteCommand, rewriteGates, rewriteProsePins } from '../lib/upgrade.js';
+import { listReleaseTags, rewriteCommand, rewriteGates, rewriteProsePins, run as upgrade } from '../lib/upgrade.js';
+import { CliError } from '../lib/util.js';
 import { renderTemplate } from '../lib/templates.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { BIN, cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -187,6 +188,45 @@ test('upgrade: git ls-remote, оборванный сигналом, — отк�
   }
 });
 
+// The shell traps the SIGTERM of the cap and exits 0: spawnSync reports ETIMEDOUT with status 0.
+test('upgrade: a step that hits the time cap stops the run even when the shell exits 0', { skip: process.platform === 'win32' }, async () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v99.0.0']);
+  const tool = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-trap-')));
+  try {
+    writeFileSync(path.join(tool, 'trap.sh'), "trap 'exit 0' TERM; sleep 5 & wait\n");
+    setConfig(root, { cli: `sh "${path.join(tool, 'trap.sh')}"`, source: src, lang: 'en' });
+    await assert.rejects(upgrade([], { cwd: root, timeout: 2000 }), (e) => {
+      assert.ok(e instanceof CliError, e.stack);
+      assert.match(e.message, /^step “sh ".*trap\.sh" version” — timed out after the 2-second cap\. Pin and version stamp were not changed/);
+      return true;
+    });
+    assert.equal(config(root).version, TOOL_VERSION, 'the stamp is untouched');
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(tool, { recursive: true, force: true });
+  }
+});
+
+test('upgrade: a step killed by a signal names the signal, not an exit code', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v99.0.0']);
+  const tool = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-killer-')));
+  try {
+    writeFileSync(path.join(tool, 'killer.sh'), 'kill -KILL $$\n');
+    setConfig(root, { cli: `sh "${path.join(tool, 'killer.sh')}"`, source: src, lang: 'en' });
+    const r = cli(root, ['upgrade']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /step “sh ".*killer\.sh" version” — killed by signal SIGKILL\. Pin and version stamp were not changed/);
+    assert.doesNotMatch(r.err, /code SIGKILL/);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(tool, { recursive: true, force: true });
+  }
+});
+
 test('upgrade --dry-run показывает план и ничего не пишет; --pin-only переставляет пин, lint предупреждает', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
@@ -322,6 +362,39 @@ test('migrate: правила ведения и архива перерисов�
   }
 });
 
+test('migrate: a rewritten rules file keeps its UTF-8 BOM', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    const rel = 'docs/backlog/README.md';
+    const expected = renderTemplate(rel, { cli: 'node bin/backslop.js', prefix: 'BS', project: path.basename(root) });
+    put(root, rel, `﻿${staleRules(expected)}`);
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /перерисованы docs\/backlog\/README\.md/);
+    assert.equal(read(root, rel), `﻿${expected}`, 'the rewrite is the template render behind the kept BOM');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: at the same version a BOM-carrying rules file equal to the render reads as the render', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    const rel = 'docs/backlog/README.md';
+    put(root, rel, `﻿${staleRules(read(root, rel))}`);
+    let r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /не совпадает/, 'BOM + the exact render is the render');
+    assert.ok(read(root, rel).startsWith('﻿'), 'the BOM stays');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('migrate: en-проект получает правила из en-шаблона, недостающий файл пары создаётся', () => {
   const root = makeProject({ git: false });
   try {
@@ -359,6 +432,21 @@ test('migrate: незакоммиченная правка правил — от
     assert.equal(r.code, 0, r.err);
     assert.doesNotMatch(r.out, /no git|git нет/);
     assert.match(read(root, 'docs/backlog/README.md'), /^# Backlog\n\nОперационный трекер /);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: the uncommitted-edit refusal names a non-ASCII path as it is, not C-quoted', () => {
+  const root = makeProject({ docs: 'доки' });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    gitAll(root);
+    put(root, 'доки/backlog/README.md', '# Свои правила, не закоммичены\n');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /доки\/backlog\/README\.md: незакоммиченная правка/);
+    assert.doesNotMatch(r.err, /\\3\d\d/, 'no octal escapes');
   } finally {
     cleanup(root);
   }
@@ -535,7 +623,7 @@ test('upgrade: сбой пробного запуска не трогает пи
   try {
     setConfig(root, { cli: 'npx github:me/proj#v0.1.0', version: '0.1.0', source: src });
     const r = cli(root, ['upgrade'], { env: { PATH: `${broken}${path.delimiter}${process.env.PATH}` } });
-    assert.match(r.err, /кодом 3/);
+    assert.match(r.err, / — код 3\. /);
     assert.equal(r.code, 1);
     assert.match(r.err, /Пин и штамп не тронуты/);
     assert.equal(config(root).cli, 'npx github:me/proj#v0.1.0');
@@ -662,7 +750,7 @@ test('upgrade --pin-only: сбой пробного запуска не пише
     setConfig(root, { cli: 'npx github:me/proj#v0.1.0', gates: ['npx github:me/proj#v0.1.0 lint', 'npm test'], version: '0.1.0', source: src });
     const r = cli(root, ['upgrade', '--pin-only'], { env: { PATH: `${broken}${path.delimiter}${process.env.PATH}` } });
     assert.equal(r.code, 1);
-    assert.match(r.err, /кодом 3/);
+    assert.match(r.err, / — код 3\. /);
     assert.match(r.err, /Пин и штамп не тронуты/);
     assert.equal(config(root).cli, 'npx github:me/proj#v0.1.0');
     assert.deepEqual(config(root).gates, ['npx github:me/proj#v0.1.0 lint', 'npm test']);
