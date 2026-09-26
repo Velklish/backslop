@@ -38,6 +38,8 @@
 - **Flag refusals are printed in the project language** — an unknown flag, a missing value, a value given to a flag that takes none, or a flag in the place of a value printed Node's English text, which also suggested putting the token after `--`. The refusal now names the flag in the project's language, in both languages outside a project, and keeps the `--flag=…` form for a value that starts with a dash.
 - **`upgrade --to` checks the version form before reading the release source** — `upgrade --to 1` ran `git ls-remote` first and failed on an unreachable source instead of naming the bad version. The form is now checked before any network call; only the tag's existence is checked after it.
 - **Help lists the aliases and describes `show` as it works** — `help` now lists `version | --version | -v`, `help | --help | -h` and `<command> --help`, and the `show` line says it prints the body of a folded task (stdout) from the revision its journal line names, with the header on stderr.
+- **`init` flag errors speak the project language** — a refused `--tools`, `--prefix` or `--dir` answers in the `--lang` language, or in the existing config's language; only when neither is known does it print one line with both texts, `EN / RU`. A `--cli` or `--dir` value refused by the managed-block rules names the flag instead of `backslop.json`, and an invalid `tools` field in `backslop.json` is reported in the project language. The success line starts with `init:`, and an empty adapter list reads `нет` in a Russian project.
+- **`init` suggests the seed skill only when an adapter is selected** — without an adapter no skill is installed, so the `next:` hint points to `init --tools` instead of `backslop-seed`.
 
 ## v0.11.1 — 2026-09-25
 
