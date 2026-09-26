@@ -159,3 +159,6 @@
 - <a id="bs-116"></a>`BS-116-task-id-leaf-module` · 2026-09-26 · completed · — · Move task id format, parsing, slug patterns and the commit-subject rule into lib/ids.js
 - <a id="bs-117"></a>`BS-117-mv-reuses-task-model` · 2026-09-26 · completed · — · mv reuses task-model helpers: TODO placeholder rule, section scanner, evidence hint
 - <a id="bs-112"></a>`BS-112-shared-href-resolver` · 2026-09-26 · completed · — · mv, archive and fold link rewrites resolve hrefs through the shared link helpers
+- <a id="bs-110"></a>`BS-110-text-lines-eol-module` · 2026-09-26 · completed · — · Leaf lib/text.js for line splitting; init blocks and adapter outputs keep line endings
+- <a id="bs-114"></a>`BS-114-changelog-section-parser` · 2026-09-26 · completed · — · One CHANGELOG section parser and version rule for changelog, merge-changelog and release
+- <a id="bs-120"></a>`BS-120-mdwalk-pin-scan-unreadable-dirs` · 2026-09-26 · completed · — · mdwalk: one stale-pin scan for lint and upgrade; srcFiles refuses an unreadable directory

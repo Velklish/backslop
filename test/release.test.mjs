@@ -27,6 +27,8 @@ function fixture({ version = '0.2.0' } = {}) {
   copyFileSync(RELEASE, path.join(root, 'scripts', 'release.mjs'));
   copyFileSync(path.join(REPO, 'lib', 'util.js'), path.join(root, 'lib', 'util.js'));
   copyFileSync(path.join(REPO, 'lib', 'version.js'), path.join(root, 'lib', 'version.js'));
+  copyFileSync(path.join(REPO, 'lib', 'changelog-format.js'), path.join(root, 'lib', 'changelog-format.js'));
+  copyFileSync(path.join(REPO, 'lib', 'text.js'), path.join(root, 'lib', 'text.js'));
   // `type: module` — не украшение: без него node перечитывает скопированные lib/*.js как CJS,
   // и предупреждение MODULE_TYPELESS_PACKAGE_JSON садится в stderr, который тесты сверяют.
   writeFileSync(path.join(root, 'package.json'), `${JSON.stringify({ name: 'backslop', version, type: 'module' }, null, 2)}\n`);
@@ -283,6 +285,32 @@ test('release --bump: версия, заголовок секции CHANGELOG и
     assert.equal(JSON.parse(readFileSync(path.join(f.root, 'package.json'), 'utf8')).version, '0.3.0');
   } finally {
     cleanup(f);
+  }
+});
+
+test('release --bump renames `## Unreleased (after v0.1.0)` and refuses a released `## [0.2.0] - date`', () => {
+  const nodeShim = `#!${process.execPath}\nimport { appendFileSync } from 'node:fs';\nappendFileSync(process.env.RELEASE_LOG, ['node', ...process.argv.slice(2)].join(' ') + '\\n');\n`;
+  const f = fixture();
+  const kac = fixture();
+  try {
+    putExecutable(path.join(f.bin, 'node'), nodeShim);
+    writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\n## Unreleased (after v0.1.0)\n\n- **One** — x\n\n## v0.1.0 — 2026-09-01\n\n- **Old** — y\n');
+    const r = runRelease(f, ['0.3.0', '--bump']);
+    assert.equal(r.code, 0, r.err);
+    const changelog = readFileSync(path.join(f.root, 'CHANGELOG.md'), 'utf8');
+    assert.match(changelog, /^## v0\.3\.0 — \d{4}-\d{2}-\d{2}\n\n- \*\*One\*\*/m);
+    assert.doesNotMatch(changelog, /Unreleased/);
+
+    putExecutable(path.join(kac.bin, 'node'), nodeShim);
+    const released = '# Changelog\n\n## [0.2.0] - 2026-09-01\n\n- **Old** — y\n';
+    writeFileSync(path.join(kac.root, 'CHANGELOG.md'), released);
+    const again = runRelease(kac, ['0.3.0', '--bump']);
+    assert.equal(again.code, 1);
+    assert.match(again.err, /верхняя секция «## \[0\.2\.0\] - 2026-09-01» уже выпущена/);
+    assert.equal(readFileSync(path.join(kac.root, 'CHANGELOG.md'), 'utf8'), released);
+  } finally {
+    cleanup(f);
+    cleanup(kac);
   }
 });
 

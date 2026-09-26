@@ -1,13 +1,15 @@
 // Обход markdown: одно множество файлов для гейтов и для правки ссылок при переезде.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { markGenerated } from '../lib/adapter-ownership.js';
 import { parseCli } from '../lib/config.js';
-import { livePinFiles, mdFiles, repoMarkdown, rootMarkdown } from '../lib/mdwalk.js';
+import { livePinFiles, mdFiles, repoMarkdown, rootMarkdown, stalePins } from '../lib/mdwalk.js';
 import { rewriteProsePins } from '../lib/upgrade.js';
+import { CliError } from '../lib/util.js';
+import { cleanup, cli, makeProject, read } from './helpers.mjs';
 
 function put(root, rel, text = '# x\n') {
   const abs = path.join(root, ...rel.split('/'));
@@ -182,5 +184,57 @@ test('upgrade prose pins: a root symlink to a file outside the project is left u
   } finally {
     rmSync(sb, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('stalePins: pins off the cli pin with their line, a journal entry of LOG.md excluded', () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
+  try {
+    const form = parseCli('npx github:me/proj#v0.2.0');
+    put(sb, 'README.md', 'Run `npx github:me/proj#v0.2.0 lint`.\nOr `npx github:me/proj#v0.1.0 lint`.\n');
+    const entry = '- <a id="bs-1"></a>`BS-1-x` · 2026-01-01 · completed · — · Measured with `npx github:me/proj#v0.1.0 lint`';
+    put(sb, 'docs/archive/LOG.md', `# Log\n\nOld: \`npx github:me/proj#v0.1.0\`.\n\n${entry}\n`);
+    const pins = stalePins(sb, 'docs', 'BS', form).map(({ abs, lineNo, match }) => [path.relative(sb, abs), lineNo, match[0]]);
+    assert.deepEqual(pins.sort(), [
+      [path.join('README.md'), 2, 'github:me/proj#v0.1.0'],
+      [path.join('docs', 'archive', 'LOG.md'), 3, 'github:me/proj#v0.1.0'],
+    ].sort());
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+const asRoot = process.getuid?.() === 0;
+
+test('srcFiles: an unreadable directory is a CliError that names it', { skip: process.platform === 'win32' || asRoot }, () => {
+  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
+  const locked = path.join(sb, 'docs', 'locked');
+  try {
+    put(sb, 'docs/a.md');
+    mkdirSync(locked);
+    chmodSync(locked, 0o000);
+    assert.throws(() => mdFiles(path.join(sb, 'docs'), 'docs'), (e) => e instanceof CliError && e.message.includes(locked) && e.dir === locked);
+  } finally {
+    chmodSync(locked, 0o755);
+    rmSync(sb, { recursive: true, force: true });
+  }
+});
+
+test('lint names an unreadable directory in the project language instead of a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
+  const root = makeProject();
+  const locked = path.join(root, 'src', 'locked');
+  try {
+    mkdirSync(locked, { recursive: true });
+    chmodSync(locked, 0o000);
+    let r = cli(root, ['lint']);
+    assert.equal(r.code, 1, r.out);
+    assert.equal(r.err, '✖ src/locked: каталог не читается (EACCES) — lint его не обходит; верни права на чтение или вынеси каталог из проекта\n');
+    put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
+    r = cli(root, ['lint']);
+    assert.equal(r.code, 1, r.out);
+    assert.equal(r.err, '✖ src/locked: the directory is not readable (EACCES) — lint cannot walk it; restore read access or move it out of the project\n');
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
   }
 });

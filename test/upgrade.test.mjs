@@ -131,6 +131,11 @@ test('changelogSince: секции строго после since и не поз�
   assert.equal(changelogSince(text, '0.3.0', '9.9.9'), '');
 });
 
+test('changelogSince: a section whose heading does not start with a version is not a release', () => {
+  const text = '# Changelog\n\n## Unreleased (after v0.1.0)\n\n- **x**\n\n## [0.2.0] - 2026-09-03\n\n- **two**\n\n## v0.1.0 — 2026-09-01\n\n- **one**\n';
+  assert.equal(changelogSince(text, null, '9.9.9'), '## [0.2.0] - 2026-09-03\n- **two**\n\n## v0.1.0 — 2026-09-01\n- **one**');
+});
+
 test('listReleaseTags: теги локального репозитория как у GitHub', () => {
   const src = releasesRepo(['v0.1.0', 'v0.2.0', 'not-a-release']);
   try {
@@ -1038,6 +1043,24 @@ test('upgrade skips a live file behind a symlink or not in UTF-8 and names it', 
     rmSync(src, { recursive: true, force: true });
     rmSync(shim, { recursive: true, force: true });
     rmSync(shared, { recursive: true, force: true });
+  }
+});
+
+test('upgrade on the same version skips an unreadable live file and says already on', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const locked = path.join(root, 'docs', 'LOCKED.md');
+  try {
+    setConfig(root, { cli: `npx github:me/proj#v${TOOL_VERSION}`, version: TOOL_VERSION, source: src, lang: 'en' });
+    put(root, 'docs/LOCKED.md', 'Run `npx github:me/proj#v0.1.0 lint`.\n');
+    chmodSync(locked, 0o000);
+    const r = cli(root, ['upgrade']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /upgrade: project is already on v/);
+  } finally {
+    chmodSync(locked, 0o644);
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
   }
 });
 
