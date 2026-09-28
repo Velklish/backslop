@@ -1,7 +1,7 @@
 // init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -323,31 +323,47 @@ test('init: шаг 4 называет команду из probe, без поля
   }
 });
 
-test('init: свой префикс и каталог, существующий AGENTS.md сохраняется, конфликт флагов с конфигом — отказ', () => {
+test('init: a custom --prefix and --dir lay out the tree, and new and lint work under that prefix', () => {
   const root = emptyRepo();
   try {
-    put(root, 'AGENTS.md', '# Мой проект\n\nПравила проекта.\n');
-    put(root, 'CLAUDE.md', 'Что-то своё\n');
     let r = cli(root, ['init', '--prefix', 'DFL', '--dir', 'doc']);
     assert.equal(r.code, 0, r.err);
     assert.ok(existsSync(path.join(root, 'doc/backlog/README.md')));
     assert.match(read(root, 'doc/archive/README.md'), /DFL-<номер>-<slug>/);
-    const agents = read(root, 'AGENTS.md');
-    assert.match(agents, /^# Мой проект\n\nПравила проекта\.\n\n<!-- backslop:start -->/);
-    assert.match(agents, /префикс задач — `DFL`/);
-    assert.equal(read(root, 'CLAUDE.md'), 'Что-то своё\n');
+    assert.match(read(root, 'AGENTS.md'), /префикс задач — `DFL`/);
 
     r = cli(root, ['new', 'x', '--queue']);
     assert.ok(existsSync(path.join(root, 'doc/backlog/queue/DFL-1-x.md')));
     put(root, 'doc/backlog/queue/DFL-1-x.md', read(root, 'doc/backlog/queue/DFL-1-x.md').replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../reference/README.md)').replace(/\[TODO[^\]]*\]/g, 'готово'));
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
+  } finally {
+    cleanup(root);
+  }
+});
 
+test('init keeps the header of an existing AGENTS.md and a user CLAUDE.md', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'AGENTS.md', '# Мой проект\n\nПравила проекта.\n');
+    put(root, 'CLAUDE.md', 'Что-то своё\n');
+    const r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'AGENTS.md'), /^# Мой проект\n\nПравила проекта\.\n\n<!-- backslop:start -->/);
+    assert.equal(read(root, 'CLAUDE.md'), 'Что-то своё\n');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init refuses a --prefix that differs from the prefix in the config', () => {
+  const root = emptyRepo();
+  try {
+    let r = cli(root, ['init', '--prefix', 'DFL']);
+    assert.equal(r.code, 0, r.err);
     r = cli(root, ['init', '--prefix', 'ZZ']);
     assert.equal(r.code, 1);
     assert.match(r.err, /prefix = «DFL»/);
-    r = cli(root, ['init', '--prefix', 'bad']);
-    assert.equal(r.code, 1);
   } finally {
     cleanup(root);
   }
@@ -447,16 +463,28 @@ test('init: внутри уже инициализированного прое�
   }
 });
 
-test('init: при tools=[] CLAUDE.md-симлинк сохраняется; --dir нормализуется', () => {
+test('init normalises --dir docs/ to docs', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--dir', 'docs/']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(root, 'backslop.json')).docs, 'docs');
+    assert.doesNotMatch(read(root, 'AGENTS.md'), /docs\/\//);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('init with tools=[] keeps a user CLAUDE.md symlink to AGENTS.md', { skip: process.platform === 'win32' }, () => {
   const root = emptyRepo();
   try {
     put(root, 'AGENTS.md', '# Проект\n');
     symlinkSync('AGENTS.md', path.join(root, 'CLAUDE.md'));
-    const r = cli(root, ['init', '--dir', 'docs/']);
+    const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /CLAUDE\.md: не выбран/);
-    assert.equal(JSON.parse(read(root, 'backslop.json')).docs, 'docs');
-    assert.doesNotMatch(read(root, 'AGENTS.md'), /docs\/\//);
+    assert.ok(lstatSync(path.join(root, 'CLAUDE.md')).isSymbolicLink(), 'CLAUDE.md is no longer a symlink');
+    assert.equal(readlinkSync(path.join(root, 'CLAUDE.md')), 'AGENTS.md');
   } finally {
     cleanup(root);
   }
@@ -1129,13 +1157,18 @@ test('init suggests the backslop-seed skill only when an adapter is selected', (
 
 test('init flag errors follow --lang and stay bilingual only when the language is unknown', () => {
   const cyrillic = /[А-Яа-яЁё]/;
-  for (const args of [['--lang', 'en', '--tools', 'bogus'], ['--lang', 'en', '--prefix', 'x'], ['--lang', 'en', '--dir', '../x']]) {
+  for (const [args, line] of [
+    [['--lang', 'en', '--tools', 'bogus'], '✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none'],
+    [['--lang', 'en', '--prefix', 'x'], '✖ --prefix “x”: expected 2–6 uppercase Latin letters or digits, starting with a letter'],
+    [['--lang', 'en', '--dir', '../x'], '✖ --dir “../x”: expected a relative path inside the project'],
+  ]) {
     const root = emptyRepo();
     try {
       const r = cli(root, ['init', ...args]);
       assert.equal(r.code, 1, args.join(' '));
-      assert.match(r.err, /^✖ --(tools|prefix|dir) /m);
+      assert.ok(r.err.split('\n').includes(line), `${args.join(' ')}: ${r.err}`);
       assert.doesNotMatch(r.err, cyrillic, `${args.join(' ')}: English only`);
+      assert.equal(existsSync(path.join(root, 'backslop.json')), false, `${args.join(' ')}: the config was written`);
     } finally {
       cleanup(root);
     }

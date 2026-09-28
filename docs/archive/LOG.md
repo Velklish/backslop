@@ -176,3 +176,4 @@
 - <a id="bs-145"></a>`BS-145-probe-command-adr` · 2026-09-28 · completed · — · One English ADR for the probe field and block values; document a probe hidden by step 4
 - <a id="bs-128"></a>`BS-128-test-only-exports-and-helpers` · 2026-09-28 · completed · — · Test behaviour instead of test-only lib exports; trim unused test-helper exports
 - <a id="bs-136"></a>`BS-136-gates-release-test-cleanup` · 2026-09-28 · completed · — · gates/release tests: cut the slowest test to two runs, table refusals and recovery states
+- <a id="bs-133"></a>`BS-133-init-test-new-guards` · 2026-09-28 · completed · — · init.test.mjs: guard the invalid --prefix and the CLAUDE.md symlink, split two tests
