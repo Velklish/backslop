@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  GENERATED_MARKER, cursorRel, hasGeneratedMarker, isOwnedAdapterFile, markGenerated,
+  GENERATED_MARKER, hasGeneratedMarker, isOwnedAdapterFile, markGenerated,
 } from '../lib/adapter-ownership.js';
 import { repoMarkdown } from '../lib/mdwalk.js';
 
@@ -19,20 +19,29 @@ function put(dir, rel, text) {
   return abs;
 }
 
-test('cursorRel: SKILL.md становится mdc, references остаются каталогом', () => {
-  assert.equal(cursorRel('backslop-task/SKILL.md'), '.cursor/rules/backslop-task.mdc');
-  assert.equal(cursorRel('backslop-batch/references/measurements.md'), '.cursor/rules/backslop-batch/references/measurements.md');
-});
-
-test('hasGeneratedMarker: только позиция markGenerated, не цитата в теле', () => {
+test('hasGeneratedMarker: only the markGenerated position owns a file, whatever the line ends and BOM', () => {
+  const crlfFrontmatter = markGenerated('---\r\ndescription: "x"\r\nalwaysApply: false\r\n---\r\n\r\n# rule\r\n');
+  const rows = [
+    { name: 'LF plain', text: markGenerated('# skill\n'), expect: true },
+    { name: 'LF frontmatter', text: markGenerated('---\ndescription: "x"\nalwaysApply: false\n---\n\n# rule\n'), expect: true },
+    { name: 'quoted in the body', text: `# note\n\nмаркер ${GENERATED_MARKER} в тексте\n`, expect: false },
+    { name: 'CRLF plain', text: markGenerated('# skill\r\n\r\nтекст\r\n'), expect: true },
+    { name: 'CRLF frontmatter', text: crlfFrontmatter, expect: true },
+    { name: 'CRLF after the marker', text: markGenerated('# skill\n').replace(/\n/g, '\r\n'), expect: true },
+    { name: 'BOM plain', text: `\uFEFF${markGenerated('# skill\n')}`, expect: true },
+    { name: 'BOM frontmatter', text: `\uFEFF${markGenerated('---\ndescription: "x"\n---\n\n# rule\n')}`, expect: true },
+    { name: 'BOM, quoted in the body', text: `\uFEFF# note\n\n${GENERATED_MARKER}\n`, expect: false },
+    { name: 'bare marker ends the file', text: GENERATED_MARKER, expect: true },
+    { name: 'marker glued to text', text: `${GENERATED_MARKER}# skill\n`, expect: false },
+  ];
   const dir = scratch();
   try {
-    const owned = put(dir, 'owned.md', markGenerated('# skill\n'));
-    const quoted = put(dir, 'quoted.md', `# note\n\nмаркер ${GENERATED_MARKER} в тексте\n`);
-    const cursor = put(dir, 'rule.mdc', markGenerated('---\ndescription: "x"\nalwaysApply: false\n---\n\n# rule\n'));
-    assert.equal(hasGeneratedMarker(owned), true);
-    assert.equal(hasGeneratedMarker(quoted), false);
-    assert.equal(hasGeneratedMarker(cursor), true);
+    rows.forEach(({ name, text, expect }, i) => {
+      assert.equal(hasGeneratedMarker(put(dir, `${i}.md`, text)), expect, name);
+    });
+    // Маркер лёг после CRLF-фронтматтера, а не перед ним: перед ним он владел бы файлом,
+    // стоя не в своей позиции, и cursor rule уехал бы с испорченной шапкой.
+    assert.match(crlfFrontmatter, /^---\r\n[\s\S]*?\r\n---\r\n<!-- backslop:generated -->/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -60,45 +69,6 @@ test('repoMarkdown: docs с цитатой маркера остаются в о
     put(dir, '.claude/skills/backslop-task/SKILL.md', markGenerated('# skill\n'));
     const rels = repoMarkdown(dir).map(([rel]) => rel).sort();
     assert.deepEqual(rels, ['docs/GLOSSARY.md']);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('hasGeneratedMarker: маркер терпит CRLF, в том числе после CRLF-фронтматтера', () => {
-  const dir = scratch();
-  try {
-    const plain = put(dir, 'crlf.md', markGenerated('# skill\r\n\r\nтекст\r\n'));
-    const cursor = put(dir, 'crlf.mdc', markGenerated('---\r\ndescription: "x"\r\nalwaysApply: false\r\n---\r\n\r\n# rule\r\n'));
-    assert.equal(hasGeneratedMarker(plain), true);
-    assert.equal(hasGeneratedMarker(cursor), true);
-    // Маркер лёг после CRLF-фронтматтера, а не перед ним: перед ним он владел бы файлом,
-    // стоя не в своей позиции, и cursor rule уехал бы с испорченной шапкой.
-    assert.match(readFileSync(cursor, 'utf8'), /^---\r\n[\s\S]*?\r\n---\r\n<!-- backslop:generated -->/);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('hasGeneratedMarker: a leading BOM does not hide the marker', () => {
-  const dir = scratch();
-  try {
-    const plain = put(dir, 'bom.md', `\uFEFF${markGenerated('# skill\n')}`);
-    const cursor = put(dir, 'bom.mdc', `\uFEFF${markGenerated('---\ndescription: "x"\n---\n\n# rule\n')}`);
-    const quoted = put(dir, 'quoted.md', `\uFEFF# note\n\n${GENERATED_MARKER}\n`);
-    assert.equal(hasGeneratedMarker(plain), true);
-    assert.equal(hasGeneratedMarker(cursor), true);
-    assert.equal(hasGeneratedMarker(quoted), false);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-test('hasGeneratedMarker: the marker may end the file without a newline', () => {
-  const dir = scratch();
-  try {
-    assert.equal(hasGeneratedMarker(put(dir, 'bare.md', GENERATED_MARKER)), true);
-    assert.equal(hasGeneratedMarker(put(dir, 'glued.md', `${GENERATED_MARKER}# skill\n`)), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

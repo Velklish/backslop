@@ -50,20 +50,29 @@ test('lint: корневая ссылка резолвится от корня �
   }
 });
 
-test('mv --after на чужую задачу отказывает до переноса; дубль номера — отказ с обоими путями', () => {
+test('mv --after to a foreign task refuses before the move', () => {
   const root = makeProject();
   try {
     put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n');
     put(root, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · Б\n');
     gitAll(root);
-    let r = cli(root, ['mv', '2', 'queue', '--after', '7']);
+    const r = cli(root, ['mv', '2', 'queue', '--after', '7']);
     assert.equal(r.code, 1);
     assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-2-b.md')), 'файл остался на месте');
     assert.ok(!existsSync(path.join(root, 'docs/backlog/queue/BS-2-b.md')));
     assert.doesNotMatch(read(root, 'docs/backlog/triage/BS-2-b.md'), /Порядок/);
+  } finally {
+    cleanup(root);
+  }
+});
 
+test('duplicate number: mv and new refuse naming both paths', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n');
+    gitAll(root);
     put(root, 'docs/backlog/triage/BS-1-dup.md', '# BS-1 · Дубль\n');
-    r = cli(root, ['mv', '1', 'active']);
+    let r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 1);
     assert.match(r.err, /занят дважды/);
     assert.match(r.err, /queue\/BS-1-a\.md/);
@@ -72,6 +81,8 @@ test('mv --after на чужую задачу отказывает до пере
     r = cli(root, ['new', 'f', '--parent', '1']);
     assert.equal(r.code, 1);
     assert.match(r.err, /занят дважды/);
+    assert.match(r.err, /queue\/BS-1-a\.md/);
+    assert.match(r.err, /triage\/BS-1-dup\.md/);
   } finally {
     cleanup(root);
   }
@@ -115,41 +126,64 @@ test('<command> --help and -h print the help outside a project too', () => {
   }
 });
 
-test('help, version, --help у команды, неизвестная команда', () => {
+test('help prints its RU and EN content; the mv help line and the mv usage refusal agree', () => {
   const root = makeProject({ git: false });
   try {
     let r = cli(root, ['help']);
     assert.equal(r.code, 0);
     assert.match(r.out, /четырнадцать гейтов/);
-    assert.match(r.out, /mv <N…> <triage\|queue\|active\|deferred\|minor>/);
     assert.match(r.out, /в minor — только с уликой: раздел «Улика» или --evidence/);
     assert.match(r.out, /archive <N\.k> --into <M>/);
     assert.match(r.out, /--minor --evidence "…" \[--cost <уровень>\] \[--hypothesis\]/);
     assert.match(r.out, /--evidence обязателен с --minor/);
-    r = cli(root, ['version']);
-    assert.match(r.out, /^backslop \d+\.\d+\.\d+\n$/);
-    r = cli(root, ['-v']);
-    assert.equal(r.code, 0);
-    assert.match(r.out, /^backslop \d+\.\d+\.\d+\n$/);
-    r = cli(root, ['help']);
     assert.match(r.out, /\n {2}version \| --version \| -v {28}версия backslop\n {2}help \| --help \| -h \| <команда> --help {15}эта справка\n/);
     assert.match(r.out, /\n {2}show <N> {44}напечатать тело свёрнутой задачи \(stdout\) из ревизии/);
-    r = cli(root, ['new', '--help']);
-    assert.equal(r.code, 0);
-    assert.match(r.out, /Команды:/);
-    r = cli(root, ['frobnicate']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /неизвестная команда/);
 
-    // Строка mv в справке и usage самой команды учат одному: разойдясь, они называют разные
-    // флаги позиции, а справка — первое, куда смотрит человек. Проверяются обе половины.
+    // The mv line of the help and the usage refusal of mv itself must name the same position
+    // flags: both are matched against one pattern, in RU and in EN.
     const flags = /mv <N…> <triage\|queue\|active\|deferred\|minor> \[--top \| --after M \| --restore\]/;
-    assert.match(cli(root, ['help']).out, flags);
+    assert.match(r.out, flags);
+    r = cli(root, ['mv']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, flags);
     put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
     r = cli(root, ['help']);
     assert.equal(r.code, 0);
     assert.match(r.out, /change status with git mv/);
     assert.match(r.out, flags);
+    r = cli(root, ['mv']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, flags);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('version, -v, a command --help and an unknown command: exit code and output', () => {
+  const root = makeProject({ git: false });
+  try {
+    const rows = [
+      { args: ['version'], code: 0, stream: 'out', regex: /^backslop \d+\.\d+\.\d+\n$/ },
+      { args: ['-v'], code: 0, stream: 'out', regex: /^backslop \d+\.\d+\.\d+\n$/ },
+      { args: ['new', '--help'], code: 0, stream: 'out', regex: /Команды:/ },
+      { args: ['frobnicate'], code: 1, stream: 'err', regex: /неизвестная команда/ },
+    ];
+    for (const { args, code, stream, regex } of rows) {
+      const r = cli(root, args);
+      assert.equal(r.code, code, `${args.join(' ')}: ${r.err}`);
+      assert.match(r[stream], regex, args.join(' '));
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('help outside a project prints both languages', () => {
+  const root = makeProject();
+  try {
+    const help = cli(root, ['help'], { cwd: path.dirname(root) }).out;
+    assert.match(help, /Commands:/);
+    assert.match(help, /Команды:/);
   } finally {
     cleanup(root);
   }

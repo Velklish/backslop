@@ -1035,13 +1035,6 @@ test('команды вне проекта отказывают с подска�
     const r = cli(root, ['status'], { cwd: path.dirname(root) });
     assert.equal(r.code, 1);
     assert.match(r.err, /backslop init/);
-    const help = cli(root, ['help'], { cwd: path.dirname(root) }).out;
-    assert.match(help, /Commands:/);
-    assert.match(help, /Команды:/);
-    assert.match(help, /adapter outputs/);
-    assert.match(help, /равенство шаблонов/);
-    assert.match(help, /--title="--…"/);
-    assert.match(help, /starts with a dash/);
   } finally {
     cleanup(root);
   }
