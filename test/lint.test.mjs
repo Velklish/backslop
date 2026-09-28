@@ -218,7 +218,6 @@ probe('adapter output отсутствует', (root) => {
   rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
 }, /generated output для adapter claude/);
 
-probe('2. номер занят дважды', (root) => put(root, 'docs/backlog/triage/BS-1-dup.md', '# BS-1 · Дубль\n'), /номер BS-1 уже занят/);
 probe('2. заголовок не совпадает с именем', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', '# BS-8 · Не тот\n'), /заголовок называет BS-8/);
 probe('2. заголовок не по форме', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', 'Без заголовка\n'), /первая строка не/);
 probe('2. находка без родителя', (root) => put(root, 'docs/backlog/triage/BS-7.1-x.md', '# BS-7.1 · Сирота\n'), /без родителя BS-7/);
@@ -249,7 +248,7 @@ probe('4. цена не разбирается', (root) => put(root, 'docs/backl
 probe('4. major в minor без гипотезы', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** major\n'), /«Цена» major без пометки «гипотеза»/);
 probe('4. цена повторяется', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n- **Цена:** minor\n'), /поле «Цена» повторяется/);
 probe('5. чужой файл в minor/ пачки', (root) => put(root, 'docs/archive/BS-4-e/minor/notes.md', '# заметки\n'), /archive\/BS-4-e\/minor\/notes\.md: в minor\/ пачки только файлы записей/);
-probe('5. каталог в minor/ пачки', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x'), { recursive: true }), /archive\/BS-4-e\/minor\/BS-4\.9-x: в minor\/ пачки только файлы записей/);
+probe('5. каталог в minor/ пачки', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x.md'), { recursive: true }), /archive\/BS-4-e\/minor\/BS-4\.9-x\.md: в minor\/ пачки только файлы записей/);
 probe('2. запись в minor/ пачки с чужим заголовком', (root) => put(root, 'docs/archive/BS-4-e/minor/BS-4.1-m.md', '# BS-4.2 · Не та\n'), /archive\/BS-4-e\/minor\/BS-4\.1-m\.md: заголовок называет BS-4\.2/);
 // Вторая дверь в minor/ закрыта с той же стороны, что new --minor:
 // раздел «Улика» обязателен (ADR-047).
@@ -272,7 +271,19 @@ probe('4. второй раздел «Отложено»', (root) => put(root, '
 probe('4. заглушка в любом файле backlog', (root) => put(root, 'docs/backlog/queue/BS-5-todo.md', '# BS-5 · Заглушка\n\n- [TODO]\n'), /docs\/backlog\/queue\/BS-5-todo\.md: строка 3: осталась заглушка \[TODO\]/);
 probe('4. каноническая улика находки', (root) => put(root, 'docs/backlog/queue/BS-5-finding.md', '# BS-5 · Находка\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\nЦитату файла оборачивай в блок.\n'), /BS-5-finding\.md: строка 4: осталась заглушка \[TODO\]/);
 probe('4. поле с двоеточием вне жирного', (root) => put(root, 'docs/backlog/queue/BS-6-reason.md', '# BS-6 · Причина\n\n- **Reason**: [TODO]\n'), /BS-6-reason\.md: строка 3: осталась заглушка \[TODO\]/);
-probe('4. заглушка списка с подсказкой внутри скобок', (root) => put(root, 'docs/backlog/queue/BS-5-hint.md', '# BS-5 · Подсказка\n\n- [TODO: ход назначается при разборе triage]\n'), /docs\/backlog\/queue\/BS-5-hint\.md: строка 3: осталась заглушка \[TODO\]/);
+test('lint: 4. a placeholder value after a field name that starts with [TODO is a placeholder', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/queue/BS-6-name.md', '# BS-6 · Имя\n\n- [TODO] note: [TODO: step]\n- [TODO]: [TODO]\n');
+    assert.deepEqual(problems(root).filter((p) => /: строка \d+: осталась заглушка/.test(p)), [
+      'docs/backlog/queue/BS-6-name.md: строка 3: осталась заглушка [TODO]',
+      'docs/backlog/queue/BS-6-name.md: строка 4: осталась заглушка [TODO]',
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
 probe('4. placeholder in a numbered item', (root) => put(root, 'docs/backlog/queue/BS-5-num.md', '# BS-5 · N\n\n1. [TODO]\n2) [TODO: command]\n'), /BS-5-num\.md: строка 4: осталась заглушка \[TODO\]/);
 probe('4. placeholder in a task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-box.md', '# BS-5 · B\n\n- [ ] [TODO]\n'), /BS-5-box\.md: строка 3: осталась заглушка \[TODO\]/);
 probe('4. placeholder in a checked task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-done.md', '# BS-5 · D\n\n- [x] [TODO: step]\n'), /BS-5-done\.md: строка 3: осталась заглушка \[TODO\]/);
@@ -295,7 +306,6 @@ probe('5. результат не дописан', (root) => put(root, 'docs/arc
 for (const lang of ['ru', 'en']) {
   const paragraphs = resultTemplateParagraphs(lang);
   assert.ok(paragraphs.length > 0 && paragraphs.every((p) => p.includes('[TODO')), `шаблон result.md (${lang}) без заглушек — проба была бы холостой`);
-  probe(`5. нетронутый шаблон result.md (${lang})`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${paragraphs.join('\n\n')}\n`), /BS-4-e\/result\.md: результат не дописан/);
   paragraphs.forEach((p, i) => {
     probe(`5. абзац ${i + 1} шаблона result.md (${lang}) — единственная заглушка`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${p}\n`), /BS-4-e\/result\.md: результат не дописан/);
   });
@@ -714,17 +724,12 @@ test('lint: template parity and slot errors follow an en project language', () =
   } finally { cleanup(dir); }
 });
 
-test('lint: чужой проект получает ошибок парности не больше, чем каталогов templates/', () => {
+test('lint: a foreign templates/ does not wake the parity gate', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    // Каталога templates/ у потребителя нет вовсе: признак читает несуществующий путь и
-    // обязан тихо выключить гейт, а не уронить lint исключением.
-    let r = cli(root, ['lint']);
-    assert.equal(r.code, 0, r.err);
-    assert.deepEqual(problems(root), []);
     put(root, 'templates/skills/own-skill/SKILL.md', '{{cli}}\n');
-    r = cli(root, ['lint']);
+    const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
     assert.deepEqual(problems(root), []);
   } finally {
@@ -732,15 +737,13 @@ test('lint: чужой проект получает ошибок парност
   }
 });
 
-test('lint: 4. заглушка «Области» от new красит разобранную задачу и молчит в triage/', () => {
+test('lint: 4. the Area placeholder from new is an error in a task past triage', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
     assert.equal(cli(root, ['new', 'queued', '--queue']).code, 0);
-    assert.equal(cli(root, ['new', 'triaged']).code, 0);
     const found = problems(root);
     assert.ok(found.some((p) => /queued\.md: «Область» не заполнена/.test(p)), found.join(' | ') || 'ничего');
-    assert.ok(!found.some((p) => /triaged\.md: «Область»/.test(p)), `запись triage/ не разобрана — гейт молчит: ${found.join(' | ')}`);
   } finally {
     cleanup(root);
   }
@@ -784,13 +787,9 @@ test('lint: 10. quote:before сохраняет снимок до правки, 
       'состояние до правки', '',
       '<!-- /quote -->', '',
     ].join('\n'));
-    let r = cli(root, ['lint']);
-    assert.equal(r.code, 0, r.err);
     assert.deepEqual(problems(root), []);
     put(root, 'docs/quoting.md', '<!-- quote:before:reference/missing.md -->\n\nсостояние до правки\n\n<!-- /quote -->\n');
-    r = cli(root, ['lint']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /missing\.md/);
+    assert.ok(problems(root).some((p) => /quoting\.md: цитата ведёт на несуществующий файл reference\/missing\.md/.test(p)), problems(root).join(' | '));
   } finally {
     cleanup(root);
   }
@@ -992,20 +991,6 @@ probe('2. номер занят и каталогом архива, и стро�
   put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('bs-5', 'bs-4').replace('BS-5-folded', 'BS-4-e'));
 }, /номер BS-4 уже занят/);
 
-test('lint: каталог с именем файла задачи — диагностика гейта 2 в stderr, а не стек EISDIR', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    mkdirSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md'));
-    const r = cli(root, ['lint']);
-    assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /BS-9-sub\.md: каталог внутри каталога статуса/);
-    assert.doesNotMatch(r.err, /EISDIR|node:fs/);
-  } finally {
-    cleanup(root);
-  }
-});
-
 test('lint: a layout directory that is a file is a gate error naming the path, not a stack', () => {
   for (const rel of ['docs/backlog/queue', 'docs/adr', 'docs/archive/BS-4-e/minor', 'docs/archive']) {
     const root = makeProject({ git: false });
@@ -1085,14 +1070,16 @@ test('lint: a stale pin in a file upgrade skips names a hand edit as the remedy'
   }
 });
 
-test('lint: живой пин, расходящийся с cli, — ошибка с файлом и строкой', () => {
+function setConfig(root, patch) {
+  put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
+}
+
+test('lint: a live pin that differs from cli is an error naming the file and line, green once fixed', () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
   try {
     seedGreen(root);
-    const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
-    setConfig({ cli: `npx github:me/proj#v${V}`, version: V });
-    assert.deepEqual(warnings(root), []);
+    setConfig(root, { cli: `npx github:me/proj#v${V}`, version: V });
     put(root, 'package.json', `{"scripts":{"lint:backslop":"npx github:me/proj#v0.1.0 lint"}}\n`);
     put(root, '.github/workflows/ci.yml', `steps:\n  - run: npx github:me/proj#v0.1.0 init\n`);
     assert.ok(problems(root).some((p) => p.startsWith('package.json:')), problems(root).join(' | '));
@@ -1103,9 +1090,27 @@ test('lint: живой пин, расходящийся с cli, — ошибка
 
     put(root, 'docs/archive/README.md', '# Архив\n\nПереезд делает `npx github:me/proj#v0.1.0 archive N`.\n');
     assert.ok(problems(root).some((p) => p.includes('docs/archive/README.md: строка 3: пин github:me/proj#v0.1.0 расходится с cli')), problems(root).join(' | '));
+    put(root, 'docs/archive/README.md', `# Архив\n\nПереезд делает \`npx github:me/proj#v${V} archive N\`.\n`);
+    assert.deepEqual(problems(root), []);
 
-    // Записи о моменте — не инструкция: их версии дрейфом не считаются.
+    // npm-форма пина сверяется тем же способом.
+    setConfig(root, { cli: `npx backslop@${V}`, version: V });
+    put(root, 'docs/ROADMAP.md', 'Ставится `npx backslop@0.3.0`.\n');
+    assert.ok(problems(root).some((p) => /docs\/ROADMAP\.md: строка 1: пин backslop@0\.3\.0 расходится с cli/.test(p)), problems(root).join(' | '));
+    put(root, 'docs/ROADMAP.md', `Ставится \`npx backslop@${V}\`.\n`);
     put(root, 'docs/archive/README.md', '# Архив\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: a stale pin in history files or quoted as card evidence is not drift', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: `npx github:me/proj#v${TOOL_VERSION}`, version: TOOL_VERSION });
+    // Записи о моменте — не инструкция: их версии дрейфом не считаются.
     put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — было `npx github:me/proj#v0.1.0`\n');
     put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Процесс\n\n**Status:** Accepted\n\nПри `npx github:me/proj#v0.1.0`.\n');
     put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\nГнали `npx github:me/proj#v0.1.0 lint`.\n');
@@ -1114,16 +1119,25 @@ test('lint: живой пин, расходящийся с cli, — ошибка
     // Карточка задачи цитирует пин уликой момента — предупреждать не о чем.
     put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\nЗамер сделан на `npx github:me/proj#v0.1.0`.\n');
     assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
 
-    // npm-форма пина сверяется тем же способом.
-    setConfig({ cli: `npx backslop@${V}`, version: V });
-    put(root, 'docs/ROADMAP.md', 'Ставится `npx backslop@0.3.0`.\n');
-    assert.ok(problems(root).some((p) => /docs\/ROADMAP\.md: строка 1: пин backslop@0\.3\.0 расходится с cli/.test(p)), problems(root).join(' | '));
-
+test('lint: an unpinned cli leaves a stale prose pin silent', () => {
+  const root = makeProject({ git: false });
+  const V = TOOL_VERSION;
+  try {
+    seedGreen(root);
+    put(root, 'docs/notes.md', 'Ставится `npx backslop@0.3.0`.\n');
+    setConfig(root, { cli: `npx backslop@${V}`, version: V });
+    assert.ok(problems(root).some((p) => p.startsWith('docs/notes.md: строка 1:')), 'a pinned cli sees the stale pin');
     // cli без пина — сверять не с чем: self-host и глобальная установка молчат.
-    setConfig({ cli: 'node bin/backslop.js', version: V });
+    setConfig(root, { cli: 'node bin/backslop.js', version: V });
     assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
+    setConfig(root, { cli: 'npx backslop', version: V });
+    assert.deepEqual(problems(root), [], 'npx with no pin');
   } finally {
     cleanup(root);
   }

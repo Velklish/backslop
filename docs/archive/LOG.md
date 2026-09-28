@@ -195,3 +195,4 @@
 - <a id="bs-135"></a>`BS-135-merge-changelog-test-tables` · 2026-09-29 · completed · — · merge-changelog.test.mjs: bump and marker tables, drop re-asserts, split bundled tests
 - <a id="bs-150"></a>`BS-150-comments-gate-adr` · 2026-09-29 · completed · — · One English ADR for the comment gate replaces ADR-028, ADR-035 and ADR-038
 - <a id="bs-130"></a>`BS-130-lint-test-helpers-and-merges` · 2026-09-29 · completed · — · lint.test.mjs: greenProbe and toolProbe helpers, one git-shim table
+- <a id="bs-131"></a>`BS-131-lint-test-redundant-probes` · 2026-09-29 · completed · — · lint.test.mjs: drop redundant probes, fix the vacuous minor/ probe, split live-pin
