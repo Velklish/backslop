@@ -257,7 +257,7 @@ probe('5. чужой файл в minor/ пачки', (root) => put(root, 'docs/a
 probe('5. каталог в minor/ пачки', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x'), { recursive: true }), /archive\/BS-4-e\/minor\/BS-4\.9-x: в minor\/ пачки только файлы записей/);
 probe('2. запись в minor/ пачки с чужим заголовком', (root) => put(root, 'docs/archive/BS-4-e/minor/BS-4.1-m.md', '# BS-4.2 · Не та\n'), /archive\/BS-4-e\/minor\/BS-4\.1-m\.md: заголовок называет BS-4\.2/);
 // Вторая дверь в minor/ закрыта с той же стороны, что new --minor:
-// раздел «Улика» обязателен (ADR-036).
+// раздел «Улика» обязателен (ADR-047).
 probe('4. minor без раздела «Улика»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст: запись уезжает в пачку без разбора/);
 probe('4. minor с пустой «Уликой»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст/);
 probe('4. «Улика» в minor/ заглушкой', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\n'), /BS-1\.1-m\.md: раздел «Улика» не заполнен: осталась заглушка \[TODO\]/);
@@ -448,6 +448,23 @@ test('lint: находка под закрытым родителем остаё
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /разбери её \(approver\)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: gate 9 takes no evidence from Parent — a triage finding under an archived N.M with N open gets no warning', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/archive/BS-1.1-g/task.md', '# BS-1.1 · Ж\n');
+    put(root, 'docs/archive/BS-1.1-g/result.md', '# BS-1.1 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
+    put(root, 'docs/backlog/triage/BS-1.2-h.md', '# BS-1.2 · З\n\n- **Родитель:** BS-1.1\n\nНаходка при работе над BS-1.1.\n');
+    assert.deepEqual(problems(root), []);
+    assert.ok(!warnings(root).some((w) => /BS-1\.2/.test(w)), warnings(root).join(' | '));
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /BS-1\.2/);
   } finally {
     cleanup(root);
   }
