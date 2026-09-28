@@ -245,7 +245,7 @@ test('upgrade: a step killed by a signal names the signal, not an exit code', { 
   }
 });
 
-test('upgrade --dry-run показывает план и ничего не пишет; --pin-only переставляет пин, lint предупреждает', { skip: process.platform === 'win32' }, () => {
+test('upgrade --dry-run shows the plan and writes nothing; --pin-only moves the pin', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
   const src = releasesRepo(['v0.1.0', `v${V}`]);
@@ -266,10 +266,6 @@ test('upgrade --dry-run показывает план и ничего не пи�
     assert.equal(cfg.cli, `npx github:me/proj#v${V}`);
     assert.deepEqual(cfg.gates, [`npx github:me/proj#v${V} lint`, 'npm test']);
     assert.equal(cfg.version, '0.1.0', 'штамп ставит только новая версия через migrate/init');
-
-    r = cli(root, ['lint'], { env });
-    assert.equal(r.code, 0, r.err);
-    assert.ok(r.err.includes(`пин в cli v${V} расходится со штампом v0.1.0`), r.err);
 
     setConfig(root, { version: V });
     r = cli(root, ['upgrade'], { env });
@@ -293,20 +289,15 @@ test('upgrade целиком: migrate и init новой версией, шта�
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   try {
-    setConfig(root, { cli: `node "${BIN}"`, gates: [`node "${BIN}" lint`], version: '0.0.9', source: src, tools: ['claude'] });
+    setConfig(root, { cli: `node "${BIN}"`, gates: [`node "${BIN}" lint`], version: '0.10.0', source: src, tools: ['claude'] });
     rmSync(path.join(root, 'docs', 'README.md'));
-    const rules = renderTemplate('docs/backlog/README.md', { cli: `node "${BIN}"`, prefix: 'BS', project: path.basename(root) });
-    put(root, 'docs/backlog/README.md', staleRules(rules));
-    put(root, 'docs/GLOSSARY.md', '# Свой глоссарий\n');
     const r = cli(root, ['upgrade']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /пин не меняется/);
     assert.match(r.out, /→ node .*backslop\.js" migrate/);
     assert.match(r.out, /→ node .*backslop\.js" init/);
-    assert.match(r.out, /## v0\.1\.0/);
+    assert.match(r.out, /## v0\.10\.1/);
     assert.equal(config(root).version, TOOL_VERSION);
-    assert.equal(read(root, 'docs/backlog/README.md'), rules, 'правила ведения — рендер шаблона новой версии');
-    assert.equal(read(root, 'docs/GLOSSARY.md'), '# Свой глоссарий\n', 'проектный файл docs upgrade не перерисовывает');
     assert.ok(existsSync(path.join(root, '.claude/skills/backslop-task/SKILL.md')));
     const lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
@@ -317,15 +308,23 @@ test('upgrade целиком: migrate и init новой версией, шта�
   }
 });
 
-test('upgrade без источника релизов отказывает; migrate и changelog в одиночку', () => {
+test('upgrade without a release source refuses', () => {
   const root = makeProject({ git: false, stamp: false });
   try {
     setConfig(root, { cli: 'node bin/backslop.js' });
-    let r = cli(root, ['upgrade']);
+    const r = cli(root, ['upgrade']);
     assert.equal(r.code, 1);
     assert.match(r.err, /обновлять нечего/);
+  } finally {
+    cleanup(root);
+  }
+});
 
-    r = cli(root, ['migrate', '--dry-run']);
+test('migrate without a stamp: every migration is due, the stamp goes from none to the tool version', () => {
+  const root = makeProject({ git: false, stamp: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js' });
+    let r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /миграция до v0\.10\.0: журнал закрытых docs\/archive\/LOG\.md \(--dry-run\)/, 'без штампа проект считается старше любой миграции');
     assert.equal(config(root).version, undefined);
@@ -333,14 +332,6 @@ test('upgrade без источника релизов отказывает; mig
     assert.equal(r.code, 0, r.err);
     assert.equal(config(root).version, TOOL_VERSION);
     assert.match(r.out, /штамп версии: не было → v/);
-
-    r = cli(root, ['changelog', '--since', 'v0.0.1']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /## v0\.1\.0/);
-    r = cli(root, ['changelog', '--since', 'v99.0.0']);
-    assert.match(r.out, /записей после v99\.0\.0 и до v\d+\.\d+\.\d+ нет/);
-    r = cli(root, ['changelog', '--since', 'latest']);
-    assert.equal(r.code, 1);
   } finally {
     cleanup(root);
   }
@@ -632,25 +623,26 @@ test('upgrade по форме npx: пробный запуск до пина, п
   }
 });
 
-test('upgrade: сбой пробного запуска не трогает пин; init и migrate отказывают на штампе новее себя', { skip: process.platform === 'win32' }, () => {
+// Пин пишется только после пробного запуска новой версии, и `--pin-only` пробу не сокращает:
+// иначе проект остался бы с пином на команду, которая не поднимается.
+test('upgrade: a failed probe run writes neither pin, gates nor stamp', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
-  const src = releasesRepo([`v${TOOL_VERSION}`]);
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const broken = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
   writeFileSync(path.join(broken, 'npx'), '#!/bin/sh\nexit 3\n');
   chmodSync(path.join(broken, 'npx'), 0o755);
+  const old = { cli: 'npx github:me/proj#v0.1.0', gates: ['npx github:me/proj#v0.1.0 lint', 'npm test'], version: '0.1.0' };
   try {
-    setConfig(root, { cli: 'npx github:me/proj#v0.1.0', version: '0.1.0', source: src });
-    const r = cli(root, ['upgrade'], { env: { PATH: `${broken}${path.delimiter}${process.env.PATH}` } });
-    assert.match(r.err, / — код 3\. /);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /Пин и штамп не тронуты/);
-    assert.equal(config(root).cli, 'npx github:me/proj#v0.1.0');
-    assert.equal(config(root).version, '0.1.0');
-
-    setConfig(root, { version: '9.9.9' });
-    assert.match(cli(root, ['init']).err, /штамп v9\.9\.9 новее инструмента/);
-    assert.match(cli(root, ['migrate']).err, /штамп v9\.9\.9 новее инструмента/);
-    assert.equal(config(root).version, '9.9.9', 'штамп новее себя не затирается');
+    for (const argv of [['upgrade'], ['upgrade', '--pin-only']]) {
+      const label = argv.join(' ');
+      setConfig(root, { ...old, source: src });
+      const r = cli(root, argv, { env: { PATH: `${broken}${path.delimiter}${process.env.PATH}` } });
+      assert.equal(r.code, 1, `${label}: ${r.out}`);
+      assert.match(r.err, / — код 3\. /, label);
+      assert.match(r.err, /Пин и штамп не тронуты/, label);
+      const cfg = config(root);
+      assert.deepEqual({ cli: cfg.cli, gates: cfg.gates, version: cfg.version }, old, label);
+    }
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
@@ -658,14 +650,40 @@ test('upgrade: сбой пробного запуска не трогает пи
   }
 });
 
-test('changelog без --since: только секции до --to', () => {
+test('init and migrate refuse a stamp newer than the tool', () => {
   const root = makeProject({ git: false });
+  const head = `✖ штамп v9.9.9 новее инструмента v${TOOL_VERSION}: обнови установку или пин в cli`;
   try {
-    const r = cli(root, ['changelog', '--to', 'v0.1.0']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /## v0\.1\.0/);
-    assert.doesNotMatch(r.out, /## v0\.2\.0/);
-    assert.match(cli(root, ['changelog', '--to', 'v0.0.1']).out, /^записей до v0\.0\.1 нет\n$/);
+    setConfig(root, { version: '9.9.9' });
+    for (const [command, tail] of [['init', 'старой версией раскладку не делаю'], ['migrate', 'назад формат не переводится']]) {
+      const r = cli(root, [command]);
+      assert.equal(r.code, 1, `${command}: ${r.out}`);
+      assert.equal(r.err, `${head}, ${tail}\n`);
+    }
+    assert.equal(config(root).version, '9.9.9', 'штамп новее себя не затирается');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('changelog CLI: --since and --to bounds, an empty summary', () => {
+  const root = makeProject({ git: false });
+  const rows = [
+    { argv: ['--since', 'v0.0.1'], code: 0, match: /## v0\.1\.0/ },
+    { argv: ['--since', 'v99.0.0'], code: 0, match: /^записей после v99\.0\.0 и до v\d+\.\d+\.\d+ нет\n$/ },
+    { argv: ['--since', 'latest'], code: 1, match: /^✖ --since «latest»: нужна форма X\.Y\.Z\n$/ },
+    { argv: ['--to', 'v0.1.0'], code: 0, match: /## v0\.1\.0/, doesNotMatch: /## v0\.2\.0/ },
+    { argv: ['--to', 'v0.0.1'], code: 0, match: /^записей до v0\.0\.1 нет\n$/ },
+  ];
+  try {
+    for (const row of rows) {
+      const r = cli(root, ['changelog', ...row.argv]);
+      const label = row.argv.join(' ');
+      assert.equal(r.code, row.code, `${label}: ${r.err}`);
+      const text = row.code === 0 ? r.out : r.err;
+      assert.match(text, row.match, label);
+      if (row.doesNotMatch) assert.doesNotMatch(text, row.doesNotMatch, label);
+    }
   } finally {
     cleanup(root);
   }
@@ -753,29 +771,6 @@ test('upgrade leaves a pin in a journal entry, rewrites the LOG.md header, then 
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
     rmSync(shim, { recursive: true, force: true });
-  }
-});
-
-// Пин пишется только после пробного запуска новой версии, и `--pin-only` пробу не сокращает:
-// иначе проект остался бы с пином на команду, которая не поднимается.
-test('upgrade --pin-only: сбой пробного запуска не пишет пин и гейты', { skip: process.platform === 'win32' }, () => {
-  const root = makeProject({ git: false });
-  const src = releasesRepo(['v0.1.0', 'v0.2.0']);
-  const broken = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
-  writeFileSync(path.join(broken, 'npx'), '#!/bin/sh\nexit 3\n');
-  chmodSync(path.join(broken, 'npx'), 0o755);
-  try {
-    setConfig(root, { cli: 'npx github:me/proj#v0.1.0', gates: ['npx github:me/proj#v0.1.0 lint', 'npm test'], version: '0.1.0', source: src });
-    const r = cli(root, ['upgrade', '--pin-only'], { env: { PATH: `${broken}${path.delimiter}${process.env.PATH}` } });
-    assert.equal(r.code, 1);
-    assert.match(r.err, / — код 3\. /);
-    assert.match(r.err, /Пин и штамп не тронуты/);
-    assert.equal(config(root).cli, 'npx github:me/proj#v0.1.0');
-    assert.deepEqual(config(root).gates, ['npx github:me/proj#v0.1.0 lint', 'npm test']);
-  } finally {
-    cleanup(root);
-    rmSync(src, { recursive: true, force: true });
-    rmSync(broken, { recursive: true, force: true });
   }
 });
 

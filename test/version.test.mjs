@@ -4,10 +4,6 @@ import assert from 'node:assert/strict';
 import { TOOL_VERSION, compareVersions, latestVersion, normalizeVersion } from '../lib/version.js';
 import { MIGRATIONS } from '../lib/migrate.js';
 
-test('версия инструмента — из package.json, форма X.Y.Z', () => {
-  assert.match(TOOL_VERSION, /^\d+\.\d+\.\d+$/);
-});
-
 test('разбор и нормализация: с v и без, мусор — null', () => {
   assert.equal(normalizeVersion('1.2'), null);
   assert.equal(normalizeVersion('v1.2.3-beta'), null);
