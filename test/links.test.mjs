@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  EXTERNAL, blankCode, brokenLinks, directoryLinks, normalizeHrefTarget, refDefinitions, relativeLinks, rewriteFoldedLinks,
+  EXTERNAL, blankCode, brokenLinks, directoryLinks, normalizeHrefTarget, relativeLinks, rewriteFoldedLinks,
   repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, splitHref,
 } from '../lib/links.js';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -129,7 +129,7 @@ test('разбор: фенс с большим отступом во вложе�
 
 test('разбор: сноска — не объявление ссылки; объявление после заголовка — объявление', () => {
   assert.deepEqual(relativeLinks('Текст[^1].\n\n[^1]: Пояснение сноски.\n'), []);
-  assert.deepEqual(refDefinitions('# Заголовок\n[a]: a.md\n'), ['a.md']);
+  assert.deepEqual(relativeLinks('# Заголовок\n[a]: a.md\n'), ['a.md']);
 });
 
 test('перепись: корневой путь и query не трогаются', () => {
@@ -163,8 +163,8 @@ test('свёртка: корневая цель и каталог со слэш�
 });
 
 test('разбор: reference-style объявление только в начале абзаца', () => {
-  assert.deepEqual(refDefinitions('[a]: a.md\n[a2]: a2.md\n\nтекст\n[b]: b.md\n[c]: c.md\n'), ['a.md', 'a2.md']);
-  assert.deepEqual(refDefinitions('Первая строка абзаца,\n[Заметка]: пояснение\n'), []);
+  assert.deepEqual(relativeLinks('[a]: a.md\n[a2]: a2.md\n\nтекст\n[b]: b.md\n[c]: c.md\n'), ['a.md', 'a2.md']);
+  assert.deepEqual(relativeLinks('Первая строка абзаца,\n[Заметка]: пояснение\n'), []);
   assert.equal(blankCode('x `y` z'), 'x     z');
 });
 

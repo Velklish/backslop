@@ -1,7 +1,7 @@
 // Версии: разбор, сравнение, выбор старшей.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TOOL_VERSION, compareVersions, latestVersion, normalizeVersion, parseVersion } from '../lib/version.js';
+import { TOOL_VERSION, compareVersions, latestVersion, normalizeVersion } from '../lib/version.js';
 import { MIGRATIONS } from '../lib/migrate.js';
 
 test('версия инструмента — из package.json, форма X.Y.Z', () => {
@@ -9,10 +9,9 @@ test('версия инструмента — из package.json, форма X.Y.
 });
 
 test('разбор и нормализация: с v и без, мусор — null', () => {
-  assert.deepEqual(parseVersion('v1.2.3'), [1, 2, 3]);
-  assert.deepEqual(parseVersion('10.0.7'), [10, 0, 7]);
-  assert.equal(parseVersion('1.2'), null);
-  assert.equal(parseVersion('v1.2.3-beta'), null);
+  assert.equal(normalizeVersion('1.2'), null);
+  assert.equal(normalizeVersion('v1.2.3-beta'), null);
+  assert.equal(normalizeVersion('10.0.7'), '10.0.7');
   assert.equal(normalizeVersion(' v0.1.0 '), '0.1.0');
   assert.equal(normalizeVersion('latest'), null);
 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLOCK_END, BLOCK_MARKER_RE, BLOCK_START, PREFIX_RE, loadConfig } from '../lib/config.js';
+import { BLOCK_END, BLOCK_START, PREFIX_RE, loadConfig } from '../lib/config.js';
 import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
 
 test('config: a config without lang or tools is refused by commands that read it, init included', () => {
@@ -194,9 +194,6 @@ test('config: probe — непустая строка команды или по
     assert.equal(loadConfig(root).probe, 'scripts/probe.sh < cases.txt');
     // Метка в значении обрывает managed-блок. Метки — из конфига, а не литералом: копия пережила бы
     // переименование метки и осталась бы зелёной, пока запрет уже ничего не ловит.
-    for (const marker of [BLOCK_START, BLOCK_END]) {
-      assert.match(marker, BLOCK_MARKER_RE, `запрет не узнаёт метку ${marker}`);
-    }
     for (const text of [`npm run probe ${BLOCK_END}`, `npm run probe ${BLOCK_START}`, 'npm run probe # backslop:end']) {
       setConfig(text);
       assert.throws(() => loadConfig(root), /без меток backslop/);
