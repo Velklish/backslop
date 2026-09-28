@@ -192,3 +192,4 @@
 - <a id="bs-156"></a>`BS-156-adr-seed-tracks` · 2026-09-29 · completed · — · English ADRs for seeding and for the tracks command replace ADR-011 and ADR-014
 - <a id="bs-149"></a>`BS-149-gates-runner-adr` · 2026-09-29 · completed · — · One English ADR for the gates runner and path-scoped gates replaces ADR-009 and ADR-023
 - <a id="bs-132"></a>`BS-132-fold-test-cleanup` · 2026-09-29 · completed · — · fold.test.mjs: drop a duplicate test, trim refusals, make the worktree check non-vacuous
+- <a id="bs-135"></a>`BS-135-merge-changelog-test-tables` · 2026-09-29 · completed · — · merge-changelog.test.mjs: bump and marker tables, drop re-asserts, split bundled tests

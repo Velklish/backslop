@@ -176,34 +176,43 @@ const onlyFirstTagged = (version) => version === '0.1.0';
 const headings = (text) => text.match(/^## .+$/gm);
 const entries = (text) => [...text.matchAll(/^- \*\*(.+?)\*\*/gm)].map((m) => m[1]);
 
-test('merge-changelog: после бампа сливается верхняя секция версии без тега', () => {
-  const base = BUMPED('- **Общее** — тело\n- **Снятая** — тело\n');
-  const ours = BUMPED('- **Своя ours** — тело\n- **Общее** — тело\n- **Снятая** — тело\n');
-  const theirs = BUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n');
-  const { text, report } = mergeChangelog(ours, theirs, base, 'ru', onlyFirstTagged);
-  assert.deepEqual(report.section, { ours: 'v0.2.0 — 2026-02-01', theirs: 'v0.2.0 — 2026-02-01', base: 'v0.2.0 — 2026-02-01' });
-  assert.deepEqual(report.onlyTheirs, ['Своя theirs']);
-  assert.deepEqual(report.dropped, ['Снятая'], 'база после бампа читается тем же правилом');
-  assert.deepEqual(headings(text), ['## v0.2.0 — 2026-02-01', '## v0.1.0 — 2026-01-01']);
-  assert.deepEqual(entries(text), ['Своя ours', 'Общее', 'Своя theirs', 'Старое']);
-});
-
-test('merge-changelog: ours после бампа, theirs отрезан до него — записи theirs ложатся в секцию версии', () => {
-  const ours = BUMPED('- **Своя ours** — тело\n- **Общее** — тело\n');
-  const theirs = UNBUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n');
-  const { text, report } = mergeChangelog(ours, theirs, null, 'ru', onlyFirstTagged);
-  assert.deepEqual(report.section, { ours: 'v0.2.0 — 2026-02-01', theirs: 'Не выпущено', base: null });
-  assert.deepEqual(headings(text), ['## v0.2.0 — 2026-02-01', '## v0.1.0 — 2026-01-01']);
-  assert.deepEqual(entries(text), ['Своя ours', 'Общее', 'Своя theirs', 'Старое']);
-});
-
-test('merge-changelog: бамп только у theirs — его записи не теряются', () => {
-  const ours = UNBUMPED('- **Своя ours** — тело\n- **Общее** — тело\n');
-  const theirs = BUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n');
-  const { text, report } = mergeChangelog(ours, theirs, null, 'ru', onlyFirstTagged);
-  assert.equal(report.theirs, 2);
-  assert.deepEqual(report.section, { ours: 'Не выпущено', theirs: 'v0.2.0 — 2026-02-01', base: null });
-  assert.deepEqual(entries(text), ['Своя ours', 'Общее', 'Своя theirs', 'Старое']);
+test('merge-changelog: the top untagged version section merges after a bump on either side', () => {
+  const v2 = 'v0.2.0 — 2026-02-01';
+  const bumpedHeadings = [`## ${v2}`, '## v0.1.0 — 2026-01-01'];
+  const rows = [
+    {
+      name: 'both sides and the base bumped',
+      ours: BUMPED('- **Своя ours** — тело\n- **Общее** — тело\n- **Снятая** — тело\n'),
+      theirs: BUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n'),
+      base: BUMPED('- **Общее** — тело\n- **Снятая** — тело\n'),
+      section: { ours: v2, theirs: v2, base: v2 },
+      extra: { onlyTheirs: ['Своя theirs'], dropped: ['Снятая'], headings: bumpedHeadings },
+    },
+    {
+      name: 'ours bumped, theirs cut before the bump',
+      ours: BUMPED('- **Своя ours** — тело\n- **Общее** — тело\n'),
+      theirs: UNBUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n'),
+      base: null,
+      section: { ours: v2, theirs: 'Не выпущено', base: null },
+      extra: { headings: bumpedHeadings },
+    },
+    {
+      name: 'only theirs bumped',
+      ours: UNBUMPED('- **Своя ours** — тело\n- **Общее** — тело\n'),
+      theirs: BUMPED('- **Общее** — тело\n- **Своя theirs** — тело\n'),
+      base: null,
+      section: { ours: 'Не выпущено', theirs: v2, base: null },
+      extra: { theirs: 2 },
+    },
+  ];
+  for (const { name, ours, theirs, base, section, extra } of rows) {
+    const { text, report } = mergeChangelog(ours, theirs, base, 'ru', onlyFirstTagged);
+    assert.deepEqual(report.section, section, name);
+    assert.deepEqual(entries(text), ['Своя ours', 'Общее', 'Своя theirs', 'Старое'], name);
+    const { headings: expectedHeadings, ...fields } = extra;
+    if (expectedHeadings) assert.deepEqual(headings(text), expectedHeadings, name);
+    for (const [key, value] of Object.entries(fields)) assert.deepEqual(report[key], value, `${name}: report.${key}`);
+  }
 });
 
 test('merge-changelog: верхняя секция версии с тегом выпущена — отказ', () => {
@@ -306,7 +315,6 @@ test('merge-changelog: команда читает редакции из git и 
     assert.equal(r.code, 0, r.err);
     assert.match(read(root, 'CHANGELOG.md'), /- \*\*Первое theirs\*\* — тело theirs/);
     assert.match(read(root, 'CHANGELOG.md'), /- \*\*Первое ours\*\* — тело ours/);
-    assert.equal((read(root, 'CHANGELOG.md').match(/- \*\*Общее\*\*/g) ?? []).length, 1);
     assert.match(r.err, /записей: ours 2, theirs 2, в результате 3/);
     assert.match(r.err, /только у theirs: Первое theirs/);
     assert.equal(r.out, '', 'с --out данные в файл, stdout пуст');
@@ -368,38 +376,45 @@ test('merge-changelog: --base читается командой и снимае�
     gitAll(root, 'worker снял Снятую');
     run(root, ['checkout', '-q', 'main']);
 
-    let r = cli(root, ['merge-changelog', `--ours=${base}`, '--theirs=worker', `--base=${base}`, '--out=CHANGELOG.md']);
+    const r = cli(root, ['merge-changelog', `--ours=${base}`, '--theirs=worker', `--base=${base}`, '--out=CHANGELOG.md']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /снята относительно --base: Снятая/);
     assert.doesNotMatch(read(root, 'CHANGELOG.md'), /Снятая/);
     assert.match(read(root, 'CHANGELOG.md'), /- \*\*Своя у worker\*\*/);
-
-    // Без базы та же пара оставляет запись и не называет её снятой.
-    r = cli(root, ['merge-changelog', `--ours=${base}`, '--theirs=worker', '--out=CHANGELOG.md']);
-    assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(r.err, /снята относительно --base/);
-    assert.match(read(root, 'CHANGELOG.md'), /- \*\*Снятая\*\*/);
   } finally {
     cleanup(root);
   }
 });
 
-test('merge-changelog: без --out слитый файл идёт в stdout, без --ours и --theirs — отказ', () => {
+test('merge-changelog: stdout routing without --out', () => {
   const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', OURS);
     gitAll(root, 'ours');
-    let r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD']);
+    const r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /^# Changelog\n/);
     assert.doesNotMatch(r.out, /записей:/, 'отчёт не попадает в данные');
     assert.match(r.err, /^ {2}записей: /m, 'the report is an unmarked stderr note');
-    r = cli(root, ['merge-changelog', '--ours=HEAD']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /нужны --ours <ref> и --theirs <ref>/);
-    r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=нет-такой-ветки']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /не читается нет-такой-ветки:CHANGELOG\.md/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: refusals — a missing --theirs, an unreadable ref', () => {
+  const root = makeProject();
+  try {
+    put(root, 'CHANGELOG.md', OURS);
+    gitAll(root, 'ours');
+    const rows = [
+      { argv: ['--ours=HEAD'], err: /нужны --ours <ref> и --theirs <ref>/ },
+      { argv: ['--ours=HEAD', '--theirs=нет-такой-ветки'], err: /не читается нет-такой-ветки:CHANGELOG\.md/ },
+    ];
+    for (const { argv, err } of rows) {
+      const r = cli(root, ['merge-changelog', ...argv]);
+      assert.equal(r.code, 1, argv.join(' '));
+      assert.match(r.err, err);
+    }
   } finally {
     cleanup(root);
   }
@@ -525,46 +540,43 @@ test('merge-changelog: незакрытая метка конфликта — н
     assert.equal(r.code, 1, 'незакрытый конфликт успехом не считается');
     assert.match(r.err, /осталось меток <!-- backslop:conflict: 1/);
     assert.match(read(root, 'CHANGELOG.md'), /<!-- backslop:conflict Одна -->/, 'файл всё равно записан — его и разбирать');
-
-    // Метка из самой редакции — тоже незакрытый конфликт: поверх неё вторая редакция пропала бы
-    // как дубль, поэтому отказ с причиной.
-    put(root, 'CHANGELOG.md', `# Changelog\n\n## Не выпущено\n\n<!-- backslop:conflict Одна -->\n- **Одна** — редакция ours\n\n- **Одна** — редакция theirs\n`);
-    gitAll(root, 'метка осталась');
-    const again = cli(root, ['merge-changelog', '--ours=main', '--theirs=main', '--out=CHANGELOG.md']);
-    assert.equal(again.code, 1);
-    assert.match(again.err, /секция невыпущенного стороны --ours несёт незакрытую метку <!-- backslop:conflict/);
   } finally {
     cleanup(root);
   }
 });
 
-test('merge-changelog: имя метки прозой в код-спане — не метка', () => {
-  // Имя метки стоит в CHANGELOG любого проекта, который про неё написал (у backslop — v0.5.0 и
-  // v0.10.0); подстрочная проверка отказывала бы на каждом слиянии в его же репозитории.
-  const released = '## v0.1.0 — 2026-01-01\n\n- **Слияние командой** — оставляет обе редакции под меткой `<!-- backslop:conflict … -->`, когда тела разошлись\n';
-  const ours = `# Changelog\n\n## Не выпущено\n\n- **Своя у ours** — тело ours\n\n${released}`;
-  const theirs = `# Changelog\n\n## Не выпущено\n\n- **Своя у theirs** — тело theirs\n\n${released}`;
-  const { text, report } = mergeChangelog(ours, theirs);
-  assert.equal(report.marks, 0, 'проза в выпущенной секции меткой не считается');
-  assert.match(text, /- \*\*Своя у ours\*\*/);
-  assert.match(text, /- \*\*Своя у theirs\*\*/);
-  assert.equal(insertionsOver(ours, text), 2);
+test('merge-changelog: a mark line in the unreleased section of either side is refused', () => {
+  // A mark line left in a revision is an open conflict: the second revision would vanish over it
+  // as a duplicate, so the merge refuses with a reason.
+  const marked = `# Changelog\n\n## Не выпущено\n\n<!-- backslop:conflict Одна -->\n- **Одна** — редакция ours\n\n- **Одна** — редакция theirs\n`;
+  assert.throws(() => mergeChangelog(marked, THEIRS), /секция невыпущенного стороны --ours несёт незакрытую метку <!-- backslop:conflict/);
+  assert.throws(() => mergeChangelog(OURS, marked), /секция невыпущенного стороны --theirs несёт незакрытую метку <!-- backslop:conflict/);
 });
 
-test('merge-changelog: имя метки прозой в самой сливаемой секции — тоже не метка', () => {
-  // Запись про merge-changelog посреди цикла лежит в самой сливаемой секции: от ложного отказа
-  // тут спасает только якорь начала строки.
-  const entry = '- **Слияние командой** — обе редакции под меткой `<!-- backslop:conflict … -->`\n';
-  const ours = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у ours** — тело ours\n`;
-  const theirs = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у theirs** — тело theirs\n`;
-  const { text, report } = mergeChangelog(ours, theirs);
-  assert.equal(report.marks, 0, 'метка — строка, которая с неё начинается, а не подстрока');
-  assert.equal(report.conflicts.length, 0);
-  assert.match(text, /- \*\*Своя у theirs\*\* — тело theirs/);
-  assert.equal(insertionsOver(ours, text), 2, 'одна запись theirs с её отбивкой');
+test('merge-changelog: the mark name in prose is not a mark — code spans, an indented code block', () => {
+  // A CHANGELOG that wrote about the mark carries its name; a mark is a line that opens with it
+  // at column one, as `conflictEntry` writes it.
+  const rows = [
+    {
+      name: 'a code span in a released section',
+      entry: '',
+      released: '\n## v0.1.0 — 2026-01-01\n\n- **Слияние командой** — оставляет обе редакции под меткой `<!-- backslop:conflict … -->`, когда тела разошлись\n',
+    },
+    { name: 'a code span in the merged section', entry: '- **Слияние командой** — обе редакции под меткой `<!-- backslop:conflict … -->`\n', released: '' },
+    { name: 'an indented code block in the merged section', entry: '- **Слияние командой** — пример вывода:\n\n      <!-- backslop:conflict Одна -->\n\n', released: '' },
+  ];
+  for (const { name, entry, released } of rows) {
+    const ours = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у ours** — тело ours\n${released}`;
+    const theirs = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у theirs** — тело theirs\n${released}`;
+    const { text, report } = mergeChangelog(ours, theirs);
+    assert.equal(report.marks, 0, name);
+    assert.deepEqual(report.conflicts, [], name);
+    assert.match(text, /- \*\*Своя у theirs\*\* — тело theirs/, name);
+    assert.equal(insertionsOver(ours, text), 2, name);
+  }
 });
 
-test('merge-changelog: имя метки прозой — код возврата 0, а строка-метка — 1', () => {
+test('merge-changelog: the mark name in prose leaves the command exit code 0', () => {
   const root = makeProject();
   try {
     const released = '## v0.1.0 — 2026-01-01\n\n- **Слияние** — обе редакции под меткой `<!-- backslop:conflict … -->`\n';
@@ -654,17 +666,6 @@ test('merge-changelog: повтор у theirs тоже называется — 
   } finally {
     cleanup(root);
   }
-});
-
-test('merge-changelog: имя метки с отступом — не метка, отступ поблажки не даёт', () => {
-  // Настоящую метку `conflictEntry` ставит с первой колонки. Поблажка на отступ вернула бы
-  // ложный отказ для имени метки в отступном блоке кода внутри сливаемой секции.
-  const entry = '- **Слияние командой** — пример вывода:\n\n      <!-- backslop:conflict Одна -->\n\n';
-  const ours = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у ours** — тело ours\n`;
-  const theirs = `# Changelog\n\n## Не выпущено\n\n${entry}- **Своя у theirs** — тело theirs\n`;
-  const { text, report } = mergeChangelog(ours, theirs);
-  assert.equal(report.marks, 0, 'отступная строка меткой не считается');
-  assert.match(text, /- \*\*Своя у theirs\*\* — тело theirs/);
 });
 
 const SECTIONED = (unreleased) => `# Changelog\n\n## Unreleased\n\n${unreleased}## v0.1.0\n\n- **Old** — released\n`;
