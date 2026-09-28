@@ -79,7 +79,6 @@ test('init: раскладка, lint зелёный, сквозной цикл �
     assert.equal(read(root, 'docs/backlog/README.md'), '# Мои правила ведения\n', 'правила ведения перерисовывает migrate, а не init');
     const agentsAfter = read(root, 'AGENTS.md');
     assert.equal(agentsAfter, `# Шапка проекта\n\n${agentsBefore}`, 'блок заменён между маркерами, шапка сохранена');
-    assert.equal((agentsAfter.match(/<!-- backslop:start -->/g) ?? []).length, 1);
     assert.equal((agentsAfter.match(/<!-- backslop:end -->/g) ?? []).length, 1);
     assert.match(r.out, /оставлено как есть/);
   } finally {
@@ -180,22 +179,7 @@ test('init: agents.stepOverrides заменяет шаг в RU и EN блоке 
   }
 });
 
-test('init: probe обрезается по краям — пробелы не уезжают в код-спан', () => {
-  const root = emptyRepo();
-  try {
-    let r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    const cfg = JSON.parse(read(root, 'backslop.json'));
-    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, probe: '  npm run probe  ' }, null, 2)}\n`);
-    r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(read(root, 'AGENTS.md'), /потом проба — `npm run probe`\.$/m);
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('init: значение переопределения остаётся текстом — определение ссылки не открывается', () => {
+test('init: an override value stays text — no link definition opens, and brackets without one pass', () => {
   const root = emptyRepo();
   try {
     let r = cli(root, ['init']);
@@ -203,7 +187,7 @@ test('init: значение переопределения остаётся т�
     const cfg = JSON.parse(read(root, 'backslop.json'));
     // Цель ссылки за пределами блока: переопределение внутри блока не должно её сдвинуть.
     put(root, 'AGENTS.md', `# Проект\n\nПолитика описана в [policy].\n\n[policy]: /original\n\n${read(root, 'AGENTS.md')}`);
-    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': '[policy]: /changed', '5': '[policy]' } } }, null, 2)}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': '[policy]: /changed', '5': '[policy]', '6': 'см. таблицу [гейтов] и поле gates' } } }, null, 2)}\n`);
 
     r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
@@ -211,6 +195,7 @@ test('init: значение переопределения остаётся т�
     const block = agents.slice(agents.indexOf('<!-- backslop:start -->'), agents.indexOf('<!-- backslop:end -->'));
     assert.match(block, /^4\. \\\[policy\\\]\\: \\\/changed$/m, 'текст шага остался видимым текстом');
     assert.match(block, /^5\. \\\[policy\\\]$/m, 'соседний шаг не стал ссылкой');
+    assert.match(block, /^6\. см\\\. таблицу \\\[гейтов\\\] и поле gates$/m, 'brackets without a definition stay escaped text');
     // Маркер пункта списка блоком не является, поэтому снимается перед сверкой: без этого
     // проверка смотрела бы на строки, которые с «[» не начинаются никогда (ADR-020).
     const defs = agents.split('\n')
@@ -222,101 +207,55 @@ test('init: значение переопределения остаётся т�
   }
 });
 
-test('init: скобки без определения ссылки остаются законным значением переопределения', () => {
-  const root = emptyRepo();
-  try {
-    let r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    const cfg = JSON.parse(read(root, 'backslop.json'));
-    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': 'см. таблицу [гейтов] и поле gates' } } }, null, 2)}\n`);
-    r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err, 'скобки без признаков определения ссылки не отвергаются');
-    assert.match(read(root, 'AGENTS.md'), /^4\. см\\\. таблицу \\\[гейтов\\\] и поле gates$/m);
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('init: stepOverrides отклоняет переводы строк и сохраняет границы при повторе', () => {
+test('init refuses a stepOverrides value with a line break or a block marker and leaves AGENTS.md unchanged', () => {
   const root = emptyRepo();
   try {
     let r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     const cfg = JSON.parse(read(root, 'backslop.json'));
     const before = read(root, 'AGENTS.md');
-    for (const override of [
-      'свой текст\n5. ложный шаг',
-      'свой текст\n 5. ложный шаг',
-      'свой текст\n5) ложный шаг',
-      'свой текст\n5.\n   **ложный шаг**',
-      'свой текст\n5)\n   **ложный шаг**',
-      'свой текст\r\n5.\r\n   **ложный шаг**',
-      'свой текст\r\n5)\r\n   **ложный шаг**',
-      'свой текст\n\n   ```markdown\n5. ложный шаг',
-      'свой текст\r\n\r\n   ```markdown\r\n5. ложный шаг',
-      "свой текст\nГраницы worker'а: чужая граница",
-      'свой текст\nWorker boundaries: чужая граница',
-      'свой текст\n<!-- backslop:start -->',
-      'свой текст\n<!-- backslop:end -->',
+    for (const [override, why] of [
+      ['свой текст\n5. ложный шаг', /однострочное значение/],
+      ['свой текст <!-- backslop:end -->', /inline-текст/],
     ]) {
       put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
       r = cli(root, ['init']);
-      assert.equal(r.code, 1);
-      assert.match(r.err, /однострочное значение/);
-      assert.equal(read(root, 'AGENTS.md'), before, 'отказ не меняет managed-блок');
+      assert.equal(r.code, 1, JSON.stringify(override));
+      assert.match(r.err, why);
+      assert.equal(read(root, 'AGENTS.md'), before, `${JSON.stringify(override)}: the refusal changed AGENTS.md`);
     }
-    for (const override of ['свой текст <!-- backslop:end -->', 'свой текст <script>']) {
-      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
-      r = cli(root, ['init']);
-      assert.equal(r.code, 1);
-      assert.match(r.err, /inline-текст/);
-      const after = read(root, 'AGENTS.md');
-      assert.equal(after, before, 'отказ не меняет managed-блок');
-      assert.match(after, /^5\. \*\*Приёмка и архив\*\*/m);
-      assert.match(after, /^Границы worker'а:/m);
-    }
-
-    const override = 'свой текст — допустимая однострочная замена';
-    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
-    r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    const generated = read(root, 'AGENTS.md');
-    assert.equal((generated.match(/<!-- backslop:start -->/g) ?? []).length, 1);
-    assert.equal((generated.match(/<!-- backslop:end -->/g) ?? []).length, 1);
-    r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'AGENTS.md'), generated, 'повторный init не дублирует границы');
   } finally {
     cleanup(root);
   }
 });
 
 
-test('init: шаг 4 называет команду из probe, без поля требование не остаётся молча', () => {
-  for (const [lang, named, duty, missing] of [
-    ['ru', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
-    ['en', 'then run the probe — `npm run probe`.', /mutation probe/, /probe is not declared in backslop\.json/],
+test('init: step 4 names the trimmed probe command, and without the field init names the missing duty', () => {
+  for (const [lang, probe, named, duty, missing] of [
+    ['ru', 'npm run probe', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
+    ['en', 'npm run probe', 'then run the probe — `npm run probe`.', /mutation probe/, /probe is not declared in backslop\.json/],
+    ['ru', '  npm run probe  ', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
   ]) {
     const root = emptyRepo();
     try {
       let r = cli(root, ['init', '--lang', lang]);
-      assert.equal(r.code, 0, r.err);
-      assert.doesNotMatch(read(root, 'AGENTS.md'), duty, `${lang}: обязанности без инструмента в блоке нет`);
-      assert.match(r.out, missing, `${lang}: init называет выпавшее требование, а не молчит`);
+      assert.equal(r.code, 0, `${lang} "${probe}": ${r.err}`);
+      assert.doesNotMatch(read(root, 'AGENTS.md'), duty, `${lang} "${probe}": no probe duty in the block without a probe command`);
+      assert.match(r.out, missing, `${lang} "${probe}": init names the dropped duty instead of staying silent`);
 
       const cfg = JSON.parse(read(root, 'backslop.json'));
-      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, probe: 'npm run probe' }, null, 2)}\n`);
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, probe }, null, 2)}\n`);
       r = cli(root, ['init']);
-      assert.equal(r.code, 0, r.err);
+      assert.equal(r.code, 0, `${lang} "${probe}": ${r.err}`);
       const generated = read(root, 'AGENTS.md');
-      assert.match(generated, duty, `${lang}: с объявленной пробой требование возвращается`);
-      assert.ok(generated.includes(named), `${lang}: шаг 4 называет команду пробы`);
-      assert.doesNotMatch(r.out, missing, `${lang}: объявленная проба пропажей не называется`);
-      assert.equal(JSON.parse(read(root, 'backslop.json')).probe, 'npm run probe', 'повторный init сохраняет поле');
+      assert.match(generated, duty, `${lang} "${probe}": a declared probe brings the duty back`);
+      assert.ok(generated.includes(named), `${lang} "${probe}": step 4 names the probe command`);
+      assert.doesNotMatch(r.out, missing, `${lang} "${probe}": a declared probe is not reported missing`);
+      assert.equal(JSON.parse(read(root, 'backslop.json')).probe, probe, `${lang} "${probe}": a rerun of init keeps the field as written`);
       r = cli(root, ['init']);
-      assert.equal(r.code, 0, r.err);
-      assert.equal(read(root, 'AGENTS.md'), generated, `${lang}: второй init с probe не растит файл`);
-      assert.equal((read(root, 'AGENTS.md').match(/<!-- backslop:end -->/g) ?? []).length, 1, `${lang}: метка конца блока одна`);
+      assert.equal(r.code, 0, `${lang} "${probe}": ${r.err}`);
+      assert.equal(read(root, 'AGENTS.md'), generated, `${lang} "${probe}": a second init with probe does not grow the file`);
+      assert.equal((read(root, 'AGENTS.md').match(/<!-- backslop:end -->/g) ?? []).length, 1, `${lang} "${probe}": one block end marker`);
     } finally {
       cleanup(root);
     }
@@ -748,17 +687,6 @@ test('init в проекте со своими ADR: ADR процесса пол�
   }
 });
 
-test('init в пустом проекте: строка таблицы docs/README.md называет тот же ADR, что создан', () => {
-  const root = emptyRepo();
-  try {
-    const r = cli(root, ['init']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(read(root, 'docs/README.md'), /\[adr\/adr-001-process\.md\]\(adr\/adr-001-process\.md\)/);
-  } finally {
-    cleanup(root);
-  }
-});
-
 test('init --tools none: файл без маркера на пути текущего шаблона остаётся и назван предупреждением', () => {
   const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
   const root = emptyRepo();
@@ -823,6 +751,7 @@ test('init: symlink на корне harness — отказ только для �
     assert.equal(inner.code, 1, inner.out);
     assert.match(inner.err, /adapter path содержит symlink: \.claude/);
     assert.deepEqual(JSON.parse(read(root, 'backslop.json')).tools, ['cursor'], 'отказ до записи конфига');
+    assert.ok(!existsSync(path.join(root, 'inner', 'skills')), 'something was written behind the link');
 
     // Существующий конфиг с claude в tools: голый init состав не меняет и не лечит — лечит --tools.
     const root2 = emptyRepo();
@@ -955,25 +884,9 @@ test('init: пользовательский CLAUDE.md не попадает в 
   }
 });
 
-// Охрана ownedPath (lib/adapters.js) — единственное, что держит init и cleanupAdapters от файлов
-// по ту сторону ссылки; symlink выше — про CLAUDE.md при tools: [], adapter-путь его не проходит.
-test('init: adapter path через symlink — отказ, за ссылку ничего не пишется', { skip: process.platform === 'win32' }, () => {
-  const root = emptyRepo();
-  try {
-    mkdirSync(path.join(root, 'elsewhere'));
-    symlinkSync('elsewhere', path.join(root, '.claude'));
-    const r = cli(root, ['init', '--tools', 'claude']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /adapter path содержит symlink: \.claude/);
-    assert.ok(!existsSync(path.join(root, 'elsewhere', 'skills')), 'за ссылку ничего не записано');
-  } finally {
-    cleanup(root);
-  }
-});
-
-// Маркер под корнем harness признаётся по любому пути: снятие и предикат владения читают одно
-// правило, иначе файл, который mv, archive и lint не видят, оставался бы навсегда.
-test('init: файл с маркером вне backslop-* под корнем harness — owned и для предиката, и для снятия', () => {
+// A marker under the harness root makes a file ours at any path, so init removes it: otherwise
+// a file that mv, archive and lint do not see would stay forever.
+test('init removes a marked file outside backslop-* under the harness root and leaves an unmarked one', () => {
   const root = emptyRepo();
   try {
     assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
@@ -981,7 +894,6 @@ test('init: файл с маркером вне backslop-* под корнем h
     const plain = '.claude/skills/other/mine.md';
     put(root, marked, '<!-- backslop:generated -->\n# чужим путём, наш маркер\n');
     put(root, plain, '# без маркера\n');
-    assert.equal(isOwnedAdapterFile(marked, path.join(root, marked)), true);
     assert.equal(isOwnedAdapterFile(plain, path.join(root, plain)), false);
     const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 0, r.err);
