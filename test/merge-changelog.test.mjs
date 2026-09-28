@@ -237,7 +237,7 @@ test('merge-changelog: a version in the middle of a heading leaves the section u
 });
 
 test('merge-changelog: у theirs нет секции невыпущенного — отчёт говорит, что его записи не читались', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', '# Changelog\n\n## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n');
     gitAll(root, 'релиз 0.1.0');
@@ -260,7 +260,7 @@ test('merge-changelog: у theirs нет секции невыпущенного 
 });
 
 test('merge-changelog: команда сверяет версию секции с тегами репозитория', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', '# Changelog\n\n## v0.1.0 — 2026-01-01\n\n- **Старое** — выпущено\n');
     gitAll(root, 'релиз 0.1.0');
@@ -293,7 +293,7 @@ test('merge-changelog: команда сверяет версию секции �
 });
 
 test('merge-changelog: команда читает редакции из git и пишет в --out, отчёт в stderr', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', OURS);
     gitAll(root, 'ours');
@@ -316,7 +316,7 @@ test('merge-changelog: команда читает редакции из git и 
 });
 
 test('merge-changelog: a BOM CHANGELOG on both sides and on disk keeps exactly one BOM', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', `﻿${OURS}`);
     gitAll(root, 'ours');
@@ -337,7 +337,7 @@ test('merge-changelog: a BOM CHANGELOG on both sides and on disk keeps exactly o
 });
 
 test('merge-changelog: CHANGELOG.md больше 1 МиБ читается из git, а не обрывается ENOBUFS', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     const history = '- **Старая запись** — длинная история выпущенных версий\n'.repeat(20_000);
     put(root, 'CHANGELOG.md', `${OURS}${history}`);
@@ -358,7 +358,7 @@ test('merge-changelog: CHANGELOG.md больше 1 МиБ читается из 
 });
 
 test('merge-changelog: --base читается командой и снимает запись, которой сторона лишилась', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n\n- **Снятая** — тело\n');
     gitAll(root, 'база');
@@ -385,7 +385,7 @@ test('merge-changelog: --base читается командой и снимае�
 });
 
 test('merge-changelog: без --out слитый файл идёт в stdout, без --ours и --theirs — отказ', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', OURS);
     gitAll(root, 'ours');
@@ -406,7 +406,7 @@ test('merge-changelog: без --out слитый файл идёт в stdout, б
 });
 
 test('merge-changelog: git, оборванный сигналом на редакции или на тегах, — отказ называет сигнал, а не «код null»', { skip: process.platform === 'win32' }, () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
   try {
     put(root, 'CHANGELOG.md', OURS);
@@ -512,7 +512,7 @@ test('merge-changelog: самопроверка отказывает и файл
 });
 
 test('merge-changelog: незакрытая метка конфликта — ненулевой код возврата', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Одна** — редакция ours\n');
     gitAll(root, 'ours');
@@ -565,7 +565,7 @@ test('merge-changelog: имя метки прозой в самой сливае
 });
 
 test('merge-changelog: имя метки прозой — код возврата 0, а строка-метка — 1', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     const released = '## v0.1.0 — 2026-01-01\n\n- **Слияние** — обе редакции под меткой `<!-- backslop:conflict … -->`\n';
     put(root, 'CHANGELOG.md', `# Changelog\n\n## Не выпущено\n\n- **Своя у ours** — тело\n\n${released}`);
@@ -593,7 +593,7 @@ test('merge-changelog: повтор блока у ours — отказ назыв
 });
 
 test('merge-changelog: односторонний буллет без заголовка называется в отчёте отдельной строкой', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Запись** — тело\n- Буллет, который есть у обеих сторон\n');
     gitAll(root, 'ours');
@@ -614,7 +614,7 @@ test('merge-changelog: односторонний буллет без загол
 });
 
 test('merge-changelog: снятый повтор называется в отчёте и когда до отказа не дошло', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     // База снимает запись, поэтому слияние не аддитивное и третий инвариант молчит. Строка
     // содержания при этом всё равно пропадает — сказать об этом обязан отчёт, а не отказ.
@@ -638,7 +638,7 @@ test('merge-changelog: снятый повтор называется в отч�
 });
 
 test('merge-changelog: повтор у theirs тоже называется — в общем seen он неотличим от пришедшего от ours', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Общая** — тело\n');
     gitAll(root, 'ours');
@@ -719,7 +719,7 @@ test('merge-changelog: heading-less theirs content goes to the top group of the 
 });
 
 test('merge-changelog: the command names each placement on stderr, in all four forms', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', ADDED_FIXED);
     gitAll(root, 'ours');
@@ -761,7 +761,7 @@ test('merge-changelog: an indented bold line stays in the entry body', () => {
 });
 
 test('merge-changelog: a diverging tail after an indented bold line is a conflict for the command', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', SECTIONED('- **A** — first line\n  **Note:**\n  tail of A\n\n'));
     gitAll(root, 'base');
@@ -784,7 +784,7 @@ const CRLF = (text) => text.replace(/\n/g, '\r\n');
 const onlyCrlf = (text) => text.includes('\r\n') && !/(^|[^\r])\n/.test(text);
 
 test('merge-changelog: CRLF revisions give a CRLF result in --out and in stdout', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     run(root, ['config', 'core.autocrlf', 'false']);
     put(root, 'CHANGELOG.md', CRLF(OURS));
@@ -807,7 +807,7 @@ test('merge-changelog: CRLF revisions give a CRLF result in --out and in stdout'
 });
 
 test('merge-changelog: an existing --out file keeps its line endings over the ours revision', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', OURS);
     gitAll(root, 'ours');
@@ -831,7 +831,7 @@ test('merge-changelog: an existing --out file keeps its line endings over the ou
 });
 
 test('merge-changelog: an empty or blank --base is refused with the usage text', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', OURS);
     gitAll(root, 'ours');
@@ -847,7 +847,7 @@ test('merge-changelog: an empty or blank --base is refused with the usage text',
 });
 
 test('merge-changelog: --out creates missing directories, and an fs failure is one ✖ line', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', OURS);
     gitAll(root, 'ours');
@@ -870,7 +870,7 @@ test('merge-changelog: --out creates missing directories, and an fs failure is o
 });
 
 test('merge-changelog: a relative --out resolves against the cwd, and written: names it from the cwd', () => {
-  const root = makeProject({ prefix: 'BS' });
+  const root = makeProject();
   try {
     put(root, 'CHANGELOG.md', OURS);
     gitAll(root, 'ours');

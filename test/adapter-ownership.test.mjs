@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import os from 'node:os';
 import path from 'node:path';
 import {
-  GENERATED_MARKER, cursorRel, hasGeneratedMarker, isAdapterRel, isOwnedAdapterFile, markGenerated,
+  GENERATED_MARKER, cursorRel, hasGeneratedMarker, isOwnedAdapterFile, markGenerated,
 } from '../lib/adapter-ownership.js';
 import { repoMarkdown } from '../lib/mdwalk.js';
 
@@ -43,7 +43,7 @@ test('isOwnedAdapterFile: цитата маркера в docs не владее�
   try {
     const docs = put(dir, 'docs/adr.md', `# ADR\n\nцитата ${GENERATED_MARKER}\n`);
     const skill = put(dir, '.claude/skills/other/note.md', markGenerated('# note\n'));
-    assert.equal(isAdapterRel('docs/adr.md'), false);
+    assert.equal(isOwnedAdapterFile('docs/marked.md', put(dir, 'docs/marked.md', markGenerated('# x\n'))), false);
     assert.equal(isOwnedAdapterFile('docs/adr.md', docs), false);
     assert.equal(isOwnedAdapterFile('.claude/skills/other/note.md', skill), true);
     assert.equal(isOwnedAdapterFile('.claude/skills/backslop-task/SKILL.md', put(dir, 'unmarked.md', '# x\n')), false);

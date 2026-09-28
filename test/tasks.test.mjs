@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, getField, idMentionRe,
-  nextNumber, nextSub, parseId, placeInQueue, readFields, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
+  nextNumber, nextSub, parseId, placeInQueue, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
 import { formatId } from '../lib/ids.js';
 import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, hasNamedOutcome, outcomeFromResult, parseLogLine } from '../lib/log.js';
@@ -45,6 +45,17 @@ test('следующий номер и sub-ID считаются по всем �
   assert.equal(nextNumber([]), 1);
 });
 
+// Header fields in file order, first occurrence wins: shows the key order setField produces.
+function readFields(text) {
+  const fields = new Map();
+  for (const line of text.split('\n')) {
+    if (line.startsWith('## ')) break;
+    const m = line.match(/^- \*\*([^*:\n]+):\*\*[ \t]*(.*)$/);
+    if (m && !fields.has(m[1].trim())) fields.set(m[1].trim(), m[2].trim());
+  }
+  return fields;
+}
+
 const HEADER = '# BS-1 · Заголовок\n\n- **Область:** [x](../reference/a.md)\n- **Создана:** 2026-09-03\n\n## Контекст\n\nтекст\n';
 
 test('шапка: заголовок, поля, замена и вставка', () => {
@@ -79,7 +90,6 @@ test('шапка: RU и EN metadata читаются вместе, новые la
 
 test('шапка: чтение и запись дубля поля используют первое вхождение и схлопывают алиасы', () => {
   const duplicate = '# BS-6 · Duplicate\n\n- **Order:** 30\n- **Порядок:** 25\n- **Order:** 20\n';
-  assert.equal(readFields(duplicate).get('Order'), '30');
   assert.equal(getField(duplicate, FIELD_ORDER), '30');
   const changed = setField(duplicate, FIELD_ORDER, '5');
   assert.equal(getField(changed, FIELD_ORDER), '5');
