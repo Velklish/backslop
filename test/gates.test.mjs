@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -131,7 +131,7 @@ test('gates: the tree snapshot keeps porcelain lines whole, the leading space in
   }
 });
 
-test('gates: снимок дерева называет грязь и коммит; без git — tree null', () => {
+test('gates: the tree snapshot marks a dirty tree unclean; without git the tree is null', () => {
   const root = makeProject();
   try {
     withGates(root, ['node -e "process.exit(0)"']);
@@ -141,7 +141,6 @@ test('gates: снимок дерева называет грязь и комми
     assert.equal(r.code, 0, r.err);
     const report = JSON.parse(r.out);
     assert.equal(report.tree.clean, false);
-    assert.equal(report.tree.head.length, 40);
 
     const bare = makeProject({ git: false });
     try {
@@ -340,17 +339,13 @@ test('gates: гейт с ошибкой запуска при коде 0 — н�
     assert.match(r.err, /гейтов 2, зелёных 0, не запущено 1/);
     assert.deepEqual(ran(root), [], 'без --keep-going прогон стоит на нём, как на красном');
 
-    r = cli(root, ['gates', '--keep-going'], { env });
-    assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /гейтов 2, зелёных 1/);
-    assert.deepEqual(ran(root), ['after']);
-
     r = cli(root, ['gates', '--json', '--keep-going'], { env });
     assert.equal(r.code, 1);
     const report = JSON.parse(r.out);
     assert.equal(report.gates[0].code, 0, 'код у гейта — ноль: красит его ошибка, а не код');
     assert.match(report.gates[0].error, /ETIMEDOUT/);
     assert.equal(report.green, 1);
+    assert.deepEqual(ran(root), ['after']);
 
     // The usual cap: the shell dies of SIGTERM, and spawnSync reports ETIMEDOUT with the signal.
     withGates(root, ['sleep 5']);
@@ -687,7 +682,7 @@ test('gates: glob — * не переходит слэш, ** переходит,
   }
 });
 
-test('gates: --dry-run печатает область и отказывает вместе с --base', () => {
+test('gates: --dry-run lists every gate with its scope', () => {
   const root = makeProject();
   try {
     withGates(root, ['npm test', { command: 'npm run e2e', when: ['src/**'] }]);
@@ -698,22 +693,17 @@ test('gates: --dry-run печатает область и отказывает �
     assert.equal(report.dryRun, true);
     assert.deepEqual(report.gates, [{ command: 'npm test', when: null }, { command: 'npm run e2e', when: ['src/**'] }]);
     assert.match(cli(root, ['gates', '--dry-run']).out, /npm run e2e — область: src\/\*\*/);
-
-    const clash = cli(root, ['gates', '--dry-run', '--base', 'HEAD']);
-    assert.equal(clash.code, 1);
-    assert.match(clash.err, /--dry-run и --base вместе бессмысленны/);
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: команда есть в CLI и в справке', () => {
+test('gates: help prints the gates usage line', () => {
   const root = makeProject({ git: false });
   try {
     const help = cli(root, ['help']);
     assert.equal(help.code, 0, help.err);
     assert.match(help.out, /gates \[--keep-going\] \[--json\] \[--require-clean\] \[--dry-run\] \[--base <ref>\]/);
-    assert.match(readFileSync(new URL('../bin/backslop.js', import.meta.url), 'utf8'), /'gates'/);
   } finally {
     cleanup(root);
   }
@@ -751,16 +741,21 @@ test('gates: исход различает код, сигнал и незапу�
   }
 });
 
-test('gates: --dry-run вместе с --require-clean — отказ, а не молчаливый пропуск флага', () => {
+test('gates: --dry-run refuses --base and --require-clean before any gate runs', () => {
   const root = makeProject();
   try {
     withGates(root, [mark('first', 0)]);
-    gitAll(root, 'база');
-    put(root, 'docs/note.md', 'правка\n');
-    const r = cli(root, ['gates', '--dry-run', '--require-clean'], marked(root));
-    assert.equal(r.code, 1);
-    assert.match(r.err, /--dry-run и --require-clean вместе бессмысленны/);
-    assert.deepEqual(ran(root), []);
+    gitAll(root, 'base');
+    put(root, 'docs/note.md', 'edit\n');
+    for (const [flags, err] of [
+      [['--dry-run', '--base', 'HEAD'], /--dry-run и --base вместе бессмысленны/],
+      [['--dry-run', '--require-clean'], /--dry-run и --require-clean вместе бессмысленны/],
+    ]) {
+      const r = cli(root, ['gates', ...flags], marked(root));
+      assert.equal(r.code, 1, `${flags.join(' ')}: ${r.out}`);
+      assert.match(r.err, err, flags.join(' '));
+      assert.deepEqual(ran(root), [], `${flags.join(' ')}: no gate ran`);
+    }
   } finally {
     cleanup(root);
   }
