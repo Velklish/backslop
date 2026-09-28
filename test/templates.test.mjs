@@ -58,7 +58,7 @@ test('templates: agents-probe.md держит {{probe}} в код-спане —
 });
 
 // Фронтматтер — YAML-мэппинг: значение либо JSON-строка, либо плоский скаляр без «: », « #»,
-// хвостового «:» и индикатора YAML первым символом. Парсера нет (ADR-003).
+// хвостового «:» и индикатора YAML первым символом. Парсера нет (ADR-039).
 const YAML_INDICATOR = /^(?:[*&!%@`{[|>?#,\]}']|-(?:\s|$))/;
 
 function frontmatterFaults(rel, text) {
@@ -191,7 +191,7 @@ test('backslop-batch: пачка сворачивается после свои�
     assert.ok(accept, `${rel}: шаг приёмки с archive N не найден`);
     assert.ok(accept.indexOf('`backslop fold N') > accept.indexOf('`backslop archive N`'), `${rel}: после archive N нет fold N`);
     assert.ok(accept.includes('git commit -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"'), `${rel}: коммит приёмки не несёт заготовку`);
-    const track = accept.indexOf('(ADR-033)');
+    const track = accept.indexOf(rel.startsWith('en/') ? 'the message draft is not required there' : 'заготовка сообщения там не обязательна');
     assert.ok(track !== -1 && accept.lastIndexOf('`backslop fold`', track) > accept.indexOf('`backslop fold N >'),
       `${rel}: не назван track одним коммитом — свёртка следующим коммитом, fold N или массовый fold`);
   }
