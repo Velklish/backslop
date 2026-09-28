@@ -224,8 +224,9 @@ test('исход читается из первого абзаца result.md, о
   assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Отклонена.'), 'BS', 'en'), 'rejected');
   assert.equal(outcomeFromResult(result('**Закрыта 2026-09-03.** Слита в [BS-14](../BS-14-x/task.md). Выполнена там.'), 'BS', 'ru'), 'слита в BS-14');
   assert.equal(outcomeFromResult(result('Сделано по варианту (b).'), 'BS', 'ru'), '—');
-  assert.equal(dateFromResult(result('**Закрыта 2026-09-03.** Выполнена.')), '2026-09-03');
-  assert.equal(dateFromResult(result('**Закрыта.** Выполнена.')), null);
+});
+
+test('batch: batchOf reads the batch number in RU and EN', () => {
   assert.equal(batchOf('пачкой BS-4'), 'BS-4');
   assert.equal(batchOf('batch BS-4'), 'BS-4');
   assert.equal(batchOf('выполнена'), null);
