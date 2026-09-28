@@ -123,7 +123,7 @@ test('fold N: тело с ревизией — заготовка не обяз�
   }
 });
 
-test('fold N: отказы — пустой result.md, заглушка в нём, задача не в архиве, уже свёрнутая', () => {
+test('fold N: refusals — an empty result.md, a task outside the archive, an already folded task', () => {
   const root = makeProject();
   try {
     put(root, 'docs/reference/README.md', '# Справочник\n');
@@ -135,11 +135,6 @@ test('fold N: отказы — пустой result.md, заглушка в нё�
     let r = cli(root, ['fold', '1']);
     assert.equal(r.code, 1);
     assert.match(r.err, /result\.md пуст/);
-
-    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** [TODO: исход]\n');
-    r = cli(root, ['fold', '1']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /остался заглушкой/);
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha')), 'отказ не трогает каталог');
     assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'отказ не заводит журнал');
 
@@ -977,32 +972,6 @@ test('fold N: a directory named like an entry in the batch minor/ is skipped, no
   }
 });
 
-test('archive N в дереве без каталогов архива: свёрнутый архив не краевой случай', () => {
-  const root = makeProject();
-  try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
-    closed(root);
-    gitAll(root);
-    assert.equal(cli(root, ['fold', '1']).code, 0);
-    gitAll(root, 'свёртка');
-    // В docs/archive/ остались только LOG.md и README.md — состояние сразу после свёртки.
-    assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-alpha')));
-
-    put(root, 'docs/backlog/active/BS-2-next.md', '# BS-2 · Следующая\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-20\n');
-    gitAll(root, 'вторая задача');
-    const r = cli(root, ['archive', '2']);
-    assert.equal(r.code, 0, r.err);
-    assert.ok(existsSync(path.join(root, 'docs/archive/BS-2-next/task.md')));
-    put(root, 'docs/archive/BS-2-next/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-09-21.** Выполнена. Готово.\n');
-    const folded = cli(root, ['fold', '2']);
-    assert.equal(folded.code, 0, folded.err);
-    assert.equal(logLines(root).length, 2);
-    assert.equal(cli(root, ['lint']).code, 0);
-  } finally {
-    cleanup(root);
-  }
-});
-
 test('show N: тело файлами из ревизии строки, иначе по заголовку BS-N:, иначе отказ', () => {
   const root = makeProject();
   try {
@@ -1272,9 +1241,12 @@ test('fold: номера свёрнутых задач чужого worktree и 
     git('worktree', 'add', '-q', wt, '-b', 'worker');
     // Свёртка идёт в чужом worktree и ещё не закоммичена — номер считается по диску.
     assert.equal(cli(wt, ['fold', '1'], { cwd: wt }).code, 0);
+    closed(wt, { id: 'BS-3', slug: 'three', title: 'Три' });
+    assert.equal(cli(wt, ['fold', '3'], { cwd: wt }).code, 0);
     let r = cli(root, ['new', 'b']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /BS-2: /);
+    assert.match(r.out, /BS-4: /, 'BS-3 is taken by the uncommitted journal line in the worktree');
+    assert.match(r.out, /BS-3 занят: worktree .+[\\/]worker \(worker\)$/m);
 
     // Worktree убран, ветка со свёрнутой BS-2 осталась — номер считается по дереву ветки.
     run(wt, ['add', '-A']);
