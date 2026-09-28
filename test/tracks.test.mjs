@@ -39,7 +39,7 @@ function dropRun(root) {
   cleanup(root);
 }
 
-test('tracks: влитый track и невлитый различаются, незакоммиченное названо', () => {
+test('tracks: merged and unmerged tracks differ and uncommitted work is named, as text and as --json', () => {
   const root = makeProject();
   try {
     seedRun(root);
@@ -57,18 +57,10 @@ test('tracks: влитый track и невлитый различаются, н�
     assert.doesNotMatch(r.out, /мимо префикса задач/);
     assert.match(r.out, /незакоммиченного: 1\n {6}\?\? docs\/backlog\/queue\/BS-3-c\.md/);
     assert.match(r.out, /tracks: worktree и веток 2, не влитых 1/);
-  } finally {
-    dropRun(root);
-  }
-});
 
-test('tracks --json: та же картина машиночитаемо, незакоммиченное отдельным полем', () => {
-  const root = makeProject();
-  try {
-    seedRun(root);
-    const r = cli(root, ['tracks', '--json']);
-    assert.equal(r.code, 0, r.err);
-    const report = JSON.parse(r.out);
+    const json = cli(root, ['tracks', '--json']);
+    assert.equal(json.code, 0, json.err);
+    const report = JSON.parse(json.out);
     assert.equal(report.total, 2);
 
     const merged = report.tracks.find((t) => t.branch === 'track-merged');
