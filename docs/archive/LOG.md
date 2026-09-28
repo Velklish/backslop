@@ -182,3 +182,4 @@
 - <a id="bs-147"></a>`BS-147-adr-changelog-merge` · 2026-09-28 · completed · — · One English ADR on merge-changelog replaces ADR-013, 024 and 030
 - <a id="bs-148"></a>`BS-148-adr-closed-task-journal` · 2026-09-28 · completed · — · One English ADR on folding closed tasks replaces ADR-026, 033, 034 and 037
 - <a id="bs-139"></a>`BS-139-links-mdwalk-tasks-test-tables` · 2026-09-29 · completed · — · links/mdwalk/tasks tests: link rewrites as tables, drop subsumed cases, test batchOf
+- <a id="bs-141"></a>`BS-141-brief-archive-tracks-tests` · 2026-09-29 · completed · — · brief/archive/tracks tests: merge slot and twin tests, drop duplicate asserts

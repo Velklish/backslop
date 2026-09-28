@@ -45,7 +45,6 @@ test('brief: заголовок track’а, постановки задач с �
     // gates, prefix и cli — из backslop.json проекта, не из умолчаний инструмента.
     assert.match(r.out, /`npm test`, `npx backslop@1\.2\.3 lint`/);
     assert.match(r.out, /префиксом `BL-N:`/);
-    assert.match(r.out, /`npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]`/);
 
     // Семь неизменных пунктов брифа.
     for (const re of [/## Границы правки/, /## Критерий готовности/, /Доки — тем же ходом/,
@@ -64,21 +63,37 @@ test('brief: заголовок track’а, постановки задач с �
   }
 });
 
-test('brief: соседи и замеры — флагами; без них раздел границ остаётся заготовкой', () => {
+test('brief: orchestrator slots — a placeholder without the flag, the value with it', () => {
   const root = makeProject();
   try {
     seed(root);
+    const slots = [
+      { label: 'neighbours', flagArgs: ['--neighbour', 'test/=tests', '--neighbour', 'bin/=cli'],
+        placeholder: /\[TODO: какие каталоги твои/, values: [/- `test\/` — track «tests»;/, /- `bin\/` — track «cli»;/] },
+      { label: 'entry', flagArgs: ['--entry', 'lib/guard.js, затем справочник'],
+        placeholder: /\[TODO: где лежит предмет и с чего начинать чтение/, values: [/lib\/guard\.js, затем справочник/] },
+      { label: 'autonomy', flagArgs: ['--autonomy', 'формулировки твои, схема — нет'],
+        placeholder: /\[TODO: что участник закрывает своим решением/, values: [/формулировки твои, схема — нет/] },
+      { label: 'handover', flagArgs: ['--handover', 'запись гейта артефактом'],
+        placeholder: /\[TODO: протокол гейта и шапка отчёта/, values: [/запись гейта артефактом/] },
+      { label: 'measurements', flagArgs: ['--measurements'], absent: /Число из захода снимай замером/, values: [/Число из захода снимай замером/] },
+    ];
     const bare = cli(root, ['brief', '3']);
     assert.equal(bare.code, 0, bare.err);
-    assert.match(bare.out, /\[TODO: какие каталоги твои/);
-    assert.doesNotMatch(bare.out, /Число из захода снимай замером/);
-
-    const full = cli(root, ['brief', '3', '--neighbour', 'test/=tests', '--neighbour', 'bin/=cli', '--measurements']);
+    for (const re of [/## Точка входа/, /## Что решаешь сам/, /## Форма сдачи/]) assert.match(bare.out, re);
+    // Слот без ключа уехал бы читателю буквально; на постановке без `{{` в тексте их ноль.
+    assert.doesNotMatch(bare.out, /\{\{/);
+    const full = cli(root, ['brief', '3', ...slots.flatMap((slot) => slot.flagArgs)]);
     assert.equal(full.code, 0, full.err);
-    assert.match(full.out, /- `test\/` — track «tests»;/);
-    assert.match(full.out, /- `bin\/` — track «cli»;/);
-    assert.doesNotMatch(full.out, /\[TODO: какие каталоги твои/);
-    assert.match(full.out, /Число из захода снимай замером/);
+    for (const { label, placeholder, absent, values } of slots) {
+      if (placeholder) {
+        assert.match(bare.out, placeholder, `${label}: placeholder without the flag`);
+        assert.doesNotMatch(full.out, placeholder, `${label}: no placeholder with the flag`);
+      } else {
+        assert.doesNotMatch(bare.out, absent, `${label}: absent without the flag`);
+      }
+      for (const value of values) assert.match(full.out, value, `${label}: value with the flag`);
+    }
 
     const bad = cli(root, ['brief', '3', '--neighbour', 'tests']);
     assert.equal(bad.code, 1);
@@ -191,33 +206,6 @@ test('brief: архивная задача без task.md — отказ сло�
   }
 });
 
-test('brief: три слота решения оркестратора — заготовка без флага, значение с флагом', () => {
-  const root = makeProject();
-  try {
-    seed(root);
-    const bare = cli(root, ['brief', '3']);
-    assert.equal(bare.code, 0, bare.err);
-    for (const re of [/## Точка входа/, /## Что решаешь сам/, /## Форма сдачи/]) assert.match(bare.out, re);
-    assert.match(bare.out, /\[TODO: где лежит предмет и с чего начинать чтение/);
-    assert.match(bare.out, /\[TODO: что участник закрывает своим решением/);
-    assert.match(bare.out, /\[TODO: протокол гейта и шапка отчёта/);
-    // Слот без ключа уехал бы читателю буквально; на постановке без `{{` в тексте их ноль.
-    assert.doesNotMatch(bare.out, /\{\{/);
-
-    const full = cli(root, ['brief', '3',
-      '--entry', 'lib/guard.js, затем справочник',
-      '--autonomy', 'формулировки твои, схема — нет',
-      '--handover', 'запись гейта артефактом']);
-    assert.equal(full.code, 0, full.err);
-    assert.match(full.out, /lib\/guard\.js, затем справочник/);
-    assert.match(full.out, /формулировки твои, схема — нет/);
-    assert.match(full.out, /запись гейта артефактом/);
-    assert.doesNotMatch(full.out, /\[TODO: где лежит предмет/);
-  } finally {
-    cleanup(root);
-  }
-});
-
 test('brief: the gates step names the runner through the project cli', () => {
   const root = makeProject();
   try {
@@ -260,7 +248,6 @@ test('brief: команда пробы — из поля probe проекта; �
     let r = cli(root, ['brief', '3', '--track', 'миграция конфигов']);
     assert.equal(r.code, 0, r.err);
     assert.doesNotMatch(r.out, /потом проба —/, 'поля probe нет — команду бриф не называет');
-    assert.ok(!r.out.includes('{{'), 'пустая подстановка не оставляет {{…}} читателю');
     // Выкинутое требование называется вслух, как у `init` (ADR-021), и в stderr: stdout — бриф.
     assert.match(r.err, /probe в backslop\.json не объявлен/);
     assert.doesNotMatch(r.out, /probe в backslop\.json не объявлен/, 'нота в stdout уехала бы worker’у частью постановки');

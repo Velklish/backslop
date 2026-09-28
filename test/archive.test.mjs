@@ -147,32 +147,26 @@ test('archive: файл в индексе git переезжает через gi
   }
 });
 
-test('archive: некоммиченный файл в репозитории переезжает переименованием и предупреждает', () => {
-  const root = makeProject();
-  try {
-    // Репозиторий есть, а файла нет в индексе: `moveFile` ветвится по отслеживаемости файла,
-    // а не по наличию репозитория, и это частый случай — задача заведена и ещё не закоммичена.
-    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст\n');
-    const r = cli(root, ['archive', '1']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(r.err, /файл не в индексе git — перенесён без git mv/);
-    assert.equal(run(root, ['status', '--porcelain']).stdout.match(/^R/m), null, 'переименования в индексе нет');
-    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-a/task.md')));
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('archive: файл вне репозитория git переезжает переименованием и предупреждает', () => {
-  const root = makeProject({ git: false });
-  try {
-    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст\n');
-    const r = cli(root, ['archive', '1']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(r.err, /файл не в индексе git — перенесён без git mv/);
-    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-a/task.md')));
-  } finally {
-    cleanup(root);
+test('archive: a file outside the git index moves by rename and warns, with or without a repository', () => {
+  // Репозиторий есть, а файла нет в индексе: `moveFile` ветвится по отслеживаемости файла,
+  // а не по наличию репозитория, и это частый случай — задача заведена и ещё не закоммичена.
+  for (const { label, git, assertNoRenameInIndex } of [
+    { label: 'untracked file in a repo', git: true, assertNoRenameInIndex: true },
+    { label: 'no git repository', git: false, assertNoRenameInIndex: false },
+  ]) {
+    const root = makeProject({ git });
+    try {
+      put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · А\n\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст\n');
+      const r = cli(root, ['archive', '1']);
+      assert.equal(r.code, 0, `${label}: ${r.err}`);
+      assert.match(r.err, /файл не в индексе git — перенесён без git mv/, label);
+      if (assertNoRenameInIndex) {
+        assert.equal(run(root, ['status', '--porcelain']).stdout.match(/^R/m), null, `${label}: no rename in the index`);
+      }
+      assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-a/task.md')), label);
+    } finally {
+      cleanup(root);
+    }
   }
 });
 
