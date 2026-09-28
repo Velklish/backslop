@@ -189,3 +189,4 @@
 - <a id="bs-140"></a>`BS-140-comment-length-templates-tests` · 2026-09-29 · completed · — · Comment gate and template tests: drop the debt list, table lexer and parity, one style
 - <a id="bs-154"></a>`BS-154-adr-process` · 2026-09-29 · completed · — · One English process ADR (tasks as files, status as directory) replaces ADR-001 and ADR-002
 - <a id="bs-155"></a>`BS-155-adr-language-step-overrides` · 2026-09-29 · completed · — · English ADRs for the layout language and for step overrides replace ADR-005 and ADR-020
+- <a id="bs-156"></a>`BS-156-adr-seed-tracks` · 2026-09-29 · completed · — · English ADRs for seeding and for the tracks command replace ADR-011 and ADR-014
