@@ -16,18 +16,15 @@
 | [adr/adr-007-npm-pin.md](adr/adr-007-npm-pin.md) | Точный npm-пин и релизный чеклист без смены default CLI | Accepted |
 | [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
 | [adr/adr-011-seed-scan-queue-reference.md](adr/adr-011-seed-scan-queue-reference.md) | Механика посева — команда `seed`, отбор кандидатов — агент и владелец | Accepted |
-| [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Superseded in part by ADR-024 (позиция записи и спор за одно место); refined by [ADR-030](adr/adr-030-changelog-merge-untagged-version-section.md) (верхняя секция версии без тега — невыпущенная) |
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
 | [adr/adr-019-live-pins-and-findings.md](adr/adr-019-live-pins-and-findings.md) | Живые пины в `upgrade`/`lint` и связь находки с родителем | Accepted |
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
 | [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
 | [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
-| [adr/adr-024-changelog-merge-keeps-layout.md](adr/adr-024-changelog-merge-keeps-layout.md) | Слияние CHANGELOG сохраняет раскладку файла и отказывается на незакрытом конфликте | Accepted |
 | [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Superseded in part by ADR-033 (ревизия у `fold N` и обязательность заготовки), ADR-034 (сверка тела с ревизией до удаления, четвёртая причина пустой ревизии) |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Superseded in part by ADR-031 (порядок пакета при `--restore` — гарантия контракта) |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Superseded in part by ADR-035 (носитель долга в пробе обхода — фикстура вне обхода), ADR-038 (гейт судит и ширину строки блока — не шире 100 знаков) |
 | [adr/adr-029-minor-finding-requires-evidence.md](adr/adr-029-minor-finding-requires-evidence.md) | Находка в `minor/` заводится только с уликой: `--evidence` обязателен, отказ до создания файла | Superseded in part by ADR-036 (вторая дверь в `minor/` закрыта) |
-| [adr/adr-030-changelog-merge-untagged-version-section.md](adr/adr-030-changelog-merge-untagged-version-section.md) | Слияние CHANGELOG видит верхнюю секцию версии без тега невыпущенной: бамп до работы не ломает приёмку | Accepted |
 | [adr/adr-031-restore-batch-keeps-order.md](adr/adr-031-restore-batch-keeps-order.md) | Пакет `--restore` возвращает задачи в порядке их сохранённых чисел: каждая следующая встаёт не позже соседа по пакету | Accepted |
 | [adr/adr-032-tool-owned-rules-redrawn-by-migrate.md](adr/adr-032-tool-owned-rules-redrawn-by-migrate.md) | Правила ведения и архива у потребителя принадлежат инструменту: `migrate` перерисовывает их из шаблона | Accepted |
 | [adr/adr-033-fold-draft-mandatory-only-without-revision.md](adr/adr-033-fold-draft-mandatory-only-without-revision.md) | `fold N` записывает ревизию закоммиченного каталога; заготовка обязательна только без неё | Accepted |
@@ -40,6 +37,7 @@
 | [adr/adr-040-harness-adapters.md](adr/adr-040-harness-adapters.md) | Harness adapters: selection, ownership and path safety of generated outputs | Accepted |
 | [adr/adr-041-probe-command.md](adr/adr-041-probe-command.md) | The mutation-probe command is a project field substituted into the block, the task skill and the brief | Accepted |
 | [adr/adr-042-worker-brief.md](adr/adr-042-worker-brief.md) | The worker brief is rendered by a command from a template | Accepted |
+| [adr/adr-043-changelog-merge.md](adr/adr-043-changelog-merge.md) | merge-changelog merges the unreleased section structurally and refuses rather than guess | Accepted |
 
 ## Сквозные принципы
 
