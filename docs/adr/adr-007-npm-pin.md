@@ -6,7 +6,7 @@
 
 ## Context
 
-[ADR-003](adr-003-node-stdlib-npx.md) оставил доставку на `npx github:`. [ADR-004](adr-004-version-pin-upgrade.md) закрепил пин тегом git. Публикация в npm даёт короткую команду и точную версию, но ссылка на отсутствующий пакет ломает новые проекты. Источник версий для `upgrade` — git-теги: npm registry не заменяет их.
+[ADR-039](adr-039-node-runtime-delivery-release.md) оставил доставку на `npx github:`. [ADR-004](adr-004-version-pin-upgrade.md) закрепил пин тегом git. Публикация в npm даёт короткую команду и точную версию, но ссылка на отсутствующий пакет ломает новые проекты. Источник версий для `upgrade` — git-теги: npm registry не заменяет их.
 
 ## Варианты
 
