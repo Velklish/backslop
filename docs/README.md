@@ -9,8 +9,6 @@
 | [ROADMAP.md](ROADMAP.md) | Направление и цели; задачи — в бэклоге | Живой |
 | [backlog/](backlog/README.md) | Трекер задач: файл на задачу, статус — каталог, сводка — `node bin/backslop.js status` | Живой |
 | [archive/](archive/README.md) | Закрытые задачи: постановка и результат раздельными файлами | Живой |
-| [adr/adr-001-process.md](adr/adr-001-process.md) | Задачи и решения ведутся по backslop | Accepted |
-| [adr/adr-002-status-is-directory.md](adr/adr-002-status-is-directory.md) | Статус задачи — каталог, приоритет — поле «Порядок»; индекса в git нет | Accepted |
 | [adr/adr-005-localization.md](adr/adr-005-localization.md) | Язык раскладки: поле `lang` и второй комплект шаблонов | Accepted |
 | [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
 | [adr/adr-011-seed-scan-queue-reference.md](adr/adr-011-seed-scan-queue-reference.md) | Механика посева — команда `seed`, отбор кандидатов — агент и владелец | Accepted |
@@ -29,6 +27,7 @@
 | [adr/adr-047-findings.md](adr/adr-047-findings.md) | Findings: numbering under a parent, cost label, the minor/ status and batch closing | Accepted |
 | [adr/adr-048-version-pin-upgrade-migrate.md](adr/adr-048-version-pin-upgrade-migrate.md) | Version pin, upgrade and migrate | Accepted |
 | [adr/adr-049-queue-order.md](adr/adr-049-queue-order.md) | Queue order: an integer rank per file, a saved rank on leaving, restore by batch | Accepted |
+| [adr/adr-050-process.md](adr/adr-050-process.md) | Tasks and decisions live as files; a task's status is its directory | Accepted |
 
 ## Сквозные принципы
 
