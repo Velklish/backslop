@@ -173,7 +173,7 @@ test('fold N: result.md без слова исхода — отказ до за�
     const lint = cli(root, ['lint']);
     assert.match(lint.err, /docs\/archive\/BS-1-alpha: result\.md не называет исход словом словаря/, 'гейт 5 говорит то же');
 
-    // Старую запись массовая свёртка по-прежнему читает фолбэком (ADR-037).
+    // Старую запись массовая свёртка по-прежнему читает фолбэком (ADR-044).
     gitAll(root, 'закрытие альфы');
     const bulk = cli(root, ['fold']);
     assert.equal(bulk.code, 0, bulk.err);

@@ -248,7 +248,7 @@ test('brief: команда пробы — из поля probe проекта; �
     let r = cli(root, ['brief', '3', '--track', 'миграция конфигов']);
     assert.equal(r.code, 0, r.err);
     assert.doesNotMatch(r.out, /потом проба —/, 'поля probe нет — команду бриф не называет');
-    // Выкинутое требование называется вслух, как у `init` (ADR-021), и в stderr: stdout — бриф.
+    // Выкинутое требование называется вслух, как у `init` (ADR-041), и в stderr: stdout — бриф.
     assert.match(r.err, /probe в backslop\.json не объявлен/);
     assert.doesNotMatch(r.out, /probe в backslop\.json не объявлен/, 'нота в stdout уехала бы worker’у частью постановки');
 

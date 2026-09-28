@@ -197,7 +197,7 @@ test('init: an override value stays text — no link definition opens, and brack
     assert.match(block, /^5\. \\\[policy\\\]$/m, 'соседний шаг не стал ссылкой');
     assert.match(block, /^6\. см\\\. таблицу \\\[гейтов\\\] и поле gates$/m, 'brackets without a definition stay escaped text');
     // Маркер пункта списка блоком не является, поэтому снимается перед сверкой: без этого
-    // проверка смотрела бы на строки, которые с «[» не начинаются никогда (ADR-020).
+    // проверка смотрела бы на строки, которые с «[» не начинаются никогда (ADR-052).
     const defs = agents.split('\n')
       .map((l) => l.replace(/^ {0,3}(?:[-*+]|\d{1,9}[.)]) +/, ''))
       .filter((l) => /^ {0,3}\[[^\]\\]*\]:/.test(l));
@@ -720,8 +720,8 @@ test('init --tools none: an unmarked file at a shipped skill path is left byte f
   }
 });
 
-// ADR-016: на symlink проверяются только корни выбранных adapter'ов, и ссылка там — отказ, куда
-// бы ни вела; корни невыбранных не проверяются и не чистятся.
+// ADR-040: на symlink проверяются только корни выбранных adapter'ов, и ссылка там — отказ, куда
+// бы ни вела; корни невыбранных не проверяются.
 test('init: symlink на корне harness — отказ только для выбранного adapter\'а, до первой записи', () => {
   const root = emptyRepo();
   const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
@@ -905,7 +905,7 @@ test('init removes a marked file outside backslop-* under the harness root and l
   }
 });
 
-// ADR-015: only the marker makes a file ours, so an unmarked one at a shipped path is foreign.
+// ADR-040: only the marker makes a file ours, so an unmarked one at a shipped path is foreign.
 test('init --tools claude: чужой файл без маркера на пути owned output не переписывается и назван предупреждением', () => {
   const root = emptyRepo();
   try {
