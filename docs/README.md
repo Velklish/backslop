@@ -9,8 +9,6 @@
 | [ROADMAP.md](ROADMAP.md) | Направление и цели; задачи — в бэклоге | Живой |
 | [backlog/](backlog/README.md) | Трекер задач: файл на задачу, статус — каталог, сводка — `node bin/backslop.js status` | Живой |
 | [archive/](archive/README.md) | Закрытые задачи: постановка и результат раздельными файлами | Живой |
-| [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
-| [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Superseded in part by ADR-035 (носитель долга в пробе обхода — фикстура вне обхода), ADR-038 (гейт судит и ширину строки блока — не шире 100 знаков) |
 | [adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md](adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md) | Долг комментариев сведён в ноль: носитель долга в пробе гейта — фикстура вне обхода | Accepted |
 | [adr/adr-038-comment-line-width-under-gate.md](adr/adr-038-comment-line-width-under-gate.md) | Гейт комментариев судит и ширину строки: не шире 100 знаков, знак — кодпоинт | Accepted |
@@ -20,6 +18,7 @@
 | [adr/adr-042-worker-brief.md](adr/adr-042-worker-brief.md) | The worker brief is rendered by a command from a template | Accepted |
 | [adr/adr-043-changelog-merge.md](adr/adr-043-changelog-merge.md) | merge-changelog merges the unreleased section structurally and refuses rather than guess | Accepted |
 | [adr/adr-044-closed-task-journal.md](adr/adr-044-closed-task-journal.md) | Closed tasks fold into a journal line; the body stays in git | Accepted |
+| [adr/adr-045-gates-runner.md](adr/adr-045-gates-runner.md) | Gates runner and path-scoped gates | Accepted |
 | [adr/adr-047-findings.md](adr/adr-047-findings.md) | Findings: numbering under a parent, cost label, the minor/ status and batch closing | Accepted |
 | [adr/adr-048-version-pin-upgrade-migrate.md](adr/adr-048-version-pin-upgrade-migrate.md) | Version pin, upgrade and migrate | Accepted |
 | [adr/adr-049-queue-order.md](adr/adr-049-queue-order.md) | Queue order: an integer rank per file, a saved rank on leaving, restore by batch | Accepted |
