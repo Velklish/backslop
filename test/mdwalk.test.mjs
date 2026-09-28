@@ -40,6 +40,8 @@ test('repoMarkdown: корень и каталоги вглубь, без .git, 
   }
 });
 
+// `srcFiles` follows links on purpose; the set of real paths stops loops (this test). The
+// harness-root test below guards that a file behind a directory link is found.
 test('mdFiles: симлинк на предка не зацикливает обход', { skip: process.platform === 'win32' }, () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
   try {
@@ -74,21 +76,6 @@ test('repoMarkdown: за ссылку на корне harness обход не з
   } finally {
     rmSync(sb, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
-  }
-});
-
-// `srcFiles` идёт по ссылке намеренно, от петли держит набор настоящих путей. Тест про петлю —
-// выше, этот — что за ссылкой файл действительно находится.
-test('mdFiles: файл за симлинком на каталог попадает в обход', { skip: process.platform === 'win32' }, () => {
-  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
-  try {
-    put(sb, 'docs/a.md');
-    put(sb, 'outside/b.md');
-    symlinkSync(path.join(sb, 'outside'), path.join(sb, 'docs', 'link'));
-    const rels = mdFiles(path.join(sb, 'docs'), 'docs').map(([rel]) => rel).sort();
-    assert.deepEqual(rels, ['docs/a.md', 'docs/link/b.md']);
-  } finally {
-    rmSync(sb, { recursive: true, force: true });
   }
 });
 

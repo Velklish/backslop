@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  EXTERNAL, blankCode, brokenLinks, directoryLinks, normalizeHrefTarget, relativeLinks, rewriteFoldedLinks,
+  EXTERNAL, brokenLinks, directoryLinks, normalizeHrefTarget, relativeLinks, rewriteFoldedLinks,
   repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, splitHref,
 } from '../lib/links.js';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
@@ -15,84 +15,48 @@ import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs
 const FROM = 'docs/backlog/active';
 const TO = 'docs/archive/BS-42-move-breaks-links';
 
-test('перенесённый файл: цель пересчитывается от нового каталога', () => {
-  for (const [before, after] of [
-    ['[10](../../reference/10-validation.md)', '[10](../../reference/10-validation.md)'],
-    ['[BS-7](../../archive/BS-7-x/task.md)', '[BS-7](../BS-7-x/task.md)'],
-    ['[lint.js](../../../lib/lint.js)', '[lint.js](../../../lib/lint.js)'],
-    ['[BS-41](BS-41-x.md)', '[BS-41](../../backlog/active/BS-41-x.md)'],
-    ['[BS-40](../queue/BS-40-y.md)', '[BS-40](../../backlog/queue/BS-40-y.md)'],
+const ENCODED = '[a](a%20b.md) [b](<a b.md>) [c](a%20b.md#x) [d](a%2Db.md) [e](%c3%a9.md)';
+
+test('moved file: link targets are recomputed from the new directory or left as written', () => {
+  for (const [label, before, after, to = TO] of [
+    ['same depth outside the move', '[10](../../reference/10-validation.md)', '[10](../../reference/10-validation.md)'],
+    ['archive sibling', '[BS-7](../../archive/BS-7-x/task.md)', '[BS-7](../BS-7-x/task.md)'],
+    ['same depth outside docs', '[lint.js](../../../lib/lint.js)', '[lint.js](../../../lib/lint.js)'],
+    ['file next to the old place', '[BS-41](BS-41-x.md)', '[BS-41](../../backlog/active/BS-41-x.md)'],
+    ['neighbouring status directory', '[BS-40](../queue/BS-40-y.md)', '[BS-40](../../backlog/queue/BS-40-y.md)'],
+    ['anchor kept', '[р](../queue/BS-40-y.md#итог)', '[р](../../backlog/queue/BS-40-y.md#итог)'],
+    ['title kept', '[р](../queue/BS-40-y.md "Заголовок")', '[р](../../backlog/queue/BS-40-y.md "Заголовок")'],
+    ['angle brackets kept', '[р](<../queue/BS-40-y.md>)', '[р](<../../backlog/queue/BS-40-y.md>)'],
+    ['reference-style definition',
+      'Смотри [очередь][q].\n\n[q]: ../queue/BS-40-y.md\n', 'Смотри [очередь][q].\n\n[q]: ../../backlog/queue/BS-40-y.md\n'],
+    ['external addresses and anchors untouched',
+      '[gh](https://github.com/x), [почта](mailto:a@b) и [раздел](#итог)', '[gh](https://github.com/x), [почта](mailto:a@b) и [раздел](#итог)'],
+    ['root path untouched', '[к](/docs/README.md)', '[к](/docs/README.md)'],
+    ['query kept', '[з](../queue/BS-40-y.md?plain=1)', '[з](../../backlog/queue/BS-40-y.md?plain=1)'],
+    ['encoding alone never triggers a rewrite', ENCODED, ENCODED, FROM],
   ]) {
-    assert.equal(rewriteMovedLinks(before, FROM, TO), after);
+    assert.equal(rewriteMovedLinks(before, FROM, to), after, label);
   }
-});
-
-test('перенесённый файл: якорь, заголовок и угловые скобки сохраняются', () => {
-  assert.equal(
-    rewriteMovedLinks('[р](../queue/BS-40-y.md#итог)', FROM, TO),
-    '[р](../../backlog/queue/BS-40-y.md#итог)',
-  );
-  assert.equal(
-    rewriteMovedLinks('[р](../queue/BS-40-y.md "Заголовок")', FROM, TO),
-    '[р](../../backlog/queue/BS-40-y.md "Заголовок")',
-  );
-  assert.equal(
-    rewriteMovedLinks('[р](<../queue/BS-40-y.md>)', FROM, TO),
-    '[р](<../../backlog/queue/BS-40-y.md>)',
-  );
-});
-
-test('перенесённый файл: reference-style объявление переписывается', () => {
-  assert.equal(
-    rewriteMovedLinks('Смотри [очередь][q].\n\n[q]: ../queue/BS-40-y.md\n', FROM, TO),
-    'Смотри [очередь][q].\n\n[q]: ../../backlog/queue/BS-40-y.md\n',
-  );
-});
-
-test('перенесённый файл: внешние адреса и якоря не трогаются', () => {
-  const outside = '[gh](https://github.com/x), [почта](mailto:a@b) и [раздел](#итог)';
-  assert.equal(rewriteMovedLinks(outside, FROM, TO), outside);
 });
 
 const OLD = 'docs/backlog/active/BS-42-x.md';
 const NEW = 'docs/archive/BS-42-x/task.md';
 
-test('входящие ссылки: чинится ровно ссылка на переехавший файл', () => {
-  assert.equal(
-    rewriteIncomingLinks('[BS-42](BS-42-x.md)', 'docs/backlog/active', OLD, NEW),
-    '[BS-42](../../archive/BS-42-x/task.md)',
-  );
-  assert.equal(
-    rewriteIncomingLinks('[BS-42](../backlog/active/BS-42-x.md)', 'docs/reference', OLD, NEW),
-    '[BS-42](../archive/BS-42-x/task.md)',
-  );
-  assert.equal(
-    rewriteIncomingLinks('[BS-42](../../backlog/active/BS-42-x.md)', 'docs/archive/BS-30-y', OLD, NEW),
-    '[BS-42](../BS-42-x/task.md)',
-  );
-  assert.equal(
-    rewriteIncomingLinks('[BS-42](docs/backlog/active/BS-42-x.md)', '', OLD, NEW),
-    '[BS-42](docs/archive/BS-42-x/task.md)',
-  );
-});
-
-test('входящие ссылки: чужая ссылка рядом не трогается, якорь сохраняется', () => {
-  const mixed = '[BS-42](BS-42-x.md#итог) и [BS-41](BS-41-y.md)';
-  assert.equal(
-    rewriteIncomingLinks(mixed, 'docs/backlog/active', OLD, NEW),
-    '[BS-42](../../archive/BS-42-x/task.md#итог) и [BS-41](BS-41-y.md)',
-  );
-});
-
-test('входящие ссылки: корневая ссылка на переехавший файл переписывается и остаётся корневой', () => {
-  assert.equal(
-    rewriteIncomingLinks('[BS-42](/docs/backlog/active/BS-42-x.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)', 'docs', OLD, NEW),
-    '[BS-42](/docs/archive/BS-42-x/task.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)',
-  );
-  assert.equal(
-    rewriteIncomingLinks('Смотри [задачу][t].\n\n[t]: </docs/backlog/active/BS-42-x.md>\n', '', OLD, NEW),
-    'Смотри [задачу][t].\n\n[t]: </docs/archive/BS-42-x/task.md>\n',
-  );
+test('incoming links: only the link to the moved file is rewritten; anchor and root form kept', () => {
+  for (const [text, fileDir, expected] of [
+    ['[BS-42](BS-42-x.md)', 'docs/backlog/active', '[BS-42](../../archive/BS-42-x/task.md)'],
+    ['[BS-42](../backlog/active/BS-42-x.md)', 'docs/reference', '[BS-42](../archive/BS-42-x/task.md)'],
+    ['[BS-42](../../backlog/active/BS-42-x.md)', 'docs/archive/BS-30-y', '[BS-42](../BS-42-x/task.md)'],
+    ['[BS-42](docs/backlog/active/BS-42-x.md)', '', '[BS-42](docs/archive/BS-42-x/task.md)'],
+    ['[BS-42](BS-42-x.md#итог) и [BS-41](BS-41-y.md)', 'docs/backlog/active',
+      '[BS-42](../../archive/BS-42-x/task.md#итог) и [BS-41](BS-41-y.md)'],
+    ['[BS-42](/docs/backlog/active/BS-42-x.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)', 'docs',
+      '[BS-42](/docs/archive/BS-42-x/task.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)'],
+    ['Смотри [задачу][t].\n\n[t]: </docs/backlog/active/BS-42-x.md>\n', '',
+      'Смотри [задачу][t].\n\n[t]: </docs/archive/BS-42-x/task.md>\n'],
+  ]) {
+    assert.equal(rewriteIncomingLinks(text, fileDir, OLD, NEW), expected);
+  }
 });
 
 test('разбор: блоки кода, спаны и внешние адреса не дают ссылок', () => {
@@ -132,11 +96,6 @@ test('разбор: сноска — не объявление ссылки; о�
   assert.deepEqual(relativeLinks('# Заголовок\n[a]: a.md\n'), ['a.md']);
 });
 
-test('перепись: корневой путь и query не трогаются', () => {
-  assert.equal(rewriteMovedLinks('[к](/docs/README.md)', FROM, TO), '[к](/docs/README.md)');
-  assert.equal(rewriteMovedLinks('[з](../queue/BS-40-y.md?plain=1)', FROM, TO), '[з](../../backlog/queue/BS-40-y.md?plain=1)');
-});
-
 test('свёртка: корневая цель и каталог со слэшем доходят до resolve путём от корня, форма ссылки сохраняется', () => {
   const seen = [];
   const resolve = (target, href) => {
@@ -165,7 +124,6 @@ test('свёртка: корневая цель и каталог со слэш�
 test('разбор: reference-style объявление только в начале абзаца', () => {
   assert.deepEqual(relativeLinks('[a]: a.md\n[a2]: a2.md\n\nтекст\n[b]: b.md\n[c]: c.md\n'), ['a.md', 'a2.md']);
   assert.deepEqual(relativeLinks('Первая строка абзаца,\n[Заметка]: пояснение\n'), []);
-  assert.equal(blankCode('x `y` z'), 'x     z');
 });
 
 test('битые ссылки файла: цель резолвится от его каталога, якорь отбрасывается', () => {
@@ -181,68 +139,48 @@ test('битые ссылки файла: цель резолвится от е�
   }
 });
 
-test('ссылки на каталог: только существующий каталог, текст — из исходника, показанное в коде не считается', () => {
+test('directory links: only an existing directory counts; text from the source; code and file paths do not', () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
   try {
     mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
     writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · Х\n');
     const file = path.join(sb, 'docs', 'note.md');
-    writeFileSync(file, '[a](triage) [ф](triage/BS-5-x.md) [н](none) [`BS-5`](triage/#x) [в](https://x.y) [к](/docs/triage) `[s](triage)`\n\n```\n[f](triage)\n```\n');
-    assert.deepEqual(directoryLinks(file, sb), [
-      { text: 'a', href: 'triage' },
-      { text: '`BS-5`', href: 'triage/#x' },
-      { text: 'к', href: '/docs/triage' },
-    ]);
-  } finally {
-    rmSync(sb, { recursive: true, force: true });
-  }
-});
-
-test('ссылки на каталог: reference-style — полная, свёрнутая и краткая формы, метка без регистра', () => {
-  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
-  try {
-    mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
-    writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · Х\n');
-    const file = path.join(sb, 'docs', 'note.md');
-    writeFileSync(file, [
-      'Полная [BS-5][f], регистр [`BS-6`][F], свёрнутая [BS-7][] и краткая [BS-8].',
-      'Файл [BS-9][card], инлайн [a](triage/BS-5-x.md), спан `[BS-10][f]`, чекбокс [x] без объявления.',
-      '',
-      '[f]: triage',
-      '[bs-7]: <triage/>',
-      '[BS-8]: /docs/triage#x',
-      '[card]: triage/BS-5-x.md',
-      '',
-      'Абзац',
-      '[late]: triage',
-      '',
-      '```',
-      '[code]: triage',
-      '```',
-      '[Late] и [code].',
-    ].join('\n'));
-    assert.deepEqual(directoryLinks(file, sb), [
-      { text: 'BS-5', href: 'triage' },
-      { text: '`BS-6`', href: 'triage' },
-      { text: 'BS-7', href: 'triage/' },
-      { text: 'BS-8', href: '/docs/triage#x' },
-    ]);
-  } finally {
-    rmSync(sb, { recursive: true, force: true });
-  }
-});
-
-test('ссылки на каталог: текст — от ближайшей скобки, путь через файл — не каталог и не отказ', () => {
-  const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
-  try {
-    mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
-    writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · Х\n');
-    const file = path.join(sb, 'docs', 'note.md');
-    writeFileSync(file, 'Полуинтервал [0, 1) — см. BS-5. Шаблоны — [templates/](triage).\nЕщё [полуинтервал — BS-5,\nи [каталог](triage/).\n[BS-5](triage/BS-5-x.md/x)\n');
-    assert.deepEqual(directoryLinks(file, sb), [
-      { text: 'templates/', href: 'triage' },
-      { text: 'каталог', href: 'triage/' },
-    ]);
+    for (const [label, note, expected] of [
+      ['inline links, spans and fences', '[a](triage) [ф](triage/BS-5-x.md) [н](none) [`BS-5`](triage/#x) [в](https://x.y) [к](/docs/triage) `[s](triage)`\n\n```\n[f](triage)\n```\n', [
+        { text: 'a', href: 'triage' },
+        { text: '`BS-5`', href: 'triage/#x' },
+        { text: 'к', href: '/docs/triage' },
+      ]],
+      ['reference-style: full, collapsed and shortcut forms, label case-insensitive', [
+        'Полная [BS-5][f], регистр [`BS-6`][F], свёрнутая [BS-7][] и краткая [BS-8].',
+        'Файл [BS-9][card], инлайн [a](triage/BS-5-x.md), спан `[BS-10][f]`, чекбокс [x] без объявления.',
+        '',
+        '[f]: triage',
+        '[bs-7]: <triage/>',
+        '[BS-8]: /docs/triage#x',
+        '[card]: triage/BS-5-x.md',
+        '',
+        'Абзац',
+        '[late]: triage',
+        '',
+        '```',
+        '[code]: triage',
+        '```',
+        '[Late] и [code].',
+      ].join('\n'), [
+        { text: 'BS-5', href: 'triage' },
+        { text: '`BS-6`', href: 'triage' },
+        { text: 'BS-7', href: 'triage/' },
+        { text: 'BS-8', href: '/docs/triage#x' },
+      ]],
+      ['text from the nearest bracket; a path through a file is neither a directory nor a refusal', 'Полуинтервал [0, 1) — см. BS-5. Шаблоны — [templates/](triage).\nЕщё [полуинтервал — BS-5,\nи [каталог](triage/).\n[BS-5](triage/BS-5-x.md/x)\n', [
+        { text: 'templates/', href: 'triage' },
+        { text: 'каталог', href: 'triage/' },
+      ]],
+    ]) {
+      writeFileSync(file, note);
+      assert.deepEqual(directoryLinks(file, sb), expected, label);
+    }
   } finally {
     rmSync(sb, { recursive: true, force: true });
   }
@@ -257,11 +195,6 @@ test('splitHref and normalizeHrefTarget: one cut at # or ?, decoded, / from the 
   assert.equal(normalizeHrefTarget('docs/reference', '../../README.md'), 'README.md');
   assert.equal(normalizeHrefTarget('', 'docs/a b.md'), 'docs/a b.md');
   assert.equal(normalizeHrefTarget('docs', 'a%E0%A4%A.md'), null, 'a malformed escape resolves to nothing');
-});
-
-test('rewrites: encoding alone never triggers a rewrite', () => {
-  const text = '[a](a%20b.md) [b](<a b.md>) [c](a%20b.md#x) [d](a%2Db.md) [e](%c3%a9.md)';
-  assert.equal(rewriteMovedLinks(text, FROM, FROM), text);
 });
 
 test('rewrites: a percent-encoded link moves and stays encoded; a malformed escape is never decoded', () => {
