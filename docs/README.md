@@ -21,23 +21,20 @@
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
 | [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
 | [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
-| [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Superseded in part by ADR-033 (ревизия у `fold N` и обязательность заготовки), ADR-034 (сверка тела с ревизией до удаления, четвёртая причина пустой ревизии) |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Superseded in part by ADR-031 (порядок пакета при `--restore` — гарантия контракта) |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Superseded in part by ADR-035 (носитель долга в пробе обхода — фикстура вне обхода), ADR-038 (гейт судит и ширину строки блока — не шире 100 знаков) |
 | [adr/adr-029-minor-finding-requires-evidence.md](adr/adr-029-minor-finding-requires-evidence.md) | Находка в `minor/` заводится только с уликой: `--evidence` обязателен, отказ до создания файла | Superseded in part by ADR-036 (вторая дверь в `minor/` закрыта) |
 | [adr/adr-031-restore-batch-keeps-order.md](adr/adr-031-restore-batch-keeps-order.md) | Пакет `--restore` возвращает задачи в порядке их сохранённых чисел: каждая следующая встаёт не позже соседа по пакету | Accepted |
 | [adr/adr-032-tool-owned-rules-redrawn-by-migrate.md](adr/adr-032-tool-owned-rules-redrawn-by-migrate.md) | Правила ведения и архива у потребителя принадлежат инструменту: `migrate` перерисовывает их из шаблона | Accepted |
-| [adr/adr-033-fold-draft-mandatory-only-without-revision.md](adr/adr-033-fold-draft-mandatory-only-without-revision.md) | `fold N` записывает ревизию закоммиченного каталога; заготовка обязательна только без неё | Accepted |
-| [adr/adr-034-fold-checks-body-blobs-against-revision.md](adr/adr-034-fold-checks-body-blobs-against-revision.md) | Массовая свёртка сверяет тело с ревизией по блобам и отказывает на расхождении | Accepted |
 | [adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md](adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md) | Долг комментариев сведён в ноль: носитель долга в пробе гейта — фикстура вне обхода | Accepted |
 | [adr/adr-036-mv-minor-requires-evidence.md](adr/adr-036-mv-minor-requires-evidence.md) | Вторая дверь в `minor/` — `mv N minor` — требует улику, `lint` требует в `minor/` раздел «Улика» | Accepted |
-| [adr/adr-037-result-outcome-word-under-gate.md](adr/adr-037-result-outcome-word-under-gate.md) | Исход задачи — слово первого абзаца `result.md` под гейтом 5, а не поле | Accepted |
 | [adr/adr-038-comment-line-width-under-gate.md](adr/adr-038-comment-line-width-under-gate.md) | Гейт комментариев судит и ширину строки: не шире 100 знаков, знак — кодпоинт | Accepted |
 | [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |
 | [adr/adr-040-harness-adapters.md](adr/adr-040-harness-adapters.md) | Harness adapters: selection, ownership and path safety of generated outputs | Accepted |
 | [adr/adr-041-probe-command.md](adr/adr-041-probe-command.md) | The mutation-probe command is a project field substituted into the block, the task skill and the brief | Accepted |
 | [adr/adr-042-worker-brief.md](adr/adr-042-worker-brief.md) | The worker brief is rendered by a command from a template | Accepted |
 | [adr/adr-043-changelog-merge.md](adr/adr-043-changelog-merge.md) | merge-changelog merges the unreleased section structurally and refuses rather than guess | Accepted |
+| [adr/adr-044-closed-task-journal.md](adr/adr-044-closed-task-journal.md) | Closed tasks fold into a journal line; the body stays in git | Accepted |
 
 ## Сквозные принципы
 
