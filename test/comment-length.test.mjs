@@ -1,171 +1,78 @@
-// Гейт: инлайн-комментарий не длиннее двух строк и не шире 100 знаков — правило AGENTS.md.
-// Что он ловит, чего не ловит и как гасится долг — ADR-028, ширина — ADR-038.
+// Gate: an inline comment is at most two lines long and 100 characters wide, the AGENTS.md rule.
+// What it catches and what it misses — ADR-028, the width — ADR-038.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { longBlocks, maskedLines, scannedCode, wideLines } from './comment-scan.mjs';
+import { LIMIT, WIDTH, longBlocks, maskedLines, scannedCode, wideLines } from './comment-scan.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const LIMIT = 2;
-const WIDTH = 100;
 const TREES = ['lib', 'test', 'bin', 'scripts'];
 
-// Файлы, до которых свод не дошёл: каждый называет ЛИЧНОСТЬ каждого своего длинного блока,
-// по разу на блок — записанный дважды должен быть должен дважды.
-const PENDING = new Map(Object.entries(JSON.parse(
-  readFileSync(path.join(ROOT, 'test', 'fixtures', 'comment-sweep-pending.json'), 'utf8'),
-)));
-
-/** Личность блока — его собственная проза: переписать его правка, перенести — нет. */
-export function blockId(block) {
-  return createHash('sha256').update(block.lines.map((l) => l.trim()).join('\n')).digest('hex').slice(0, 12);
-}
-
 export function blocksOf(text) {
-  return longBlocks(text, LIMIT);
+  return longBlocks(text);
 }
 
 export function wideOf(text) {
-  return wideLines(text, WIDTH);
-}
-
-/** Сколько раз встречается каждое значение — вся разница между мультимножеством и `Set`. */
-function countOf(values) {
-  const counts = new Map();
-  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
-  return counts;
-}
-
-/** Блоки, которых список не называет, со счётом копий: назван раз, написан дважды — должен раз. */
-export function unnamedBlocks(blocks, listed) {
-  const owed = countOf(listed);
-  const out = [];
-  for (const block of blocks) {
-    const id = blockId(block);
-    const left = owed.get(id) ?? 0;
-    if (left > 0) owed.set(id, left - 1);
-    else out.push(block);
-  }
-  return out;
-}
-
-/** Записанные id, которым в дереве больше не отвечает ни один блок, со счётом копий. */
-export function staleIds(blocks, listed) {
-  const have = countOf(blocks.map(blockId));
-  const out = [];
-  for (const [id, owed] of countOf(listed)) {
-    for (let n = have.get(id) ?? 0; n < owed; n++) out.push(id);
-  }
-  return out;
-}
-
-/** Файлы, которые список называет, а обход не видит, — вторая сторона той же сверки. */
-export function unknownFiles(files, listing) {
-  return [...listing.keys()].filter((rel) => !files.includes(rel));
+  return wideLines(text);
 }
 
 const { files: scanned, empty: emptyTrees } = scannedCode(ROOT, TREES);
 
 test('каждое дерево, названное гейтом, несёт код, который он может судить', () => {
   assert.deepEqual(emptyTrees, [], 'дерево из TREES не несёт ни одного файла, который git не игнорирует — убери его или почини имя');
-  assert.ok(scanned.length > 0, 'обход не прочитал ни одного файла');
 });
 
-test('список долга умеет только уменьшаться', () => {
-  // Потолки литералами, опускаются РУКАМИ по мере гашения долга: без них новый блок вместе
-  // со своим id в фикстуре проходит все прочие проверки, а подъём потолка виден ревью.
-  assert.ok(PENDING.size <= 0, `список называет ${PENDING.size} файлов, потолок — 0`);
-  const ids = [...PENDING.values()].flat().length;
-  assert.ok(ids <= 0, `список должен ${ids} блоков, потолок — 0`);
-});
-
-/** Обход, со счётом прочитанного и отсуженного рядом с тремя списками вердиктов. */
-export function surveyTree(files, listing) {
+// The walk: the long blocks and the wide lines of every file, and how many files it judged.
+export function surveyTree(files) {
   const offenders = [];
-  const appeared = [];
-  const swept = [];
   const wide = [];
   let judged = 0;
-  let seen = 0;
-  let lines = 0;
   for (const rel of files) {
     const text = readFileSync(path.join(ROOT, rel), 'utf8');
-    const blocks = blocksOf(text);
-    // Ширину список долга не прощает: он называет блоки, а не строки.
     for (const w of wideOf(text)) wide.push(`${rel}:${w.line} — ширина ${w.width}`);
-    judged++;
-    seen += blocks.length;
-    for (const block of blocks) lines += block.length;
-    if (!listing.has(rel)) {
-      for (const block of blocks) offenders.push(`${rel}:${block.line} — длина ${block.length}`);
-      continue;
-    }
-    // Каждый блок тратит единицу того, что должен список; копия разрешённого блока не находит её.
-    for (const block of unnamedBlocks(blocks, listing.get(rel))) {
-      appeared.push(`${rel}:${block.line} — длинный блок, которого список не называет, длина ${block.length}`);
-    }
-    if (!blocks.length) swept.push(rel);
+    judged += 1;
+    for (const block of blocksOf(text)) offenders.push(`${rel}:${block.line} — длина ${block.length}`);
   }
-  return { offenders, appeared, swept, wide, judged, seen, lines };
+  return { offenders, wide, judged };
 }
 
-const walk = surveyTree(scanned, PENDING);
+const walk = surveyTree(scanned);
 
-test('обход говорит, сколько прочитал и сколько строк это стоит', () => {
+test('the walk judges every file it reads', () => {
   // Каждый вердикт ниже проверяет список на ПУСТОТУ, а обход, не прочитавший ни файла, наполняет
   // их всех ничем — и проходит. Пол отделяет «прочитал ничего» от «прочитал всё».
   assert.equal(walk.judged, scanned.length, `обход отсудил ${walk.judged} из ${scanned.length} файлов`);
-  assert.equal(walk.seen, 0, `обход увидел ${walk.seen} длинных блоков, дерево известно как несущее 0`);
-  // Счёт блоков заперт, а длина каждого — нет: блок из списка можно удлинить, обновив его id
-  // в фикстуре тем же коммитом. Правило заведено ради строк, поэтому строки и считаются.
-  assert.equal(walk.lines, 0, `блоки заняли ${walk.lines} строк, дерево известно как несущее 0`);
 });
 
-test('обход отказывает каждой из четырёх форм, ради которых существует', () => {
-  // Пол ловит обход, не прочитавший НИЧЕГО, и не ловит тот, что читает все файлы и не судит ни
-  // одного: judged и seen наполняются в обоих случаях. Поэтому судящие ветки гоняются здесь.
+test('the walk refuses every long block of a file it judges and names the file and the line', () => {
+  // The floor catches a walk that read NOTHING, not one that reads every file and judges none:
+  // judged counts reads, not verdicts. So the judging branch runs here.
   const debtor = 'test/fixtures/comment-debtor.js.txt';
   assert.ok(!scanned.includes(debtor), `${debtor} попал в обход — гейт судил бы носителя пробы как долг (ADR-035)`);
   const carried = blocksOf(readFileSync(path.join(ROOT, debtor), 'utf8')).length;
   assert.ok(carried > 0, `${debtor} больше не несёт длинных блоков — пробе нечего судить`);
-  const bare = surveyTree([debtor], new Map());
-  assert.equal(bare.offenders.length, carried, 'каждый длинный блок файла вне списка отвергнут');
-  assert.ok(bare.offenders[0].startsWith(`${debtor}:`), 'и отказ называет файл и строку');
-  assert.deepEqual(bare.appeared, [], 'файл вне списка не может ещё и подменять долг');
-  const owesNothing = surveyTree([debtor], new Map([[debtor, []]]));
-  assert.deepEqual(owesNothing.offenders, [], 'файл из списка судится по его записям, а не отвергается целиком');
-  assert.equal(owesNothing.appeared.length, carried, 'и каждый блок сверх них — блок, которого список не называет');
-  const clean = 'lib/version.js';
-  assert.deepEqual(surveyTree([clean], new Map([[clean, []]])).swept, [clean],
-    'файл из списка, которому нечего сводить, обязан из списка уйти');
-  assert.deepEqual(unknownFiles([clean], new Map([['lib/gone.js', []]])), ['lib/gone.js'],
-    'и имя, которое список несёт, а обход не видит, тоже отвергнуто');
-  assert.deepEqual(unknownFiles([clean], new Map([[clean, []]])), [], 'имя, которое обход видит, — нет');
+  const bare = surveyTree([debtor]);
+  assert.equal(bare.offenders.length, carried, 'every long block of the file is refused');
+  assert.match(bare.offenders[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — длина \d+$/, 'and the refusal names the file and the line');
 });
 
-test('инлайн-комментарий не длиннее двух строк, вне файлов, до которых свод не дошёл', () => {
+test('an inline comment is at most two lines long, in every file of the walk', () => {
   assert.deepEqual(walk.offenders, [], `блоки комментария длиннее ${LIMIT} строк`);
-  assert.deepEqual(walk.appeared, [],
-    'файл из списка несёт длинный блок, которого список не называет, — подмена долга не свод');
-  assert.deepEqual(walk.swept, [], 'сведённые файлы всё ещё в списке — убери их оттуда');
 });
 
 test('строка инлайн-комментария не шире 100 знаков, в любом файле обхода', () => {
   assert.deepEqual(walk.wide, [], `строки комментария шире ${WIDTH} знаков`);
 });
 
-test('обход судит ширину и в файле вне списка, и в файле из списка', () => {
+test('the walk refuses every wide comment line of a file it judges', () => {
   const debtor = 'test/fixtures/comment-debtor.js.txt';
   const carried = wideOf(readFileSync(path.join(ROOT, debtor), 'utf8')).length;
   assert.ok(carried > 0, `${debtor} больше не несёт широкой строки — пробе нечего судить`);
-  const bare = surveyTree([debtor], new Map());
-  assert.equal(bare.wide.length, carried, 'каждая широкая строка файла вне списка отвергнута');
-  assert.match(bare.wide[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — ширина 101$/, 'и отказ называет файл, строку и ширину');
-  const listed = surveyTree([debtor], new Map([[debtor, []]]));
-  assert.deepEqual(listed.wide, bare.wide, 'запись в списке долга ширину не прощает');
+  const bare = surveyTree([debtor]);
+  assert.equal(bare.wide.length, carried, 'every wide line of the file is refused');
+  assert.match(bare.wide[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — ширина 101$/, 'and the refusal names the file, the line and the width');
 });
 
 test('ширина: строка комментария в 101 знак — нарушение той же природы, что третья строка блока', () => {
@@ -179,58 +86,55 @@ test('ширина: строка комментария в 101 знак — на
   assert.deepEqual(wideOf(`const x = 1; // ${'x'.repeat(120)}\n`), [], 'хвост строки кода гейт не судит (ADR-028)');
 });
 
-test('каждая запись списка называет файл, который видит обход, и каждый записанный блок ещё существует', () => {
-  assert.deepEqual(unknownFiles(scanned, PENDING), [], 'список называет файлы, которых обход не видит');
-  const stale = [];
-  for (const [rel, ids] of PENDING) {
-    if (!scanned.includes(rel)) continue;
-    // Записан чаще, чем файл его несёт, — долг уже погашен: лишняя запись уходит.
-    const blocks = blocksOf(readFileSync(path.join(ROOT, rel), 'utf8'));
-    for (const id of staleIds(blocks, ids)) stale.push(`${rel}: ${id} записан и не отвечен — убери его`);
-  }
-  assert.deepEqual(stale, [], 'записи списка для блоков, которых больше нет');
-});
+const one = (src) => blocksOf(src).map((r) => [r.line, r.length]);
 
-test('лексер видит формы, которых регэксп по одной строке не увидел бы', () => {
-  const one = (src) => blocksOf(src).map((r) => [r.line, r.length]);
-  assert.deepEqual(one('/*\n a\n b\n */\nconst x = 1;'), [[1, 4]], 'блок с голыми строками продолжения');
-  // Границ мало: голые строки обязаны быть В блоке, иначе его личность — личность другого
-  // комментария, и список долга сверяет не тот текст.
-  assert.deepEqual(blocksOf('/*\n a\n b\n */\n')[0].lines.map((l) => l.trim()), ['/*', 'a', 'b', '*/']);
-  assert.deepEqual(one('/* x */ // one\n// two\n// three\n'), [[1, 3]], 'блок, продолженный после `*/` на той же строке');
-  assert.deepEqual(one('/*\n a\n b\n */ work();\n'), [[1, 3]], 'код после `*/` обрывает блок здесь');
-  assert.deepEqual(one('/**\n * a\n * b\n */\nfn();'), [[1, 4]], 'блок jsdoc — тоже блок, по решению владельца');
-  assert.deepEqual(one('// a\n// b\n// c\nconst x = 1;'), [[1, 3]], 'три строки комментария');
-  assert.deepEqual(one('/** a */\n// b\n// c\nconst x = 1;'), [[1, 3]], 'два соседних комментария — один блок');
-  assert.deepEqual(one('// a\nconst x = 1;\n// b\n'), [], 'код между ними обрывает блок');
-  assert.deepEqual(one('// a\n\n// b\n// c\n'), [], 'пустая строка между ними обрывает блок');
-});
-
-test('комментарий в хвосте строки принадлежит своему коду: он не начинает и не продолжает блок', () => {
-  const one = (src) => blocksOf(src).map((r) => [r.line, r.length]);
-  assert.deepEqual(one('const x = 1; // one\n// two\n// three\n'), [],
-    'комментарий, открытый после кода, блока не начинает');
-  assert.deepEqual(one('// a\n// b\nconst x = 1; // c\n// d\n// e\n'), [],
-    'строка кода рвёт блок независимо от того, кончается ли она комментарием');
-});
-
-test('маркер комментария внутри строки, шаблона или регэкспа — не комментарий', () => {
-  const one = (src) => blocksOf(src).map((r) => [r.line, r.length]);
-  assert.deepEqual(one("const s = '// не комментарий';\nconst u = 'http://x';\n"), [], 'внутри строки');
-  assert.deepEqual(one('const s = "/*";\nconst t = "*/";\nconst u = 1;\n'), [], 'маркер блока внутри строки');
-  assert.deepEqual(one('const s = `// не комментарий\n// всё ещё нет`;\nconst y = 1;\n'), [],
-    'внутри шаблонной строки, которая живёт через перевод строки');
-});
-
-test('лексер держит состояние между строками: регэксп и вложенный шаблон закрываются там, где должны', () => {
-  const one = (src) => blocksOf(src).map((r) => [r.line, r.length]);
+const CASES = [
+  { why: 'lexer: a block comment with bare continuation lines is one block',
+    src: '/*\n a\n b\n */\nconst x = 1;', exp: [[1, 4]] },
+  { why: 'lexer: a block continues after `*/` on the same line',
+    src: '/* x */ // one\n// two\n// three\n', exp: [[1, 3]] },
+  { why: 'lexer: code after `*/` ends the block on that line',
+    src: '/*\n a\n b\n */ work();\n', exp: [[1, 3]] },
+  { why: "lexer: a JSDoc block is a block too, by the owner's decision",
+    src: '/**\n * a\n * b\n */\nfn();', exp: [[1, 4]] },
+  { why: 'lexer: three comment lines are one block of three',
+    src: '// a\n// b\n// c\nconst x = 1;', exp: [[1, 3]] },
+  { why: 'lexer: two adjacent comments are one block',
+    src: '/** a */\n// b\n// c\nconst x = 1;', exp: [[1, 3]] },
+  { why: 'lexer: code between comments ends the block',
+    src: '// a\nconst x = 1;\n// b\n', exp: [] },
+  { why: 'lexer: a blank line between comments ends the block',
+    src: '// a\n\n// b\n// c\n', exp: [] },
+  { why: 'lexer: a comment opened after code on its line starts no block',
+    src: 'const x = 1; // one\n// two\n// three\n', exp: [] },
+  { why: 'lexer: a code line ends a block whether or not it ends in a comment',
+    src: '// a\n// b\nconst x = 1; // c\n// d\n// e\n', exp: [] },
+  { why: 'lexer: a comment marker inside a string is not a comment',
+    src: "const s = '// не комментарий';\nconst u = 'http://x';\n", exp: [] },
+  { why: 'lexer: a block comment marker inside a string is not a comment',
+    src: 'const s = "/*";\nconst t = "*/";\nconst u = 1;\n', exp: [] },
+  { why: 'lexer: a comment marker inside a template literal that spans lines is not a comment',
+    src: 'const s = `// не комментарий\n// всё ещё нет`;\nconst y = 1;\n', exp: [] },
   // Без состояния регэкспа бэктик ниже открывает шаблон, который никогда не закрывается,
   // и всё за ним перестаёт быть комментарием. Замер, стоящий за этой строкой, — ADR-028.
-  assert.deepEqual(one('const r = /`/g;\n// a\n// b\n// c\n'), [[2, 3]], 'бэктик внутри регэкспа не открывает ничего');
-  assert.deepEqual(one("text.replace(/`/g, '');\n/*\n a\n b\n*/\n"), [[2, 4]], 'и блок после него всё ещё виден');
-  assert.deepEqual(one('const s = `a${`b${c}d`}e`;\n// a\n// b\n// c\n'), [[2, 3]], 'шаблоны, вложенные через `${…}`');
-  assert.deepEqual(one('const s = `${ {a: 1} }`;\n// a\n// b\n// c\n'), [[2, 3]], 'скобка внутри `${…}` — не его конец');
-  assert.deepEqual(one('const q = (a + b) / 2;\n// a\n// b\n// c\n'), [[2, 3]], 'деление — не регэксп');
+  { why: 'lexer: a backtick inside a regex opens nothing',
+    src: 'const r = /`/g;\n// a\n// b\n// c\n', exp: [[2, 3]] },
+  { why: 'lexer: a block after a regex with a backtick is still seen',
+    src: "text.replace(/`/g, '');\n/*\n a\n b\n*/\n", exp: [[2, 4]] },
+  { why: 'lexer: templates nested through `${…}` close where they should',
+    src: 'const s = `a${`b${c}d`}e`;\n// a\n// b\n// c\n', exp: [[2, 3]] },
+  { why: 'lexer: a brace inside `${…}` does not end it',
+    src: 'const s = `${ {a: 1} }`;\n// a\n// b\n// c\n', exp: [[2, 3]] },
+  { why: 'lexer: a division is not a regex',
+    src: 'const q = (a + b) / 2;\n// a\n// b\n// c\n', exp: [[2, 3]] },
+];
+
+for (const c of CASES) test(c.why, () => assert.deepEqual(one(c.src), c.exp));
+
+test('lexer: the lines of a block include its bare continuation lines', () => {
+  // The count is not enough: the bare lines must be IN the block, since the width gate reads
+  // exactly these lines.
+  assert.deepEqual(blocksOf('/*\n a\n b\n */\n')[0].lines.map((l) => l.trim()), ['/*', 'a', 'b', '*/']);
 });
 
 test('чем оказался `/`, решает токен перед ним, и доказательство — комментарий рядом', () => {
@@ -241,27 +145,4 @@ test('чем оказался `/`, решает токен перед ним, и
   assert.equal(noteOn('while (i--) { x(); } / 2; /* note */'), '/* note */', 'и `--` тоже; скобка тоже кончает значение');
   assert.equal(noteOn('const v = !/\\s/.test(x); /* note */'), '/* note */', 'регэксп после `!` закрывается своим `/`');
   assert.equal(noteOn('#!/usr/bin/env node // note'), '// note', 'шебанг не открывает ничего, что осталось бы открытым');
-});
-
-test('блок опознаётся своим текстом, и список должен его по разу на копию', () => {
-  const a = blocksOf('// one\n// two\n// three\n')[0];
-  const b = blocksOf('// four\n// five\n// six\n')[0];
-  assert.equal(a.length, b.length, 'СЧЁТ у них равен — это и есть закрываемая дыра');
-  assert.notEqual(blockId(a), blockId(b), 'равные счёта не должны давать равные личности');
-  assert.equal(blockId(a), blockId(blocksOf('// one\n// two\n// three\n')[0]), 'тот же текст даёт тот же id');
-  const twice = blocksOf('// one\n// two\n// three\nconst x = 1;\n// one\n// two\n// three\n');
-  assert.equal(twice.length, 2, 'тот же блок, написанный дважды, — два блока');
-  assert.equal(blockId(twice[0]), blockId(twice[1]), 'и личность у них одна, которую `Set` бы схлопнул');
-});
-
-test('список должен блок по разу на копию: подмена долга закрыта', () => {
-  const twice = blocksOf('// one\n// two\n// three\nconst x = 1;\n// one\n// two\n// three\n');
-  const id = blockId(twice[0]);
-  assert.equal(unnamedBlocks(twice, [id]).length, 1, 'список, должный раз, платит одну копию и отвергает вторую');
-  assert.equal(unnamedBlocks(twice, [id, id]).length, 0, 'список, должный дважды, платит обе');
-  assert.equal(unnamedBlocks(twice, []).length, 2, 'список, не должный ничего, отвергает обе');
-  // И обратная сторона: запись, встречающаяся чаще, чем дерево на неё отвечает, — мёртвый долг.
-  assert.deepEqual(staleIds(twice, [id, id, id]), [id], 'записан трижды, написан дважды: одна запись мертва');
-  assert.deepEqual(staleIds(twice, [id, id]), [], 'записан столько же, сколько написан, — убирать нечего');
-  assert.deepEqual(staleIds([], [id]), [id], 'исчезнувший блок оставляет запись за собой');
 });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { TEMPLATES_DIR, renderTemplate, templateParity, templateSlots } from '../lib/templates.js';
@@ -8,25 +8,7 @@ import { srcFiles } from '../lib/mdwalk.js';
 import { cleanup, put } from './helpers.mjs';
 
 test('template parity: состав и placeholders совпадают', () => {
-  assert.ok(existsSync(path.join(TEMPLATES_DIR, 'en')), 'templates/en/ обязателен в репозитории инструмента');
   assert.deepEqual(templateParity(), []);
-});
-
-test('template parity: называет missing, extra и mismatch placeholders', () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
-  try {
-    put(root, 'task.md', '{{id}} {{title}}\n');
-    put(root, 'only-ru.md', 'ru\n');
-    put(root, 'repeat.md', '{{cli}}\n');
-    put(root, 'en/task.md', '{{id}}\n');
-    put(root, 'en/only-en.md', 'en\n');
-    put(root, 'en/repeat.md', '{{cli}} and again {{cli}}\n');
-    assert.deepEqual(templateParity(root, 'en'), [
-      'templates/en/only-ru.md is missing',
-      'templates/en/only-en.md has no source counterpart',
-      'templates/en/task.md placeholders differ: id != id, title',
-    ]);
-  } finally { cleanup(root); }
 });
 
 test('template parity and slot messages follow the project language', () => {
@@ -47,6 +29,80 @@ function parity(files) {
     for (const [rel, text] of Object.entries(files)) put(root, rel, text);
     return templateParity(root, 'en');
   } finally { cleanup(root); }
+}
+
+const PARITY_CASES = [
+  {
+    name: 'names missing, extra and mismatched placeholders',
+    files: {
+      'task.md': '{{id}} {{title}}\n',
+      'only-ru.md': 'ru\n',
+      'repeat.md': '{{cli}}\n',
+      'en/task.md': '{{id}}\n',
+      'en/only-en.md': 'en\n',
+      'en/repeat.md': '{{cli}} and again {{cli}}\n',
+    },
+    expected: [
+      'templates/en/only-ru.md is missing',
+      'templates/en/only-en.md has no source counterpart',
+      'templates/en/task.md placeholders differ: id != id, title',
+    ],
+  },
+  {
+    name: 'a missing description and a foreign name in SKILL.md',
+    files: {
+      'skills/backslop-task/SKILL.md': '---\nname: backslop-task\ndescription: Цикл одной задачи\n---\n\n# Заголовок\n',
+      'en/skills/backslop-task/SKILL.md': '---\nname: backslop-tsk\n---\n\n# Title\n',
+    },
+    expected: [
+      'templates/en/skills/backslop-task/SKILL.md frontmatter name is backslop-tsk, expected backslop-task',
+      'templates/en/skills/backslop-task/SKILL.md frontmatter has no description',
+    ],
+  },
+  {
+    name: 'a quoted empty description is an error',
+    files: {
+      'skills/x/SKILL.md': '---\nname: x\ndescription: ""\n---\n\n# X\n',
+      'en/skills/x/SKILL.md': '---\nname: x\ndescription: "Does x"\n---\n\n# X\n',
+    },
+    expected: ['templates/skills/x/SKILL.md frontmatter has no description'],
+  },
+  {
+    name: 'a malformed quoted description is an error, not a throw',
+    files: {
+      'skills/x/SKILL.md': '---\nname: x\ndescription: "Делает x"\n---\n\n# X\n',
+      'en/skills/x/SKILL.md': '---\nname: x\ndescription: "abc\n---\n\n# X\n',
+    },
+    expected: ['templates/en/skills/x/SKILL.md frontmatter description is not a valid JSON string'],
+  },
+  {
+    name: 'a malformed quoted name is an error, not a throw',
+    files: {
+      'skills/x/SKILL.md': '---\nname: "x\ndescription: "Делает x"\n---\n\n# X\n',
+      'en/skills/x/SKILL.md': '---\nname: x\ndescription: "Does x"\n---\n\n# X\n',
+    },
+    expected: ['templates/skills/x/SKILL.md frontmatter name is not a valid JSON string'],
+  },
+  {
+    name: 'a different number of headings; `# ` inside a code block is not a heading',
+    files: {
+      'docs/README.md': '# Один\n\n## Два\n',
+      'en/docs/README.md': '# One\n\n```sh\n# not a heading\n```\n',
+    },
+    expected: ['templates/en/docs/README.md headings differ: 1 != 1,2'],
+  },
+  {
+    name: 'Cyrillic in a file of the English layer',
+    files: {
+      'task.md': '# Задача\n',
+      'en/task.md': '# Task\n\nОписание\n',
+    },
+    expected: ['templates/en/task.md contains Cyrillic'],
+  },
+];
+
+for (const { name, files, expected } of PARITY_CASES) {
+  test(`template parity: ${name}`, () => assert.deepEqual(parity(files), expected));
 }
 
 test('templates: agents-probe.md держит {{probe}} в код-спане — на этом стоит форма поля probe', () => {
@@ -88,51 +144,6 @@ test('templates: фронтматтер скиллов разбирается к
   ].filter(([rel]) => rel.endsWith('/SKILL.md'));
   assert.equal(files.length, 6, 'три скилла в двух слоях');
   assert.deepEqual(files.flatMap(([rel, abs]) => frontmatterFaults(rel, readFileSync(abs, 'utf8'))), []);
-});
-
-test('template parity: пустой description и чужое name в SKILL.md', () => {
-  assert.deepEqual(parity({
-    'skills/backslop-task/SKILL.md': '---\nname: backslop-task\ndescription: Цикл одной задачи\n---\n\n# Заголовок\n',
-    'en/skills/backslop-task/SKILL.md': '---\nname: backslop-tsk\n---\n\n# Title\n',
-  }), [
-    'templates/en/skills/backslop-task/SKILL.md frontmatter name is backslop-tsk, expected backslop-task',
-    'templates/en/skills/backslop-task/SKILL.md frontmatter has no description',
-  ]);
-});
-
-test('template parity: a quoted empty description is an error', () => {
-  assert.deepEqual(parity({
-    'skills/x/SKILL.md': '---\nname: x\ndescription: ""\n---\n\n# X\n',
-    'en/skills/x/SKILL.md': '---\nname: x\ndescription: "Does x"\n---\n\n# X\n',
-  }), ['templates/skills/x/SKILL.md frontmatter has no description']);
-});
-
-test('template parity: a malformed quoted description is an error, not a throw', () => {
-  assert.deepEqual(parity({
-    'skills/x/SKILL.md': '---\nname: x\ndescription: "Делает x"\n---\n\n# X\n',
-    'en/skills/x/SKILL.md': '---\nname: x\ndescription: "abc\n---\n\n# X\n',
-  }), ['templates/en/skills/x/SKILL.md frontmatter description is not a valid JSON string']);
-});
-
-test('template parity: a malformed quoted name is an error, not a throw', () => {
-  assert.deepEqual(parity({
-    'skills/x/SKILL.md': '---\nname: "x\ndescription: "Делает x"\n---\n\n# X\n',
-    'en/skills/x/SKILL.md': '---\nname: x\ndescription: "Does x"\n---\n\n# X\n',
-  }), ['templates/skills/x/SKILL.md frontmatter name is not a valid JSON string']);
-});
-
-test('template parity: разное число заголовков; `# ` в блоке кода заголовком не считается', () => {
-  assert.deepEqual(parity({
-    'docs/README.md': '# Один\n\n## Два\n',
-    'en/docs/README.md': '# One\n\n```sh\n# not a heading\n```\n',
-  }), ['templates/en/docs/README.md headings differ: 1 != 1,2']);
-});
-
-test('template parity: кириллица в файле английского слоя', () => {
-  assert.deepEqual(parity({
-    'task.md': '# Задача\n',
-    'en/task.md': '# Task\n\nОписание\n',
-  }), ['templates/en/task.md contains Cyrillic']);
 });
 
 // Слоты: пара «плейсхолдер ↔ ключ в vars». Обратная половина (ключ без места) на частичной фикстуре
