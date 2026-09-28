@@ -186,3 +186,4 @@
 - <a id="bs-151"></a>`BS-151-findings-minor-adr` · 2026-09-28 · completed · — · One English ADR for findings: parent numbering, cost, minor/ and batch closing
 - <a id="bs-152"></a>`BS-152-adr-pin-upgrade-migrate` · 2026-09-28 · completed · — · One English ADR on version pin, upgrade and migrate replaces ADR-004, 007, 019 and 032
 - <a id="bs-153"></a>`BS-153-queue-order-adr` · 2026-09-28 · completed · — · One English ADR for queue order: integer rank, saved rank, restore by batch
+- <a id="bs-140"></a>`BS-140-comment-length-templates-tests` · 2026-09-29 · completed · — · Comment gate and template tests: drop the debt list, table lexer and parity, one style

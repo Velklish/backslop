@@ -4,6 +4,10 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { lsFiles } from '../lib/util.js';
 
+// The gate's limits: lines in one comment block and code points in one comment line.
+export const LIMIT = 2;
+export const WIDTH = 100;
+
 const REGEX_KEYWORDS = new Set([
   'return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw',
   'case', 'do', 'else', 'yield', 'await',
@@ -13,7 +17,7 @@ const REGEX_KEYWORDS = new Set([
 // отрицание, и дерево его пишет; постфиксного `x!` в нём нет.
 const ENDS_A_VALUE = new Set([')', ']', '}', '++', '--']);
 
-/** `/` открывает регэксп, если предыдущий токен не закончил значение. */
+// `/` открывает регэксп, если предыдущий токен не закончил значение.
 function regexAllowed(prev) {
   if (prev === null) return true;
   if (prev === 'value') return false;
@@ -21,37 +25,37 @@ function regexAllowed(prev) {
   return !ENDS_A_VALUE.has(prev);
 }
 
-/** Строка в кавычках; перевод строки её закрывает, поэтому висячая кавычка не съест файл. */
+// Строка в кавычках; перевод строки её закрывает, поэтому висячая кавычка не съест файл.
 function skipString(text, i, quote) {
-  for (let j = i + 1; j < text.length; j++) {
+  for (let j = i + 1; j < text.length; j += 1) {
     const c = text[j];
-    if (c === '\\') { j++; continue; }
+    if (c === '\\') { j += 1; continue; }
     if (c === quote) return j + 1;
     if (c === '\n') return j;
   }
   return text.length;
 }
 
-/** Литерал регэкспа с классами символов и флагами; перевод строки его закрывает. */
+// Литерал регэкспа с классами символов и флагами; перевод строки его закрывает.
 function skipRegex(text, i) {
   let klass = false;
-  for (let j = i + 1; j < text.length; j++) {
+  for (let j = i + 1; j < text.length; j += 1) {
     const c = text[j];
-    if (c === '\\') { j++; continue; }
+    if (c === '\\') { j += 1; continue; }
     if (c === '\n') return j;
     if (klass) { if (c === ']') klass = false; continue; }
     if (c === '[') { klass = true; continue; }
     if (c === '/') {
       let k = j + 1;
-      while (k < text.length && /[A-Za-z]/.test(text[k])) k++;
+      while (k < text.length && /[A-Za-z]/.test(text[k])) k += 1;
       return k;
     }
   }
   return text.length;
 }
 
-/** Каждый комментарий как `{ from, to, kind }` в смещениях символов, состояние — между строками. */
-export function commentSpans(text) {
+// Каждый комментарий как `{ from, to, kind }` в смещениях символов, состояние — между строками.
+function commentSpans(text) {
   const out = [];
   const frames = [{ template: false, depth: 0 }];
   let prev = null;
@@ -61,10 +65,10 @@ export function commentSpans(text) {
     const c = text[i];
     if (frame.template) {
       if (c === '\\') { i += 2; continue; }
-      if (c === '`') { frames.pop(); prev = 'value'; i++; continue; }
+      if (c === '`') { frames.pop(); prev = 'value'; i += 1; continue; }
       // `${` открывает свой кадр кода, поэтому шаблон внутри него вкладывается, а не закрывает.
       if (c === '$' && text[i + 1] === '{') { frames.push({ template: false, depth: 0 }); prev = null; i += 2; continue; }
-      i++;
+      i += 1;
       continue;
     }
     if (c === '/' && text[i + 1] === '/') {
@@ -82,21 +86,21 @@ export function commentSpans(text) {
       continue;
     }
     if (c === '"' || c === "'") { i = skipString(text, i, c); prev = 'value'; continue; }
-    if (c === '`') { frames.push({ template: true, depth: 0 }); i++; continue; }
+    if (c === '`') { frames.push({ template: true, depth: 0 }); i += 1; continue; }
     if (c === '/' && regexAllowed(prev)) { i = skipRegex(text, i); prev = 'value'; continue; }
-    if (c === '{') { frame.depth++; prev = '{'; i++; continue; }
+    if (c === '{') { frame.depth += 1; prev = '{'; i += 1; continue; }
     if (c === '}') {
       // Глубина 0 во вложенном кадре закрывает `${…}`; в базовом кадре это просто скобка.
-      if (frame.depth === 0 && frames.length > 1) { frames.pop(); i++; continue; }
-      if (frame.depth > 0) frame.depth--;
+      if (frame.depth === 0 && frames.length > 1) { frames.pop(); i += 1; continue; }
+      if (frame.depth > 0) frame.depth -= 1;
       prev = '}';
-      i++;
+      i += 1;
       continue;
     }
-    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i++; continue; }
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r') { i += 1; continue; }
     if (/[A-Za-z0-9_$]/.test(c)) {
       let k = i;
-      while (k < text.length && /[A-Za-z0-9_$]/.test(text[k])) k++;
+      while (k < text.length && /[A-Za-z0-9_$]/.test(text[k])) k += 1;
       prev = `w:${text.slice(i, k)}`;
       i = k;
       continue;
@@ -104,14 +108,14 @@ export function commentSpans(text) {
     // `++` и `--` — один токен: после них `/` это деление, после одиночного `+` — нет.
     if ((c === '+' || c === '-') && text[i + 1] === c) { prev = c + c; i += 2; continue; }
     prev = c;
-    i++;
+    i += 1;
   }
   return out;
 }
 
 function lineStartsOf(text) {
   const starts = [0];
-  for (let i = 0; i < text.length; i++) if (text[i] === '\n') starts.push(i + 1);
+  for (let i = 0; i < text.length; i += 1) if (text[i] === '\n') starts.push(i + 1);
   return starts;
 }
 
@@ -125,15 +129,15 @@ function lineOf(starts, idx) {
   return lo;
 }
 
-/** По строке: колонки комментария на ней и стоит ли код до или после них. */
-export function lineFacts(text) {
+// По строке: колонки комментария на ней и стоит ли код до или после них.
+function lineFacts(text) {
   const lines = text.split('\n');
   const starts = lineStartsOf(text);
   const facts = lines.map((l) => ({ text: l, spans: [], codeBefore: false, codeAfter: false }));
   for (const span of commentSpans(text)) {
     const first = lineOf(starts, span.from);
     const last = lineOf(starts, Math.max(span.from, span.to - 1));
-    for (let n = first; n <= last; n++) {
+    for (let n = first; n <= last; n += 1) {
       const from = n === first ? span.from - starts[n] : 0;
       const to = n === last ? span.to - starts[n] : lines[n].length;
       facts[n].spans.push([from, Math.min(to, lines[n].length)]);
@@ -153,22 +157,22 @@ export function lineFacts(text) {
   return facts;
 }
 
-/** Каждая строка, где всё вне комментария затёрто, с сохранением колонок. */
+// Каждая строка, где всё вне комментария затёрто, с сохранением колонок.
 export function maskedLines(text) {
   return lineFacts(text).map((fact) => {
     if (!fact.spans.length) return '';
     const chars = ' '.repeat(fact.text.length).split('');
-    for (const [from, to] of fact.spans) for (let i = from; i < to; i++) chars[i] = fact.text[i];
+    for (const [from, to] of fact.spans) for (let i = from; i < to; i += 1) chars[i] = fact.text[i];
     return chars.join('').replace(/\s+$/, '');
   });
 }
 
-/** Блоки комментария как `{ start, end, lines }`, с единицы и включительно. */
-export function commentBlocks(text) {
+// Блоки комментария как `{ start, end, lines }`, с единицы и включительно.
+function commentBlocks(text) {
   const blocks = [];
   let current = null;
   const facts = lineFacts(text);
-  for (let n = 0; n < facts.length; n++) {
+  for (let n = 0; n < facts.length; n += 1) {
     const fact = facts[n];
     // Код перед комментарием делает строку строкой кода; код после него обрывает блок здесь.
     if (!fact.spans.length || fact.codeBefore || fact.codeAfter) { current = null; continue; }
@@ -179,7 +183,7 @@ export function commentBlocks(text) {
   return blocks;
 }
 
-/** Код деревьев, который git не игнорирует: индекс и ещё не он. Гейт идёт раньше `git add`. */
+// Код деревьев, который git не игнорирует: индекс и ещё не он. Гейт идёт раньше `git add`.
 export function scannedCode(root, trees) {
   // A deleted file is not judged: the index still lists it until `git add`.
   const ls = (flags) => lsFiles(root, trees, flags).filter((f) => /\.(js|mjs)$/.test(f) && existsSync(path.join(root, f)));
@@ -191,15 +195,15 @@ export function scannedCode(root, trees) {
   return { files, empty };
 }
 
-/** Блоки длиннее `limit` строк — то, что судит гейт. */
-export function longBlocks(text, limit = 2) {
+// Блоки длиннее `limit` строк — то, что судит гейт.
+export function longBlocks(text, limit = LIMIT) {
   return commentBlocks(text)
     .filter((r) => r.end - r.start + 1 > limit)
     .map((r) => ({ line: r.start, length: r.end - r.start + 1, lines: r.lines }));
 }
 
-/** Строки блоков шире `limit` знаков: кодпоинты всей строки с отступом, без `\r` (ADR-038). */
-export function wideLines(text, limit = 100) {
+// Строки блоков шире `limit` знаков: кодпоинты всей строки с отступом, без `\r` (ADR-038).
+export function wideLines(text, limit = WIDTH) {
   const out = [];
   for (const block of commentBlocks(text)) {
     block.lines.forEach((l, k) => {
