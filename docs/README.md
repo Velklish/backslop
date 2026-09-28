@@ -11,19 +11,15 @@
 | [archive/](archive/README.md) | Закрытые задачи: постановка и результат раздельными файлами | Живой |
 | [adr/adr-001-process.md](adr/adr-001-process.md) | Задачи и решения ведутся по backslop | Accepted |
 | [adr/adr-002-status-is-directory.md](adr/adr-002-status-is-directory.md) | Статус задачи — каталог, приоритет — поле «Порядок»; индекса в git нет | Accepted |
-| [adr/adr-004-version-pin-upgrade.md](adr/adr-004-version-pin-upgrade.md) | Пин версии в проекте и обновление командой `upgrade` | Superseded in part by ADR-007 (источник релизов при npm-форме) |
 | [adr/adr-005-localization.md](adr/adr-005-localization.md) | Язык раскладки: поле `lang` и второй комплект шаблонов | Accepted |
-| [adr/adr-007-npm-pin.md](adr/adr-007-npm-pin.md) | Точный npm-пин и релизный чеклист без смены default CLI | Accepted |
 | [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
 | [adr/adr-011-seed-scan-queue-reference.md](adr/adr-011-seed-scan-queue-reference.md) | Механика посева — команда `seed`, отбор кандидатов — агент и владелец | Accepted |
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
-| [adr/adr-019-live-pins-and-findings.md](adr/adr-019-live-pins-and-findings.md) | Живые пины в `upgrade`/`lint` и связь находки с родителем | Accepted |
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
 | [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Superseded in part by ADR-031 (порядок пакета при `--restore` — гарантия контракта) |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Superseded in part by ADR-035 (носитель долга в пробе обхода — фикстура вне обхода), ADR-038 (гейт судит и ширину строки блока — не шире 100 знаков) |
 | [adr/adr-031-restore-batch-keeps-order.md](adr/adr-031-restore-batch-keeps-order.md) | Пакет `--restore` возвращает задачи в порядке их сохранённых чисел: каждая следующая встаёт не позже соседа по пакету | Accepted |
-| [adr/adr-032-tool-owned-rules-redrawn-by-migrate.md](adr/adr-032-tool-owned-rules-redrawn-by-migrate.md) | Правила ведения и архива у потребителя принадлежат инструменту: `migrate` перерисовывает их из шаблона | Accepted |
 | [adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md](adr/adr-035-comment-debt-swept-to-zero-probe-debtor-is-fixture.md) | Долг комментариев сведён в ноль: носитель долга в пробе гейта — фикстура вне обхода | Accepted |
 | [adr/adr-038-comment-line-width-under-gate.md](adr/adr-038-comment-line-width-under-gate.md) | Гейт комментариев судит и ширину строки: не шире 100 знаков, знак — кодпоинт | Accepted |
 | [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |
@@ -33,6 +29,7 @@
 | [adr/adr-043-changelog-merge.md](adr/adr-043-changelog-merge.md) | merge-changelog merges the unreleased section structurally and refuses rather than guess | Accepted |
 | [adr/adr-044-closed-task-journal.md](adr/adr-044-closed-task-journal.md) | Closed tasks fold into a journal line; the body stays in git | Accepted |
 | [adr/adr-047-findings.md](adr/adr-047-findings.md) | Findings: numbering under a parent, cost label, the minor/ status and batch closing | Accepted |
+| [adr/adr-048-version-pin-upgrade-migrate.md](adr/adr-048-version-pin-upgrade-migrate.md) | Version pin, upgrade and migrate | Accepted |
 
 ## Сквозные принципы
 
