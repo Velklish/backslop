@@ -20,7 +20,7 @@
 | улика | evidence | Путь к файлу или вывод команды, подтверждающие утверждение; без улики утверждение — предположение | [templates/skills/backslop-seed/SKILL.md](../templates/skills/backslop-seed/SKILL.md) |
 | гейт | gate | Команда из `gates` в `backslop.json`, которая должна быть зелёной до сдачи; `lint` — один из гейтов | [lib/config.js](../lib/config.js) |
 | скелет | skeleton | Файлы, которые кладёт `init`: конфиг, docs, блок в AGENTS.md; adapters — только при выбранных `tools` | [lib/init.js](../lib/init.js) |
-| adapter | adapter | Рендер скиллов в каталог конкретного harness: Claude, Cursor или Codex | [lib/adapters.js](../lib/adapters.js), [ADR-006](adr/adr-006-adapter-ownership.md) |
+| adapter | adapter | Рендер скиллов в каталог конкретного harness: Claude, Cursor или Codex | [lib/adapters.js](../lib/adapters.js) |
 | owned output | owned output | Generated файл adapter'а: маркер `<!-- backslop:generated -->` в позиции `markGenerated` на пути adapter'а; только его `init` переписывает и снимает | [lib/adapter-ownership.js](../lib/adapter-ownership.js) |
 | посев | seed | Наполнение скелета содержанием проекта по скиллу `backslop-seed` | [templates/skills/backslop-seed/SKILL.md](../templates/skills/backslop-seed/SKILL.md) |
 | заход | run | Пакет работы по бэклогу одной сессии: соло или worker'ами | [templates/skills/backslop-batch/SKILL.md](../templates/skills/backslop-batch/SKILL.md) |

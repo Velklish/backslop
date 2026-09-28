@@ -172,3 +172,4 @@
 - <a id="bs-124"></a>`BS-124-messages-through-tr` · 2026-09-26 · completed · — · Route the remaining ternaries, gitOrFail and template-parity messages through tr()
 - <a id="bs-125"></a>`BS-125-report-channels-and-dry-run` · 2026-09-26 · completed · — · Report channels: unmarked stderr notes, one archive dry-run line, one git rm error
 - <a id="bs-143"></a>`BS-143-adr-node-runtime-release` · 2026-09-28 · completed · — · One English ADR on Node runtime, npx delivery and release replaces ADR-003
+- <a id="bs-144"></a>`BS-144-adr-harness-adapters` · 2026-09-28 · completed · — · One English ADR on harness adapters replaces ADR-006, 008, 012, 015 and 016
