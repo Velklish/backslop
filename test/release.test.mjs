@@ -60,29 +60,38 @@ function putFakeCli(f) {
   writeFileSync(path.join(f.root, 'bin', 'backslop.js'), log('bin/backslop.js'));
 }
 
-test('release: все preflight и gates идут до tag, publish и atomic push', () => {
-  const f = fixture();
-  try {
-    const r = runRelease(f);
-    assert.equal(r.code, 0, r.err);
-    assert.deepEqual(r.log.trim().split('\n'), [
-      'git branch --show-current',
-      'git status --porcelain',
-      'git rev-parse --verify --quiet refs/tags/v0.2.0',
-      'git ls-remote --exit-code --tags origin refs/tags/v0.2.0',
-      'git fetch origin',
-      'git merge-base --is-ancestor refs/remotes/origin/main HEAD',
-      'npm test',
-      'npm run lint',
-      'npm pack --dry-run',
-      'git status --porcelain',
-      'git tag v0.2.0',
-      'git push --atomic --dry-run origin main v0.2.0',
-      'npm publish',
-      'git push --atomic origin main v0.2.0',
-    ]);
-  } finally {
-    cleanup(f);
+const SEQ = [
+  'git branch --show-current',
+  'git status --porcelain',
+  'git rev-parse --verify --quiet refs/tags/v0.2.0',
+  'git ls-remote --exit-code --tags origin refs/tags/v0.2.0',
+  'git fetch origin',
+  'git merge-base --is-ancestor refs/remotes/origin/main HEAD',
+  'npm test',
+  'npm run lint',
+  'npm pack --dry-run',
+  'git status --porcelain',
+  'git tag v0.2.0',
+  'git push --atomic --dry-run origin main v0.2.0',
+  'npm publish',
+  'git push --atomic origin main v0.2.0',
+];
+const through = (last) => SEQ.slice(0, SEQ.indexOf(last) + 1);
+
+test('release: every preflight and gate runs before the tag, the publish and the atomic push', () => {
+  for (const row of [
+    { label: 'published', args: ['0.2.0'], log: SEQ },
+    { label: '--no-publish', args: ['0.2.0', '--no-publish'], log: SEQ.filter((c) => c !== 'npm publish'), out: /npm publish не запускался/ },
+  ]) {
+    const f = fixture();
+    try {
+      const r = runRelease(f, row.args);
+      assert.equal(r.code, 0, `${row.label}: ${r.err}`);
+      assert.deepEqual(r.log.trim().split('\n'), row.log, row.label);
+      if (row.out) assert.match(r.out, row.out, row.label);
+    } finally {
+      cleanup(f);
+    }
   }
 });
 
@@ -143,61 +152,68 @@ test('release: каждый gate failure не допускает tag/publish/pus
   }
 });
 
-test('release: отказ push --dry-run оставляет local tag и не публикует', () => {
-  const f = fixture();
-  try {
-    const r = runRelease(f, '0.2.0', { FAKE_PUSH_DRY_FAIL: '1' });
-    assert.equal(r.code, 1);
-    assert.match(r.err, /state: локальный тег v0\.2\.0 создан; origin не изменён; npm registry не тронут/);
-    assert.match(r.err, /git tag -d v0\.2\.0(\s|$)/, 'the tag command is copyable, no punctuation after it');
-    assert.match(r.log, /git tag v0\.2\.0\ngit push --atomic --dry-run origin main v0\.2\.0\n$/);
-    assert.doesNotMatch(r.log, /npm publish|git push --atomic origin/);
-  } finally {
-    cleanup(f);
-  }
-});
-
-test('release --no-publish: the fast-forward refusal does not mention npm publish', () => {
-  const f = fixture();
-  try {
-    const r = runRelease(f, ['0.2.0', '--no-publish'], { FAKE_DIVERGED: '1' });
-    assert.equal(r.code, 1);
-    assert.match(r.err, /не является fast-forward от origin\/main: atomic push отказал бы\n/);
-    assert.doesNotMatch(r.err, /npm publish/);
-    const published = runRelease(f, '0.2.0', { FAKE_DIVERGED: '1' });
-    assert.match(published.err, /atomic push отказал бы после npm publish/);
-  } finally {
-    cleanup(f);
-  }
-});
-
-test('release: publish failure оставляет local tag и печатает первую recovery-команду', () => {
-  const f = fixture();
-  try {
-    const r = runRelease(f, '0.2.0', { FAKE_NPM_FAIL: 'publish' });
-    assert.equal(r.code, 1);
-    assert.match(r.err, /state: локальный тег v0\.2\.0 создан; origin не изменён; состояние npm registry неизвестно/);
-    assert.match(r.err, /next: npm view backslop@0\.2\.0 version/);
-    assert.match(r.err, /if published: git push --atomic origin main v0\.2\.0/);
-    assert.match(r.err, /if E404: npm publish, затем git push --atomic origin main v0\.2\.0/);
-    assert.match(r.log, /git tag v0\.2\.0\ngit push --atomic --dry-run origin main v0\.2\.0\nnpm publish\n$/);
-    assert.doesNotMatch(r.log, /git push --atomic origin main/);
-  } finally {
-    cleanup(f);
-  }
-});
-
-test('release: push failure фиксирует published state и exact atomic retry', () => {
-  const f = fixture();
-  try {
-    const push = 'push --atomic origin main v0.2.0';
-    const r = runRelease(f, '0.2.0', { FAKE_GIT_FAIL: push });
-    assert.equal(r.code, 1);
-    assert.match(r.err, /state: backslop@0\.2\.0 опубликован; локальный тег v0\.2\.0 создан; atomic push не подтверждён/);
-    assert.match(r.err, /next: git push --atomic origin main v0\.2\.0/);
-    assert.match(r.log, /git push --atomic --dry-run origin main v0\.2\.0\nnpm publish\ngit push --atomic origin main v0\.2\.0\n$/);
-  } finally {
-    cleanup(f);
+// A row's log is every command run, the failing one last; absentRe must not match stderr.
+test('release: each failure names its state and next step; the fast-forward refusal mentions npm publish only when publishing', () => {
+  const push = 'push --atomic origin main v0.2.0';
+  for (const row of [
+    {
+      label: 'push --dry-run refused',
+      args: ['0.2.0'],
+      env: { FAKE_PUSH_DRY_FAIL: '1' },
+      // The tag command stays copyable: no punctuation right after it.
+      errRes: [/state: локальный тег v0\.2\.0 создан; origin не изменён; npm registry не тронут/, /git tag -d v0\.2\.0(\s|$)/],
+      log: through('git push --atomic --dry-run origin main v0.2.0'),
+    },
+    {
+      label: 'npm publish failed',
+      args: ['0.2.0'],
+      env: { FAKE_NPM_FAIL: 'publish' },
+      errRes: [
+        /state: локальный тег v0\.2\.0 создан; origin не изменён; состояние npm registry неизвестно/,
+        /next: npm view backslop@0\.2\.0 version/,
+        /if published: git push --atomic origin main v0\.2\.0/,
+        /if E404: npm publish, затем git push --atomic origin main v0\.2\.0/,
+      ],
+      log: through('npm publish'),
+    },
+    {
+      label: 'atomic push failed after publish',
+      args: ['0.2.0'],
+      env: { FAKE_GIT_FAIL: push },
+      errRes: [/state: backslop@0\.2\.0 опубликован; локальный тег v0\.2\.0 создан; atomic push не подтверждён/, /next: git push --atomic origin main v0\.2\.0/],
+      log: SEQ,
+    },
+    {
+      label: 'atomic push failed with --no-publish',
+      args: ['0.2.0', '--no-publish'],
+      env: { FAKE_GIT_FAIL: push },
+      errRes: [/npm publish не запускался \(--no-publish\)/],
+      absentRe: /опубликован/,
+    },
+    {
+      label: 'not a fast-forward with --no-publish',
+      args: ['0.2.0', '--no-publish'],
+      env: { FAKE_DIVERGED: '1' },
+      errRes: [/не является fast-forward от origin\/main: atomic push отказал бы\n/],
+      absentRe: /npm publish/,
+    },
+    {
+      label: 'not a fast-forward, published',
+      args: ['0.2.0'],
+      env: { FAKE_DIVERGED: '1' },
+      errRes: [/atomic push отказал бы после npm publish/],
+    },
+  ]) {
+    const f = fixture();
+    try {
+      const r = runRelease(f, row.args, row.env);
+      assert.equal(r.code, 1, row.label);
+      for (const re of row.errRes) assert.match(r.err, re, row.label);
+      if (row.log) assert.deepEqual(r.log.trim().split('\n'), row.log, row.label);
+      if (row.absentRe) assert.doesNotMatch(r.err, row.absentRe, row.label);
+    } finally {
+      cleanup(f);
+    }
   }
 });
 
@@ -333,41 +349,5 @@ test('release --bump renames `## Unreleased (after v0.1.0)` and refuses a releas
   } finally {
     cleanup(f);
     cleanup(kac);
-  }
-});
-
-test('release --no-publish: тег и atomic push без npm publish', () => {
-  const f = fixture();
-  try {
-    const r = runRelease(f, ['0.2.0', '--no-publish']);
-    assert.equal(r.code, 0, r.err);
-    assert.deepEqual(r.log.trim().split('\n'), [
-      'git branch --show-current',
-      'git status --porcelain',
-      'git rev-parse --verify --quiet refs/tags/v0.2.0',
-      'git ls-remote --exit-code --tags origin refs/tags/v0.2.0',
-      'git fetch origin',
-      'git merge-base --is-ancestor refs/remotes/origin/main HEAD',
-      'npm test',
-      'npm run lint',
-      'npm pack --dry-run',
-      'git status --porcelain',
-      'git tag v0.2.0',
-      'git push --atomic --dry-run origin main v0.2.0',
-      'git push --atomic origin main v0.2.0',
-    ]);
-    assert.doesNotMatch(r.log, /npm publish/);
-    assert.match(r.out, /npm publish не запускался/);
-
-    // Отказ push после тега называет состояние без публикации, а не «опубликован».
-    const g = fixture();
-    try {
-      const failed = runRelease(g, ['0.2.0', '--no-publish'], { FAKE_GIT_FAIL: 'push --atomic origin main v0.2.0' });
-      assert.equal(failed.code, 1);
-      assert.match(failed.err, /npm publish не запускался \(--no-publish\)/);
-      assert.doesNotMatch(failed.err, /опубликован/);
-    } finally { cleanup(g); }
-  } finally {
-    cleanup(f);
   }
 });

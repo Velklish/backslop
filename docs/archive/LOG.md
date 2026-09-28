@@ -175,3 +175,4 @@
 - <a id="bs-144"></a>`BS-144-adr-harness-adapters` · 2026-09-28 · completed · — · One English ADR on harness adapters replaces ADR-006, 008, 012, 015 and 016
 - <a id="bs-145"></a>`BS-145-probe-command-adr` · 2026-09-28 · completed · — · One English ADR for the probe field and block values; document a probe hidden by step 4
 - <a id="bs-128"></a>`BS-128-test-only-exports-and-helpers` · 2026-09-28 · completed · — · Test behaviour instead of test-only lib exports; trim unused test-helper exports
+- <a id="bs-136"></a>`BS-136-gates-release-test-cleanup` · 2026-09-28 · completed · — · gates/release tests: cut the slowest test to two runs, table refusals and recovery states
