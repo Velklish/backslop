@@ -15,12 +15,9 @@
 | [adr/adr-005-localization.md](adr/adr-005-localization.md) | Язык раскладки: поле `lang` и второй комплект шаблонов | Accepted |
 | [adr/adr-007-npm-pin.md](adr/adr-007-npm-pin.md) | Точный npm-пин и релизный чеклист без смены default CLI | Accepted |
 | [adr/adr-009-gates-runner.md](adr/adr-009-gates-runner.md) | Раннер гейтов командой `backslop gates` | Accepted |
-| [adr/adr-010-brief-command.md](adr/adr-010-brief-command.md) | Бриф worker'у собирается командой `brief`, а не руками | Accepted |
 | [adr/adr-011-seed-scan-queue-reference.md](adr/adr-011-seed-scan-queue-reference.md) | Механика посева — команда `seed`, отбор кандидатов — агент и владелец | Accepted |
 | [adr/adr-013-changelog-merge.md](adr/adr-013-changelog-merge.md) | Слияние CHANGELOG командой, а не правилом в скилле | Superseded in part by ADR-024 (позиция записи и спор за одно место); refined by [ADR-030](adr/adr-030-changelog-merge-untagged-version-section.md) (верхняя секция версии без тега — невыпущенная) |
 | [adr/adr-014-tracks-observation-command.md](adr/adr-014-tracks-observation-command.md) | Команда `tracks` наблюдает за заходом, но не убирает | Accepted |
-| [adr/adr-017-gates-step-follows-the-pin.md](adr/adr-017-gates-step-follows-the-pin.md) | Шаг гейтов в брифе идёт по пинованной версии, а не по запущенной | Accepted |
-| [adr/adr-018-brief-decision-slots.md](adr/adr-018-brief-decision-slots.md) | Решения оркестратора в брифе — слоты, и пара «слот ↔ ключ» под гейтом | Accepted |
 | [adr/adr-019-live-pins-and-findings.md](adr/adr-019-live-pins-and-findings.md) | Живые пины в `upgrade`/`lint` и связь находки с родителем | Accepted |
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
 | [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
@@ -42,6 +39,7 @@
 | [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |
 | [adr/adr-040-harness-adapters.md](adr/adr-040-harness-adapters.md) | Harness adapters: selection, ownership and path safety of generated outputs | Accepted |
 | [adr/adr-041-probe-command.md](adr/adr-041-probe-command.md) | The mutation-probe command is a project field substituted into the block, the task skill and the brief | Accepted |
+| [adr/adr-042-worker-brief.md](adr/adr-042-worker-brief.md) | The worker brief is rendered by a command from a template | Accepted |
 
 ## Сквозные принципы
 

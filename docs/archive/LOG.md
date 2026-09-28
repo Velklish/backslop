@@ -178,3 +178,4 @@
 - <a id="bs-136"></a>`BS-136-gates-release-test-cleanup` · 2026-09-28 · completed · — · gates/release tests: cut the slowest test to two runs, table refusals and recovery states
 - <a id="bs-133"></a>`BS-133-init-test-new-guards` · 2026-09-28 · completed · — · init.test.mjs: guard the invalid --prefix and the CLAUDE.md symlink, split two tests
 - <a id="bs-134"></a>`BS-134-init-test-merges-deletions` · 2026-09-28 · completed · — · init.test.mjs: fold duplicate tests into rows, drop subsumed tests and asserts
+- <a id="bs-146"></a>`BS-146-adr-worker-brief` · 2026-09-28 · completed · — · One English ADR on the worker brief replaces ADR-010, ADR-017 and ADR-018
