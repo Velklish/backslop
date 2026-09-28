@@ -1,5 +1,5 @@
 // Где комментарий начинается и кончается — лексером с состоянием между строками, а не
-// догадкой по одной строке. Что гейт над ним ловит, а что нет — ADR-028.
+// догадкой по одной строке. Что гейт над ним ловит, а что нет — ADR-046.
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { lsFiles } from '../lib/util.js';
@@ -202,7 +202,7 @@ export function longBlocks(text, limit = LIMIT) {
     .map((r) => ({ line: r.start, length: r.end - r.start + 1, lines: r.lines }));
 }
 
-// Строки блоков шире `limit` знаков: кодпоинты всей строки с отступом, без `\r` (ADR-038).
+// Строки блоков шире `limit` знаков: кодпоинты всей строки с отступом, без `\r` (ADR-046).
 export function wideLines(text, limit = WIDTH) {
   const out = [];
   for (const block of commentBlocks(text)) {

@@ -193,3 +193,4 @@
 - <a id="bs-149"></a>`BS-149-gates-runner-adr` · 2026-09-29 · completed · — · One English ADR for the gates runner and path-scoped gates replaces ADR-009 and ADR-023
 - <a id="bs-132"></a>`BS-132-fold-test-cleanup` · 2026-09-29 · completed · — · fold.test.mjs: drop a duplicate test, trim refusals, make the worktree check non-vacuous
 - <a id="bs-135"></a>`BS-135-merge-changelog-test-tables` · 2026-09-29 · completed · — · merge-changelog.test.mjs: bump and marker tables, drop re-asserts, split bundled tests
+- <a id="bs-150"></a>`BS-150-comments-gate-adr` · 2026-09-29 · completed · — · One English ADR for the comment gate replaces ADR-028, ADR-035 and ADR-038

@@ -1,5 +1,5 @@
 // Gate: an inline comment is at most two lines long and 100 characters wide, the AGENTS.md rule.
-// What it catches and what it misses — ADR-028, the width — ADR-038.
+// What it catches and what it misses, the width included — ADR-046.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -50,7 +50,7 @@ test('the walk refuses every long block of a file it judges and names the file a
   // The floor catches a walk that read NOTHING, not one that reads every file and judges none:
   // judged counts reads, not verdicts. So the judging branch runs here.
   const debtor = 'test/fixtures/comment-debtor.js.txt';
-  assert.ok(!scanned.includes(debtor), `${debtor} попал в обход — гейт судил бы носителя пробы как долг (ADR-035)`);
+  assert.ok(!scanned.includes(debtor), `${debtor} попал в обход — гейт судил бы носителя пробы как долг (ADR-046)`);
   const carried = blocksOf(readFileSync(path.join(ROOT, debtor), 'utf8')).length;
   assert.ok(carried > 0, `${debtor} больше не несёт длинных блоков — пробе нечего судить`);
   const bare = surveyTree([debtor]);
@@ -83,7 +83,7 @@ test('ширина: строка комментария в 101 знак — на
   assert.deepEqual(wideOf(`${line(101, '    ')}\n`), [{ line: 1, width: 101 }], 'отступ входит в ширину');
   assert.deepEqual(wideOf(`${line(100)}\r\n${line(100)}\r\n`), [], '`\\r` перевода строки CRLF — не знак');
   assert.deepEqual(wideOf(`// ${'𝑥'.repeat(97)}\n`), [], 'знак — кодпоинт, а не единица UTF-16');
-  assert.deepEqual(wideOf(`const x = 1; // ${'x'.repeat(120)}\n`), [], 'хвост строки кода гейт не судит (ADR-028)');
+  assert.deepEqual(wideOf(`const x = 1; // ${'x'.repeat(120)}\n`), [], 'хвост строки кода гейт не судит (ADR-046)');
 });
 
 const one = (src) => blocksOf(src).map((r) => [r.line, r.length]);
@@ -115,8 +115,8 @@ const CASES = [
     src: 'const s = "/*";\nconst t = "*/";\nconst u = 1;\n', exp: [] },
   { why: 'lexer: a comment marker inside a template literal that spans lines is not a comment',
     src: 'const s = `// не комментарий\n// всё ещё нет`;\nconst y = 1;\n', exp: [] },
-  // Без состояния регэкспа бэктик ниже открывает шаблон, который никогда не закрывается,
-  // и всё за ним перестаёт быть комментарием. Замер, стоящий за этой строкой, — ADR-028.
+  // Without regex state the backtick below opens a template that never closes, and nothing
+  // after it is a comment any more. Why the gate needs a lexer: ADR-046.
   { why: 'lexer: a backtick inside a regex opens nothing',
     src: 'const r = /`/g;\n// a\n// b\n// c\n', exp: [[2, 3]] },
   { why: 'lexer: a block after a regex with a backtick is still seen',

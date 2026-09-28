@@ -48,7 +48,7 @@ test('config: lang and tools reject unknown or duplicate ids', () => {
   } finally { cleanup(root); }
 });
 
-// BS-19: четыре проверки формы в loadConfig, которые до сих пор можно было вырезать при зелёном
+// Четыре проверки формы в loadConfig, которые до сих пор можно было вырезать при зелёном
 // npm test. Базовый конфиг валиден, каждый случай портит ровно одно поле.
 test('config: prefix, docs, cli и gates проверяются формой', () => {
   const root = makeProject({ git: false });
@@ -129,7 +129,7 @@ test('config: docs is a relative path inside the project on every OS', () => {
   } finally { cleanup(root); }
 });
 
-// BS-66: у записи `gates` две законные формы. Строка — как было; объект несёт область.
+// У записи `gates` две законные формы. Строка — как было; объект несёт область.
 test('config: запись gates — строка или объект { command, when }', () => {
   const root = makeProject({ git: false });
   const setGates = (gates) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates, lang: 'ru', tools: [] }, null, 2)}\n`);
@@ -203,7 +203,7 @@ test('config: probe — непустая строка команды или по
   } finally { cleanup(root); }
 });
 
-// BS-57.1: в managed-блок уезжают `docs`, `cli`, `prefix` и `probe`, и форма у них там одна.
+// В managed-блок уезжают `docs`, `cli`, `prefix` и `probe`, и форма у них там одна.
 // Проверка одна на всех: запрет, снятый с общего места, обязан красить каждое поле, а не одно.
 test('config: docs и cli проверяются тем же запретом, что и probe', () => {
   const root = makeProject({ git: false });
