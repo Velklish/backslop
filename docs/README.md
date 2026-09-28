@@ -11,7 +11,6 @@
 | [archive/](archive/README.md) | Закрытые задачи: постановка и результат раздельными файлами | Живой |
 | [adr/adr-001-process.md](adr/adr-001-process.md) | Задачи и решения ведутся по backslop | Accepted |
 | [adr/adr-002-status-is-directory.md](adr/adr-002-status-is-directory.md) | Статус задачи — каталог, приоритет — поле «Порядок»; индекса в git нет | Accepted |
-| [adr/adr-003-node-stdlib-npx.md](adr/adr-003-node-stdlib-npx.md) | Node без зависимостей, доставка `npx github:` | Accepted |
 | [adr/adr-004-version-pin-upgrade.md](adr/adr-004-version-pin-upgrade.md) | Пин версии в проекте и обновление командой `upgrade` | Superseded in part by ADR-007 (источник релизов при npm-форме) |
 | [adr/adr-005-localization.md](adr/adr-005-localization.md) | Язык раскладки: поле `lang` и второй комплект шаблонов | Accepted |
 | [adr/adr-006-adapter-ownership.md](adr/adr-006-adapter-ownership.md) | Выбор harness и владение generated outputs | Superseded in part by ADR-008 (legacy-default) |
@@ -47,6 +46,7 @@
 | [adr/adr-036-mv-minor-requires-evidence.md](adr/adr-036-mv-minor-requires-evidence.md) | Вторая дверь в `minor/` — `mv N minor` — требует улику, `lint` требует в `minor/` раздел «Улика» | Accepted |
 | [adr/adr-037-result-outcome-word-under-gate.md](adr/adr-037-result-outcome-word-under-gate.md) | Исход задачи — слово первого абзаца `result.md` под гейтом 5, а не поле | Accepted |
 | [adr/adr-038-comment-line-width-under-gate.md](adr/adr-038-comment-line-width-under-gate.md) | Гейт комментариев судит и ширину строки: не шире 100 знаков, знак — кодпоинт | Accepted |
+| [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |
 
 ## Сквозные принципы
 
