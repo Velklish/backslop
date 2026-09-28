@@ -1,5 +1,5 @@
-// Носитель долга для пробы гейта комментариев (ADR-035): расширение не .js/.mjs, поэтому
-// обход его не судит, а проба читает сама. Блоки ниже нарушают правило намеренно.
+// Probe carrier of the comment gate (ADR-046): not .js/.mjs, so the walk skips it and the
+// probe reads it itself. The blocks below break the rule on purpose.
 export const probe = 1;
 
 // Первый длинный блок: три строки

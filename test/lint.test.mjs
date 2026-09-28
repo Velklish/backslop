@@ -927,7 +927,7 @@ test('lint: 10. a finding card fresh from new passes the quote gate', () => {
   }
 });
 
-// BS-19: пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
+// Пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
 probe('2. каталог вместо файла задачи в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), /каталог внутри каталога статуса/);
 // Каталог, названный как файл задачи: scanTasks читал его как файл и падал EISDIR раньше гейта.
 probe('2. каталог, названный как файл задачи, в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md')), /BS-9-sub\.md: каталог внутри каталога статуса/);

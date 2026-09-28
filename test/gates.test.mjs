@@ -153,7 +153,7 @@ test('gates: the tree snapshot marks a dirty tree unclean; without git the tree 
   }
 });
 
-// BS-66: область записи сверяется с набором изменённых путей. Без --base набор — грязное дерево.
+// Область записи сверяется с набором изменённых путей. Без --base набор — грязное дерево.
 test('gates: команда вне области не запускается и в зелёные не попадает', () => {
   const root = makeProject();
   try {

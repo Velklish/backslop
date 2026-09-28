@@ -12,7 +12,7 @@ import { toPosix } from '../lib/util.js';
 import { listReleaseTags } from '../lib/upgrade.js';
 
 // Гейт 4 требует «Область» у задачи вне triage/: фикстуры, доводящие lint до зелёного,
-// заполняют заглушки от `new` этим хелпером: гейт BS-49 видит их во всём backlog.
+// заполняют заглушки от `new` этим хелпером: проверка заглушек гейта 4 видит их во всём backlog.
 function fillArea(root, rel) {
   const text = read(root, rel).replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../README.md)');
   put(root, rel, text
@@ -1134,7 +1134,7 @@ test('release-related CLI messages follow project lang without changing their fl
   } finally { cleanup(root); }
 });
 
-// BS-19.1: каталог с именем файла задачи в плоском docs/backlog/ — не задача и для findFlatTask:
+// Каталог с именем файла задачи в плоском docs/backlog/ — не задача и для findFlatTask:
 // иначе mv сначала переносил каталог, а потом падал на чтении — дерево тронуто, откат руками.
 test('mv: каталог с именем файла задачи в плоском docs/backlog/ — отказ без переноса и без стека', () => {
   const root = makeProject();
