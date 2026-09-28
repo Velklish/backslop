@@ -198,3 +198,4 @@
 - <a id="bs-131"></a>`BS-131-lint-test-redundant-probes` · 2026-09-29 · completed · — · lint.test.mjs: drop redundant probes, fix the vacuous minor/ probe, split live-pin
 - <a id="bs-137"></a>`BS-137-upgrade-config-version-tests` · 2026-09-29 · completed · — · upgrade, config and version tests: probe-failure and changelog tables, split bundled tests
 - <a id="bs-138"></a>`BS-138-upgrade-tests-windows-npx-shim` · 2026-09-29 · completed · — · Run the pinned-form upgrade tests on Windows: a node-based npx shim instead of /bin/sh
+- <a id="bs-129"></a>`BS-129-commands-test-cleanup` · 2026-09-29 · completed · — · commands.test.mjs: drop two subsumed tests, merge twin tests, split the mv omnibus test

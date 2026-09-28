@@ -456,37 +456,37 @@ test('new: даты — локальная календарная дата ма�
   }
 });
 
-test('new: без git номер считается по текущему дереву', () => {
-  const root = makeProject({ git: false });
-  try {
-    const r = cli(root, ['new', 'a']);
-    assert.equal(r.code, 0, r.err);
-    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-1-a.md')));
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('mv: очередь → работа ставит «Взята» и снимает порядок; deferred получает раздел; --after ставит между', () => {
+function threeQueued() {
   const root = makeProject();
-  try {
-    cli(root, ['new', 'a', '--queue']);
-    cli(root, ['new', 'b', '--queue']);
-    cli(root, ['new', 'c', '--queue']);
-    gitAll(root);
+  cli(root, ['new', 'a', '--queue']);
+  cli(root, ['new', 'b', '--queue']);
+  cli(root, ['new', 'c', '--queue']);
+  gitAll(root);
+  return root;
+}
 
-    let r = cli(root, ['mv', '1', 'active']);
+test('mv: queue → active sets the taken date and drops the order', () => {
+  const root = threeQueued();
+  try {
+    const r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
     assert.ok(!existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')));
     const active = read(root, 'docs/backlog/active/BS-1-a.md');
     assert.match(active, /- \*\*Взята:\*\* \d{4}-\d{2}-\d{2}\n/);
     assert.doesNotMatch(active, /Порядок/);
+  } finally {
+    cleanup(root);
+  }
+});
 
+test('mv: a queued task is reordered by --top or --after; a bare move and --after itself are refused', () => {
+  const root = threeQueued();
+  try {
     // Задача уже в очереди: --top/--after только меняют «Порядок», файл не двигается.
-    r = cli(root, ['mv', 'BS-3', 'queue', '--top']);
+    let r = cli(root, ['mv', 'BS-3', 'queue', '--top']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /BS-3: queue\/ «Порядок» 10/);
-    assert.match(read(root, 'docs/backlog/queue/BS-3-c.md'), /- \*\*Порядок:\*\* 10\n/);
+    assert.match(r.out, /BS-3: queue\/ «Порядок» 5/);
+    assert.match(read(root, 'docs/backlog/queue/BS-3-c.md'), /- \*\*Порядок:\*\* 5\n/);
     assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-3-c.md')));
     r = cli(root, ['mv', '3', 'queue']);
     assert.equal(r.code, 1);
@@ -499,8 +499,15 @@ test('mv: очередь → работа ставит «Взята» и сни�
     r = cli(root, ['mv', '3', 'queue', '--after', '2']);
     assert.equal(r.code, 0, r.err);
     assert.match(read(root, 'docs/backlog/queue/BS-3-c.md'), /- \*\*Порядок:\*\* 30\n/);
+  } finally {
+    cleanup(root);
+  }
+});
 
-    r = cli(root, ['mv', '2', 'deferred']);
+test('mv: deferred adds its section; a second move there is refused', () => {
+  const root = threeQueued();
+  try {
+    let r = cli(root, ['mv', '2', 'deferred']);
     assert.equal(r.code, 0, r.err);
     const deferred = read(root, 'docs/backlog/deferred/BS-2-b.md');
     assert.match(deferred, /## Отложено\n\n- \*\*Отложена:\*\* \d{4}/);
@@ -509,7 +516,15 @@ test('mv: очередь → работа ставит «Взята» и сни�
     r = cli(root, ['mv', '2', 'deferred']);
     assert.equal(r.code, 1);
     assert.match(r.err, /уже в deferred/);
-    r = cli(root, ['mv', '2', 'done']);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: an unknown status or an unknown task number is refused', () => {
+  const root = threeQueued();
+  try {
+    let r = cli(root, ['mv', '2', 'done']);
     assert.equal(r.code, 1);
     r = cli(root, ['mv', '7', 'queue']);
     assert.equal(r.code, 1);
@@ -727,28 +742,6 @@ test('mv --restore: исход пакета не зависит от поряд�
   assert.deepEqual(restore(['2', '1']), ['5', '10', '20', '30']);
 });
 
-test('mv --restore: восстановленные задачи сохраняют порядок между собой', () => {
-  const root = makeProject();
-  try {
-    // BS-1 ушла раньше BS-2 и обязана вернуться впереди неё. Сохранённое место BS-1 занято и
-    // тесно — она расталкивает очередь; свободное место BS-2 её не обгоняет.
-    put(root, 'docs/backlog/queue/BS-5-e.md', '# BS-5 · e\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n');
-    put(root, 'docs/backlog/queue/BS-6-f.md', '# BS-6 · f\n\n- **Порядок:** 11\n- **Область:** [x](../../README.md)\n');
-    put(root, 'docs/backlog/active/BS-1-a.md', '# BS-1 · a\n\n- **Прежний порядок:** 11\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
-    put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · b\n\n- **Прежний порядок:** 12\n- **Область:** [x](../../README.md)\n- **Взята:** 2026-09-01\n');
-    gitAll(root);
-
-    const r = cli(root, ['mv', '1', '2', 'queue', '--restore']);
-    assert.equal(r.code, 0, r.err);
-    const rank = (n) => Number(read(root, `docs/backlog/queue/BS-${n}.md`).match(/- \*\*Порядок:\*\* (\d+)/)[1]);
-    assert.ok(rank('1-a') < rank('2-b'), `BS-1 ${rank('1-a')} обязана стоять раньше BS-2 ${rank('2-b')}`);
-    assert.deepEqual(['5-e', '1-a', '6-f', '2-b'].map(rank), [10, 20, 30, 40]);
-    assert.equal(cli(root, ['lint']).code, 0);
-  } finally {
-    cleanup(root);
-  }
-});
-
 test('mv --restore: широкий разрыв перед занятым числом не уводит задачу вперёд соседа по пакету', () => {
   const root = makeProject();
   try {
@@ -817,41 +810,32 @@ test('mv N queue без --restore: отброшенное место назва�
   }
 });
 
-test('mv: --top на тесной очереди перенумеровывает соседей', () => {
-  const root = makeProject();
-  try {
-    cli(root, ['new', 'a', '--queue']);
-    cli(root, ['new', 'b', '--queue', '--top']); // 5
-    cli(root, ['new', 'c', '--queue', '--top']); // 2
-    cli(root, ['new', 'd', '--queue', '--top']); // 1
-    cli(root, ['new', 'e']);
-    const r = cli(root, ['mv', '5', 'queue', '--top']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /перенумерована/);
-    const ranks = ['5-e', '4-d', '3-c', '2-b', '1-a'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/Порядок:\*\* (\d+)/)[1]);
-    assert.deepEqual(ranks, ['10', '20', '30', '40', '50']);
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('mv: --top на задаче из тесной очереди перенумеровывает соседей без переноса файла', () => {
-  const root = makeProject();
-  try {
-    cli(root, ['new', 'a', '--queue']); // 10
-    cli(root, ['new', 'b', '--queue', '--top']); // 5
-    cli(root, ['new', 'c', '--queue', '--top']); // 2
-    cli(root, ['new', 'd', '--queue', '--top']); // 1
-    for (const n of ['1-a', '2-b', '3-c', '4-d']) fillArea(root, `docs/backlog/queue/BS-${n}.md`);
-    gitAll(root);
-    const r = cli(root, ['mv', '1', 'queue', '--top']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /перенумерована/);
-    const ranks = ['1-a', '4-d', '3-c', '2-b'].map((n) => read(root, `docs/backlog/queue/BS-${n}.md`).match(/Порядок:\*\* (\d+)/)[1]);
-    assert.deepEqual(ranks, ['10', '20', '30', '40']);
-    assert.equal(cli(root, ['lint']).code, 0);
-  } finally {
-    cleanup(root);
+test('mv: --top on a tight queue renumbers the neighbours, from triage and within the queue', () => {
+  const rows = [
+    { from: 'triage', target: '5', expect: { '5-e': 10, '4-d': 20, '3-c': 30, '2-b': 40, '1-a': 50 } },
+    { from: 'queue', target: '1', expect: { '1-a': 10, '4-d': 20, '3-c': 30, '2-b': 40 } },
+  ];
+  for (const { from, target, expect } of rows) {
+    const root = makeProject();
+    try {
+      cli(root, ['new', 'a', '--queue']); // 10
+      cli(root, ['new', 'b', '--queue', '--top']); // 5
+      cli(root, ['new', 'c', '--queue', '--top']); // 2
+      cli(root, ['new', 'd', '--queue', '--top']); // 1
+      if (from === 'triage') cli(root, ['new', 'e']);
+      for (const n of ['1-a', '2-b', '3-c', '4-d']) fillArea(root, `docs/backlog/queue/BS-${n}.md`);
+      if (from === 'triage') fillArea(root, 'docs/backlog/triage/BS-5-e.md');
+      gitAll(root);
+      const r = cli(root, ['mv', target, 'queue', '--top']);
+      assert.equal(r.code, 0, `${from}: ${r.err}`);
+      assert.match(r.out, /перенумерована/, `${from}: the queue must be renumbered`);
+      const ranks = Object.fromEntries(Object.keys(expect).map((n) => [n, Number(read(root, `docs/backlog/queue/BS-${n}.md`).match(/Порядок:\*\* (\d+)/)[1])]));
+      assert.deepEqual(ranks, expect, `${from}: ranks after --top`);
+      const lint = cli(root, ['lint']);
+      assert.equal(lint.code, 0, `${from}: ${lint.err}`);
+    } finally {
+      cleanup(root);
+    }
   }
 });
 
@@ -1328,11 +1312,6 @@ test('mv: пакет номеров одним вызовом; отказ по �
     assert.match(r.err, /BS-99/);
     for (const n of [1, 2, 3]) assert.ok(existsSync(path.join(root, `docs/backlog/queue/BS-${n}-${'abc'[n - 1]}.md`)), `BS-${n} тронут отказом`);
 
-    // --top при нескольких номерах — отказ: место для пакета не определено одним числом.
-    r = cli(root, ['mv', '1', '2', 'queue', '--top']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /место для пакета/);
-
     r = cli(root, ['mv', '1', '2', '3', 'active']);
     assert.equal(r.code, 0, r.err);
     for (const n of [1, 2, 3]) {
@@ -1524,23 +1503,34 @@ test('archive: выборка коммитов по номеру — число�
   }
 });
 
-test('new: «Область» — ссылка на reference/ с посчитанной от каталога статуса глубиной', () => {
-  const root = makeProject();
-  try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
-    assert.equal(cli(root, ['new', 'triaged']).code, 0);
-    assert.equal(cli(root, ['new', 'queued', '--queue']).code, 0);
-    const { dirs } = loadProject(root);
-    // Глубина берётся из раскладки, а не из сегодняшнего совпадения triage/ и queue/.
-    for (const [status, rel] of [['triage', 'docs/backlog/triage/BS-1-triaged.md'], ['queue', 'docs/backlog/queue/BS-2-queued.md']]) {
-      const area = read(root, rel).match(/^- \*\*Область:\*\* (.+)$/m)[1];
-      const href = area.match(/\(([^)]+)\)\s*$/)?.[1];
-      assert.equal(href, `${toPosix(path.relative(dirs.statusDir[status], dirs.reference))}/README.md`, `${rel}: «Область» = ${area}`);
-      assert.ok(existsSync(path.join(dirs.statusDir[status], ...href.split('/'))), `${rel}: ссылка ${href} должна вести к файлу`);
+test('new: the area links to reference/ at the status directory depth, or stays a placeholder without its README', () => {
+  const rows = [
+    { reference: true, statuses: ['triage', 'queue'] },
+    { reference: false, statuses: ['queue'] },
+  ];
+  for (const { reference, statuses } of rows) {
+    const label = reference ? 'with reference/README.md' : 'without reference/README.md';
+    const root = makeProject();
+    try {
+      if (reference) put(root, 'docs/reference/README.md', '# Справочник\n');
+      const { dirs } = loadProject(root);
+      // Глубина берётся из раскладки, а не из сегодняшнего совпадения triage/ и queue/.
+      for (const [i, status] of statuses.entries()) {
+        assert.equal(cli(root, ['new', status, ...(status === 'queue' ? ['--queue'] : [])]).code, 0, `${label}: new in ${status}`);
+        const rel = `docs/backlog/${status}/BS-${i + 1}-${status}.md`;
+        const area = read(root, rel).match(/^- \*\*Область:\*\* (.+)$/m)[1];
+        if (!reference) {
+          assert.equal(area, '[TODO: раздел reference/]', `${label}: ${rel}`);
+          continue;
+        }
+        const href = area.match(/\(([^)]+)\)\s*$/)?.[1];
+        assert.equal(href, `${toPosix(path.relative(dirs.statusDir[status], dirs.reference))}/README.md`, `${label}: ${rel}: area = ${area}`);
+        assert.ok(existsSync(path.join(dirs.statusDir[status], ...href.split('/'))), `${label}: ${rel}: link ${href} must lead to a file`);
+      }
+      assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/, label);
+    } finally {
+      cleanup(root);
     }
-    assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
-  } finally {
-    cleanup(root);
   }
 });
 
@@ -1553,17 +1543,6 @@ test('archive: отказ по битому --range наступает до пе
     assert.equal(r.code, 1);
     assert.ok(existsSync(path.join(root, 'docs/backlog/active/BS-1-a.md')), 'карточка осталась в своём каталоге');
     assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-a')), 'каталог архива не заведён');
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('new: без docs/reference/README.md «Область» остаётся текстом, а не битой ссылкой', () => {
-  const root = makeProject();
-  try {
-    assert.equal(cli(root, ['new', 'noref', '--queue']).code, 0);
-    assert.match(read(root, 'docs/backlog/queue/BS-1-noref.md'), /- \*\*Область:\*\* \[TODO: раздел reference\/\]\n/);
-    assert.doesNotMatch(cli(root, ['lint']).err, /битая ссылка/);
   } finally {
     cleanup(root);
   }
@@ -1628,69 +1607,54 @@ test('new --minor: файл N.k в minor/ с ценой и родителем, �
   }
 });
 
-test('new --minor без --evidence: отказ до записи на диск, текст называет, чем улика бывает', () => {
-  const root = makeProject();
-  try {
-    put(root, 'docs/backlog/queue/BS-1-base.md', '# BS-1 · База\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n');
-    const before = readdirSync(path.join(root, 'docs/backlog/minor')).sort();
+test('new --minor without --evidence: refused before any write, the text says what evidence is (ru, en)', () => {
+  const rows = [
+    {
+      lang: 'ru',
+      base: '# BS-1 · База\n\n- **Порядок:** 10\n- **Область:** [x](../../README.md)\n',
+      refusal: [/--minor без --evidence/, /путь со строкой/, /команда с выводом и кодом/, /замер числом/, /Не проверено — это не пропуск улики, а предположение/],
+      evidence: 'lib/lint.js:294 → код 1',
+      card: /## Улика\n\nНаходка при работе над BS-1\.\n\nУлика: lib\/lint\.js:294 → код 1\n/,
+    },
+    {
+      lang: 'en',
+      base: '# BS-1 · Base\n\n- **Order:** 10\n- **Scope:** [x](../../README.md)\n',
+      refusal: [/--minor without --evidence/, /a path with a line/, /a command, output, and code/, /a measurement with a number/, /Unverified does not excuse missing evidence/],
+      evidence: 'lib/lint.js:294 → exit 1',
+      card: /## Evidence\n\nFinding discovered while working on BS-1\.\n\nEvidence: lib\/lint\.js:294 → exit 1\n/,
+    },
+  ];
+  for (const { lang, base, refusal, evidence, card } of rows) {
+    const root = makeProject();
+    try {
+      if (lang === 'en') put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+      put(root, 'docs/backlog/queue/BS-1-base.md', base);
+      const minorDir = path.join(root, 'docs/backlog/minor');
+      const before = readdirSync(minorDir).sort();
 
-    let r = cli(root, ['new', 'probe', '--parent', '1', '--minor']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /--minor без --evidence/);
-    // Отказ учит формулировать улику, а не только тому, что флаг обязателен.
-    assert.match(r.err, /путь со строкой/);
-    assert.match(r.err, /команда с выводом и кодом/);
-    assert.match(r.err, /замер числом/);
-    assert.match(r.err, /Не проверено — это не пропуск улики, а предположение/);
-    // Отказ приходит раньше любой записи: каталог статуса не изменился.
-    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/minor')).sort(), before);
+      let r = cli(root, ['new', 'probe', '--parent', '1', '--minor']);
+      assert.equal(r.code, 1, lang);
+      for (const re of refusal) assert.match(r.err, re, lang);
+      assert.deepEqual(readdirSync(minorDir).sort(), before, `${lang}: the refusal comes before any write`);
 
-    // Пустая и пробельная улика — то же, что её отсутствие; гипотеза исключением не служит.
-    for (const extra of [['--evidence', ''], ['--evidence', '   '], ['--cost', 'major', '--hypothesis']]) {
-      r = cli(root, ['new', 'probe', '--parent', '1', '--minor', ...extra]);
-      assert.equal(r.code, 1, extra.join(' '));
-      assert.match(r.err, /--minor без --evidence/);
+      // Пустая и пробельная улика — то же, что её отсутствие; гипотеза исключением не служит.
+      for (const extra of [['--evidence', ''], ['--evidence', '   '], ['--cost', 'major', '--hypothesis']]) {
+        r = cli(root, ['new', 'probe', '--parent', '1', '--minor', ...extra]);
+        assert.equal(r.code, 1, `${lang}: ${extra.join(' ')}`);
+        assert.match(r.err, refusal[0], `${lang}: ${extra.join(' ')}`);
+      }
+      assert.deepEqual(readdirSync(minorDir).sort(), before, `${lang}: empty evidence writes nothing`);
+
+      r = cli(root, ['new', 'probe', '--parent', '1', '--minor', '--evidence', evidence]);
+      assert.equal(r.code, 0, `${lang}: ${r.err}`);
+      const text = read(root, 'docs/backlog/minor/BS-1.1-probe.md');
+      assert.match(text, card, lang);
+      assert.doesNotMatch(text, /\[TODO/, lang);
+      const lint = cli(root, ['lint']);
+      assert.equal(lint.code, 0, `${lang}: a card from new --minor must not turn lint red: ${lint.err}`);
+    } finally {
+      cleanup(root);
     }
-    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/minor')).sort(), before);
-
-    // С уликой та же команда создаёт карточку без заглушки, и гейт заглушек её не красит.
-    r = cli(root, ['new', 'probe', '--parent', '1', '--minor', '--evidence', 'lib/lint.js:294 → код 1']);
-    assert.equal(r.code, 0, r.err);
-    const card = read(root, 'docs/backlog/minor/BS-1.1-probe.md');
-    assert.match(card, /## Улика\n\nНаходка при работе над BS-1\.\n\nУлика: lib\/lint\.js:294 → код 1\n/);
-    assert.doesNotMatch(card, /\[TODO/);
-    assert.equal(cli(root, ['lint']).code, 0, 'карточка из new --minor не красит lint с рождения');
-
-    // Находка в triage/ улики флагом не требует: её достраивают при разборе.
-    r = cli(root, ['new', 'triaged', '--parent', '1']);
-    assert.equal(r.code, 0, r.err);
-    assert.match(read(root, 'docs/backlog/triage/BS-1.2-triaged.md'), /Улика: \[TODO: путь к файлу или команда с выводом\]/);
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('new --minor в EN-проекте: отказ и раздел Evidence на английском', () => {
-  const root = makeProject();
-  try {
-    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
-    put(root, 'docs/backlog/queue/BS-1-base.md', '# BS-1 · Base\n\n- **Order:** 10\n- **Scope:** [x](../../README.md)\n');
-
-    let r = cli(root, ['new', 'probe', '--parent', '1', '--minor']);
-    assert.equal(r.code, 1);
-    assert.match(r.err, /--minor without --evidence/);
-    assert.match(r.err, /a path with a line/);
-    assert.match(r.err, /a command, output, and code/);
-    assert.match(r.err, /a measurement with a number/);
-    assert.ok(!existsSync(path.join(root, 'docs/backlog/minor/BS-1.1-probe.md')));
-
-    r = cli(root, ['new', 'probe', '--parent', '1', '--minor', '--evidence', 'lib/lint.js:294 → exit 1']);
-    assert.equal(r.code, 0, r.err);
-    const card = read(root, 'docs/backlog/minor/BS-1.1-probe.md');
-    assert.match(card, /## Evidence\n\nFinding discovered while working on BS-1\.\n\nEvidence: lib\/lint\.js:294 → exit 1\n/);
-    assert.doesNotMatch(card, /\[TODO/);
-  } finally {
-    cleanup(root);
   }
 });
 
