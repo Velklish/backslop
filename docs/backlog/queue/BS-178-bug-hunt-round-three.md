@@ -1,6 +1,6 @@
 # BS-178 · Third bug-hunt round with new lenses: git config matrix, encodings, monorepo, parsers, Windows
 
-- **Order:** 960
+- **Order:** 1070
 - **Scope:** [Reference](../../reference/README.md)
 - **Created:** 2026-09-25
 - **Dependencies:** none
