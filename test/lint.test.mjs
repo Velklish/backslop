@@ -56,6 +56,19 @@ function probe(name, mutate, expect) {
   });
 }
 
+function greenProbe(name, mutate) {
+  test(`lint: ${name}`, () => {
+    const root = makeProject({ git: false });
+    try {
+      seedGreen(root);
+      mutate(root);
+      assert.deepEqual(problems(root), []);
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
 test('lint: зелёный проект без ошибок, CLI выходит нулём', () => {
   const root = makeProject({ git: false });
   try {
@@ -186,26 +199,8 @@ probe('1. ссылка с номером задачи на каталог в gen
   put(root, '.claude/skills/backslop-task/SKILL.md', `${read(root, '.claude/skills/backslop-task/SKILL.md')}\nСм. [BS-2](../../../docs/backlog/triage)\n`);
 }, /\.claude\/skills\/backslop-task\/SKILL\.md: ссылка \[BS-2\]\(\.\.\/\.\.\/\.\.\/docs\/backlog\/triage\) ведёт на каталог/);
 probe('1. номер в тексте ссылки на каталог — и в код-спане', (root) => put(root, 'README.md', 'См. [`BS-2.1` · находка](docs/backlog/triage/)\n'), /README\.md: ссылка \[`BS-2\.1` · находка\]\(docs\/backlog\/triage\/\) ведёт на каталог/);
-test('lint: 1. незакрытая скобка с номером перед ссылкой на каталог — не текст ссылки', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/note.md', 'Полуинтервал [0, 1) — см. BS-2.1. Раскладка — [backlog/](backlog/triage).\n');
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
-});
-test('lint: 1. каталог без номера в тексте и карточка с номером — законные цели', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n[triage/](../triage) и **Находка.** [BS-2.1](../triage/BS-2.1-d.md)\n`);
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
-});
+greenProbe('1. незакрытая скобка с номером перед ссылкой на каталог — не текст ссылки', (root) => put(root, 'docs/note.md', 'Полуинтервал [0, 1) — см. BS-2.1. Раскладка — [backlog/](backlog/triage).\n'));
+greenProbe('1. каталог без номера в тексте и карточка с номером — законные цели', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n[triage/](../triage) и **Находка.** [BS-2.1](../triage/BS-2.1-d.md)\n`));
 probe('1. битая ссылка в скилле backslop', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
   put(root, '.claude/skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n[нет](../none.md)\n');
@@ -283,50 +278,16 @@ probe('4. placeholder in a task-list box', (root) => put(root, 'docs/backlog/que
 probe('4. placeholder in a checked task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-done.md', '# BS-5 · D\n\n- [x] [TODO: step]\n'), /BS-5-done\.md: строка 3: осталась заглушка \[TODO\]/);
 probe('4. placeholder in a table cell', (root) => put(root, 'docs/backlog/queue/BS-5-table.md', '# BS-5 · T\n\n| a | b |\n|---|---|\n| done | [TODO] |\n'), /BS-5-table\.md: строка 5: осталась заглушка \[TODO\]/);
 
-test('lint: «Прежний порядок» вне queue/ гейт полей не красит', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    // Ранг, сохранённый уходом из очереди: «Порядка» в этих каталогах нет и не требуется.
-    put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n- **Прежний порядок:** 20\n');
-    put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n- **Прежний порядок:** 30\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
+// Ранг, сохранённый уходом из очереди: «Порядка» в этих каталогах нет и не требуется.
+greenProbe('«Прежний порядок» вне queue/ гейт полей не красит', (root) => {
+  put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n- **Прежний порядок:** 20\n');
+  put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n- **Прежний порядок:** 30\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
 });
 
-test('lint: текст о TODO внутри заполненного значения не красит backlog', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** заполнено; проверка [TODO] не должна искать подстроку\n\n| a | b |\n|---|---|\n| заполнено; [TODO] внутри | 1. [TODO] в тексте |\n');
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
-});
-test('lint: заголовок секции внутри fenced-примера не считается дублем', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n');
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
-});
+greenProbe('текст о TODO внутри заполненного значения не красит backlog', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** заполнено; проверка [TODO] не должна искать подстроку\n\n| a | b |\n|---|---|\n| заполнено; [TODO] внутри | 1. [TODO] в тексте |\n'));
+greenProbe('заголовок секции внутри fenced-примера не считается дублем', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n'));
 
-test('lint: fenced-only заголовок секции не заменяет раздел', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n');
-    assert.match(problems(root).join('\n'), /без раздела «## Отложено»/);
-  } finally {
-    cleanup(root);
-  }
-});
+probe('fenced-only заголовок секции не заменяет раздел', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n'), /без раздела «## Отложено»/);
 probe('5. архив без result.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/result.md')), /нет result\.md/);
 probe('5. результат не дописан', (root) => put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** [TODO: исход]\n'), /результат не дописан/);
 // Построчный разбор заглушек `docs/backlog/**` строку шаблона заглушкой не считает: проба на
@@ -339,20 +300,11 @@ for (const lang of ['ru', 'en']) {
     probe(`5. абзац ${i + 1} шаблона result.md (${lang}) — единственная заглушка`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${p}\n`), /BS-4-e\/result\.md: результат не дописан/);
   });
 }
-test('lint: 5. заглушка, показанная в коде, — рассказ о ней, а не она сама', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/archive/BS-4-e/result.md', [
-      '# BS-4 · Результат', '',
-      '**Закрыта 2026-08-01.** Выполнена: гейт краснел на `[TODO: исход]` в прозе, а ``[TODO`` в код-спане — пример.', '',
-      '```', '**Закрыта 2026-08-01.** [TODO: исход]', '```', '',
-    ].join('\n'));
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
-});
+greenProbe('5. заглушка, показанная в коде, — рассказ о ней, а не она сама', (root) => put(root, 'docs/archive/BS-4-e/result.md', [
+  '# BS-4 · Результат', '',
+  '**Закрыта 2026-08-01.** Выполнена: гейт краснел на `[TODO: исход]` в прозе, а ``[TODO`` в код-спане — пример.', '',
+  '```', '**Закрыта 2026-08-01.** [TODO: исход]', '```', '',
+].join('\n')));
 // Исход словом словаря: голое «Закрыта» свёртка прочла бы «выполнена», и отказ стал бы выполнением.
 for (const [first, lang] of [['**Закрыта 2026-08-01.** Готово.', 'ru'], ['**Закрыта 2026-08-01.** Отказ: беспредметна.', 'ru'], ['**Закрыта 2026-08-01.** Дубль BS-2.', 'ru'], ['**Закрыта 2026-08-01.** Слито в main.', 'ru'], ['**Closed 2026-08-01.** Done.', 'en']]) {
   probe(`5. первый абзац result.md без слова исхода: «${first}»`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${first}\n\n**Проверки.** Отклонена гипотеза о кэше.\n`),
@@ -378,16 +330,7 @@ test('lint: 5. слово исхода из словаря в первом аб�
 probe('5. каталог архива не по шаблону', (root) => put(root, 'docs/archive/old-stuff/task.md', '# x\n'), /old-stuff: имя не по шаблону/);
 probe('6. упоминание номера без файла в docs', (root) => put(root, 'docs/ROADMAP.md', 'Сделаем в BS-99.\n'), /упоминает BS-99/);
 probe('6. упоминание номера без файла в CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Закрыта** BS-2.7\n'), /CHANGELOG\.md: упоминает BS-2\.7/);
-test('lint: 6. упоминание номера внутри блока кода — пример, а не ссылка', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/note.md', 'Пример вывода:\n\n```\n  10  BS-77 · Пример\n```\n\nА в прозе `BS-4` — ссылка.\n');
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
-});
+greenProbe('6. упоминание номера внутри блока кода — пример, а не ссылка', (root) => put(root, 'docs/note.md', 'Пример вывода:\n\n```\n  10  BS-77 · Пример\n```\n\nА в прозе `BS-4` — ссылка.\n'));
 
 probe('7. дубль заголовка записи в секции CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — раз\n- **Одно** — два\n'), /заголовок записи «Одно» уже есть/);
 test('lint: 7. a CHANGELOG code fence neither resets the section nor adds entries', () => {
@@ -550,17 +493,10 @@ test('lint: CLI печатает каждую ошибку и выходит е�
   }
 });
 
-test('lint: номер с ведущими нулями — форма файла сохраняется, сравнение числовое', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
-    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
-    put(root, 'docs/ROADMAP.md', 'Сделано в BS-007, она же BS-7.\n');
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
+greenProbe('номер с ведущими нулями — форма файла сохраняется, сравнение числовое', (root) => {
+  put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
+  put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
+  put(root, 'docs/ROADMAP.md', 'Сделано в BS-007, она же BS-7.\n');
 });
 probe('2. номер занят дважды в разных формах записи', (root) => put(root, 'docs/backlog/triage/BS-004-e2.md', '# BS-004 · Дубль\n'), /номер BS-004 уже занят: docs\/archive\/BS-4-e\/task\.md/);
 
@@ -585,54 +521,26 @@ probe('adapter output — каталог на owned-пути, на которо�
 }, /SKILL\.md: owned adapter output не является файлом/);
 // ADR-040: ownership is the marker alone, so an unmarked file at a template path is foreign.
 // The copy adds the template to both layers, since the parity gate runs there too.
-test('lint: adapter output без маркера — чужой файл на owned-пути выбранного adapter\'а', () => {
-  let project;
-  try {
-    project = toolProject((dir) => {
-      put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n');
-      put(dir, 'templates/en/skills/backslop-task/references/extra.md', '# extra\n');
-      // `init --tools` в корне инструмента отказывает;
-      // adapter в self-host выбирается правкой конфига.
-      put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), tools: ['claude'] }, null, 2)}\n`);
-      const r = toolCli(dir, ['init']);
-      assert.equal(r.code, 0, r.err);
-      put(dir, '.claude/skills/backslop-task/references/extra.md', '# мой файл на этом пути\n');
-    });
-    assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /extra\.md: на пути adapter output claude чужой файл без маркера/);
-  } finally { if (project) cleanup(project.dir); }
-});
+toolProbe('adapter output без маркера — чужой файл на owned-пути выбранного adapter\'а', (dir) => {
+  put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n');
+  put(dir, 'templates/en/skills/backslop-task/references/extra.md', '# extra\n');
+  // `init --tools` в корне инструмента отказывает;
+  // adapter в self-host выбирается правкой конфига.
+  put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), tools: ['claude'] }, null, 2)}\n`);
+  const r = toolCli(dir, ['init']);
+  assert.equal(r.code, 0, r.err);
+  put(dir, '.claude/skills/backslop-task/references/extra.md', '# мой файл на этом пути\n');
+}, /extra\.md: на пути adapter output claude чужой файл без маркера/);
 
-test('lint: 11. version package.json расходится со штампом', () => {
-  let project;
-  try {
-    project = toolProject((dir) => bumpPackage(dir, '9.9.9'));
-    assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /версия package\.json v9\.9\.9 расходится со штампом backslop\.json v\d+\.\d+\.\d+/);
-  } finally { if (project) cleanup(project.dir); }
-});
+toolProbe('11. version package.json расходится со штампом', (dir) => bumpPackage(dir, '9.9.9'), /версия package\.json v9\.9\.9 расходится со штампом backslop\.json v\d+\.\d+\.\d+/);
 
-test('lint: 11. нет секции CHANGELOG на выпускаемую версию', () => {
-  let project;
-  try {
-    project = toolProject((dir) => {
-      bumpPackage(dir, '9.9.9');
-      put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), version: '9.9.9' }, null, 2)}\n`);
-      put(dir, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Одно** — было\n');
-    });
-    assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /нет секции «## v9\.9\.9»/);
-  } finally { if (project) cleanup(project.dir); }
-});
+toolProbe('11. нет секции CHANGELOG на выпускаемую версию', (dir) => {
+  bumpPackage(dir, '9.9.9');
+  put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), version: '9.9.9' }, null, 2)}\n`);
+  put(dir, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Одно** — было\n');
+}, /нет секции «## v9\.9\.9»/);
 
-test('lint: 11. устаревший пин в прозе README', () => {
-  let project;
-  try {
-    project = toolProject((dir) => put(dir, 'README.md', 'Ставится `npx github:Velklish/backslop#v0.2.0`\n'));
-    assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /README\.md: строка 1: пин github:Velklish\/backslop#v0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
-  } finally { if (project) cleanup(project.dir); }
-});
+toolProbe('11. устаревший пин в прозе README', (dir) => put(dir, 'README.md', 'Ставится `npx github:Velklish/backslop#v0.2.0`\n'), /README\.md: строка 1: пин github:Velklish\/backslop#v0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
 
 test('lint: 11. a stale release pin with a .git suffix or without v in README', () => {
   let project;
@@ -644,14 +552,7 @@ test('lint: 11. a stale release pin with a .git suffix or without v in README', 
   } finally { if (project) cleanup(project.dir); }
 });
 
-test('lint: 11. устаревший npm-пин в прозе AGENTS.md', () => {
-  let project;
-  try {
-    project = toolProject((dir) => put(dir, 'AGENTS.md', `${read(dir, 'AGENTS.md')}\nРелиз ставится как \`npx backslop@0.2.0\`.\n`));
-    assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /AGENTS\.md: .*пин backslop@0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
-  } finally { if (project) cleanup(project.dir); }
-});
+toolProbe('11. устаревший npm-пин в прозе AGENTS.md', (dir) => put(dir, 'AGENTS.md', `${read(dir, 'AGENTS.md')}\nРелиз ставится как \`npx backslop@0.2.0\`.\n`), /AGENTS\.md: .*пин backslop@0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
 
 // A `templates` link to the running tool's own directory wakes the self-host gates.
 test('lint: 11. a malformed package.json is a gate error, and the other gates still report', { skip: process.platform === 'win32' }, () => {
@@ -682,6 +583,17 @@ function toolProject(mutate) {
   assert.equal(toolCli(dir, ['init']).code, 0, 'копия инструмента раскладывается сама собой');
   mutate(dir);
   return { dir, ...toolCli(dir, ['lint']) };
+}
+
+function toolProbe(name, mutate, re) {
+  test(`lint: ${name}`, () => {
+    let project;
+    try {
+      project = toolProject(mutate);
+      assert.equal(project.code, 1, project.out);
+      assert.match(project.err, re);
+    } finally { if (project) cleanup(project.dir); }
+  });
 }
 
 test('lint: template parity: переименование canonical-скилла не выключает гейт', () => {
@@ -787,14 +699,7 @@ test('lint: 12. слот шаблона без ключа в vars красит �
   }
 });
 
-test('lint: template parity: пропавший английский слой — ошибка, а не тишина', () => {
-  let project;
-  try {
-    project = toolProject((dir) => rmSync(path.join(dir, 'templates', 'en'), { recursive: true }));
-    assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /templates\/en\/ нет/);
-  } finally { if (project) cleanup(project.dir); }
-});
+toolProbe('template parity: пропавший английский слой — ошибка, а не тишина', (dir) => rmSync(path.join(dir, 'templates', 'en'), { recursive: true }), /templates\/en\/ нет/);
 
 test('lint: template parity and slot errors follow an en project language', () => {
   const dir = toolCopy();
@@ -863,18 +768,11 @@ test('lint: 4. карточка new в triage/ гейт не красит, он�
   }
 });
 
-test('lint: 10. цитата в docs/archive — снимок момента, а показанная в фенсе — не блок', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    // Закрытая задача цитирует то, чего в файле давно нет: красить её нельзя.
-    put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\n<!-- quote:../reference/README.md -->\n\nчего в файле нет\n\n<!-- /quote -->\n');
-    // Форма блока, показанная внутри фенса, — пример, а не цитата.
-    put(root, 'docs/howto.md', ['# Как цитировать', '', '```markdown', '<!-- quote:reference/none.md -->', 'что угодно', '<!-- /quote -->', '```', ''].join('\n'));
-    assert.deepEqual(problems(root), []);
-  } finally {
-    cleanup(root);
-  }
+greenProbe('10. цитата в docs/archive — снимок момента, а показанная в фенсе — не блок', (root) => {
+  // Закрытая задача цитирует то, чего в файле давно нет: красить её нельзя.
+  put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\n<!-- quote:../reference/README.md -->\n\nчего в файле нет\n\n<!-- /quote -->\n');
+  // Форма блока, показанная внутри фенса, — пример, а не цитата.
+  put(root, 'docs/howto.md', ['# Как цитировать', '', '```markdown', '<!-- quote:reference/none.md -->', 'что угодно', '<!-- /quote -->', '```', ''].join('\n'));
 });
 test('lint: 10. quote:before сохраняет снимок до правки, но не скрывает ошибки блока', () => {
   const root = makeProject({ git: false });
@@ -1066,43 +964,27 @@ test('lint: 13. неполный клон — достижимость реви�
   }
 });
 
-test('lint: 13. git rev-list, оборванный сигналом, — предупреждение называет сигнал, а не «git null»', { skip: process.platform === 'win32' }, () => {
+test('lint: 13. a failed git rev-list warns with the signal name or the first stderr line only', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
-  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
+  const bin = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
   try {
     seedGreen(root);
     gitAll(root, 'база');
     foldCommitted(root);
     const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
-    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rev-list ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
-
-    const r = cli(root, ['lint'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
-    assert.equal(r.code, 0, `предупреждение гейт не красит: ${r.err}`);
-    assert.match(r.err, /LOG\.md: достижимость ревизий журнала из HEAD не проверена: оборван сигналом SIGKILL$/m);
-    assert.doesNotMatch(r.err, /git null/);
+    for (const { label, shim, expect, forbid } of [
+      { label: 'killed by a signal', shim: 'kill -9 $$', expect: /LOG\.md: достижимость ревизий журнала из HEAD не проверена: оборван сигналом SIGKILL$/m, forbid: /git null/ },
+      { label: 'multi-line stderr', shim: "{ printf 'fatal: первая\\nвторая\\n' >&2; exit 128; }", expect: /LOG\.md: достижимость ревизий журнала из HEAD не проверена: fatal: первая$/m, forbid: /вторая/ },
+    ]) {
+      writeFileSync(path.join(bin, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rev-list ] && ${shim}; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+      const r = cli(root, ['lint'], { env: { PATH: `${bin}${path.delimiter}${process.env.PATH}` } });
+      assert.equal(r.code, 0, `${label}: a warning does not fail the gate: ${r.err}`);
+      assert.match(r.err, expect, label);
+      assert.doesNotMatch(r.err, forbid, label);
+    }
   } finally {
     cleanup(root);
-    rmSync(shim, { recursive: true, force: true });
-  }
-});
-
-test('lint: 13. многострочный stderr git rev-list — предупреждение несёт только первую строку', { skip: process.platform === 'win32' }, () => {
-  const root = makeProject();
-  const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
-  try {
-    seedGreen(root);
-    gitAll(root, 'база');
-    foldCommitted(root);
-    const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
-    writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rev-list ] && { printf 'fatal: первая\\nвторая\\n' >&2; exit 128; }; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
-
-    const r = cli(root, ['lint'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
-    assert.equal(r.code, 0, `предупреждение гейт не красит: ${r.err}`);
-    assert.match(r.err, /LOG\.md: достижимость ревизий журнала из HEAD не проверена: fatal: первая$/m);
-    assert.doesNotMatch(r.err, /вторая/);
-  } finally {
-    cleanup(root);
-    rmSync(shim, { recursive: true, force: true });
+    rmSync(bin, { recursive: true, force: true });
   }
 });
 
