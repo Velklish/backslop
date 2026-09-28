@@ -23,11 +23,9 @@
 | [adr/adr-018-brief-decision-slots.md](adr/adr-018-brief-decision-slots.md) | Решения оркестратора в брифе — слоты, и пара «слот ↔ ключ» под гейтом | Accepted |
 | [adr/adr-019-live-pins-and-findings.md](adr/adr-019-live-pins-and-findings.md) | Живые пины в `upgrade`/`lint` и связь находки с родителем | Accepted |
 | [adr/adr-020-agents-step-overrides.md](adr/adr-020-agents-step-overrides.md) | Переопределение шагов блока AGENTS.md из конфига | Accepted |
-| [adr/adr-021-probe-command-field.md](adr/adr-021-probe-command-field.md) | Команда мутационной пробы объявляется полем `probe` | Accepted |
 | [adr/adr-022-cost-decides-finding-fate.md](adr/adr-022-cost-decides-finding-fate.md) | Цена находки решает её судьбу: `minor/`, пачки, `archive --into` | Accepted |
 | [adr/adr-023-gates-scope-when.md](adr/adr-023-gates-scope-when.md) | Запись `gates` несёт область `when`, пропуск считается отдельно от зелёных | Accepted |
 | [adr/adr-024-changelog-merge-keeps-layout.md](adr/adr-024-changelog-merge-keeps-layout.md) | Слияние CHANGELOG сохраняет раскладку файла и отказывается на незакрытом конфликте | Accepted |
-| [adr/adr-025-probe-rule-in-skill-and-brief.md](adr/adr-025-probe-rule-in-skill-and-brief.md) | Команда пробы подставляется в блок, скилл и бриф | Accepted |
 | [adr/adr-026-archive-folds-to-log.md](adr/adr-026-archive-folds-to-log.md) | Свёрнутая задача живёт строкой журнала, тело — в сообщении коммита | Superseded in part by ADR-033 (ревизия у `fold N` и обязательность заготовки), ADR-034 (сверка тела с ревизией до удаления, четвёртая причина пустой ревизии) |
 | [adr/adr-027-previous-order-restores-place.md](adr/adr-027-previous-order-restores-place.md) | Ранг очереди переживает уход из неё полем «Прежний порядок» | Superseded in part by ADR-031 (порядок пакета при `--restore` — гарантия контракта) |
 | [adr/adr-028-two-line-comment-rule-and-its-gate.md](adr/adr-028-two-line-comment-rule-and-its-gate.md) | Правило двух строк для комментариев и гейт на него — тест в наборе со снимком долга | Superseded in part by ADR-035 (носитель долга в пробе обхода — фикстура вне обхода), ADR-038 (гейт судит и ширину строки блока — не шире 100 знаков) |
@@ -43,6 +41,7 @@
 | [adr/adr-038-comment-line-width-under-gate.md](adr/adr-038-comment-line-width-under-gate.md) | Гейт комментариев судит и ширину строки: не шире 100 знаков, знак — кодпоинт | Accepted |
 | [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |
 | [adr/adr-040-harness-adapters.md](adr/adr-040-harness-adapters.md) | Harness adapters: selection, ownership and path safety of generated outputs | Accepted |
+| [adr/adr-041-probe-command.md](adr/adr-041-probe-command.md) | The mutation-probe command is a project field substituted into the block, the task skill and the brief | Accepted |
 
 ## Сквозные принципы
 
