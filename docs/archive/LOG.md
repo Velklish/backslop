@@ -27,7 +27,7 @@
 - <a id="bs-19"></a>`BS-19-lint-config-branches-untested` · 2026-09-09 · выполнена · `520ab0f84b` · Пять ветвей `lint` и четыре проверки `loadConfig` не покрыты красной пробой — их можно вырезать, и `npm test` останется зелёным
 - <a id="bs-19.1"></a>`BS-19.1-lint-eisdir-on-task-named-dir` · 2026-09-09 · выполнена · `3f300c0601` · Каталог, названный как файл задачи, роняет lint стеком EISDIR вместо гейта 2
 - <a id="bs-20"></a>`BS-20-owned-outputs-gitignore-undocumented` · 2026-09-09 · выполнена · `73b051b852` · Правило не коммитить owned outputs нигде не задокументировано — три потребителя backslop завели три разных `.gitignore`, один держит его вне git
-- <a id="bs-21"></a>`BS-21-adr-004-status-stale` · 2026-09-09 · выполнена · `fb5b127e78` · ADR-004 разрешает выводить источник релизов из npm-формы, ADR-007 и код это запрещают — статус ADR-004 остался Accepted без пометки о замене
+- <a id="bs-21"></a>`BS-21-adr-004-status-stale` · 2026-09-09 · выполнена · `fb5b127e78` · ADR о пине версии разрешает выводить источник релизов из npm-формы, ADR о npm-пине и код это запрещают — статус первого остался Accepted без пометки о замене
 - <a id="bs-22"></a>`BS-22-changelog-merge-not-mechanized` · 2026-09-09 · выполнена · `73b051b852` · Слияние CHANGELOG при приёмке track'а агент делает вручную из двух редакций — хотя разбор пунктов и секций для этого уже есть в коде backslop
 - <a id="bs-23"></a>`BS-23-task-quote-gate-missing` · 2026-09-09 · выполнена · `b449d0ffa3` · Цитата живого файла в карточке бэклога ничем не сторожится и рвётся молча — `lint` проверяет существование ссылки, но не содержимое цитаты
 - <a id="bs-24"></a>`BS-24-prose-pin-not-rewritten` · 2026-09-09 · выполнена · `a4a75180e3` · Upgrade backslop переставляет пин только в конфиге, а прозу в docs — нет, и живые инструкции продолжают звать снятую версию инструмента
@@ -184,3 +184,4 @@
 - <a id="bs-139"></a>`BS-139-links-mdwalk-tasks-test-tables` · 2026-09-29 · completed · — · links/mdwalk/tasks tests: link rewrites as tables, drop subsumed cases, test batchOf
 - <a id="bs-141"></a>`BS-141-brief-archive-tracks-tests` · 2026-09-29 · completed · — · brief/archive/tracks tests: merge slot and twin tests, drop duplicate asserts
 - <a id="bs-151"></a>`BS-151-findings-minor-adr` · 2026-09-28 · completed · — · One English ADR for findings: parent numbering, cost, minor/ and batch closing
+- <a id="bs-152"></a>`BS-152-adr-pin-upgrade-migrate` · 2026-09-28 · completed · — · One English ADR on version pin, upgrade and migrate replaces ADR-004, 007, 019 and 032
