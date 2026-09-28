@@ -1,5 +1,5 @@
-// Обновление проекта: пин, гейты, выжимка CHANGELOG и команды процессом; релизы — локальный git с
-// тегами, без сети. Тесты, доходящие до пробы (шим npx на `/bin/sh`), на Windows — skip.
+// Project upgrade: pin, gates, CHANGELOG summary and commands as processes; releases are a local
+// git repo with tags, no network. The npx stand-in is a node script behind a per-platform launcher.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -76,7 +76,7 @@ test('upgrade: pins with a .git suffix or without v move and take the canonical 
   }
 });
 
-test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', { skip: process.platform === 'win32' }, () => {
+test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.2.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -245,7 +245,7 @@ test('upgrade: a step killed by a signal names the signal, not an exit code', { 
   }
 });
 
-test('upgrade --dry-run shows the plan and writes nothing; --pin-only moves the pin', { skip: process.platform === 'win32' }, () => {
+test('upgrade --dry-run shows the plan and writes nothing; --pin-only moves the pin', () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;
   const src = releasesRepo(['v0.1.0', `v${V}`]);
@@ -550,7 +550,7 @@ test('migrate: at its own version a rules file off by a pin is redrawn, off by C
   }
 });
 
-test('upgrade pins a floating cli inside an init-rendered rules pair, with no note', { skip: process.platform === 'win32' }, () => {
+test('upgrade pins a floating cli inside an init-rendered rules pair, with no note', () => {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-float-')));
   const src = releasesRepo([`v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -576,17 +576,25 @@ test('upgrade pins a floating cli inside an init-rendered rules pair, with no no
 
 // Полный путь пользователя: форма npx, перепись пина, запуск новой версии тем самым cli.
 // Сеть подменяет шим `npx` в PATH: он отбрасывает спеку и запускает локальный bin.
-function npxShim() {
+function npxShim(before = '') {
+  // `before` is script code that runs first: it may exit or print on its own.
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
-  const shim = path.join(dir, 'npx');
+  const script = path.join(dir, 'npx.mjs');
   // Снимает флаги npx и спеку пакета, сколько бы их ни было: `npx --yes -q backslop@X version`
   // и `npx github:me/proj#vX version` оба должны дойти до локального bin как `version`.
-  writeFileSync(shim, `#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in -*) shift ;; *) shift; break ;; esac; done\nexec "${process.execPath}" "${BIN}" "$@"\n`);
-  chmodSync(shim, 0o755);
+  writeFileSync(script, `import { spawnSync } from 'node:child_process';
+${before}const args = process.argv.slice(2);
+while (args.length && args[0].startsWith('-')) args.shift();
+args.shift();
+process.exit(spawnSync(process.execPath, [${JSON.stringify(BIN)}, ...args], { stdio: 'inherit' }).status ?? 1);
+`);
+  // cmd.exe resolves `npx` through PATHEXT, so win32 gets `npx.cmd`.
+  if (process.platform === 'win32') writeFileSync(path.join(dir, 'npx.cmd'), `@"${process.execPath}" "${script}" %*\r\n`);
+  else writeFileSync(path.join(dir, 'npx'), `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, { mode: 0o755 });
   return dir;
 }
 
-test('upgrade по форме npx: пробный запуск до пина, пин и гейты, скиллы новой версией', { skip: process.platform === 'win32' }, () => {
+test('upgrade по форме npx: пробный запуск до пина, пин и гейты, скиллы новой версией', () => {
   const root = makeProject({ git: false, stamp: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -625,12 +633,10 @@ test('upgrade по форме npx: пробный запуск до пина, п
 
 // Пин пишется только после пробного запуска новой версии, и `--pin-only` пробу не сокращает:
 // иначе проект остался бы с пином на команду, которая не поднимается.
-test('upgrade: a failed probe run writes neither pin, gates nor stamp', { skip: process.platform === 'win32' }, () => {
+test('upgrade: a failed probe run writes neither pin, gates nor stamp', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
-  const broken = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
-  writeFileSync(path.join(broken, 'npx'), '#!/bin/sh\nexit 3\n');
-  chmodSync(path.join(broken, 'npx'), 0o755);
+  const broken = npxShim('process.exit(3);\n');
   const old = { cli: 'npx github:me/proj#v0.1.0', gates: ['npx github:me/proj#v0.1.0 lint', 'npm test'], version: '0.1.0' };
   try {
     for (const argv of [['upgrade'], ['upgrade', '--pin-only']]) {
@@ -690,7 +696,7 @@ test('changelog CLI: --since and --to bounds, an empty summary', () => {
 });
 
 // Пин живёт не только в конфиге: живая инструкция в docs зовёт его текстом команды.
-test('upgrade: пин в прозе docs переставляется, записи о моменте — нет', { skip: process.platform === 'win32' }, () => {
+test('upgrade: пин в прозе docs переставляется, записи о моменте — нет', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -750,7 +756,7 @@ test('upgrade: пин в прозе docs переставляется, запи�
   }
 });
 
-test('upgrade leaves a pin in a journal entry, rewrites the LOG.md header, then says already on', { skip: process.platform === 'win32' }, () => {
+test('upgrade leaves a pin in a journal entry, rewrites the LOG.md header, then says already on', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -835,7 +841,7 @@ test('migrate: a moved pin in a CRLF checkout under core.autocrlf is still the o
   }
 });
 
-test('upgrade from a pinned consumer with committed rules completes in one run', { skip: process.platform === 'win32' }, () => {
+test('upgrade from a pinned consumer with committed rules completes in one run', () => {
   const root = makeProject();
   const src = releasesRepo(['v0.10.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -889,13 +895,19 @@ test('upgrade refuses when the probed cli still runs an older version', () => {
 });
 
 // npx prints its install prompt on stdout: the first probe run must reach the terminal as is.
-test('upgrade shows the first probe run and compares the version of a second one', { skip: process.platform === 'win32' }, () => {
+test('upgrade shows the first probe run and compares the version of a second one', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
-  const shim = npxShim();
+  const shim = npxShim(`import { existsSync, writeFileSync } from 'node:fs';
+const seen = new URL('seen', import.meta.url);
+if (!existsSync(seen)) {
+  writeFileSync(seen, '');
+  console.log('Need to install the following packages: Ok to proceed? (y)');
+  console.log('backslop 0.1.0');
+  process.exit(0);
+}
+`);
   try {
-    const seen = path.join(shim, 'seen');
-    writeFileSync(path.join(shim, 'npx'), `#!/bin/sh\nif [ ! -e "${seen}" ]; then : > "${seen}"; echo 'Need to install the following packages: Ok to proceed? (y)'; echo 'backslop 0.1.0'; exit 0; fi\nwhile [ $# -gt 0 ]; do case "$1" in -*) shift ;; *) shift; break ;; esac; done\nexec "${process.execPath}" "${BIN}" "$@"\n`, { mode: 0o755 });
     setConfig(root, { cli: 'npx github:me/proj#v0.1.0', gates: [], version: '0.1.0', source: src, lang: 'en' });
     const r = cli(root, ['upgrade', '--pin-only'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
     assert.equal(r.code, 0, r.err);
@@ -909,7 +921,7 @@ test('upgrade shows the first probe run and compares the version of a second one
   }
 });
 
-test('upgrade takes the lower of pin and stamp as the from-version', { skip: process.platform === 'win32' }, () => {
+test('upgrade takes the lower of pin and stamp as the from-version', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.9.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -932,7 +944,7 @@ test('upgrade takes the lower of pin and stamp as the from-version', { skip: pro
   }
 });
 
-test('upgrade moves every pin inside gate commands and probe', { skip: process.platform === 'win32' }, () => {
+test('upgrade moves every pin inside gate commands and probe', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -958,7 +970,7 @@ test('upgrade moves every pin inside gate commands and probe', { skip: process.p
   }
 });
 
-test('upgrade pins a floating cli already on the latest version', { skip: process.platform === 'win32' }, () => {
+test('upgrade pins a floating cli already on the latest version', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo([`v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -981,7 +993,7 @@ test('upgrade pins a floating cli already on the latest version', { skip: proces
   }
 });
 
-test('upgrade: the printed after-pin recovery sequence completes the run', { skip: process.platform === 'win32' }, () => {
+test('upgrade: the printed after-pin recovery sequence completes the run', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
