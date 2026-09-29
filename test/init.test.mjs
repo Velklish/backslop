@@ -307,6 +307,24 @@ test('init: a custom --prefix and --dir lay out the tree, and new and lint work 
   }
 });
 
+test('init: the process ADR points to the tool-owned READMEs and lint is green under --dir', () => {
+  for (const args of [[], ['--dir', 'doc']]) {
+    const root = emptyRepo();
+    try {
+      const docs = args.length ? 'doc' : 'docs';
+      const r = cli(root, ['init', '--lang', 'en', ...args]);
+      assert.equal(r.code, 0, r.err);
+      const adr = read(root, `${docs}/adr/adr-001-process.md`);
+      assert.match(adr, /\]\(\.\.\/backlog\/README\.md\)/);
+      assert.match(adr, /\]\(\.\.\/archive\/README\.md\)/);
+      assert.doesNotMatch(adr, /archive\/<id>/);
+      assert.equal(cli(root, ['lint']).code, 0, args.join(' '));
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test('init keeps the header of an existing AGENTS.md and a user CLAUDE.md', () => {
   const root = emptyRepo();
   try {
@@ -686,7 +704,7 @@ test('init на проекте со своим docs/README.md: ADR-001 созд�
     put(root, 'docs/README.md', '# Мои доки\n');
     const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /docs\/README\.md уже был: добавь в таблицу строку/);
+    assert.match(r.out, /docs\/README\.md уже был: добавь в таблицу строку со ссылкой на adr\/adr-001-process\.md, иначе lint красный/);
     assert.equal(read(root, 'docs/README.md'), '# Мои доки\n');
   } finally {
     cleanup(root);
