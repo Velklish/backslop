@@ -719,7 +719,7 @@ test('lint: template parity and slot errors follow an en project language', () =
     put(dir, 'templates/brief.md', `${read(dir, 'templates/brief.md')}{{budget}}\n`);
     const r = toolCli(dir, ['lint']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /templates\/en\/skills\/backslop-batch\/SKILL\.md is missing/);
+    assert.match(r.err, /templates\/skills\/backslop-batch\/SKILL\.md has no en source templates\/en\/skills\/backslop-batch\/SKILL\.md/);
     assert.match(r.err, /templates\/brief\.md placeholder \{\{budget\}\} has no key in vars/);
   } finally { cleanup(dir); }
 });

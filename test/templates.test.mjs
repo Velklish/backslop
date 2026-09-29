@@ -3,8 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { TEMPLATES_DIR, renderTemplate, templateParity, templateSlots } from '../lib/templates.js';
+import { TEMPLATES_DIR, renderTemplate, templateParity, templateRel, templateSlots } from '../lib/templates.js';
 import { srcFiles } from '../lib/mdwalk.js';
+import {
+  FIELD_AREA, FIELD_COST, FIELD_CREATED, FIELD_DEPS, FIELD_ORDER, FIELD_PARENT, FIELD_PREV_ORDER, FIELD_TAKEN,
+  SECTION_CHECKS, SECTION_CONTEXT, SECTION_DEFERRED, SECTION_EVIDENCE, SECTION_OUT, SECTION_WORK,
+  fieldName, getField, readTitle, sectionName, sections,
+} from '../lib/tasks.js';
 import { cleanup, put } from './helpers.mjs';
 
 test('template parity: состав и placeholders совпадают', () => {
@@ -17,7 +22,7 @@ test('template parity and slot messages follow the project language', () => {
     put(root, 'adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
     put(root, 'only-ru.md', 'ru\n');
     put(root, 'en/adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
-    assert.deepEqual(templateParity(root, 'ru'), ['templates/en/only-ru.md нет']);
+    assert.deepEqual(templateParity(root, 'ru'), ['templates/only-ru.md: нет английского исходника templates/en/only-ru.md']);
     assert.ok(templateSlots(root, 'ru').includes('templates/adr.md: подстановке {{budget}} не передан ключ'));
   } finally { cleanup(root); }
 });
@@ -43,9 +48,9 @@ const PARITY_CASES = [
       'en/repeat.md': '{{cli}} and again {{cli}}\n',
     },
     expected: [
-      'templates/en/only-ru.md is missing',
-      'templates/en/only-en.md has no source counterpart',
-      'templates/en/task.md placeholders differ: id != id, title',
+      'templates/only-en.md: ru twin of templates/en/only-en.md is missing',
+      'templates/only-ru.md has no en source templates/en/only-ru.md',
+      'templates/task.md placeholders differ from the en source templates/en/task.md: expected id, found id, title',
     ],
   },
   {
@@ -89,7 +94,7 @@ const PARITY_CASES = [
       'docs/README.md': '# Один\n\n## Два\n',
       'en/docs/README.md': '# One\n\n```sh\n# not a heading\n```\n',
     },
-    expected: ['templates/en/docs/README.md headings differ: 1 != 1,2'],
+    expected: ['templates/docs/README.md headings differ from the en source templates/en/docs/README.md: expected 1, found 1,2'],
   },
   {
     name: 'Cyrillic in a file of the English layer',
@@ -103,6 +108,33 @@ const PARITY_CASES = [
 
 for (const { name, files, expected } of PARITY_CASES) {
   test(`template parity: ${name}`, () => assert.deepEqual(parity(files), expected));
+}
+
+// Parity compares heading levels, not text: a renamed heading or label passes it, and only the task
+// parser's names catch it before `brief` and `mv` stop finding the section.
+const FIELDS = [FIELD_ORDER, FIELD_PREV_ORDER, FIELD_AREA, FIELD_CREATED, FIELD_TAKEN, FIELD_DEPS, FIELD_PARENT, FIELD_COST];
+const SECTIONS = [SECTION_CONTEXT, SECTION_WORK, SECTION_OUT, SECTION_CHECKS, SECTION_DEFERRED, SECTION_EVIDENCE];
+const CARD_VARS = { area: 'a', context: 'c', cost: 'minor', date: '2026-01-01', id: 'X-1', parent: 'X-0', title: 't' };
+
+for (const lang of ['ru', 'en']) {
+  for (const rel of ['task.md', 'minor.md']) {
+    test(`templates: ${lang} ${rel} headings and field labels are names the task parser knows`, () => {
+      const text = renderTemplate(templateRel(lang, rel), CARD_VARS);
+      assert.deepEqual(readTitle(text), { id: 'X-1', title: 't' }, `${lang} ${rel}: readTitle reads the title line`);
+      const { clean, list } = sections(text);
+      assert.ok(list.length, `${rel}: the template has ## sections`);
+      for (const { name } of list) {
+        assert.ok(SECTIONS.some((key) => sectionName(key, lang) === name), `${lang} ${rel}: unknown section "${name}"`);
+      }
+      const labels = clean.slice(0, list[0].start).flatMap((line) => line.match(/^- \*\*(.+?):\*\* /)?.[1] ?? []);
+      assert.ok(labels.length, `${rel}: the template has header fields`);
+      for (const label of labels) {
+        const key = FIELDS.find((k) => fieldName(k, lang) === label);
+        assert.ok(key, `${lang} ${rel}: unknown field "${label}"`);
+        assert.notEqual(getField(text, key), null, `${lang} ${rel}: getField does not read "${label}"`);
+      }
+    });
+  }
 }
 
 test('templates: agents-probe.md держит {{probe}} в код-спане — на этом стоит форма поля probe', () => {

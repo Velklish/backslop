@@ -220,3 +220,4 @@
 - <a id="bs-167"></a>`BS-167-backslop-seed-skill-fixes` · 2026-09-29 · completed · — · backslop-seed skill: true end state, scanned sources, ADR migration, no ROADMAP, one CLI
 - <a id="bs-168"></a>`BS-168-seed-glossary-columns` · 2026-09-29 · completed · — · Glossary templates: distinct Term and EN columns, one home for the glossary rules
 - <a id="bs-160"></a>`BS-160-cli-reference-english` · 2026-09-29 · completed · — · Rewrite 02-cli reference in English as a synopsis table plus one section per command
+- <a id="bs-161"></a>`BS-161-template-contract-reference` · 2026-09-29 · completed · — · Document template keys and machine-read strings; test task/minor labels; en is the source
