@@ -1,8 +1,8 @@
-# Журнал закрытых задач
+# Closed task journal
 
-Строка на задачу: номер со slug, дата закрытия, исход, коммит закрытия и заголовок. Тела в дереве нет — постановка и результат живут в git, и достаёт их `node bin/backslop.js show N`. Строки дописываются в конец: одиночная свёртка — своей строкой, массовая — пачкой по дате закрытия, равные даты — по номеру.
+One line per task: number with slug, closing date, outcome, closing commit, and title. The body is not in the tree — the definition and the result live in git, and `node bin/backslop.js show N` retrieves them. Lines are appended at the end: a single fold adds its own line, a bulk fold adds its lines by closing date, equal dates by number.
 
-Исход `—` означает, что `result.md` его не назвал. Коммит `—` означает, что тело уехало в сообщение коммита свёртки, и `show` ищет его по заголовку `BS-N:`.
+An `—` outcome means that `result.md` did not name one. An `—` commit means that the body is in no revision the line could name. After `node bin/backslop.js fold N` it is only in the message of the fold commit, so commit the draft, and `show` finds it by the task section in a commit message, then by the `BS-N:` subject. After a bulk fold the body was not in history: it is in the draft if `--embed-missing` was given, and otherwise it is lost.
 
 - <a id="bs-1"></a>`BS-1-english-layer` · 2026-09-03 · выполнена · `4a5418dd90` · Английский слой: шаблоны, скиллы и README
 - <a id="bs-2"></a>`BS-2-npm-publish` · 2026-09-03 · выполнена · `4a5418dd90` · Подготовка npm-релиза
@@ -223,3 +223,4 @@
 - <a id="bs-161"></a>`BS-161-template-contract-reference` · 2026-09-29 · completed · — · Document template keys and machine-read strings; test task/minor labels; en is the source
 - <a id="bs-172"></a>`BS-172-readme-english-rewrite` · 2026-09-29 · completed · — · Rewrite README.md as the only README: all commands, init defaults, README.ru.md dropped
 - <a id="bs-175"></a>`BS-175-changelog-compress-english` · 2026-09-29 · completed · — · Compress CHANGELOG to short English user-visible entries; decouple tests from its history
+- <a id="bs-162"></a>`BS-162-backlog-archive-rules-english` · 2026-09-29 · completed · — · Fix backlog/archive rules templates and LOG header; re-render the repo copies in English
