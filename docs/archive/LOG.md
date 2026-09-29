@@ -201,3 +201,4 @@
 - <a id="bs-129"></a>`BS-129-commands-test-cleanup` · 2026-09-29 · completed · — · commands.test.mjs: drop two subsumed tests, merge twin tests, split the mv omnibus test
 - <a id="bs-142"></a>`BS-142-cli-help-review-ownership-tests` · 2026-09-29 · completed · — · Split bundled help and mv tests, guard the mv usage line, prune adapter-ownership tests
 - <a id="bs-157"></a>`BS-157-remove-roadmap-from-layout` · 2026-09-29 · completed · — · Remove ROADMAP.md from the layout; migrate deletes only an untouched consumer copy
+- <a id="bs-163"></a>`BS-163-agents-block-wording` · 2026-09-29 · completed · — · AGENTS block: worker commit step, finding routes, boundary and status wording
