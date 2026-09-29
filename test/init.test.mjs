@@ -373,6 +373,23 @@ test('init: a cli with a quote and a backslash leaves every skill description a 
   }
 });
 
+test('init: the en glossary defines EN as the code identifier and the seed reference does not restate it', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--lang', 'en', '--tools', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    const glossary = read(root, 'docs/GLOSSARY.md');
+    assert.match(glossary, /EN is the identifier in code/);
+    assert.doesNotMatch(glossary, /English text/);
+    const reference = read(root, '.claude/skills/backslop-seed/references/glossary.md');
+    assert.doesNotMatch(reference, /English text/);
+    assert.match(reference, /\| booking \| Reservation \|/);
+    assert.doesNotMatch(reference, /^## After seeding$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('init keeps the header of an existing AGENTS.md and a user CLAUDE.md', () => {
   const root = emptyRepo();
   try {
