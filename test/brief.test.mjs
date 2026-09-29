@@ -46,16 +46,19 @@ test('brief: заголовок track’а, постановки задач с �
     assert.match(r.out, /`npm test`, `npx backslop@1\.2\.3 lint`/);
     assert.match(r.out, /префиксом `BL-N:`/);
 
-    // Семь неизменных пунктов брифа.
+    // Восемь неизменных пунктов брифа.
     for (const re of [/## Границы правки/, /## Критерий готовности/, /Доки — тем же ходом/,
-      /Коммить в свою ветку сразу/, /Каталоги статусов и `archive\/` не трогай/,
+      /Коммить в свою ветку сразу/, /Не пушь/, /Каталоги статусов и `archive\/` не трогай/,
       /Находки — с меткой цены, и метка решает ход/, /Мутационная проба — после коммита/, /## Состав результата/]) {
       assert.match(r.out, re);
     }
+    assert.match(r.out, /коммиты по задаче, каждый с префиксом `BL-N:` — включая правки по ревью/);
+    assert.match(r.out, /Не пушь\.\*\* Развилки идут к оркестратору, а не к владельцу напрямую/);
+    assert.match(r.out, /Перенос файла между каталогами статусов и в `archive\/` — не твой ход/);
+    assert.match(r.out, /`critical` чини сейчас в своих границах, в файлах чужого track'а — сообщение оркестратору сразу/);
     assert.match(r.out, /закрытие и правку текста файлов в каталогах статусов и `archive\/` делает approver/);
     assert.match(r.out, /worker присылает формулировку в результате/);
-    assert.match(r.out, /Единственное исключение — новая находка: worker заводит её отдельным файлом командой `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(с `--minor --evidence "…"` для minor и гипотез\) в своей ветке/);
-    assert.match(r.out, /`critical` чини сейчас в своих границах, в чужих файлах — сообщение оркестратору сразу/);
+    assert.match(r.out, /Единственное исключение — новая находка: worker заводит её отдельным файлом командой `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(с `--minor --evidence "…"` для minor; гипотеза — как в следующем пункте\) в своей ветке/);
     assert.match(r.out, /`major` вне её — файл `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]`, затем допиши строку `Улика:` его «Контекста»/);
     assert.match(r.out, /`minor` — `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\] --minor --evidence "…"`/);
     assert.match(r.out, /гипотеза о `major` или `critical` заводится так: `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\] --minor --cost <уровень> --hypothesis --evidence "…"`, а голый `--minor --evidence` — только для minor-находки/);
@@ -135,10 +138,14 @@ test('brief: EN project renders the English twin', () => {
     assert.doesNotMatch(r.out, /## Как работать/, 'русская редакция брифа в EN-проект не попадает');
     assert.match(r.out, /the approver closes tasks and edits file text in those directories; the worker sends the wording in the result\./);
     assert.match(r.out, /Moving a file between status directories or `archive\/` is not the worker’s move\./);
-    assert.match(r.out, /The only exception is a new finding: the worker creates it as a separate file with `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(with `--minor --evidence "…"` for minors and hypotheses\) on their branch/);
+    assert.match(r.out, /The only exception is a new finding: the worker creates it as a separate file with `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]` \(with `--minor --evidence "…"` for minors; a hypothesis as in the next bullet\) on their branch/);
     assert.match(r.out, /Findings carry a cost label, and the label decides the route/);
     assert.match(r.out, /the worker does not edit an existing card/);
+    assert.match(r.out, /commits per task, each prefixed `BL-N:` — including review fixes/);
     assert.match(r.out, /a `major` or `critical` hypothesis is filed with `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\] --minor --cost <level> --hypothesis --evidence "…"`, and only a minor finding uses plain `--minor --evidence`/);
+    assert.match(r.out, /\*\*Do not push\.\*\* Decision points go to the orchestrator, never to the owner directly\./);
+    assert.match(r.out, /file `major` outside it with `npx backslop@1\.2\.3 new <slug> --parent N\[\.M\]`, then fill the `Evidence:` line of its Context/);
+    assert.doesNotMatch(r.out, /one commit per task/);
   } finally {
     cleanup(root);
   }
