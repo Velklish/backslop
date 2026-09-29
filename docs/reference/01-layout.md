@@ -225,7 +225,7 @@ The honest move for such records is a table word in the first paragraph: «От�
 
 ### Fold and show
 
-The command behaviour of `fold` and `show` — revision choice, the per-file blob check, the causes of a missing revision, gitignored files, CRLF, the message draft, the squash warning and the `show N` lookup — is described in [02-cli § fold](02-cli.md) (the `fold` and `show` rows).
+The command behaviour of `fold` and `show` — revision choice, the per-file blob check, the causes of a missing revision, gitignored files, CRLF, the message draft, the squash warning and the `show N` lookup — is described in [02 § fold](02-cli.md#fold) and [§ show](02-cli.md#show).
 
 ### Closed numbers, findings and batches
 
