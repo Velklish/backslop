@@ -435,16 +435,9 @@ Changing any item is a contract change and is decided in an ADR.
 
 ## Release (repository script)
 
-`npm run release` is a script of this repository, not a backslop command:
+`npm run release` is a script of this repository, not a backslop command; the release procedure is in [`AGENTS.md` § Release](../../AGENTS.md#release).
 
-- The version bump is a separate step before the release: `npm run release -- X.Y.Z --bump` writes `version` into `package.json`, renames the top `CHANGELOG.md` section to `## vX.Y.Z — <date>` and stamps `backslop.json` by calling `init` with the same `node` that ran the script, not the first `node` on `PATH`. Every check runs before the first write; the script makes no commits — the agent reviews and commits the diff.
-- A top section whose heading already starts with a version number — `## v1.2.3 — date`, `## [1.2.3] - date` or `## 1.2.3` — is released, and `--bump` refuses before the first write. Until the tag, the section `## vX.Y.Z — <date>` stays the unreleased section for `merge-changelog`: while no heading above it lacks a version number, entries of tracks accepted after the bump merge into it. `lint` gate 11 catches drift between the three numbers ([03](03-lint.md)).
-- The release is `npm run release -- X.Y.Z` ([scripts/release.mjs](../../scripts/release.mjs)): a clean tree on `main`, the version equal to the tag, `git fetch` and a fast-forward from `origin/main` (local `main` may be ahead), `npm test`, `lint`, `pack --dry-run`, a local tag, `git push --atomic --dry-run`, then `npm publish` and an atomic push of `main` and the tag.
-- `--no-publish` removes only the `npm publish` step — the tag and the atomic push stay — and is the release path in use; the script's report then says `npm publish` was not run. `--bump` with `--no-publish` is a refusal: a bump reaches no release and publishes nothing. A fast-forward refusal with `--no-publish` does not mention `npm publish`.
-- Subagent working copies `.claude/worktrees/` are ignored and do not break the release preflight's cleanliness check.
 - The packed files are the `files` field of `package.json`: `bin`, `lib`, `templates`, `README.md`, `LICENSE`, `CHANGELOG.md`; the tarball holds every git-tracked file under them, and beyond them only `package.json`.
-- A failure after the tag prints the state and the next command; a `push --dry-run` refusal also names `git tag -d vX.Y.Z` to roll back the local tag.
-- The default `cli` stays the GitHub form.
 
 ## Implementation notes
 
