@@ -214,3 +214,4 @@
 - <a id="bs-113.1"></a>`BS-113.1-upgrade-killer-test-shell-exec` · 2026-09-29 · batch BS-193 · — · The upgrade signal test assumes /bin/sh -c execs its last command
 - <a id="bs-120.1"></a>`BS-120.1-unreadable-dir-message-in-other-commands` · 2026-09-29 · batch BS-193 · — · Unreadable directory: a bare refusal outside lint, a stack trace from the task scan
 - <a id="bs-131.1"></a>`BS-131.1-mv-minor-todo-field-name-untested` · 2026-09-29 · batch BS-193 · — · mv N minor has no test for a line whose field name starts with [TODO and whose value is a placeholder
+- <a id="bs-158"></a>`BS-158-layout-reference-english` · 2026-09-29 · completed · — · Rewrite 01-layout reference in English: fix stale claims, drop ADR citations and history
