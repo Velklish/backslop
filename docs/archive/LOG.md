@@ -217,3 +217,4 @@
 - <a id="bs-158"></a>`BS-158-layout-reference-english` · 2026-09-29 · completed · — · Rewrite 01-layout reference in English: fix stale claims, drop ADR citations and history
 - <a id="bs-159"></a>`BS-159-lint-reference-english` · 2026-09-29 · completed · — · Rewrite 03-lint reference in English: list every lint check, state each rule once
 - <a id="bs-166"></a>`BS-166-docs-skeleton-adr001-index` · 2026-09-29 · completed · — · Trim the ADR-001 and docs index templates to what the tool-owned READMEs do not say
+- <a id="bs-167"></a>`BS-167-backslop-seed-skill-fixes` · 2026-09-29 · completed · — · backslop-seed skill: true end state, scanned sources, ADR migration, no ROADMAP, one CLI

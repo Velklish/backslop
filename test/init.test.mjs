@@ -5,10 +5,11 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSy
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { cleanup, cli, put, read, toolCli, toolCopy } from './helpers.mjs';
+import { REPO, cleanup, cli, put, read, toolCli, toolCopy } from './helpers.mjs';
 import { isOwnedAdapterFile } from '../lib/adapter-ownership.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { srcFiles } from '../lib/mdwalk.js';
+import { frontmatterField } from '../lib/frontmatter.js';
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
@@ -319,6 +320,53 @@ test('init: the process ADR points to the tool-owned READMEs and lint is green u
       assert.match(adr, /\]\(\.\.\/archive\/README\.md\)/);
       assert.doesNotMatch(adr, /archive\/<id>/);
       assert.equal(cli(root, ['lint']).code, 0, args.join(' '));
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('init: the rendered seed skill spells every command with the pinned cli and has no roadmap', () => {
+  const spelled = {
+    'SKILL.md': ['`node bs.js init`', '`node bs.js seed --scan`', '`node bs.js seed --queue-reference`', '`node bs.js lint`'],
+    'references/adr-backfill.md': ['`node bs.js adr <slug> --title', '`node bs.js lint`'],
+  };
+  for (const lang of ['en', 'ru']) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', '--lang', lang, '--tools', 'claude', '--cli', 'node bs.js']);
+      assert.equal(r.code, 0, r.err);
+      for (const rel of ['SKILL.md', 'references/adr-backfill.md', 'references/inventory.md', 'references/glossary.md']) {
+        const text = read(root, `.claude/skills/backslop-seed/${rel}`);
+        assert.doesNotMatch(text, /`backslop (adr|new|lint|status|init|seed)\b/, `${lang} ${rel}`);
+        assert.doesNotMatch(text, /`(adr <slug>|seed --|new <slug>)/, `${lang} ${rel}: a command without the cli prefix`);
+        assert.doesNotMatch(text, /roadmap/i, `${lang} ${rel}`);
+        for (const command of spelled[rel] ?? []) assert.ok(text.includes(command), `${lang} ${rel}: ${command}`);
+        const template = readFileSync(path.join(REPO, 'templates', lang === 'en' ? 'en' : '', 'skills/backslop-seed', rel), 'utf8');
+        assert.equal(text.split('node bs.js').length, template.split('{{cli}}').length, `${lang} ${rel}: a cli placeholder lost its prefix`);
+      }
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('init: a cli with a quote and a backslash leaves every skill description a valid JSON string', () => {
+  for (const lang of ['en', 'ru']) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', '--lang', lang, '--tools', 'claude,cursor,codex', '--cli', 'node "C:\\Users\\me\\backslop.js"']);
+      assert.equal(r.code, 0, r.err);
+      for (const rel of ['.claude/skills', '.agents/skills']) {
+        for (const skill of ['backslop-seed', 'backslop-task', 'backslop-batch']) {
+          const description = frontmatterField(read(root, `${rel}/${skill}/SKILL.md`), 'description');
+          assert.ok(description, `${lang} ${rel}/${skill}: description`);
+        }
+      }
+      for (const skill of ['backslop-seed', 'backslop-task', 'backslop-batch']) {
+        const rule = read(root, `.cursor/rules/${skill}.mdc`);
+        assert.ok(frontmatterField(rule, 'description'), `${lang} .cursor/rules/${skill}.mdc: description`);
+      }
     } finally {
       cleanup(root);
     }
