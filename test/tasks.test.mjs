@@ -1,12 +1,15 @@
 // Чистые функции задач: имена, номера, шапка, порядок очереди.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, getField, idMentionRe,
-  nextNumber, nextSub, parseId, placeInQueue, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
+  foreignTaskIds, nextNumber, nextSub, parseId, placeInQueue, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
 import { formatId } from '../lib/ids.js';
+import { cleanup, cli, gitAll, makeProject, put, run } from './helpers.mjs';
 import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, hasNamedOutcome, outcomeFromResult, parseLogLine } from '../lib/log.js';
 
 test('имя файла задачи: номер, sub-ID и slug', () => {
@@ -347,4 +350,87 @@ test('дописывание в журнал: пустая строка межд
   assert.equal(appendLogLines(one, ['- <a id="bs-2"></a>y']), '# Журнал\n\nПроза.\n\n- <a id="bs-1"></a>x\n- <a id="bs-2"></a>y\n');
   assert.equal(appendLogLines('', ['- <a id="bs-1"></a>x']), '- <a id="bs-1"></a>x\n');
   assert.equal(appendLogLines('# Журнал\n\nПроза.\n\n', ['- <a id="bs-1"></a>x']), '# Журнал\n\nПроза.\n\n- <a id="bs-1"></a>x\n');
+});
+
+test('foreignTaskIds: a docs path spelled ./docs or docs/ still sees the numbers taken on other branches', () => {
+  for (const docs of ['./docs', 'docs/']) {
+    const root = makeProject({ docs });
+    try {
+      put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · a\n');
+      gitAll(root, 'BS-1: a');
+      run(root, ['checkout', '-q', '-b', 'worker']);
+      put(root, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · b\n');
+      gitAll(root, 'BS-2: b');
+      run(root, ['checkout', '-q', 'main']);
+      const found = foreignTaskIds({ root, cfg: { prefix: 'BS', docs } }, 'en');
+      assert.deepEqual(found.map((f) => `${f.num} ${f.source}`).sort(), ['1 branch main', '2 branch worker'], docs);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('new: docs/backlog or a status directory that is a file is refused naming the path, not a stack', () => {
+  const cases = [
+    ['docs/backlog', ['new', 'x'], 'docs/backlog'],
+    ['docs/backlog/queue', ['new', 'x', '--queue'], 'docs/backlog/queue'],
+    ['docs/backlog/minor', ['new', 'x', '--parent', '1', '--minor', '--evidence', 'e'], 'docs/backlog/minor'],
+  ];
+  for (const [rel, args, named] of cases) {
+    const root = makeProject({ git: false });
+    try {
+      put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · a\n');
+      rmSync(path.join(root, ...rel.split('/')), { recursive: true, force: true });
+      put(root, rel, 'x\n');
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${rel}: ${r.out}`);
+      assert.ok(r.err.startsWith(`✖ ${named} — файл, а нужен каталог`), `${rel}: ${r.err}`);
+      assert.doesNotMatch(r.err, /ENOTDIR|EEXIST|node:fs|\n\s+at /, `${rel}: a stack`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('foreignTaskIds: a status directory, archive/ or an archive minor/ that is a file in another worktree is skipped', () => {
+  const root = makeProject();
+  const parent = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-wt-')));
+  const wt = path.join(parent, 'other');
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · a\n');
+    gitAll(root, 'BS-1: a');
+    run(root, ['worktree', 'add', '-q', wt, '-b', 'other']);
+    put(wt, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · b\n');
+    put(wt, 'docs/archive/BS-3-c/task.md', '# BS-3 · c\n');
+    rmSync(path.join(wt, 'docs/backlog/queue'), { recursive: true, force: true });
+    put(wt, 'docs/backlog/queue', 'x\n');
+    mkdirSync(path.join(wt, 'docs/archive/BS-4-d'), { recursive: true });
+    put(wt, 'docs/archive/BS-4-d/minor', 'x\n');
+    const found = foreignTaskIds({ root, cfg: { prefix: 'BS', docs: 'docs' } }, 'en');
+    const fromWorktree = found.filter((f) => f.source.startsWith('worktree')).map((f) => f.num).sort();
+    assert.deepEqual(fromWorktree, [1, 2, 3, 4]);
+  } finally {
+    cleanup(root);
+    rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+test('foreignTaskIds: archive/ that is a file in another worktree is skipped, the other numbers are found', () => {
+  const root = makeProject();
+  const parent = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-wt-')));
+  const wt = path.join(parent, 'other');
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · a\n');
+    gitAll(root, 'BS-1: a');
+    run(root, ['worktree', 'add', '-q', wt, '-b', 'other']);
+    put(wt, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · b\n');
+    rmSync(path.join(wt, 'docs/archive'), { recursive: true, force: true });
+    put(wt, 'docs/archive', 'x\n');
+    const found = foreignTaskIds({ root, cfg: { prefix: 'BS', docs: 'docs' } }, 'en');
+    const fromWorktree = found.filter((f) => f.source.startsWith('worktree')).map((f) => f.num).sort();
+    assert.deepEqual(fromWorktree, [1, 2]);
+  } finally {
+    cleanup(root);
+    rmSync(parent, { recursive: true, force: true });
+  }
 });

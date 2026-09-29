@@ -113,15 +113,22 @@ test('rewriteGates: every pin of the cli spec in a command moves, a scoped entry
   assert.deepEqual(rewriteGates(['npx github:me/proj lint && npx github:me/proj status', 'npx github:me/projx lint'], 'npx github:me/proj', floating, '0.2.0'),
     ['npx github:me/proj#v0.2.0 lint && npx github:me/proj#v0.2.0 status', 'npx github:me/projx lint'], 'a floating cli moves as a whole word only');
   assert.equal(rewriteCommand('npx --yes backslop@0.1.0 lint', 'npx --yes backslop@0.1.0', parseCli('npx --yes backslop@0.1.0'), '0.2.0'), 'npx --yes backslop@0.2.0 lint');
-  // `pinRe` has no end boundary: a suffixed pin moves its version prefix and keeps the suffix.
   assert.deepEqual(rewriteGates(['npx github:me/proj#v0.1.0x lint', 'npx github:me/proj#v0.1.0-rc.1 lint'], old, form, '0.2.0'),
-    ['npx github:me/proj#v0.2.0x lint', 'npx github:me/proj#v0.2.0-rc.1 lint']);
+    ['npx github:me/proj#v0.1.0x lint', 'npx github:me/proj#v0.1.0-rc.1 lint'], 'a suffixed pin is left as written');
   // Запись с областью правится внутрь и сохраняет `when`, нетронутая возвращается той же ссылкой —
   // иначе число заменённых было бы числом записей с областью.
   const gates = [{ command: 'npx github:me/proj#v0.1.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }];
   const next = rewriteGates(gates, old, form, '0.2.0');
   assert.deepEqual(next, [{ command: 'npx github:me/proj#v0.2.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }]);
   assert.equal(next[1], gates[1], 'нетронутая запись — та же ссылка');
+});
+
+test('rewriteGates: a floating cli inside a quoted command is pinned like an unquoted one', () => {
+  const floating = parseCli('npx github:me/proj');
+  assert.deepEqual(
+    rewriteGates(['sh -c "npx github:me/proj lint"', "sh -c 'npx github:me/proj lint && npx github:me/proj status'", 'sh -c "npx github:me/proj"', 'sh -c "npx github:me/projx lint"'], 'npx github:me/proj', floating, '0.2.0'),
+    ['sh -c "npx github:me/proj#v0.2.0 lint"', "sh -c 'npx github:me/proj#v0.2.0 lint && npx github:me/proj#v0.2.0 status'", 'sh -c "npx github:me/proj#v0.2.0"', 'sh -c "npx github:me/projx lint"'],
+  );
 });
 
 test('changelogSince: секции строго после since и не позже to, без «Не выпущено»', () => {
@@ -231,18 +238,16 @@ test('upgrade: a step that hits the time cap stops the run even when the shell e
 test('upgrade: a step killed by a signal names the signal, not an exit code', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v99.0.0']);
-  const tool = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-killer-')));
   try {
-    writeFileSync(path.join(tool, 'killer.sh'), 'kill -KILL $$\n');
-    setConfig(root, { cli: `sh "${path.join(tool, 'killer.sh')}"`, source: src, lang: 'en' });
+    // The cli is the killer: the shell that runs the step kills itself, so no inner shell exists.
+    setConfig(root, { cli: 'kill -KILL $$ #', source: src, lang: 'en' });
     const r = cli(root, ['upgrade']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /step “sh ".*killer\.sh" version” — killed by signal SIGKILL\. Pin and version stamp were not changed/);
+    assert.match(r.err, /step “kill -KILL \$\$ # version” — killed by signal SIGKILL\. Pin and version stamp were not changed/);
     assert.doesNotMatch(r.err, /code SIGKILL/);
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
-    rmSync(tool, { recursive: true, force: true });
   }
 });
 
@@ -971,6 +976,28 @@ test('upgrade moves every pin inside gate commands and probe', () => {
   }
 });
 
+test('upgrade on the latest version does not say already on while a suffixed pin stays, and leaves it as written', () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  const suffixed = 'Run npx github:me/proj#v0.1.0-rc.1 lint.\n';
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, { cli: now, version: TOOL_VERSION, source: src, gates: [`${now} lint`, 'npx github:me/proj#v0.1.0x gates'] });
+    put(root, 'docs/README.md', `${read(root, 'docs/README.md')}\n${suffixed}`);
+    const r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /уже на/);
+    assert.ok(read(root, 'docs/README.md').endsWith(`\n${suffixed}`), 'a suffixed pin in prose is not rewritten');
+    assert.deepEqual(config(root).gates, [`${now} lint`, 'npx github:me/proj#v0.1.0x gates'], 'a suffixed pin in a gate is not rewritten');
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
 test('upgrade pins a floating cli already on the latest version', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo([`v${TOOL_VERSION}`]);
@@ -1082,6 +1109,33 @@ test('upgrade on the same version skips an unreadable live file and says already
     chmodSync(locked, 0o644);
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
+  }
+});
+
+test('upgrade words an unreadable directory of the pin walk and keeps the finish-manually hint', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const locked = path.join(root, 'src', 'locked');
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    const tail = 'restore read access or move it out of the project';
+    mkdirSync(locked, { recursive: true });
+    chmodSync(locked, 0o000);
+    setConfig(root, { cli: `npx github:me/proj#v${TOOL_VERSION}`, version: TOOL_VERSION, source: src, lang: 'en' });
+    let r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 1, r.out);
+    assert.equal(r.err, `✖ src/locked: the directory is not readable (EACCES) — pins cannot be read from it; ${tail}\n`);
+
+    setConfig(root, { cli: 'npx github:me/proj#v0.1.0', version: '0.1.0' });
+    r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, new RegExp(`^✖ src/locked: the directory is not readable \\(EACCES\\) — pins cannot be read from it; ${tail}\\. Pin is already v${TOOL_VERSION.replace(/\./g, '\\.')}: finish manually with `));
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
   }
 });
 

@@ -1712,14 +1712,117 @@ test('mv N.k minor: без улики — отказ до переноса; с -
   }
 });
 
-test('mv N minor keeps a table row with a filled cell, a numbered item and a task box as text', () => {
+test('mv N minor cuts a numbered item and a task box stub and blanks the placeholder cell of a row with written text', () => {
   const root = makeProject();
   try {
     const rows = '| a | b |\n|---|---|\n| done | [TODO] |\n\n1. [TODO]\n- [ ] [TODO]\n';
     put(root, 'docs/backlog/triage/BS-1-a.md', `# BS-1 · A\n\n## Контекст\n\nзамер\n\n## Что сделать\n\n${rows}`);
     const r = cli(root, ['mv', '1', 'minor', '--evidence', 'lib/x.js:1 — код 1']);
     assert.equal(r.code, 0, r.err);
-    assert.ok(read(root, 'docs/backlog/minor/BS-1-a.md').includes(`## Что сделать\n\n${rows}`), read(root, 'docs/backlog/minor/BS-1-a.md'));
+    const moved = read(root, 'docs/backlog/minor/BS-1-a.md');
+    assert.ok(moved.includes('## Что сделать\n\n| a | b |\n|---|---|\n| done |'), moved);
+    assert.doesNotMatch(moved, /\[TODO|^1\. |^- \[ \]/m, 'no line that gate 4 rejects stays');
+    assert.doesNotMatch(cli(root, ['lint']).err, /✖ docs\/backlog\/minor\/BS-1-a\.md/, 'a card that passes mv passes lint');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor cuts a stub of any section but Evidence, so a card that passes mv passes lint', () => {
+  for (const [lang, notes, evidence] of [['ru', 'Заметки', 'Улика'], ['en', 'Notes', 'Evidence']]) {
+    const root = makeProject();
+    try {
+      put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }, null, 2)}\n`);
+      put(root, 'docs/backlog/triage/BS-1-a.md', `# BS-1 · A\n\n## ${evidence}\n\nзамер\n\n## ${notes}\n\nописание\n- [TODO]\n1. [TODO: x]\n`);
+      const r = cli(root, ['mv', '1', 'minor']);
+      assert.equal(r.code, 0, `${lang}: ${r.err}`);
+      const moved = read(root, 'docs/backlog/minor/BS-1-a.md');
+      assert.ok(moved.includes(`## ${notes}\n\nописание\n`), `${lang}: ${moved}`);
+      assert.doesNotMatch(moved, /\[TODO/, lang);
+      assert.equal(cli(root, ['lint']).code, 0, `${lang}: lint after mv`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('mv N minor cuts an all-placeholder Evidence table row and puts the evidence line after a blank line', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · A\n\n## Улика\n\n| file | result |\n|---|---|\n| [TODO] | [TODO] |\n');
+    const r = cli(root, ['mv', '1', 'minor', '--evidence', 'rc 1']);
+    assert.equal(r.code, 0, r.err);
+    const moved = read(root, 'docs/backlog/minor/BS-1-a.md');
+    assert.ok(moved.endsWith('|---|---|\n\nУлика: rc 1\n'), moved);
+    assert.doesNotMatch(moved, /\[TODO/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor reads an Evidence stub by the gate 4 line rule: numbered item, task box, table cell', () => {
+  const stubs = ['1. [TODO: command]', '- [ ] [TODO]', '| lib/x.js:1 | [TODO] |'];
+  for (const stub of stubs) {
+    const root = makeProject();
+    try {
+      const card = 'docs/backlog/triage/BS-1-a.md';
+      put(root, card, `# BS-1 · A\n\n## Улика\n\n${stub}\n`);
+      let r = cli(root, ['mv', '1', 'minor']);
+      assert.equal(r.code, 1, `${stub}: ${r.out}`);
+      assert.match(r.err, /BS-1: в minor\/ без улики/, stub);
+      assert.ok(existsSync(path.join(root, card)), `${stub}: refused before the move`);
+      r = cli(root, ['mv', '1', 'minor', '--evidence', 'rc 1 on the base']);
+      assert.equal(r.code, 0, `${stub}: ${r.err}`);
+      const moved = read(root, 'docs/backlog/minor/BS-1-a.md');
+      assert.match(moved, /^Улика: rc 1 on the base$/m, stub);
+      assert.doesNotMatch(moved, /\[TODO/, `${stub}: the stub is replaced`);
+      assert.equal(moved.includes('lib/x.js:1'), stub.startsWith('|'), `${stub}: a written cell survives`);
+      assert.doesNotMatch(cli(root, ['lint']).err, /✖ docs\/backlog\/minor\/BS-1-a\.md/, stub);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('mv N minor keeps the written cells of every Evidence table row that has a placeholder cell', () => {
+  const root = makeProject();
+  try {
+    const table = '| file | result |\n|---|---|\n| lib/x.js:1 | [TODO] |\n| lib/y.js:2 | [TODO] |\n';
+    put(root, 'docs/backlog/triage/BS-1-a.md', `# BS-1 · A\n\n## Улика\n\n${table}`);
+    const r = cli(root, ['mv', '1', 'minor', '--evidence', 'rc 1']);
+    assert.equal(r.code, 0, r.err);
+    const moved = read(root, 'docs/backlog/minor/BS-1-a.md');
+    assert.ok(moved.includes('| lib/x.js:1 |') && moved.includes('| lib/y.js:2 |'), moved);
+    assert.match(moved, /^Улика: rc 1$/m);
+    assert.doesNotMatch(cli(root, ['lint']).err, /✖ docs\/backlog\/minor\/BS-1-a\.md/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor refuses when the only Evidence line has a [TODO field name and a placeholder value', () => {
+  const root = makeProject();
+  try {
+    const card = 'docs/backlog/triage/BS-1-a.md';
+    put(root, card, '# BS-1 · A\n\n## Улика\n\n- [TODO] note: [TODO: x]\n');
+    const r = cli(root, ['mv', '1', 'minor']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /BS-1: в minor\/ без улики/);
+    assert.ok(existsSync(path.join(root, card)), 'refused before the move');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor cuts a statement line with a [TODO field name and a placeholder value, keeps the written text', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · A\n\n## Улика\n\nзамер\n\n## Что сделать\n\nсделать руками\n- [TODO] note: [TODO: x]\n');
+    const r = cli(root, ['mv', '1', 'minor']);
+    assert.equal(r.code, 0, r.err);
+    const moved = read(root, 'docs/backlog/minor/BS-1-a.md');
+    assert.match(moved, /## Что сделать\n\nсделать руками\n/);
+    assert.doesNotMatch(moved, /\[TODO/);
   } finally {
     cleanup(root);
   }

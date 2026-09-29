@@ -205,6 +205,27 @@ test('tracks: a worktree whose directory is gone is named prunable, its status i
   }
 });
 
+test('tracks: the text listing names a locked worktree and says how to release it', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n');
+    run(root, ['add', '-A']);
+    run(root, ['commit', '-qm', 'init']);
+    run(root, ['worktree', 'add', '-q', '-b', 'held', beside(root, 'held'), 'HEAD']);
+    run(root, ['worktree', 'lock', beside(root, 'held')]);
+    run(root, ['worktree', 'add', '-q', '-b', 'free', beside(root, 'free'), 'HEAD']);
+
+    const text = cli(root, ['tracks']);
+    assert.equal(text.code, 0, text.err);
+    assert.match(text.out, /\(held\)\n {4}влит в HEAD\n {4}не влитых коммитов задач нет\n {4}незакоммиченного нет\n {4}заблокирован — git worktree unlock, потом remove\n/);
+    assert.equal(text.out.split('\n').filter((l) => l.includes('заблокирован')).length, 1, 'only the locked worktree is named');
+  } finally {
+    rmSync(beside(root, 'held'), { recursive: true, force: true });
+    rmSync(beside(root, 'free'), { recursive: true, force: true });
+    cleanup(root);
+  }
+});
+
 test('tracks: a branch named like a path is read as a branch, its task commit listed', () => {
   const root = makeProject();
   try {
