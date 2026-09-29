@@ -1,12 +1,11 @@
 # {{project}} documentation
 
-The canonical project documentation. For current work, use `{{cli}} status`; for project direction, see [ROADMAP.md](ROADMAP.md); for why the system is arranged this way, see the ADRs in the table below.
+The canonical project documentation. For current work, use `{{cli}} status`; for why the system is arranged this way, see the ADRs in the table below.
 
 | Document | Topic | Status |
 |---|---|---|
 | [reference/](reference/README.md) | Subsystem reference: how the current code works | Living |
 | [GLOSSARY.md](GLOSSARY.md) | Normative terminology: one concept, one name | Living |
-| [ROADMAP.md](ROADMAP.md) | Direction and goals; tasks are in the backlog | Living |
 | [backlog/](backlog/README.md) | Task tracker: one file per task, status is the directory, summary is `{{cli}} status` | Living |
 | [archive/](archive/README.md) | Closed tasks: task definition and result in separate files | Living |
 | [adr/adr-{{adrNumber}}-process.md](adr/adr-{{adrNumber}}-process.md) | Tasks and decisions are managed with backslop | Accepted |

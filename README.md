@@ -55,7 +55,7 @@ Once the skeleton is ready, with an adapter selected (`init --tools …`), ask a
 | `adr <slug> [--title "…"]` | create the next-numbered ADR |
 | `status [--json]` | active work, ordered queue, deferred work, triage, minor entries by scope; `--json` is for orchestrators and scripts |
 | `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update a project: CLI, gate, and live-file pins, `migrate` and `init` with the new version, CHANGELOG summary |
-| `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp; below the tool version it also rewrites `docs/backlog/README.md` and `docs/archive/README.md` from the template |
+| `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp; below the tool version it also rewrites `docs/backlog/README.md` and `docs/archive/README.md` from the template; from a stamp below 0.12.0 it deletes an untouched `docs/ROADMAP.md` and its two links in `docs/README.md` |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
 | `version`, `help` | version and help |
 | `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity; a standalone placeholder line (a bullet or numbered item, a task box, a table cell) or a field whose entire value is a `[TODO…]` placeholder in any markdown file under `docs/backlog/**` fails the gate — except in `triage/`, where placeholders are not checked at all; `[TODO]` inside explanatory text is not a placeholder; `quote:before:<path>` stores a pre-change snapshot, regular `quote:<path>` guards an invariant |
