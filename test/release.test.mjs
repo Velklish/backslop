@@ -264,6 +264,12 @@ test('acceptance-раннер различает несостоявшийся з
   assert.equal(describeRun('npm pack', spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8' })), null);
 });
 
+test('every package.json files entry exists in the tree', () => {
+  const manifest = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'));
+  const missing = manifest.files.filter((entry) => !existsSync(path.join(REPO, entry)));
+  assert.deepEqual(missing, [], `files entries missing from the tree: ${missing.join(', ')}`);
+});
+
 test('packed tarball matches files, installs locally and its bin passes version, init and lint', { timeout: 60_000 }, () => {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-pack-')));
   const packDir = path.join(root, 'pack');
@@ -282,7 +288,7 @@ test('packed tarball matches files, installs locally and its bin passes version,
 
     // Состав tarball — ровно нужное инструменту: выпадение `templates/` команды ниже не поймают.
     // Ожидаемое — файлы git, а не диск: `.DS_Store` и `._*` npm выбрасывает сам.
-    const REQUIRED = ['bin', 'lib', 'templates', 'README.md', 'README.ru.md', 'LICENSE', 'CHANGELOG.md'];
+    const REQUIRED = ['bin', 'lib', 'templates', 'README.md', 'LICENSE', 'CHANGELOG.md'];
     assert.deepEqual(manifest.files, REQUIRED, 'поле files package.json — контракт состава tarball');
     const packedPaths = new Set(packInfo.files.map((f) => f.path));
     const tracked = runOk('git ls-files', 'git', ['-C', REPO, 'ls-files', '-z', '--', ...REQUIRED]).stdout.split('\0').filter(Boolean);

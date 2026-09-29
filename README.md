@@ -3,19 +3,18 @@
 A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command.
 
 ```bash
-npx github:Velklish/backslop init
+npx github:Velklish/backslop init --lang en
 ```
 
-Requires Node 20+ and git. The package has no dependencies.
-
-[Russian version](README.ru.md)
+Without `--lang`, `init` writes `"lang": "ru"`: new files and messages are then in Russian. Requires Node 20+ and git. The package has no dependencies.
 
 ## What it is
 
 Agents produce a lot of work, and it needs a tracker that lives in the repository, can be read by an agent without external services, and does not create conflicts during parallel branch work. backslop keeps everything as files:
 
-- **a task is a file** `BS-N-<slug>.md`; **status is the directory** containing it: `triage/`, `queue/`, `active/`, `deferred/`, or `minor/`; closed tasks move to `archive/` as `task.md` + `result.md`;
-- **priority is the “Order” field** in the file, not a line in a shared list; there is no task list in git — `status` prints the summary;
+- **a task is a file** `<prefix>-N-<slug>.md` (the default prefix is `BS`); **status is the directory** containing it: `triage/`, `queue/`, `active/`, `deferred/`, or `minor/`;
+- **closing is two steps**: `archive N` moves the task into `docs/archive/<id>-<slug>/` as `task.md` plus a `result.md`, and `fold N` later folds that directory into one line of `docs/archive/LOG.md` — the body stays in git history, and `show N` reads it back;
+- **priority is the Order field** in the file, not a line in a shared list; there is no task list in git — `status` prints the summary;
 - **a finding is a file** numbered `N.k`, created by its finder in their branch without coordination, and its cost label decides the route: `critical` and `major` within the current scope are fixed now, `major` outside it becomes a card, `minor` and hypotheses wait in `minor/` for a batch;
 - **decisions are ADRs**, **terms are a glossary**, and **structure is a subsystem reference**;
 - **the process is skills**: a one-task lifecycle with worker and approver roles, a worker run by tracks with briefs and a review gate, and documentation population after installation.
@@ -23,16 +22,14 @@ Agents produce a lot of work, and it needs a tracker that lives in the repositor
 ## What appears in a project
 
 ```
-backslop.json                    prefix, docs, cli (with version pin), gates, probe, version, lang, tools, agents.stepOverrides
+backslop.json                    config: prefix, docs, cli (with the version pin), gates, probe, version, source, lang, tools, agents
 AGENTS.md                        procedure section between <!-- backslop:start --> and <!-- backslop:end -->
-docs/…                           documentation skeleton, backlog, archive, first ADR
+docs/…                           documentation skeleton, backlog, archive and its journal, first ADR
 ```
 
-Adapters are written only when selected: `init --tools claude,cursor,codex`. Default `tools` is `[]`. A `backslop.json` without `tools` or `lang` is refused by every command that reads the project, `init` included: add the field by hand.
+The fields, their defaults and their rules — the mutation-probe command `probe` and the step overrides `agents.stepOverrides` included — are in the [config table](docs/reference/01-layout.md#backslopjson). A `backslop.json` without `lang` or `tools` is refused by every command that loads the config, `init` included: add the field by hand.
 
-Step 4 of the managed block demands a mutation probe only where there is something to run it with: the command comes from the `probe` field in `backslop.json` — a single-line command without a backtick and without the `backslop:start`/`backslop:end` markers: the template puts the value in a code span, and the block bounds are found in raw text. Every value substituted into the block shares that form and one check: `prefix`, `docs`, `cli` and `probe`. When the field is declared, the step names the command; when it is missing, the probe sentence is absent from the block — a rule nothing can execute costs more than no rule at all. `init` says so on its output (“probe is not declared in backslop.json…”) instead of dropping the requirement silently. A repository without the field describes its own probe in a section outside the managed block, and that section survives `init`.
-
-To adapt a numbered step in the managed `AGENTS.md` block, set `agents.stepOverrides` in `backslop.json`: a string key `"1"` through `"7"` replaces that step's text on `init` while its number and the other steps stay managed. The value must be a single non-empty line without `<`; `init` rejects invalid values before writing the managed block. Whatever passes is substituted escaped: every CommonMark ASCII punctuation character is backslashed, so the value stays text and never becomes markup — a link reference definition such as `[label]: /target`, whose scope is the whole document, cannot open inside it. Brackets without a link definition remain a legal value: escaping disarms rather than rejects. The step number, the other steps, and the worker boundary remain managed.
+Adapters are written only when selected — `init --tools claude,cursor,codex`; by default `init` writes `"tools": []`:
 
 | Adapter | Output |
 |---|---|
@@ -40,70 +37,86 @@ To adapt a numbered step in the managed `AGENTS.md` block, set `agents.stepOverr
 | `cursor` | `.cursor/rules/backslop-*.mdc` and namespaced references |
 | `codex` | `.agents/skills/backslop-*` |
 
-A repeated `init` does not touch existing `docs/` files; it updates selected adapter outputs and the section in `AGENTS.md`. `--tools none` clears the list and removes only backslop-owned files. Adapter outputs are generated and are not committed: `init` keeps a block for them in `.gitignore` between `# backslop:start` and `# backslop:end` — one `<harness root>/backslop-*` line per selected adapter, plus `/CLAUDE.md` when the file on disk is our stub. Your own lines are preserved; a project with no adapters gets no `.gitignore`. Flags: `--dir <directory>` instead of `docs`, `--prefix <KEY>` instead of `BS`, `--cli <command>`, `--lang ru|en`.
+`init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang ru`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
 
-Once the skeleton is ready, with an adapter selected (`init --tools …`), ask an agent to “populate docs using backslop”: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs, and reference without inventing anything without evidence.
+With an adapter selected, ask an agent to "populate docs using backslop" once the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence.
 
 ## Commands
 
+Each command links its reference section: behaviour, output and refusals.
+
 | Command | What it does |
 |---|---|
-| `init [--dir docs] [--prefix BS] [--cli …] [--lang ru\|en] [--tools <CSV\|none>]` | lay out the skeleton; on repeat, update selected adapters and the AGENTS.md section |
-| `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]` | create a task in `triage/` or directly in the queue; `--parent N` creates finding `N.k`; `--parent N.M` accepts a finding parent, creates the next free `N.k`, and records the `Parent` field; `--minor` puts the finding in `minor/` with a `Cost` field (`major`/`critical` only as a hypothesis) and requires `--evidence` — without evidence it refuses before the file is created; the number skips those taken in other worktrees and local branches |
-| `mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]` | change the status of one or several tasks in one call: `git mv` plus fields that follow status; `minor/` requires evidence — an “Evidence” section with text or `--evidence "…"` — and a card shaped like `task.md` loses its placeholder-only statement sections while its written text stays; in `minor/` the `Cost` field is added when missing; in `deferred/`, an existing section is not duplicated and the command prompts you to check its reason and return condition; a heading inside a fenced example does not count as an existing section; on a task already in `queue/`, `--top` or `--after M` only changes its Order; leaving `queue/` stores the rank in “Previous order”, `--restore` puts the task back on it and accepts a batch, returning its tasks in the order of their saved numbers, and a return without it names the discarded position aloud |
-| `archive <N> [--dry-run]` | close: move to `archive/`, rewrite task links throughout the repository, create `result.md` stub; `archive <N.k> --into <M>` closes a minor entry by batch M: the file moves into `archive/<M>-<slug>/minor/` without a `result.md` of its own, the batch is closed first |
-| `adr <slug> [--title "…"]` | create the next-numbered ADR |
-| `status [--json]` | active work, ordered queue, deferred work, triage, minor entries by scope; `--json` is for orchestrators and scripts |
-| `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update a project: CLI, gate, and live-file pins, `migrate` and `init` with the new version, CHANGELOG summary |
-| `migrate [--dry-run]` | migrate file formats and version stamp; while formats have not changed, only stamp; below the tool version it also rewrites `docs/backlog/README.md` and `docs/archive/README.md` from the template; from a stamp below 0.12.0 it deletes an untouched `docs/ROADMAP.md` and its two links in `docs/README.md` |
-| `changelog [--since X.Y.Z] [--to X.Y.Z]` | summarise backslop CHANGELOG between versions |
-| `version`, `help` | version and help |
-| `lint` | tracker gates plus adapter outputs and, in this repository, template-language parity; a standalone placeholder line (a bullet or numbered item, a task box, a table cell) or a field whose entire value is a `[TODO…]` placeholder in any markdown file under `docs/backlog/**` fails the gate — except in `triage/`, where placeholders are not checked at all; `[TODO]` inside explanatory text is not a placeholder; `quote:before:<path>` stores a pre-change snapshot, regular `quote:<path>` guards an invariant |
-| `gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]` | run the commands from `gates`: exit code of each, “gates N, green M”, tree snapshot. A `gates` entry is either a command string (always run) or `{ "command": …, "when": ["<glob>", …] }` — the scoped command runs only when the changed path set touches one of its globs. The set comes from the dirty tree, and with `--base <ref>` from `git diff --name-only <ref>..HEAD` on top of it; paths are made relative to the project root (in a monorepo the directory prefix is stripped and reported in `scope.prefix`), and the source and the set are printed and are in `--json` as `scope`. A skip is printed with its reason, counted as `outOfScope` inside `skipped`, and never added to the green count. Two refusals keep an idle acceptance run from looking like a passing one: an empty `--base`, and `--require-clean` when the changed path set is empty while some entry carries a scope — with no base named, or with a base that yielded no diff |
+| [`init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>]`](docs/reference/02-cli.md#init) | create docs, adapters, the AGENTS.md block and backslop.json; on repeat, refresh the adapters and the AGENTS.md block |
+| [`new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]`](docs/reference/02-cli.md#new) | create a task (in `triage/`, or the queue), a finding of task N / N.M, or a minor finding with evidence |
+| [`mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]`](docs/reference/02-cli.md#mv) | change the status of one or several tasks, or reorder the queue |
+| [`archive <N> [--dry-run] [--range <base>..HEAD]`, `archive <N.k> --into <M> [--dry-run]`](docs/reference/02-cli.md#archive) | close a task into `archive/` and print the documentation it touched; close a minor entry by batch M |
+| [`fold <N> [--dry-run]`, `fold [--older-than <date>] [--embed-missing] [--dry-run]`](docs/reference/02-cli.md#fold) | fold a closed task, or the accumulated archive, into `archive/LOG.md` lines; `fold N` puts the body into the commit message draft, the bulk form names each body's revision (`--embed-missing` carries bodies that are not in history) |
+| [`show <N>`](docs/reference/02-cli.md#show) | print the body of a folded task |
+| [`adr <slug> [--title "…"]`](docs/reference/02-cli.md#adr) | create the next numbered ADR |
+| [`brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]`](docs/reference/02-cli.md#brief) | print a worker brief for these tasks |
+| [`seed --scan [--json] \| --queue-reference`](docs/reference/02-cli.md#seed) | list gate and subsystem candidates with evidence, or queue reference tasks |
+| [`status [--json]`](docs/reference/02-cli.md#status) | active work, the ordered queue, deferred work, triage, and minor entries by scope |
+| [`lint`](docs/reference/02-cli.md#lint) | the tracker gates, adapter outputs and, in the tool's own repository, template parity ([gates](docs/reference/03-lint.md)) |
+| [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot |
+| [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty |
+| [`upgrade [--to X.Y.Z] [--dry-run] [--pin-only]`](docs/reference/02-cli.md#upgrade) | update the pins, then migrate and initialize with the new version |
+| [`migrate [--dry-run]`](docs/reference/02-cli.md#migrate) | migrate file formats, redraw the tracking and archive rules, update the version stamp |
+| [`changelog [--since X.Y.Z] [--to X.Y.Z]`](docs/reference/02-cli.md#changelog) | print backslop CHANGELOG entries between versions |
+| [`merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]`](docs/reference/02-cli.md#merge-changelog) | merge two `CHANGELOG.md` revisions |
+| [`version \| --version \| -v`, `help \| --help \| -h \| <command> --help`](docs/reference/02-cli.md#version-and-help) | print the version or the help |
 
-Before publishing to npm the command is long, so projects record it in the `cli` field of `backslop.json`; skills and the `AGENTS.md` section substitute it from there. If installed globally (`npm i -g github:Velklish/backslop#v<version>`), change `cli` to `backslop`.
+The command is long, so a project records it in the `cli` field of `backslop.json`, and skills and the `AGENTS.md` section substitute it from there. With a global install (`npm i -g github:Velklish/backslop#v<version>`), set `cli` to `backslop`.
 
 ## Updating
 
-`init` records the version pin that created the layout in `backslop.json`: `cli` is `npx github:Velklish/backslop#v<version>` with the version that ran it, and `version` is its stamp. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else’s commit. Update a project only when you choose to:
+`init` records the version that created the layout: `cli` is `npx github:Velklish/backslop#v<version>`, and `version` is its stamp. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else's commit. Update a project only when you choose to:
 
 ```bash
 npx github:Velklish/backslop upgrade
 ```
 
-`upgrade` takes the latest repository tag (or `--to X.Y.Z`), test-runs the new version and checks that it reports the target, and moves the pin in `cli` and every pin inside the `gates` and `probe` commands. It then runs `migrate` and `init`, moves pins in live files — markdown under `docs/**` and root `*.md` with historical exceptions, every file named `package.json`, and known CI files — and prints a CHANGELOG summary from the older of the pin and the version stamp. `migrate` rewrites the tracking and archive rules, `docs/backlog/README.md` and `docs/archive/README.md`, from the template of the new version: these two files belong to backslop, and a committed local edit in them is lost on update (an uncommitted one makes `migrate` refuse), so keep project rules of your own elsewhere — for example, in `AGENTS.md` outside the backslop section. You can call it through the project command — `<cli> upgrade` works from any version 0.2.0 or later — or by the unpinned form above: it always takes fresh backslop, but still updates the project to the latest tag. `--dry-run` prints the plan; `--pin-only` changes only configuration and gates, not live files; after manual `migrate` and `init`, repeat the full `upgrade` to find and rewrite them even when there is no newer tag. Downgrades are unsupported because an old version does not know a newer file format. `lint` keeps layout-version warnings advisory, but an old pin in a live file is an error; historical files stay green.
+The project command `<cli> upgrade` works too, from any version 0.2.0 or later; the untagged form above always runs fresh backslop and still updates the project to the latest tag.
 
-A global install (`cli: "backslop"`) or an npm pin (`cli: "npx backslop@X.Y.Z"`) has no GitHub-derived source: set the `source` field in `backslop.json` to the repository URL with release tags. `upgrade` then updates the pin and layout; you still update a globally installed package yourself, first: `upgrade` refuses while `cli` still runs the old version.
+- **What it does.** `upgrade` takes the latest tag (or `--to X.Y.Z`), test-runs the new version, moves the pin in `cli` and inside the `gates` and `probe` commands, runs the new version's `migrate` and `init`, moves pins in the [live files](docs/reference/03-lint.md#live-pin-files), and prints the tool's CHANGELOG between the two versions.
+- **Preview.** `--dry-run` prints the plan only; it does not include the output of `migrate`. Preview the format migrations and the rules redraw with `npx github:Velklish/backslop#v<new> migrate --dry-run`.
+- **What is lost.** `docs/backlog/README.md` and `docs/archive/README.md` belong to backslop: `migrate` redraws them from the new version's template, and a committed local edit in them is lost (an uncommitted one makes `migrate` refuse). Keep project rules of your own elsewhere, for example in `AGENTS.md` outside the backslop section.
+- **Options.** `--pin-only` changes only the configuration; after a manual `migrate` and `init`, run the full `upgrade` again to rewrite live pins, even without a newer tag. Downgrades are unsupported: an old version does not know a newer file format. `lint` keeps layout-version warnings advisory, but an old pin in a live file is an error.
+- **A global install** (`cli: "backslop"`) has no source derived from GitHub: set `source` in `backslop.json` to the repository URL with release tags, and update the installed package yourself first — `upgrade` refuses while `cli` still runs the old version.
+
+After an upgrade:
+
+1. Review and commit the diff: `backslop.json`, the `AGENTS.md` section, the tracking and archive rules, and new files such as `docs/archive/LOG.md`.
+2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word.
+3. Optionally, run `<cli> fold` to fold archive directories closed before 0.10.
 
 ## How work proceeds
 
 1. An agent takes the first task from `status` and starts it with `mv N active`.
-2. It changes code, updates documentation in the same pass, and runs gates from `backslop.json` — including `lint`.
-3. The approver accepts work: `archive N`, completes `result.md` (while it still holds a `[TODO` placeholder outside code, `lint` fails; the form quoted in a code span does not count), and reviews `triage/` so every entry has a next step. The approver also edits task-file text in status directories and the archive; the worker sends the wording in the result. The only exception is a new finding: the worker creates it as a separate file with `new --parent N[.M]` on their branch; the worker does not edit an existing card.
-4. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a worker changes only its branch and does not move statuses, a reviewer is raised for contract diffs, and acceptance squashes by task.
+2. It changes code, updates documentation in the same pass, runs `<cli> gates` (which includes `lint`), and commits to its branch with the `<prefix>-N:` prefix.
+3. The approver accepts: `archive N`, completes `result.md` (`lint` fails while a `[TODO` placeholder stays outside code), runs `fold N` into a draft outside the working tree, and makes one acceptance commit that carries the draft as its message — the [fold section](docs/reference/02-cli.md#fold) gives the exact commands, and nothing is committed between `archive N` and `fold N`.
+4. The approver then reviews `triage/` so every entry has a next step, in a separate commit.
+5. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a reviewer for contract diffs, and acceptance squashed by task.
 
-The role boundary is identical in solo and orchestrated work: workers do not declare their own work accepted or move existing task files between directories; they create a new finding as a separate file with `new --parent N[.M]` (with `--minor --evidence "…"` for minors and hypotheses) on their branch and do not edit an existing card.
+The role boundary is the same in solo and orchestrated work: a worker changes only its branch, does not declare its own work accepted, and does not move, archive or edit existing task files — the approver edits task-file text, and the worker sends the wording in its result. The worker's only tracker write is a new finding, created as a separate file with `new <slug> --parent N[.M]` (with `--minor --evidence "…"` for minors and hypotheses) on its branch.
 
 ## For orchestrators
 
-An orchestrator on any harness — subagents in worktrees, separate sessions, or a bus — operates through files and CLI: `status --json` reads the queue, `mv` assigns work, and `archive` closes it. Worker transport is a slot in `backslop-batch`; a new transport adds a page with an option for that slot, without CLI changes.
+An orchestrator on any harness works through the files and the CLI; what it can rely on is listed in [What is stable](docs/reference/02-cli.md#what-is-stable).
 
 ## Limitations
 
-- Skills appear only for selected `tools`. Without `--tools`, a project gets the `AGENTS.md` section and `docs/`.
+- backslop is not published to npm: install and pin it from GitHub tags (`npx github:Velklish/backslop#vX.Y.Z`).
+- Skills appear only for selected `tools`. Without an adapter, a project gets the `AGENTS.md` section and `docs/`, and no `backslop-seed` skill.
+- A project that never selected an adapter gets no `.gitignore`; deselecting every adapter (`--tools none`) leaves an empty backslop block in it.
 - English and Russian template layers are provided. Changing `lang` does not translate existing docs, except the tracking and archive rules: the next `migrate` redraws them in the new language unless they carry local edits.
-- Publishing to npm is prepared (`npx backslop@X.Y.Z` pins work; `npm run release`) but publishing is not planned: the default CLI stays on GitHub, and releases run with `--no-publish`.
-- A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-reference gate on lines such as `API-2.0`; choose a prefix absent from project text.
+- A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-mention gate on lines such as `API-2.0`; choose a prefix absent from project text.
 
-## Development
+## Working on backslop
 
-```bash
-npm test                      # node --test
-node bin/backslop.js lint     # gates against this repository's docs/
-```
-
-`templates/` is the source of everything installed into a project; the repository’s own `docs/` are managed with the same tool. See `docs/reference/` for the structure.
+- The repository rules are in [AGENTS.md](AGENTS.md), and the structure of the tool is in [docs/reference/](docs/reference/README.md).
+- `templates/` is the source of everything installed into a project; the repository's own `docs/` are managed with the same tool.
+- `node bin/backslop.js gates` runs the repository gates: `lint` and `npm test`.
+- Windows is supported.
 
 License: MIT.
-
-[Russian version](README.ru.md)

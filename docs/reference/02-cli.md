@@ -442,7 +442,7 @@ Changing any item is a contract change and is decided in an ADR.
 - The release is `npm run release -- X.Y.Z` ([scripts/release.mjs](../../scripts/release.mjs)): a clean tree on `main`, the version equal to the tag, `git fetch` and a fast-forward from `origin/main` (local `main` may be ahead), `npm test`, `lint`, `pack --dry-run`, a local tag, `git push --atomic --dry-run`, then `npm publish` and an atomic push of `main` and the tag.
 - `--no-publish` removes only the `npm publish` step — the tag and the atomic push stay — and is the release path in use; the script's report then says `npm publish` was not run. `--bump` with `--no-publish` is a refusal: a bump reaches no release and publishes nothing. A fast-forward refusal with `--no-publish` does not mention `npm publish`.
 - Subagent working copies `.claude/worktrees/` are ignored and do not break the release preflight's cleanliness check.
-- The packed files are the `files` field of `package.json`: `bin`, `lib`, `templates`, `README.md`, `README.ru.md`, `LICENSE`, `CHANGELOG.md`; the tarball holds every git-tracked file under them, and beyond them only `package.json`.
+- The packed files are the `files` field of `package.json`: `bin`, `lib`, `templates`, `README.md`, `LICENSE`, `CHANGELOG.md`; the tarball holds every git-tracked file under them, and beyond them only `package.json`.
 - A failure after the tag prints the state and the next command; a `push --dry-run` refusal also names `git tag -d vX.Y.Z` to roll back the local tag.
 - The default `cli` stays the GitHub form.
 
