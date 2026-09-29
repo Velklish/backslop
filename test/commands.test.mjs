@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
+import { changelogTool, cleanup, cli, gitAll, makeProject, put, read, run, toolCli } from './helpers.mjs';
 import { markGenerated } from '../lib/adapter-ownership.js';
 import { loadProject } from '../lib/config.js';
 import { toPosix } from '../lib/util.js';
@@ -1042,11 +1042,12 @@ test('команды вне проекта отказывают с подска�
 
 test('changelog and merge-changelog take the language from an otherwise invalid backslop.json', () => {
   const root = makeProject();
+  const tool = changelogTool();
   try {
     put(root, 'backslop.json', '{"prefix":"bs","lang":"en"}\n');
-    let r = cli(root, ['changelog', '--since', '0.10.0', '--to', '0.10.1']);
+    let r = toolCli(tool, ['changelog', '--since', '0.1.0', '--to', '0.2.0'], { cwd: root });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /^## v0\.10\.1 /);
+    assert.match(r.out, /^## v0\.2\.0 /);
     r = cli(root, ['changelog', '--since', 'v99.0.0']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /^no entries after v99\.0\.0 and through v/);
@@ -1056,7 +1057,7 @@ test('changelog and merge-changelog take the language from an otherwise invalid 
     r = cli(root, ['merge-changelog']);
     assert.equal(r.code, 1);
     assert.equal(r.err, '✖ both --ours <ref> and --theirs <ref> are required: two CHANGELOG.md revisions from git\n');
-  } finally { cleanup(root); }
+  } finally { cleanup(root); cleanup(tool); }
 });
 
 test('merge-changelog outside a project refuses in both languages', () => {

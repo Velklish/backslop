@@ -222,3 +222,4 @@
 - <a id="bs-160"></a>`BS-160-cli-reference-english` · 2026-09-29 · completed · — · Rewrite 02-cli reference in English as a synopsis table plus one section per command
 - <a id="bs-161"></a>`BS-161-template-contract-reference` · 2026-09-29 · completed · — · Document template keys and machine-read strings; test task/minor labels; en is the source
 - <a id="bs-172"></a>`BS-172-readme-english-rewrite` · 2026-09-29 · completed · — · Rewrite README.md as the only README: all commands, init defaults, README.ru.md dropped
+- <a id="bs-175"></a>`BS-175-changelog-compress-english` · 2026-09-29 · completed · — · Compress CHANGELOG to short English user-visible entries; decouple tests from its history

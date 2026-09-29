@@ -13,7 +13,7 @@ import { CliError } from '../lib/util.js';
 import { renderTemplate } from '../lib/templates.js';
 import { LEGACY_README_LINES, LEGACY_ROADMAP } from '../lib/legacy-roadmap.js';
 import { TOOL_VERSION } from '../lib/version.js';
-import { BIN, cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
+import { BIN, changelogTool, cleanup, cli, gitAll, makeProject, put, read, run, toolCli } from './helpers.mjs';
 
 function releasesRepo(tags) {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-src-')));
@@ -294,15 +294,18 @@ test('upgrade --dry-run shows the plan and writes nothing; --pin-only moves the 
 test('upgrade целиком: migrate и init новой версией, штамп и скиллы, выжимка CHANGELOG', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const tool = changelogTool();
+  const bin = path.join(tool, 'bin', 'backslop.js');
   try {
-    setConfig(root, { cli: `node "${BIN}"`, gates: [`node "${BIN}" lint`], version: '0.10.0', source: src, tools: ['claude'] });
+    setConfig(root, { cli: `node "${bin}"`, gates: [`node "${bin}" lint`], version: '0.10.0', source: src, tools: ['claude'] });
     rmSync(path.join(root, 'docs', 'README.md'));
-    const r = cli(root, ['upgrade']);
+    const r = toolCli(tool, ['upgrade'], { cwd: root });
     assert.equal(r.code, 0, r.err);
     assert.match(r.err, /пин не меняется/);
     assert.match(r.out, /→ node .*backslop\.js" migrate/);
     assert.match(r.out, /→ node .*backslop\.js" init/);
-    assert.match(r.out, /## v0\.10\.1/);
+    assert.match(r.out, new RegExp(`## v${TOOL_VERSION.replace(/\./g, '\\.')} `));
+    assert.doesNotMatch(r.out, /## v0\.2\.0/, 'entries through the stamp are not printed');
     assert.equal(config(root).version, TOOL_VERSION);
     assert.ok(existsSync(path.join(root, '.claude/skills/backslop-task/SKILL.md')));
     const lint = cli(root, ['lint']);
@@ -310,6 +313,7 @@ test('upgrade целиком: migrate и init новой версией, шта�
     assert.doesNotMatch(lint.err, /штамп/);
   } finally {
     cleanup(root);
+    cleanup(tool);
     rmSync(src, { recursive: true, force: true });
   }
 });
@@ -582,7 +586,7 @@ test('upgrade pins a floating cli inside an init-rendered rules pair, with no no
 
 // Полный путь пользователя: форма npx, перепись пина, запуск новой версии тем самым cli.
 // Сеть подменяет шим `npx` в PATH: он отбрасывает спеку и запускает локальный bin.
-function npxShim(before = '') {
+function npxShim(before = '', bin = BIN) {
   // `before` is script code that runs first: it may exit or print on its own.
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
   const script = path.join(dir, 'npx.mjs');
@@ -592,7 +596,7 @@ function npxShim(before = '') {
 ${before}const args = process.argv.slice(2);
 while (args.length && args[0].startsWith('-')) args.shift();
 args.shift();
-process.exit(spawnSync(process.execPath, [${JSON.stringify(BIN)}, ...args], { stdio: 'inherit' }).status ?? 1);
+process.exit(spawnSync(process.execPath, [${JSON.stringify(bin)}, ...args], { stdio: 'inherit' }).status ?? 1);
 `);
   // cmd.exe resolves `npx` through PATHEXT, so win32 gets `npx.cmd`.
   if (process.platform === 'win32') writeFileSync(path.join(dir, 'npx.cmd'), `@"${process.execPath}" "${script}" %*\r\n`);
@@ -680,6 +684,7 @@ test('init and migrate refuse a stamp newer than the tool', () => {
 
 test('changelog CLI: --since and --to bounds, an empty summary', () => {
   const root = makeProject({ git: false });
+  const tool = changelogTool();
   const rows = [
     { argv: ['--since', 'v0.0.1'], code: 0, match: /## v0\.1\.0/ },
     { argv: ['--since', 'v99.0.0'], code: 0, match: /^записей после v99\.0\.0 и до v\d+\.\d+\.\d+ нет\n$/ },
@@ -689,7 +694,7 @@ test('changelog CLI: --since and --to bounds, an empty summary', () => {
   ];
   try {
     for (const row of rows) {
-      const r = cli(root, ['changelog', ...row.argv]);
+      const r = toolCli(tool, ['changelog', ...row.argv], { cwd: root });
       const label = row.argv.join(' ');
       assert.equal(r.code, row.code, `${label}: ${r.err}`);
       const text = row.code === 0 ? r.out : r.err;
@@ -698,6 +703,7 @@ test('changelog CLI: --since and --to bounds, an empty summary', () => {
     }
   } finally {
     cleanup(root);
+    cleanup(tool);
   }
 });
 
@@ -930,7 +936,8 @@ if (!existsSync(seen)) {
 test('upgrade takes the lower of pin and stamp as the from-version', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.9.0', `v${TOOL_VERSION}`]);
-  const shim = npxShim();
+  const tool = changelogTool();
+  const shim = npxShim('', path.join(tool, 'bin', 'backslop.js'));
   const now = `npx github:me/proj#v${TOOL_VERSION}`;
   try {
     const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
@@ -941,10 +948,12 @@ test('upgrade takes the lower of pin and stamp as the from-version', () => {
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
     assert.ok(r.out.includes(`→ ${now} changelog --since v0.9.0 --to v${TOOL_VERSION}`), r.out);
-    assert.match(r.out, /## v0\.10\.0/, 'entries after the stamp are printed');
+    assert.match(r.out, new RegExp(`## v${TOOL_VERSION.replace(/\./g, '\\.')} `), 'entries after the stamp are printed');
+    assert.doesNotMatch(r.out, /## v0\.2\.0/, 'entries through the stamp are not printed');
     assert.equal(config(root).version, TOOL_VERSION);
   } finally {
     cleanup(root);
+    cleanup(tool);
     rmSync(src, { recursive: true, force: true });
     rmSync(shim, { recursive: true, force: true });
   }
