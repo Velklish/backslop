@@ -24,7 +24,7 @@ Every file backslop lays into a project — the AGENTS.md block, the skills, the
 ## Consequences
 
 - A backlog with Russian and English task files side by side is normal, not an error.
-- In the tool repository a change to a Russian template without its English twin — or the other way round — fails lint.
+- In the tool repository an English template without its Russian twin, or a Russian template without an English source, fails lint.
 - Strings built in code are outside the parity check; they depend on `tr()` and on tests in each language.
 - Parity compares structure, not meaning: a twin that says something different with the same placeholders and headings passes.
 - The language of this repository's own documentation is a separate decision.

@@ -242,7 +242,7 @@ The command behaviour of `fold` and `show` — revision choice, the per-file blo
 
 - **File.** `docs/adr/adr-NNN-<slug>.md`, the number padded to three digits. `adr` gives the maximum number in the local `docs/adr/` plus one. The number is not protected across worktrees or branches: `adr` reads only the local tree, and only `new` checks other worktrees and branches.
 - **Template.** [templates/adr.md](../../templates/adr.md): Status, Date, Deciders, Context, Options, Decision, Consequences.
-- **Index.** Every ADR is a row in the `docs/README.md` table; `lint` fails without it (gate 8, [03](03-lint.md)).
+- **Index.** Every ADR is linked from `docs/README.md`, as a row of its table; `lint` fails without the link (gate 8, [03](03-lint.md)).
 - **One ADR per topic.** A changed decision rewrites its ADR, in place or as a new file that replaces it. The replaced file is deleted, and nothing cites its number; there are no "superseded by" chains.
 
 ## Templates
