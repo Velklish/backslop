@@ -1,18 +1,77 @@
-# backslop — репозиторий инструмента
+# backslop — the tool's repository
 
-Здесь живёт сам backslop: CLI (`bin/`, `lib/`), шаблоны всего, что он кладёт в проекты (`templates/`), тесты (`test/`) и документация устройства (`docs/`). Свой бэклог репозиторий ведёт тем же инструментом — команда здесь `node bin/backslop.js`.
+## Repository
 
-Правило одно на весь репозиторий: **шаблоны — источник, adapter outputs — локальный generated результат.** Правило процесса меняется в `templates/skills/**` или `templates/docs/**`; английский близнец — в `templates/en/` с тем же составом. Правка процессного текста в `templates/docs/backlog/README.md` или `templates/docs/archive/README.md` тем же коммитом обновляет одноимённый файл в `docs/` этого репозитория: только эта пара рендерится из шаблона 1:1, а `GLOSSARY.md`, `README.md` и `reference/README.md` осознанно наполнены проектным контентом и с шаблоном расходятся. Self-host держит `tools: []` в `backslop.json`, поэтому `init` здесь не создаёт `.claude/`, `.cursor/` и `.agents/skills/`. Править generated skills и rules напрямую бесполезно. Меняется поведение команды — тем же ходом справочник `docs/reference/`, README и CHANGELOG; меняется контракт (форматы файлов, команды, состав `status --json`) — новый ADR.
+- `bin/` and `lib/` hold the CLI; `templates/` holds everything the tool lays into a project; `test/` holds the tests; `docs/` holds this repository's backlog, decision log and reference.
+- This repository runs its own backlog with the tool: the command here is `node bin/backslop.js`.
+- How the tool works now, by subsystem: [`docs/reference/README.md`](docs/reference/README.md).
+- What an orchestrator may rely on is described on its own reference page.
+- Where a command, a lint gate or a migration lives in `lib/` is described on the module-map reference page.
 
-Гейты: `node bin/backslop.js gates` зелёный — он гонит `node bin/backslop.js lint` и `npm test` из поля `gates`. Проверку гейта `lint` подтверждай красной пробой в `test/lint.test.mjs`. Своей команды пробы у репозитория нет, поэтому нет и поля `probe` в `backslop.json`, а шаг 4 блока его не называет: порти код руками, сначала коммит, потом проба.
+## Templates are the source
 
-Фаза разработки: работа идёт прямо в `main`, без веток и MR; в `origin` каждая задача уезжает одним коммитом `BS-N: …` — промежуточные коммиты схлопываются перед пушем.
+- A process rule changes in `templates/en/**`, the source layer. Its Russian twin in `templates/**` keeps the same file set and changes in the same commit.
+- `docs/backlog/README.md`, `docs/archive/README.md` and the header of `docs/archive/LOG.md` above its first journal line are rendered from the template of this repository's `lang`. A change to one of those templates updates its rendered file in the same commit.
+- Every other file in `docs/` is project content and diverges from its template on purpose.
+- `backslop.json` has `tools: []`: `init` writes no adapter outputs here.
 
-**Комментарии.** Код самодокументируем, и инлайн-комментарий длиннее двух строк не пишется (решение владельца, 2026-09-12). Строка комментария — не шире 100 знаков: абзац, сложенный в две длинные строки, — всё тот же абзац. Нюанс, не умещающийся в две строки, либо не пишется вовсе, либо уезжает в документацию — `docs/reference/`, README затронутой подсистемы или ADR, — а рядом с кодом остаётся короткий указатель, и только там, где без него нюанс не найти. Происхождение в комментарии не живёт: номер задачи, дата, «замечание ревью», пересказ строк под собой принадлежат git и трекеру. Причина измеримая, а не стилевая: этот код читают агенты, и абзац над функцией оплачивается токенами на каждом чтении файла. Правило держит гейт `test/comment-length.test.mjs` внутри `npm test`.
+## Contributor invariants
 
-**Релиз.** Публикация в npm не планируется (решение владельца 2026-09-24, BS-2.1 отклонена), default `cli` — GitHub-форма — и релиз идёт как `npm run release -- X.Y.Z --no-publish` из чистого `main`: версия в `package.json` совпадает с аргументом, локальный `main` — fast-forward от `origin/main`, гейты зелёные, `pack --dry-run` не пачкает дерево, локальный тег, `push --dry-run`, atomic push `main` и тега. Это штатный путь, а не обход скрипта: до BS-2.1 тег ставится только им. Без флага тот же скрипт делает и `npm publish` — эта форма включается, когда BS-2.1 вернётся по своему условию (владелец выбрал версию и подтвердил готовность npm auth и 2FA). Сбой после тега — смотри сообщение скрипта, не выдумывай следующий шаг. Версию бампит отдельный ход того же скрипта, до релиза и до коммита: `npm run release -- X.Y.Z --bump` пишет `version` в `package.json`, переименовывает верхнюю секцию `CHANGELOG.md` в `## vX.Y.Z — <дата>` и ставит штамп `backslop.json` вызовом `init`; дифф проверяет и коммитит агент. Рассинхрон этих чисел и устаревший пин в прозе README красит одиннадцатый гейт `lint`.
+- Node >= 20, standard library only: no dependencies.
+- Every user-facing message goes through `tr(lang, ru, en)` from `lib/i18n.js`, with the project language (`cfg.lang` where a config is loaded) and both texts written. JSON output is language-neutral.
+- A printed path goes through `toPosix` from `lib/util.js`.
+- Windows is supported. A test that cannot run on win32 carries `skip: process.platform === 'win32'` and says why.
+- A new `{{placeholder}}` in a template is declared in `TEMPLATE_KEYS` in `lib/templates.js`.
+- A new command, lint gate or migration is added as the module-map reference page describes.
 
-**Проверка находок.** Непроверенный пункт карточки начинай с [протокола](docs/reference/04-verification.md): шаги 1–4 для бага, шаг 5 для мёртвого кода или шаг 6 для удаления теста. Требования к уликам из шага 7 действуют всегда.
+## Contract changes
+
+- A behaviour change of a command updates `docs/reference/`, README and CHANGELOG in the same pass.
+- A contract change — file formats, commands, the composition of `status --json` — needs a new ADR.
+
+## Verification protocol
+
+- An unverified item of a card starts with the [protocol](docs/reference/04-verification.md): steps 1–4 for a bug, step 5 for dead code, step 6 for deleting a test. The evidence requirements of step 7 always apply.
+
+## Gates
+
+- `node bin/backslop.js gates` runs the `gates` field of `backslop.json`: `node bin/backslop.js lint` and `npm test`.
+- Confirm a `lint` gate with a red probe in `test/lint.test.mjs`.
+- `backslop.json` has no `probe` field, so the managed block names no probe command: commit first, then break the code by hand.
+
+## Commits and branches
+
+- `origin` has only `main`; there are no merge requests.
+- Workers may use local branches or worktrees; `.claude/worktrees/` is ignored.
+- Each task reaches `origin` as one acceptance commit.
+- A commit that is not a task's starts with `BS: …` (filing, triage, recorded decisions) or has the release form `Release vX.Y.Z: version bump`.
+
+## Comments
+
+- In `lib/`, `test/`, `bin/` and `scripts/`, a comment is at most two lines, each at most 100 code points.
+- A nuance that does not fit goes to the docs; the code keeps a short pointer, only where the nuance cannot be found without it.
+- No origin notes (task numbers, dates, review remarks) and no restating of the code below.
+- `test/comment-length.test.mjs` checks only length and width. Origin notes are held by the author and the reviewer.
+- There is no debt list: every block over the limit fails wherever it is.
+
+## Release
+
+This section is the only description of the release procedure. The tool is not published to npm, and the default `cli` of `init` stays the GitHub form.
+
+1. New CHANGELOG entries go under an unversioned top heading `## Unreleased`.
+2. `npm run release -- X.Y.Z --bump` renames that heading to `## vX.Y.Z — <date>`, writes `version` in `package.json` and runs `init` with the same `node` to stamp `backslop.json`.
+   - It refuses when X.Y.Z is not above the current version, and when the top section is already versioned (`## v1.2.3 — date`, `## [1.2.3] - date`, `## 1.2.3`). `--bump` with `--no-publish` is a refusal too.
+   - The checks on `package.json` and `CHANGELOG.md` run before the first write; `init` runs last. If `init` refuses, both files stay bumped with the old stamp: `git checkout -- package.json CHANGELOG.md`.
+   - `lint` catches drift between the three numbers and a stale install pin in README.md or AGENTS.md prose; `--bump` does not move such a pin.
+3. Review the diff and commit it as `Release vX.Y.Z: version bump`. Until the tag, `merge-changelog` treats the bumped section as unreleased.
+4. `npm run release -- X.Y.Z --no-publish` from a clean `main`:
+   - the checks: `version` in `package.json` equals the argument; no tag `vX.Y.Z` locally or in `origin`; after `git fetch origin`, local `main` is a fast-forward from `origin/main` (it may be ahead);
+   - the gates: `npm test`, `npm run lint`, `npm pack --dry-run`, and the tree is still clean;
+   - a local tag `vX.Y.Z`, `git push --atomic --dry-run origin main vX.Y.Z`, then the atomic push of `main` and the tag;
+   - `.claude/worktrees/` is ignored and does not fail the clean-tree check;
+   - never run it without `--no-publish`: that form runs `npm publish`.
+5. After a failure past the tag: an atomic-push failure with HEAD unchanged is finished by the `next:` command; in every other case `git tag -d vX.Y.Z`, fix (commit if HEAD changes), rerun step 4 — step 4 refuses while the local tag exists.
+6. Open a new `## Unreleased` heading before the next entry, in a `BS: …` commit.
 
 <!-- backslop:start -->
 ## Tasks and decisions — backslop

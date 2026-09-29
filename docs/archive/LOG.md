@@ -225,3 +225,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-175"></a>`BS-175-changelog-compress-english` · 2026-09-29 · completed · — · Compress CHANGELOG to short English user-visible entries; decouple tests from its history
 - <a id="bs-162"></a>`BS-162-backlog-archive-rules-english` · 2026-09-29 · completed · — · Fix backlog/archive rules templates and LOG header; re-render the repo copies in English
 - <a id="bs-174"></a>`BS-174-docs-index-glossary-english` · 2026-09-29 · completed · — · Translate docs/README.md and GLOSSARY to English; fix archive, gate, slot and batch terms
+- <a id="bs-173"></a>`BS-173-agents-md-english-rewrite` · 2026-09-29 · completed · — · Rewrite AGENTS.md rules in English: invariants, release steps, pointers, no artifacts
