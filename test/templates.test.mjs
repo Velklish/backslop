@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { TEMPLATES_DIR, renderTemplate, templateParity, templateRel, templateSlots } from '../lib/templates.js';
+import { TEMPLATES_DIR, renderProjectTemplate, renderTemplate, templateParity, templateRel, templateSlots } from '../lib/templates.js';
 import { srcFiles } from '../lib/mdwalk.js';
 import {
   FIELD_AREA, FIELD_COST, FIELD_CREATED, FIELD_DEPS, FIELD_ORDER, FIELD_PARENT, FIELD_PREV_ORDER, FIELD_TAKEN,
@@ -213,14 +213,18 @@ test('renderTemplate: подстановка без ключа — отказ, �
 
 // Эта пара рендерится в docs/ репозитория 1:1 (AGENTS.md): без сверки правка одной стороны
 // расходится с другой молча, а цитаты и ссылки карточек смотрят в рабочую копию.
-test('self-host: правила ведения в docs/ — рендер своего шаблона 1:1', () => {
+test('self-host: the rules pair and the LOG header in docs/ are the render of the template in the project language', () => {
   const repo = path.dirname(TEMPLATES_DIR);
   const cfg = JSON.parse(readFileSync(path.join(repo, 'backslop.json'), 'utf8'));
   const project = JSON.parse(readFileSync(path.join(repo, 'package.json'), 'utf8')).name;
   for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
-    const expected = renderTemplate(rel, { cli: cfg.cli, prefix: cfg.prefix, project });
-    assert.equal(readFileSync(path.join(repo, ...rel.split('/')), 'utf8'), expected, `${rel} разошёлся с templates/${rel}`);
+    const expected = renderProjectTemplate(cfg, rel, { cli: cfg.cli, prefix: cfg.prefix, project });
+    assert.equal(readFileSync(path.join(repo, ...rel.split('/')), 'utf8'), expected, `${rel} differs from its ${cfg.lang} template`);
   }
+  const log = readFileSync(path.join(repo, 'docs', 'archive', 'LOG.md'), 'utf8').replace(/\r\n/g, '\n');
+  const header = log.slice(0, log.search(/^- <a id=/m)).trimEnd();
+  const expected = renderProjectTemplate(cfg, 'docs/archive/LOG.md', { cli: cfg.cli, prefix: cfg.prefix }).trimEnd();
+  assert.equal(header, expected, `docs/archive/LOG.md header differs from its ${cfg.lang} template`);
 });
 
 // Свёрнутую пачку записью не догрузить: порядок её закрытия и шаг приёмки со свёрткой держатся

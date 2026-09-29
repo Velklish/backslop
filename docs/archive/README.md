@@ -1,17 +1,17 @@
-# Архив закрытых задач
+# Closed task archive
 
-Каждая закрытая задача — каталог `BS-<номер>-<slug>/` с двумя файлами: `task.md` — постановка (что и зачем делали, когда появилась) и `result.md` — результат с датой и исходом. Выполненные, отклонённые и слитые лежат вместе; исход назван в `result.md`.
+Every closed task is a `BS-<number>-<slug>/` directory with two files: `task.md` contains the definition (what and why, and when it appeared), and `result.md` contains the dated outcome. Completed, rejected, and merged tasks live together; `result.md` names the outcome.
 
-Живые задачи — в [backlog/](../backlog/README.md). Номера сквозные и не переиспользуются; пропуск номера в архиве означает, что задача ещё жива или так и не была заведена.
+Live tasks are in [backlog/](../backlog/README.md). Numbers are sequential and never reused; a missing number in the archive means that the task is still live or was never created.
 
-Пачка minor-записей — тот же каталог с подкаталогом `minor/`: записи, закрытые `node bin/backslop.js archive N.k --into M`, лежат там как есть, без своего `result.md`; исход по каждой называет `result.md` пачки.
+A batch of minor entries is the same directory with a `minor/` subdirectory: entries closed with `node bin/backslop.js archive N.k --into M` sit there as they were, without a `result.md` of their own; the batch's `result.md` names each outcome.
 
-Переезд делает `node bin/backslop.js archive N`: он же переписывает ссылки на задачу по всему репозиторию, кладёт заготовку `result.md` и печатает файлы доков, которых коснулся ход задачи, — заготовку строки «какие доки поправлены».
+Move a task with `node bin/backslop.js archive N`: it also rewrites task links throughout the repository, creates the `result.md` stub, and prints the documentation files touched by the task — the draft of the “documentation updated” line; `--range <base>..HEAD` widens the list with the commits of the range. While a `[TODO` placeholder stays in `result.md` outside code, `lint` fails; the placeholder form quoted in a code span does not count.
 
-Закрытая задача сворачивается в строку журнала [LOG.md](LOG.md): `node bin/backslop.js fold N` удаляет каталог, дописывает строку и переводит входящие ссылки на её якорь — `LOG.md#<номер в нижнем регистре>`. Постановка и результат целиком уезжают в сообщение коммита свёртки: команда печатает его заготовку в stdout. Коммит с ней обязателен, когда в поле коммита строки стоит `—`: в дереве тела уже нет, а в истории ещё нет. Строка назвала ревизию — тело лежит в ней, и заготовка не обязательна, пока ревизия остаётся в истории. Достаёт тело `node bin/backslop.js show N`.
+A closed task folds into a [LOG.md](LOG.md) journal line: `node bin/backslop.js fold N` removes the directory, appends the line, and moves incoming links onto its anchor — `LOG.md#<number in lower case>`. The definition and the result go in full into the message of the folding commit: the command prints that draft on stdout. Committing with it is mandatory when the line's commit field is `—`: the body is no longer in the tree and not yet in history. When the line names a revision, the body sits in it, and the draft is optional as long as that revision stays in history; `fold N` says on stderr which of the two cases applies. `node bin/backslop.js show N` retrieves it.
 
-Накопленный архив сворачивается тем же `node bin/backslop.js fold` без номера: там тело берётся не из сообщения, а из истории, и строка журнала называет ревизию. `--older-than <дата>` сворачивает только закрытое раньше названной даты.
+The accumulated archive folds with the same `node bin/backslop.js fold` without a number: there the body comes from history rather than from the message, and the journal line names the revision. A body missing from history is dropped with a warning unless `node bin/backslop.js fold --embed-missing` puts it into the draft, which must then be committed; its journal line carries `—` in the commit field. `--older-than <date>` folds only what was closed before that date.
 
-Обе формы записи законны и живут рядом сколько угодно долго: каталог — это задача, закрытая и ещё не свёрнутая. Свёртка обязательной не является.
+Both forms are legal and live side by side for as long as you like: a directory is a task that is closed and not yet folded. Folding is not mandatory.
 
-Файл принадлежит backslop: обновление (`node bin/backslop.js upgrade`, шаг `migrate`) перерисовывает его из шаблона новой версии, и местная правка здесь до следующего обновления не доживёт.
+This file belongs to backslop: an update (`node bin/backslop.js upgrade`, the `migrate` step) rewrites it from the template of the new version, and a local edit here does not survive the next update.
