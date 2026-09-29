@@ -224,3 +224,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-172"></a>`BS-172-readme-english-rewrite` · 2026-09-29 · completed · — · Rewrite README.md as the only README: all commands, init defaults, README.ru.md dropped
 - <a id="bs-175"></a>`BS-175-changelog-compress-english` · 2026-09-29 · completed · — · Compress CHANGELOG to short English user-visible entries; decouple tests from its history
 - <a id="bs-162"></a>`BS-162-backlog-archive-rules-english` · 2026-09-29 · completed · — · Fix backlog/archive rules templates and LOG header; re-render the repo copies in English
+- <a id="bs-174"></a>`BS-174-docs-index-glossary-english` · 2026-09-29 · completed · — · Translate docs/README.md and GLOSSARY to English; fix archive, gate, slot and batch terms

@@ -227,7 +227,7 @@ Refusals: no such task; not folded (the body is in the tree, and the path is nam
 Behaviour:
 
 - Prints a worker brief to stdout: the track heading, the task definitions of the named tasks from disk (Work to do and Out of scope), the project's `gates`, `prefix`, `cli` and `probe`, and the fixed sections of [templates/brief.md](../../templates/brief.md). The worker boundary is stated there.
-- The orchestrator's decisions come as text arguments: `--neighbour` (repeatable) — edit boundaries; `--entry` — where the subject lives and what to read first; `--autonomy` — what the participant closes alone and what goes to the orchestrator; `--handover` — the gate protocol and the report header. Without a flag, a slot prints `[TODO: …]` — a requirement to the brief's author, not a default. `--measurements` adds the measurement rule.
+- The orchestrator's decisions come as text arguments: `--track` — the track title; `--neighbour` (repeatable) — edit boundaries; `--entry` — where the subject lives and what to read first; `--autonomy` — what the participant closes alone and what goes to the orchestrator; `--handover` — the gate protocol and the report header. These are the brief slots: without its flag, a brief slot prints `[TODO: …]` — a requirement to the brief's author, not a default. `--measurements` adds the measurement rule.
 - The probe item names the mutation-probe command only where `probe` is declared, with the same `agents-probe.md` template as the managed block.
 - The command only prints: where the brief goes is the orchestrator's decision.
 
@@ -417,7 +417,7 @@ An orchestrator of any harness works with backslop through files and the CLI; th
 | `mv`, `archive`, `archive N.k --into M` | the effect on files and the exit code |
 | `fold`, `show` | the journal line, the draft and the body on stdout, the exit code |
 | `adr` | the file name and the exit code |
-| `brief` | the output and its slots (`--track`, `--neighbour`, `--entry`, `--autonomy`, `--handover`, `--measurements`) |
+| `brief` | the output, its brief slots (`--track`, `--neighbour`, `--entry`, `--autonomy`, `--handover`) and `--measurements` |
 | `gates --json` | the keys listed in [gates](#gates) and the exit code |
 | `tracks --json` | the keys listed in [tracks](#tracks) and the exit code |
 | `seed --scan --json` | the keys listed in [seed](#seed) and the exit code |
@@ -429,7 +429,7 @@ An orchestrator of any harness works with backslop through files and the CLI; th
 - **JSON keys** may be added; removing or renaming a key is a breaking change.
 - **Human text is not contract**: messages, report lines and the text output of any command may change.
 - A worker uses no status commands: its only write is a finding file, `new <slug> --parent N[.M]` (with `--minor --evidence "…"` for a minor or a hypothesis), on its own branch; with `--parent N.M`, `new` gives the next free `N.k` and writes the Parent field, and the command sees the numbers of neighbouring worktrees and local branches. The rest of the worker boundary is in [templates/brief.md](../../templates/brief.md).
-- The worker transport is the slot "How to start a worker" in the `backslop-batch` skill; a new transport is a page with a variant for that slot, and nothing changes in the CLI.
+- The worker transport is the harness slot "How to raise a worker" in the `backslop-batch` skill; a new transport is a page with a variant for that harness slot, and nothing changes in the CLI.
 
 Changing any item is a contract change and is decided in an ADR.
 
