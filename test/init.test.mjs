@@ -231,6 +231,31 @@ test('init refuses a stepOverrides value with a line break or a block marker and
 });
 
 
+test('init: the block tells a worker to commit, names the triage commit and the boundary bans, and has one commit subject', () => {
+  for (const [lang, step4, step7, boundary, oldSubject] of [
+    ['ru', /^4\. .*Закоммить в свою ветку с префиксом `BS-N:` до отчёта; незакоммиченного не остаётся\./m,
+      /^7\. .*отдельным коммитом с subject `BS: triage after BS-N`.*зелёный на итоговом коммите; затем пуш\.$/m,
+      /^Границы worker'а: .*командой `[^`]+ new`; существующие файлы задач не правит, не переносит и не архивирует \(ни `mv`, ни `archive`\); `docs\/archive\/` не трогает;/m, /закрыта —/],
+    ['en', /^4\. .*Commit to your branch with the `BS-N:` prefix before reporting; nothing stays uncommitted\./m,
+      /^7\. .*a separate commit with the subject `BS: triage after BS-N`.*`[^`]+ lint` is green on the final commit; then push\.$/m,
+      /^Worker boundaries: .*only with `[^`]+ new`; never edit, move or archive an existing task file \(no `mv`, no `archive`\); do not touch `docs\/archive\/`;/m, /closed —/],
+  ]) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', '--lang', lang]);
+      assert.equal(r.code, 0, r.err);
+      const agents = read(root, 'AGENTS.md');
+      const block = agents.slice(agents.indexOf('<!-- backslop:start -->'), agents.indexOf('<!-- backslop:end -->'));
+      assert.match(block, step4, `${lang}: step 4 tells the worker to commit`);
+      assert.match(block, step7, `${lang}: step 7 names the triage commit, lint and push`);
+      assert.match(block, boundary, `${lang}: the boundary line names new, the edit/move/archive ban and archive/`);
+      assert.doesNotMatch(block, oldSubject, `${lang}: one commit subject form`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test('init: step 4 names the trimmed probe command, and without the field init names the missing duty', () => {
   for (const [lang, probe, named, duty, missing] of [
     ['ru', 'npm run probe', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
