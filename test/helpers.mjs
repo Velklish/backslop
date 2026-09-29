@@ -75,6 +75,17 @@ export function toolCopy(mutate = () => {}) {
   return dir;
 }
 
+// A tool copy with a fixture CHANGELOG.md: changelog probes read these sections, not the real
+// history. Sections: Unreleased, v<TOOL_VERSION>, v0.2.0, v0.1.0, newest first.
+export function changelogTool() {
+  return toolCopy((dir) => writeFileSync(path.join(dir, 'CHANGELOG.md'), [
+    '# Changelog\n', '## Unreleased\n', '- **Unreleased entry** — not released yet.\n',
+    `## v${TOOL_VERSION} — 2026-01-03\n`, '- **Current entry** — the current version.\n',
+    '## v0.2.0 — 2026-01-02\n', '- **Second entry** — the second version.\n',
+    '## v0.1.0 — 2026-01-01\n', '- **First entry** — the first version.\n',
+  ].join('\n')));
+}
+
 // Команда копии инструмента `tool`; `cwd` — проект, в котором она запускается, по умолчанию
 // сама копия (self-host). Окружение то же, что у `cli`.
 export function toolCli(tool, args, { cwd = tool, env = {} } = {}) {
