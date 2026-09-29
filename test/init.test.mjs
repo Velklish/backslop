@@ -20,7 +20,7 @@ function emptyRepo() {
 
 const EXPECTED = [
   'backslop.json', 'AGENTS.md',
-  'docs/README.md', 'docs/ROADMAP.md', 'docs/GLOSSARY.md', 'docs/reference/README.md',
+  'docs/README.md', 'docs/GLOSSARY.md', 'docs/reference/README.md',
   'docs/adr/adr-001-process.md', 'docs/backlog/README.md', 'docs/archive/README.md',
   'docs/backlog/triage/.gitkeep', 'docs/backlog/queue/.gitkeep', 'docs/backlog/active/.gitkeep', 'docs/backlog/deferred/.gitkeep', 'docs/backlog/minor/.gitkeep',
 ];
@@ -32,6 +32,7 @@ test('init: раскладка, lint зелёный, сквозной цикл �
     let r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     for (const rel of EXPECTED) assert.ok(existsSync(path.join(root, rel)), `нет ${rel}`);
+    assert.ok(!existsSync(path.join(root, 'docs/ROADMAP.md')), 'init laid down docs/ROADMAP.md');
     const cfg = JSON.parse(read(root, 'backslop.json'));
     assert.deepEqual(cfg, {
       prefix: 'BS', docs: 'docs', cli: `npx github:Velklish/backslop#v${TOOL_VERSION}`,

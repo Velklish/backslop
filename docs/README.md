@@ -1,12 +1,11 @@
 # Документация backslop
 
-Канон документации проекта. Что делаем сейчас — `node bin/backslop.js status`; куда движется проект — [ROADMAP.md](ROADMAP.md); почему устроено так, а не иначе — ADR в таблице ниже. Пользовательская часть — в [README.md](../README.md) репозитория: там установка, команды и процесс; здесь устройство.
+Канон документации проекта. Что делаем сейчас — `node bin/backslop.js status`; почему устроено так, а не иначе — ADR в таблице ниже. Пользовательская часть — в [README.md](../README.md) репозитория: там установка, команды и процесс; здесь устройство.
 
 | Документ | Тема | Статус |
 |---|---|---|
 | [reference/](reference/README.md) | Справочник по подсистемам: раскладка и форматы файлов, CLI и контракт для оркестратора, гейты lint, протокол проверки находок | Живой |
 | [GLOSSARY.md](GLOSSARY.md) | Нормативный словарь терминов: одно понятие — одно имя | Живой |
-| [ROADMAP.md](ROADMAP.md) | Направление и цели; задачи — в бэклоге | Живой |
 | [backlog/](backlog/README.md) | Трекер задач: файл на задачу, статус — каталог, сводка — `node bin/backslop.js status` | Живой |
 | [archive/](archive/README.md) | Закрытые задачи: постановка и результат раздельными файлами | Живой |
 | [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |

@@ -11,6 +11,7 @@ import { changelogSince } from '../lib/changelog.js';
 import { listReleaseTags, rewriteCommand, rewriteGates, rewriteProsePins, run as upgrade } from '../lib/upgrade.js';
 import { CliError } from '../lib/util.js';
 import { renderTemplate } from '../lib/templates.js';
+import { LEGACY_README_LINES, LEGACY_ROADMAP } from '../lib/legacy-roadmap.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { BIN, cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 
@@ -1100,5 +1101,374 @@ test('migrate: a failing git status is a refusal, not "no git"', () => {
   } finally {
     cleanup(root);
     rmSync(index, { recursive: true, force: true });
+  }
+});
+
+// A consumer on the v0.11 layout: today's init output with the old roadmap, its two docs/README.md
+// lines and the old backlog README sentence, committed at stamp 0.11.0.
+const OLD_PIN = 'npx github:me/proj#v0.11.0';
+const OLD_BACKLOG = {
+  ru: [' Закрытые задачи — [архив](../archive/README.md).', ' Куда движется проект в целом — [ROADMAP.md](../ROADMAP.md); закрытые задачи — [архив](../archive/README.md).'],
+  en: [' For closed tasks, see the [archive](../archive/README.md).', ' For overall project direction, see [ROADMAP.md](../ROADMAP.md); for closed tasks, see the [archive](../archive/README.md).'],
+};
+
+function roadmapConsumer(lang, cliSpec = OLD_PIN, patch = {}) {
+  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-roadmap-')));
+  run(root, ['init', '-q', '-b', 'main']);
+  run(root, ['config', 'user.email', 'test@example.com']);
+  run(root, ['config', 'user.name', 'test']);
+  run(root, ['config', 'commit.gpgsign', 'false']);
+  const r = cli(root, ['init', '--lang', lang, '--tools', 'none', '--cli', cliSpec]);
+  assert.equal(r.code, 0, r.err);
+  const fresh = read(root, 'docs/README.md');
+  const render = (text) => text.replaceAll('{{project}}', path.basename(root)).replaceAll('{{cli}}', cliSpec);
+  const { intro, introNow, row } = LEGACY_README_LINES[lang];
+  const lines = fresh.split('\n');
+  assert.equal(lines[2], render(introNow), 'line 3 of the template moved');
+  assert.match(lines[7], /\[GLOSSARY\.md\]/, 'the glossary row moved');
+  lines[2] = render(intro);
+  lines.splice(8, 0, row);
+  put(root, 'docs/README.md', lines.join('\n'));
+  put(root, 'docs/ROADMAP.md', render(LEGACY_ROADMAP[lang]));
+  const [now, then] = OLD_BACKLOG[lang];
+  const backlog = read(root, 'docs/backlog/README.md');
+  assert.ok(backlog.includes(now), 'the backlog README sentence moved');
+  put(root, 'docs/backlog/README.md', backlog.replace(now, then));
+  setConfig(root, { version: '0.11.0', ...patch });
+  gitAll(root);
+  return { root, fresh, old: read(root, 'docs/README.md'), roadmap: read(root, 'docs/ROADMAP.md') };
+}
+
+const ROADMAP_SAYS = {
+  ru: {
+    deleted: /^ {2}удалён docs\/ROADMAP\.md: совпадает с шаблоном прежних версий, ссылок на него не осталось$/m,
+    edited: /^ {2}поправлен docs\/README\.md: сняты строки со ссылкой на ROADMAP\.md$/m,
+    dry: /^ {2}удалить docs\/ROADMAP\.md: .* \(--dry-run\)\n {2}поправить docs\/README\.md: .* \(--dry-run\)$/m,
+    differs: /docs\/ROADMAP\.md: оставлен — отличается от шаблона прежних версий и на него ссылаются docs\/README\.md; удали его сам или держи как проектный документ/,
+    linked: /docs\/ROADMAP\.md: оставлен — на него ссылаются docs\/GLOSSARY\.md, docs\/README\.md; удали его сам/,
+    dirty: /docs\/README\.md: незакоммиченная правка — migrate удалил бы или поправил файл/,
+    symlink: /docs\/ROADMAP\.md: путь идёт через symlink docs\/ROADMAP\.md — файл не тронут/,
+  },
+  en: {
+    deleted: /^ {2}deleted docs\/ROADMAP\.md: equals the template of earlier versions and nothing links it$/m,
+    edited: /^ {2}edited docs\/README\.md: the ROADMAP\.md link lines removed$/m,
+    dry: /^ {2}would delete docs\/ROADMAP\.md: .* \(--dry-run\)\n {2}would edit docs\/README\.md: .* \(--dry-run\)$/m,
+    differs: /docs\/ROADMAP\.md: kept — differs from the template of earlier versions and is still linked from docs\/README\.md; delete it yourself or keep it as project content/,
+    linked: /docs\/ROADMAP\.md: kept — is still linked from docs\/GLOSSARY\.md, docs\/README\.md; delete it yourself/,
+    dirty: /docs\/README\.md: uncommitted edit — migrate would delete or edit the file/,
+    symlink: /docs\/ROADMAP\.md: the path goes through the symlink docs\/ROADMAP\.md — file left alone/,
+  },
+};
+
+const hasRoadmap = (root) => existsSync(path.join(root, 'docs', 'ROADMAP.md'));
+
+for (const lang of ['ru', 'en']) {
+  const says = ROADMAP_SAYS[lang];
+
+  test(`roadmap migration (${lang}): an untouched copy goes with its two docs/README.md lines`, () => {
+    const { root, fresh } = roadmapConsumer(lang);
+    try {
+      const r = cli(root, ['migrate']);
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.out, says.deleted);
+      assert.match(r.out, says.edited);
+      assert.ok(!hasRoadmap(root));
+      assert.equal(read(root, 'docs/README.md'), fresh);
+      assert.doesNotMatch(read(root, 'docs/backlog/README.md'), /ROADMAP/);
+      const lint = cli(root, ['lint']);
+      assert.equal(lint.code, 0, lint.err);
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`roadmap migration (${lang}): an edited copy stays with docs/README.md, and a warning names it`, () => {
+    const { root, old } = roadmapConsumer(lang);
+    try {
+      put(root, 'docs/ROADMAP.md', `${read(root, 'docs/ROADMAP.md')}\nOwn goal.\n`);
+      gitAll(root, 'own goal');
+      const edited = read(root, 'docs/ROADMAP.md');
+      const r = cli(root, ['migrate']);
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.err, says.differs);
+      assert.equal(read(root, 'docs/ROADMAP.md'), edited);
+      assert.equal(read(root, 'docs/README.md'), old);
+      const lint = cli(root, ['lint']);
+      assert.equal(lint.code, 0, lint.err);
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`roadmap migration (${lang}): a CRLF copy is deleted and docs/README.md keeps CRLF`, () => {
+    const { root, fresh } = roadmapConsumer(lang);
+    try {
+      run(root, ['config', 'core.autocrlf', 'false']);
+      for (const rel of ['docs/ROADMAP.md', 'docs/README.md']) put(root, rel, read(root, rel).replaceAll('\n', '\r\n'));
+      gitAll(root, 'crlf');
+      const r = cli(root, ['migrate']);
+      assert.equal(r.code, 0, r.err);
+      assert.ok(!hasRoadmap(root));
+      assert.equal(read(root, 'docs/README.md'), fresh.replaceAll('\n', '\r\n'));
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`roadmap migration (${lang}): a pristine copy another doc links stays; a link in code does not count`, () => {
+    const { root, old, roadmap } = roadmapConsumer(lang);
+    try {
+      put(root, 'docs/GLOSSARY.md', `${read(root, 'docs/GLOSSARY.md')}\nSee [goals](ROADMAP.md).\n`);
+      put(root, 'AGENTS.md', `${read(root, 'AGENTS.md')}\nShown, not linked: \`[goals](docs/ROADMAP.md)\`.\n`);
+      gitAll(root, 'links');
+      const r = cli(root, ['migrate']);
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.err, says.linked);
+      assert.doesNotMatch(r.err, /AGENTS\.md/);
+      assert.equal(read(root, 'docs/ROADMAP.md'), roadmap);
+      assert.equal(read(root, 'docs/README.md'), old);
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`roadmap migration (${lang}): an uncommitted edit refuses before the first write`, () => {
+    const { root } = roadmapConsumer(lang);
+    try {
+      put(root, 'docs/README.md', `${read(root, 'docs/README.md')}| [x](x.md) | Own row | Living |\n`);
+      const before = run(root, ['status', '--porcelain']).stdout;
+      for (const args of [['migrate', '--dry-run'], ['migrate']]) {
+        const r = cli(root, args);
+        assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+        assert.match(r.err, says.dirty);
+      }
+      assert.equal(run(root, ['status', '--porcelain']).stdout, before, 'something was written');
+      assert.ok(hasRoadmap(root));
+      assert.equal(config(root).version, '0.11.0');
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`roadmap migration (${lang}): --dry-run prints the plan and writes nothing`, () => {
+    const { root } = roadmapConsumer(lang);
+    try {
+      const r = cli(root, ['migrate', '--dry-run']);
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.out, says.dry);
+      assert.equal(run(root, ['status', '--porcelain']).stdout, '');
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`roadmap migration (${lang}): after upgrade --pin-only the old pin in the copy still reads as untouched`, () => {
+    const src = releasesRepo(['v0.11.0', `v${TOOL_VERSION}`]);
+    const shim = npxShim();
+    const { root } = roadmapConsumer(lang, OLD_PIN, { source: src });
+    try {
+      const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+      let r = cli(root, ['upgrade', '--pin-only'], { env });
+      assert.equal(r.code, 0, r.err);
+      assert.ok(read(root, 'docs/ROADMAP.md').includes(OLD_PIN), 'the prose pin moved');
+      r = cli(root, ['migrate']);
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.out, says.deleted);
+      const readme = read(root, 'docs/README.md');
+      assert.doesNotMatch(readme, /ROADMAP/);
+      assert.ok(readme.split('\n')[2].includes(`npx github:me/proj#v${TOOL_VERSION} status`), readme);
+    } finally {
+      cleanup(root);
+      rmSync(src, { recursive: true, force: true });
+      rmSync(shim, { recursive: true, force: true });
+    }
+  });
+
+  test(`roadmap migration (${lang}): a normal upgrade from an old pin deletes the copy before prose pins move`, () => {
+    const src = releasesRepo(['v0.11.0', `v${TOOL_VERSION}`]);
+    const shim = npxShim();
+    const { root } = roadmapConsumer(lang, OLD_PIN, { source: src });
+    try {
+      const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+      const r = cli(root, ['upgrade'], { env });
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.out, says.deleted);
+      assert.ok(r.out.indexOf('ROADMAP.md') < r.out.search(/pin in prose|пин в прозе/), r.out);
+      assert.ok(!hasRoadmap(root));
+      assert.doesNotMatch(read(root, 'docs/README.md'), /ROADMAP/);
+      const lint = cli(root, ['lint'], { env });
+      assert.equal(lint.code, 0, lint.err);
+    } finally {
+      cleanup(root);
+      rmSync(src, { recursive: true, force: true });
+      rmSync(shim, { recursive: true, force: true });
+    }
+  });
+}
+
+test('roadmap migration: a copy already deleted leaves its two docs/README.md lines to drop', () => {
+  const { root, fresh } = roadmapConsumer('en');
+  try {
+    rmSync(path.join(root, 'docs', 'ROADMAP.md'));
+    gitAll(root, 'no roadmap');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, ROADMAP_SAYS.en.edited);
+    assert.doesNotMatch(r.out, /deleted docs\/ROADMAP/);
+    assert.equal(read(root, 'docs/README.md'), fresh);
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('roadmap migration: a cli with no pin compares the copy as plain text', () => {
+  const { root, fresh } = roadmapConsumer('en', 'backslop');
+  try {
+    let r = cli(root, ['migrate', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, ROADMAP_SAYS.en.dry);
+    put(root, 'docs/ROADMAP.md', read(root, 'docs/ROADMAP.md').replace('backslop status', 'backslop@0.11.0 status'));
+    gitAll(root, 'a pin by hand');
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, ROADMAP_SAYS.en.differs);
+    assert.ok(hasRoadmap(root));
+    assert.notEqual(read(root, 'docs/README.md'), fresh);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('roadmap migration: a copy behind a symlink is left alone with a warning', { skip: process.platform === 'win32' }, () => {
+  const { root, old } = roadmapConsumer('ru');
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  try {
+    const text = read(root, 'docs/ROADMAP.md');
+    writeFileSync(path.join(shared, 'ROADMAP.md'), text);
+    rmSync(path.join(root, 'docs', 'ROADMAP.md'));
+    symlinkSync(path.join(shared, 'ROADMAP.md'), path.join(root, 'docs', 'ROADMAP.md'));
+    gitAll(root, 'shared roadmap');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, ROADMAP_SAYS.ru.symlink);
+    assert.equal(read(shared, 'ROADMAP.md'), text);
+    assert.equal(read(root, 'docs/README.md'), old);
+  } finally {
+    cleanup(root);
+    rmSync(shared, { recursive: true, force: true });
+  }
+});
+
+test('roadmap migration: a copy and docs/README.md whose only uncommitted change is a moved pin are clean', () => {
+  const { root, fresh } = roadmapConsumer('en');
+  const now = `npx github:me/proj#v${TOOL_VERSION}`;
+  const movePins = () => {
+    for (const rel of ['docs/ROADMAP.md', 'docs/README.md']) put(root, rel, read(root, rel).replaceAll(OLD_PIN, now));
+    setConfig(root, { cli: now });
+  };
+  try {
+    movePins();
+    let r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, ROADMAP_SAYS.en.deleted);
+    assert.match(r.out, ROADMAP_SAYS.en.edited);
+    assert.ok(!hasRoadmap(root));
+    assert.equal(read(root, 'docs/README.md'), fresh.replaceAll(OLD_PIN, now));
+
+    run(root, ['checkout', '--', '.']);
+    movePins();
+    put(root, 'docs/README.md', `${read(root, 'docs/README.md')}| [x](x.md) | Own row | Living |\n`);
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, ROADMAP_SAYS.en.dirty);
+    assert.ok(hasRoadmap(root));
+    assert.equal(config(root).version, '0.11.0');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('roadmap migration: a docs/README.md behind a symlink is left alone and keeps the copy', { skip: process.platform === 'win32' }, () => {
+  const { root, old, roadmap } = roadmapConsumer('en');
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  try {
+    writeFileSync(path.join(shared, 'README.md'), old);
+    rmSync(path.join(root, 'docs', 'README.md'));
+    symlinkSync(path.join(shared, 'README.md'), path.join(root, 'docs', 'README.md'));
+    gitAll(root, 'shared index');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /docs\/README\.md: the path goes through the symlink docs\/README\.md — file left alone/);
+    assert.match(r.err, /docs\/ROADMAP\.md: kept — is still linked from docs\/README\.md;/);
+    assert.equal(read(shared, 'README.md'), old, 'the write landed behind the link');
+    assert.equal(read(root, 'docs/ROADMAP.md'), roadmap);
+  } finally {
+    cleanup(root);
+    rmSync(shared, { recursive: true, force: true });
+  }
+});
+
+test('roadmap migration: docs/README.md keeps its BOM when its old lines go', () => {
+  const { root, fresh } = roadmapConsumer('en');
+  try {
+    put(root, 'docs/README.md', `﻿${read(root, 'docs/README.md')}`);
+    gitAll(root, 'bom');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, ROADMAP_SAYS.en.deleted);
+    assert.equal(read(root, 'docs/README.md'), `﻿${fresh}`);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('roadmap migration: a copy in the language the project left is kept with a warning', () => {
+  const { root, old, roadmap } = roadmapConsumer('ru');
+  try {
+    setConfig(root, { lang: 'en' });
+    gitAll(root, 'lang en');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, ROADMAP_SAYS.en.differs);
+    assert.equal(read(root, 'docs/ROADMAP.md'), roadmap);
+    assert.equal(read(root, 'docs/README.md'), old);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('roadmap migration: a copy already gone that an edited line still links is named in a warning', () => {
+  const { root } = roadmapConsumer('en');
+  try {
+    rmSync(path.join(root, 'docs', 'ROADMAP.md'));
+    const readme = read(root, 'docs/README.md').replace('for project direction, see', 'for our goals, see');
+    put(root, 'docs/README.md', readme);
+    gitAll(root, 'no roadmap, own intro');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, ROADMAP_SAYS.en.edited);
+    assert.match(r.err, /docs\/ROADMAP\.md: the file is gone, yet docs\/README\.md still link it — fix or remove those links/);
+    const after = read(root, 'docs/README.md');
+    assert.ok(after.includes('for our goals, see [ROADMAP.md](ROADMAP.md)'), 'the edited line was touched');
+    assert.doesNotMatch(after, /\| \[ROADMAP\.md\]\(ROADMAP\.md\) \|/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('roadmap migration: a link from the archive keeps the copy, as lint gate 1 reads the archive', () => {
+  const { root, roadmap } = roadmapConsumer('en');
+  try {
+    put(root, 'docs/archive/BS-1-alpha/task.md', '# BS-1 · Alpha\n\nSee [goals](../../ROADMAP.md).\n');
+    put(root, 'docs/archive/LOG.md', `${read(root, 'docs/archive/LOG.md')}- <a id="bs-1"></a>BS-1 alpha, see [goals](../ROADMAP.md)\n`);
+    gitAll(root, 'archive links');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /docs\/ROADMAP\.md: kept — is still linked from docs\/README\.md, docs\/archive\/BS-1-alpha\/task\.md, docs\/archive\/LOG\.md;/);
+    assert.equal(read(root, 'docs/ROADMAP.md'), roadmap);
+  } finally {
+    cleanup(root);
   }
 });
