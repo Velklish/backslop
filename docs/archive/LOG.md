@@ -203,3 +203,14 @@
 - <a id="bs-157"></a>`BS-157-remove-roadmap-from-layout` · 2026-09-29 · completed · — · Remove ROADMAP.md from the layout; migrate deletes only an untouched consumer copy
 - <a id="bs-163"></a>`BS-163-agents-block-wording` · 2026-09-29 · completed · — · AGENTS block: worker commit step, finding routes, boundary and status wording
 - <a id="bs-164"></a>`BS-164-brief-template-wording` · 2026-09-29 · completed · — · Brief template: one commit rule in both languages, aligned wording, a no-push line
+- <a id="bs-193"></a>`BS-193-minor-batch-cli` · 2026-09-29 · completed · — · Minor batch: CLI — pin forms, foreign-tree guards, mv minor evidence, tracks and unreadable-dir wording
+- <a id="bs-84.1"></a>`BS-84.1-floating-cli-quoted-in-gate` · 2026-09-29 · batch BS-193 · — · floating-cli-quoted-in-gate
+- <a id="bs-84.2"></a>`BS-84.2-pinre-matches-version-prefix` · 2026-09-29 · batch BS-193 · — · pinre-matches-version-prefix
+- <a id="bs-88.2"></a>`BS-88.2-docs-path-spelling-hides-branches` · 2026-09-29 · batch BS-193 · — · new: docs spelled ./docs in backslop.json hides numbers on other branches
+- <a id="bs-96.1"></a>`BS-96.1-backlog-file-still-crashes-lint-and-new` · 2026-09-29 · batch BS-193 · — · docs/backlog or a status directory as a file still crashes lint and new
+- <a id="bs-96.4"></a>`BS-96.4-foreign-worktree-file-shaped-status-dir` · 2026-09-29 · batch BS-193 · — · new crashes when another worktree has a status directory that is a file
+- <a id="bs-99.1"></a>`BS-99.1-mv-minor-evidence-whole-line-rule` · 2026-09-29 · batch BS-193 · — · mv N minor accepts Evidence that gate 4 rejects
+- <a id="bs-102.1"></a>`BS-102.1-tracks-locked-worktree-line` · 2026-09-29 · batch BS-193 · — · tracks: the text listing does not name a locked worktree
+- <a id="bs-113.1"></a>`BS-113.1-upgrade-killer-test-shell-exec` · 2026-09-29 · batch BS-193 · — · The upgrade signal test assumes /bin/sh -c execs its last command
+- <a id="bs-120.1"></a>`BS-120.1-unreadable-dir-message-in-other-commands` · 2026-09-29 · batch BS-193 · — · Unreadable directory: a bare refusal outside lint, a stack trace from the task scan
+- <a id="bs-131.1"></a>`BS-131.1-mv-minor-todo-field-name-untested` · 2026-09-29 · batch BS-193 · — · mv N minor has no test for a line whose field name starts with [TODO and whose value is a placeholder

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLOCK_END, BLOCK_START, PREFIX_RE, loadConfig } from '../lib/config.js';
+import { BLOCK_END, BLOCK_START, PREFIX_RE, loadConfig, parseCli, pinRe } from '../lib/config.js';
 import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
 
 test('config: a config without lang or tools is refused by commands that read it, init included', () => {
@@ -248,4 +248,15 @@ test('config: переопределения шагов AGENTS.md проверя
       assert.throws(() => loadConfig(root), /inline-текст/);
     }
   } finally { cleanup(root); }
+});
+
+test('pinRe: a pin ends at its version, a suffix or pre-release tag is not the same pin', () => {
+  const github = pinRe(parseCli('npx github:me/proj#v0.1.0'));
+  const versions = (re, text) => [...text.matchAll(re)].map((m) => m[1]);
+  assert.deepEqual(versions(github, 'a github:me/proj#v0.1.0. b github:me/proj.git#0.2.1, c github:me/proj#v0.3.0)'), ['0.1.0', '0.2.1', '0.3.0']);
+  for (const text of ['github:me/proj#v0.1.0x', 'github:me/proj#v0.1.0-rc.1', 'github:me/proj#v0.1.0.1']) {
+    assert.deepEqual(versions(github, text), [], text);
+  }
+  const npm = pinRe(parseCli('npx backslop@0.1.0'));
+  assert.deepEqual(versions(npm, 'backslop@0.1.0 backslop@0.1.0-rc.1'), ['0.1.0']);
 });

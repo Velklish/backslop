@@ -225,3 +225,48 @@ test('lint names an unreadable directory in the project language instead of a st
     cleanup(root);
   }
 });
+
+const TAIL_RU = 'верни права на чтение или вынеси каталог из проекта';
+const TAIL_EN = 'restore read access or move it out of the project';
+
+test('status and lint word an unreadable status directory or archive, not a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
+  for (const rel of ['docs/backlog/queue', 'docs/archive']) {
+    const root = makeProject();
+    const locked = path.join(root, ...rel.split('/'));
+    try {
+      chmodSync(locked, 0o000);
+      let r = cli(root, ['status']);
+      assert.equal(r.code, 1, `${rel}: ${r.out}`);
+      assert.equal(r.err, `✖ ${rel}: каталог не читается (EACCES) — задачи из него не прочитать; ${TAIL_RU}\n`);
+      r = cli(root, ['lint']);
+      assert.equal(r.code, 1, `${rel}: ${r.out}`);
+      assert.equal(r.err, `✖ ${rel}: каталог не читается (EACCES) — lint его не обходит; ${TAIL_RU}\n`);
+      put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
+      r = cli(root, ['status']);
+      assert.equal(r.err, `✖ ${rel}: the directory is not readable (EACCES) — tasks cannot be read from it; ${TAIL_EN}\n`);
+    } finally {
+      chmodSync(locked, 0o755);
+      cleanup(root);
+    }
+  }
+});
+
+test('mv words an unreadable directory of the link walk, not a bare code', { skip: process.platform === 'win32' || asRoot }, () => {
+  const root = makeProject({ git: false });
+  const locked = path.join(root, 'src', 'locked');
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · a\n');
+    put(root, 'docs/backlog/triage/BS-2-b.md', '# BS-2 · b\n');
+    mkdirSync(locked, { recursive: true });
+    chmodSync(locked, 0o000);
+    let r = cli(root, ['mv', '1', 'queue']);
+    assert.equal(r.code, 1, r.out);
+    assert.ok(r.err.endsWith(`✖ src/locked: каталог не читается (EACCES) — ссылки в нём не обновить; ${TAIL_RU}\n`), r.err);
+    put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
+    r = cli(root, ['mv', '2', 'queue']);
+    assert.ok(r.err.endsWith(`✖ src/locked: the directory is not readable (EACCES) — links in it cannot be updated; ${TAIL_EN}\n`), r.err);
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+  }
+});
