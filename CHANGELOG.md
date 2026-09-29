@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## v0.12.0 — 2026-09-29
 
 - **`docs/ROADMAP.md` leaves the layout** — `init` no longer creates `docs/ROADMAP.md`, and the docs index and backlog rules no longer link it. `upgrade` and `migrate` delete a copy an earlier version laid down while it is untouched — pins and line endings aside — and no file that `lint` checks for broken links, the archive included, links it, together with its intro clause and table row in `docs/README.md`. An edited or still linked copy is kept with a warning that names it and every file that links it; an uncommitted edit to a file the step would change refuses the run, and `--dry-run` prints the plan.
