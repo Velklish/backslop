@@ -26,6 +26,6 @@ test('сравнение по числам, а не по строкам; ста�
 test('у каждой миграции since не выше версии инструмента', () => {
   for (const m of MIGRATIONS) {
     assert.ok(compareVersions(m.since, TOOL_VERSION) <= 0,
-      `миграция «${m.title.ru}»: since ${m.since} выше инструмента ${TOOL_VERSION} — подними версию до коммита`);
+      `миграция «${m.title('ru')}»: since ${m.since} выше инструмента ${TOOL_VERSION} — подними версию до коммита`);
   }
 });

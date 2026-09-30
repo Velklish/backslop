@@ -128,25 +128,25 @@ The class is the fields whose value the template substitutes inside the managed 
 
 ## Task file
 
-The name is `<prefix>-N-<slug>.md`, or `<prefix>-N.k-<slug>.md` for a finding; a slug is lowercase Latin letters, digits and hyphens between words. The directory is the status. Russian and English names of fields and sections are read together in one backlog; new files are written by the `lang` layer.
+The name is `<prefix>-N-<slug>.md`, or `<prefix>-N.k-<slug>.md` for a finding; a slug is lowercase Latin letters, digits and hyphens between words. The directory is the status. Russian and English names of fields and sections are read together in one backlog; new files are written by the `lang` layer. The block below gives the English names; the Russian ones are `fieldNames` and `sectionNames` in [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs), under the same keys.
 
 ```
 # <prefix>-N · Title
 
-- **Порядок / Order:** 10               only in queue/; an integer, step 10, lower comes first
-- **Прежний порядок / Previous order:** 20   outside queue/; the rank the task had when it left the queue
-- **Область / Scope:** [section](../../reference/01-layout.md)
-- **Создана / Created:** YYYY-MM-DD
-- **Взята / Taken:** YYYY-MM-DD         set by mv … active
-- **Зависимости / Dependencies:** none
-- **Родитель / Parent:** <prefix>-N.k   only on a finding created with `--parent N.M`; the child gets the next free `N.k`; always in `minor/`
-- **Цена / Cost:** minor              set in `minor/`, kept as is when the entry leaves it: `critical`, `major` or `minor`; a hypothesis carries a mark, `major (гипотеза)` / `major (hypothesis)`
+- **Order:** 10                    only in queue/; an integer, step 10, lower comes first
+- **Previous order:** 20           outside queue/; the rank the task had when it left the queue
+- **Scope:** [section](../../reference/01-layout.md)
+- **Created:** YYYY-MM-DD
+- **Taken:** YYYY-MM-DD            set by mv … active
+- **Dependencies:** none
+- **Parent:** <prefix>-N.k         only on a finding created with `--parent N.M`; the child gets the next free `N.k`; always in `minor/`
+- **Cost:** minor                  set in `minor/`, kept as is when the entry leaves it: `critical`, `major` or `minor`; a hypothesis carries a mark, `major (hypothesis)`, with the Russian word in a `ru` project
 
-## Контекст / Context
-## Что сделать / Work to do
-## Не входит / Out of scope
-## Проверки / Verification
-## Отложено / Deferred                  only in deferred/: Отложена / Deferred, Причина / Reason, Условие возврата / Return condition
+## Context
+## Work to do
+## Out of scope
+## Verification
+## Deferred                         only in deferred/: Deferred, Reason, Return condition
 ```
 
 - **Header fields.** A header field is a line `- **Name:** value` between the title and the first `## ` section. Field order is free; commands put Order first.
@@ -190,7 +190,7 @@ The archive holds two record forms, and they live side by side for as long as ne
 ```
 
 - **Order.** Lines are appended at the end of the journal: a single fold as one line, a bulk fold as a run of lines ordered by closing date — the dates that stand in the lines; equal dates go by number.
-- **Fields**, left to right: the anchor (the number in lower case — incoming links point at it), the number with its slug, the closing date, the outcome, the commit and the title. The outcome is written in the `lang` form (`выполнена` for `ru`, `completed` for `en`).
+- **Fields**, left to right: the anchor (the number in lower case — incoming links point at it), the number with its slug, the closing date, the outcome, the commit and the title. The outcome is written in the `lang` form: `completed` for `en`, and for `ru` its Russian text from [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs).
 - **Title last.** The title stands last because it alone may contain the `·` separator; everything before it parses in one pass without backtracking.
 - **Anchor.** The anchor is an explicit `<a id>`, not derived from the title: it must equal the number, and gate 13 checks that ([03](03-lint.md)).
 - **Commit** is the revision the body is read from; `—` while the body is not in history. `show N` reads it, and gate 13 reports a revision that is not in the history of `HEAD` ([03](03-lint.md)).
@@ -199,36 +199,36 @@ The archive holds two record forms, and they live side by side for as long as ne
 
 The closing date and the outcome are read from two places of `result.md`: the first paragraph, where the template puts them, and the heading, as old archives closed.
 
-- **Heading forms.** The heading is read in two forms: brackets `(<outcome> YYYY-MM-DD)` — `# <prefix>-N — результат (снята с плана YYYY-MM-DD)` ("result (taken off the plan …)") — and a colon after the dash, `— результат: <исход>` / `— result: <outcome>` — `# <prefix>-N — результат: отклонена` ("result: rejected"). Only the brackets carry a date.
+- **Heading forms.** The heading is read in two forms: brackets `(<outcome> YYYY-MM-DD)` — `# <prefix>-N — result (rejected YYYY-MM-DD)` — and a colon after the dash, `— result: <outcome>` — `# <prefix>-N — result: rejected`. The word "result" is read in both languages. Only the brackets carry a date.
 - **Paragraph over heading.** The first paragraph is stronger than the heading: the date is the first date of the paragraph, and without one, the date in the brackets; the outcome is the paragraph's word, and without one, the heading's word.
-- **Nothing past the paragraph.** The file is not read past the first paragraph: "отклонена" (rejected) in the Verification section, or "результат: отклонена" under the first paragraph, is an account of the work, not an outcome.
+- **Nothing past the paragraph.** The file is not read past the first paragraph: "rejected" in the Verification section, or "result: rejected" under the first paragraph, is an account of the work, not an outcome.
 - **No date.** When neither place has a date, the line gets the commit date of the body revision (`git log -1 --format=%cs <revision>`): the other dates in `result.md` are measurements and decisions, and they are not read as the closing. Only a line without a revision keeps the fold day; `fold --older-than` does not take such a record — its age is unknown.
 
 ### Outcome words
 
-The words map onto three journal outcomes. Both language forms are always read; the `lang` form is written.
+The words map onto three journal outcomes. Both language forms are always read; the `lang` form is written. The table gives the English words and says what the Russian forms add; the Russian forms themselves are `parserWords` in [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs).
 
 | Outcome in the line | Words in `result.md` |
 |---|---|
-| `слита в <number>` / `merged into <number>` | «слита в», «слиянием в» (merged into, by merging into), «merged into». A date and markup may stand between the word and «в» / "into": `**Слита YYYY-MM-DD в** <prefix>-N`, `**слита** в <prefix>-N`. The project's number stands right after the form, with only whitespace and link or emphasis markup between them; without it this is not a merge: «слито в main» (merged into main), "merged into it", a number of another project. A negation before the form — «не слиты в одно» (not merged into one), «не слиянием в», "not merged into" — is not a merge either |
-| `отклонена` / `rejected` | «отклонена», «отклонено», «отклонением» (rejected, rejected, by rejection), "rejected", «снята с плана» (taken off the plan). The masculine «отклонён» is not read as an outcome: in archives it is always about an option («гейт-сверщик отклонён», "the checking gate was rejected"), not about the task; «с отклонением» (with a deviation) neither: «с отклонением от постановки» (deviating from the task definition) is an account of the work. A bare «снята» (removed) counts only as the first word of the paragraph or of the heading outcome: «Снята: YYYY-MM-DD. Беспредметна» (Removed: … Moot) is an outcome, «заглушка снята» (the stub was removed) in the middle of prose is an account |
-| `выполнена` / `completed` | «выполнена» (completed), "completed". A bare «закрыта», "closed" or "done", and the marker «Исход:» / "Outcome:" (the word with a colon right after it), count only when neither the paragraph nor the heading named an outcome with the words above: the template opens the paragraph with `**Закрыта DATE.**` / `**Closed DATE.**`, and in old archives that is the only outcome word. «**Исход: обе формы понимаются.**» (Outcome: both forms are understood) is completed; so is a marker with a word outside the table, or with «снята» not as the first word of the paragraph, like «Отказ: беспредметна» (Refusal: moot): «**Исход: снята** вместе с предметом» (Outcome: removed together with its subject). «Исход: отклонена» is rejected, by the word. «исход» without a colon and «Исход — …» with a dash are not the marker |
+| `merged into <number>` | "merged into"; in Russian also the feminine, neuter and plural participles and "by merging into". A date and markup may stand between the word and "into": `**Merged YYYY-MM-DD into** <prefix>-N`, `**merged** into <prefix>-N`. The project's number stands right after the form, with only whitespace and link or emphasis markup between them; without it this is not a merge: "merged into main", "merged into it", a number of another project. A negation before the form — "not merged into", or the Russian "not" before either Russian form — is not a merge either |
+| `rejected` | "rejected"; in Russian the feminine, neuter and plural participles, "by rejection" and "taken off the plan". The Russian masculine participle is not read as an outcome: in archives it is always about an option ("the checking gate was rejected"), not about the task; the Russian "with a deviation", built on the same root, neither: "deviating from the task definition" is an account of the work. The bare Russian "removed" counts only as the first word of the paragraph or of the heading outcome: in Russian, "Removed: YYYY-MM-DD. Moot" is an outcome, and "the stub was removed" in the middle of prose is an account |
+| `completed` | "completed" and its Russian participle. A bare "closed" or "done" (and the Russian "closed"), and the marker "Outcome:" in either language (the word with a colon right after it), count only when neither the paragraph nor the heading named an outcome with the words above: the template opens the paragraph with `**Closed DATE.**`, in Russian in the `ru` layer, and in old archives that is the only outcome word. "**Outcome: both forms are understood.**" is completed; so is a marker with a word outside the table, or with the Russian "removed" not as the first word of the paragraph, like "Refusal: moot": "**Outcome: removed** together with its subject". "Outcome: rejected" is rejected, by the word. "Outcome" without a colon and "Outcome — …" with a dash are not the marker |
 
-- **Position first.** Within one place, position decides and then the table: the outcome is the table word that stands first in the place, and the row order of the table decides only at equal positions. So a leading word beats the prose: «Слита в <prefix>-N. Выполнена там» (Merged into …. Completed there) is a merge, "Completed. … was tried and rejected" is completed.
-- **Whole words.** Words match whole, not as part of another word: "abandoned" does not carry "done", "disclosed" does not carry "closed", «отклонение» (a deviation) does not carry «отклонена».
-- **No outcome.** The field holds `—` only when neither the paragraph nor the heading carries a table word, a bare «закрыта» or the «Исход:» marker: the command does not invent an outcome `result.md` did not name.
-- **Name a non-completed outcome with a table word.** «**Закрыта YYYY-MM-DD.** Отказ: беспредметна» (Closed. Refusal: moot) is the template's bare «Закрыта» and gives `выполнена`, while «**Закрыта YYYY-MM-DD.** Отклонена: беспредметна» (Closed. Rejected: moot) gives `отклонена`. `lint` gate 5 on an unfolded directory ([03](03-lint.md)) and `fold N` by a refusal before any write ([02](02-cli.md)) hold this requirement: the first paragraph or the heading of `result.md` must carry a table word. A bare «Закрыта», "Closed", "done" and the «Исход:» marker without a table word do not pass, and the template stub states the requirement. The fallback to the bare word and the marker remains for the bulk fold of old records closed before the gate; `result.md` has no separate Outcome field.
-- **Batches.** A record closed by a batch gets the outcome `пачкой <M>` / `batch <M>`: the command builds it rather than reading it, and it reads it back by that form — `status` counts closed tasks in the archive, not batch entries.
+- **Position first.** Within one place, position decides and then the table: the outcome is the table word that stands first in the place, and the row order of the table decides only at equal positions. So a leading word beats the prose: "Merged into <prefix>-N. Completed there" is a merge, "Completed. … was tried and rejected" is completed.
+- **Whole words.** Words match whole, not as part of another word: "abandoned" does not carry "done", "disclosed" does not carry "closed", and the Russian "a deviation" does not carry the Russian "rejected" that shares its root.
+- **No outcome.** The field holds `—` only when neither the paragraph nor the heading carries a table word, a bare "closed" or the "Outcome:" marker: the command does not invent an outcome `result.md` did not name.
+- **Name a non-completed outcome with a table word.** "**Closed YYYY-MM-DD.** Refusal: moot" is the template's bare "Closed" and gives `completed`, while "**Closed YYYY-MM-DD.** Rejected: moot" gives `rejected`. `lint` gate 5 on an unfolded directory ([03](03-lint.md)) and `fold N` by a refusal before any write ([02](02-cli.md)) hold this requirement: the first paragraph or the heading of `result.md` must carry a table word. A bare "Closed" or "done" and the "Outcome:" marker, in either language, without a table word do not pass, and the template stub states the requirement. The fallback to the bare word and the marker remains for the bulk fold of old records closed before the gate; `result.md` has no separate Outcome field.
+- **Batches.** A record closed by a batch gets the outcome `batch <M>`, in the `lang` form: the command builds it rather than reading it, and it reads it back by that form — `status` counts closed tasks in the archive, not batch entries.
 
 These forms are read by the table, not by intent:
 
-- «**Закрыта отказом YYYY-MM-DD** решением владельца» (Closed by refusal, by the owner's decision) — `выполнена`: «отказ» (refusal) is not a table word, as in «Отказ: беспредметна» above;
-- «**Закрыта YYYY-MM-DD. Закрыта границей, а не выполнена.**» (Closed by a boundary, not completed) — `выполнена`: a negation is cut off only before a merge;
-- «**Закрыта:** YYYY-MM-DD. Исход — снята вместе с предметом» (Outcome — removed together with its subject) — `выполнена`: a bare «снята» is read only as the first word, and «Исход —» with a dash is not the marker;
-- «**Закрыта.** Дубль: тот же предмет стоит в очереди как <number>» (Duplicate: the same subject is queued as …) — `выполнена`: a duplicate without «слита в» or «слиянием в» is not a merge;
-- "**Closed on a recorded decision, and the rejected option is recorded with it.**" — `rejected`: a table word decides by position, whatever it is about — a rejected option or a neighbouring task, as in «<number> снята с плана».
+- "**Closed by refusal YYYY-MM-DD** by the owner's decision" — `completed`: "refusal" is not a table word, as in "Refusal: moot" above;
+- "**Closed YYYY-MM-DD. Closed by a boundary, not completed.**" — `completed`: a negation is cut off only before a merge;
+- "**Closed:** YYYY-MM-DD. Outcome — removed together with its subject", in Russian — `completed`: the bare Russian "removed" is read only as the first word, and "Outcome —" with a dash is not the marker;
+- "**Closed.** Duplicate: the same subject is queued as <number>" — `completed`: a duplicate without "merged into" or "by merging into" is not a merge;
+- "**Closed on a recorded decision, and the rejected option is recorded with it.**" — `rejected`: a table word decides by position, whatever it is about — a rejected option or a neighbouring task, as in the Russian "<number> taken off the plan".
 
-The honest move for such records is a table word in the first paragraph: «Отклонена: …», «Слита в <number>», «Выполнена; отвергнутый вариант записан ниже» (Completed; the rejected option is recorded below).
+The honest move for such records is a table word in the first paragraph: "Rejected: …", "Merged into <number>", "Completed; the rejected option is recorded below".
 
 - New records are held to it by `lint` gate 5 and `fold N` (see above); journals that are already folded are fixed by hand.
 - The requirement does not close all five forms: a negation ("not completed") and a word about someone else's option or task carry a table word, gate 5 and `fold N` pass them, and in new records they are read by the first word too.
@@ -257,11 +257,11 @@ The command behaviour of `fold` and `show` — revision choice, the per-file blo
 
 ## Templates
 
-Everything the tool writes from a template lives in [templates/](../../templates/). The English layer `templates/en/` is the source, and `templates/` holds its Russian twins. `templates/vendor/` is outside both layers: third-party skills, copied verbatim, one directory each with its upstream files, `LICENSE` and `SOURCE.md`. Keys are what the caller passes; a group shares one key set, and each file of the group uses part of it. The last column is what code reads back from the rendered text: a template edit keeps those strings.
+Everything the tool writes from a template lives in [templates/](../../templates/). The English layer `templates/en/` is the source, and `templates/` holds its Russian twins. `templates/vendor/` is outside both layers: third-party skills, copied verbatim, one directory each with its upstream files, `LICENSE` and `SOURCE.md`. One file of `templates/` is not a project template: [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs) is the CLI's Russian localization — the Russian text of every message keyed by its English text, the Russian help and the Russian words the parsers read. `init`, `migrate` and `upgrade` never copy it into a project, since they render only `docs/**`, `skills/**`, the vendored skills of `vendor/**` and named files, and parity compares only `.md` files, so it has no English twin under `templates/en/`; the package ships it with `templates/`. Keys are what the caller passes; a group shares one key set, and each file of the group uses part of it. The last column is what code reads back from the rendered text: a template edit keeps those strings.
 
 | Template | Rendered by | Code | Keys | Strings code reads |
 |---|---|---|---|---|
-| `agents-section.md` — the `AGENTS.md` block | `init` | [lib/init.js](../../lib/init.js) | docs/skills group: `adrNumber`, `cli`, `date`, `docs`, `prefix`, `probeBreakage`, `probeRule`, `probeSecond`, `probeVerified`, `project` | the `<!-- backslop:start -->` and `<!-- backslop:end -->` markers; the step lines `1.`–`7.`, which `agents.stepOverrides` replaces by number; the `Worker boundaries:` / `Границы worker'а:` line that closes step 7 |
+| `agents-section.md` — the `AGENTS.md` block | `init` | [lib/init.js](../../lib/init.js) | docs/skills group: `adrNumber`, `cli`, `date`, `docs`, `prefix`, `probeBreakage`, `probeRule`, `probeSecond`, `probeVerified`, `project` | the `<!-- backslop:start -->` and `<!-- backslop:end -->` markers; the step lines `1.`–`7.`, which `agents.stepOverrides` replaces by number; the `Worker boundaries:` line that closes step 7, in the Russian layer its `workerBoundaries` form from [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs) |
 | `agents-probe.md` — the probe sentence | `init` (the block and the skills), `brief` | [lib/templates.js](../../lib/templates.js) | `probe` | the code span around `{{probe}}`: the form of the `probe` field rests on it |
 | `probe/*.md` — the probe passages | `init` (the skills), `brief`, `archive` | [lib/templates.js](../../lib/templates.js) | `bullet.md`: `probeRule`; the others none | none |
 | `task.md` | `new`, `seed --queue-reference` | [lib/tasks.js](../../lib/tasks.js), [lib/seed.js](../../lib/seed.js) | `area`, `context`, `date`, `id`, `title` | the title line `# <id> · <title>` with its ` · ` separator, read by `lint`, `fold`, `brief`, `status` and `show`; the header field labels and the `## ` headings ([Task file](#task-file)); the `[TODO]` stubs, which `lint` and `mv N minor` recognise |
@@ -286,7 +286,7 @@ Rules:
 ### Implementation notes
 
 - The keys of each group are `TEMPLATE_KEYS` in [lib/templates.js](../../lib/templates.js); `renderTemplate` throws on a placeholder without a key; gate 12 is `templateSlots`, and the layer comparison is `templateParity`, which walks the English layer and compares heading levels as a sequence after blanking fenced blocks. `test/templates.test.mjs` holds the 1:1 render of the rules pair in this repository, and the `archive/LOG.md` header above its first journal line, in the layer of `backslop.json` `lang`.
-- The names test in `test/templates.test.mjs` renders `task.md` and `minor.md` in both layers and checks the title line, each heading and each field label through the task parser: `readTitle`, `sections`, `sectionName`, `fieldName` and `getField` in [lib/tasks.js](../../lib/tasks.js). The field and section names are `FIELD_NAMES` and `SECTION_NAMES` there; the outcome words are `OUTCOME_FORMS` in [lib/log.js](../../lib/log.js); the step and boundary lines are `STEP_RE` and `WORKER_BOUNDARY_RE` in [lib/init.js](../../lib/init.js).
+- The names test in `test/templates.test.mjs` renders `task.md` and `minor.md` in both layers and checks the title line, each heading and each field label through the task parser: `readTitle`, `sections`, `sectionName`, `fieldName` and `getField` in [lib/tasks.js](../../lib/tasks.js). The English field and section names are `FIELD_NAMES` and `SECTION_NAMES` there, and the Russian ones `fieldNames` and `sectionNames` in [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs); the outcome words are `OUTCOME_FORMS` in [lib/log.js](../../lib/log.js), built with the Russian `parserWords` of the same module; the step and boundary lines are `STEP_RE` and `WORKER_BOUNDARY_RE` in [lib/init.js](../../lib/init.js).
 - `frontmatterField` ([lib/frontmatter.js](../../lib/frontmatter.js)) strips the quotes, and both readers use it: `splitFrontmatter` for `.mdc` and parity. `cursorOutput` quotes the value again (`JSON.stringify`), and without the stripping the `.mdc` would carry double escaping. `frontmatterField` reads line by line and is blind to the YAML-mapping defect, which is why `npm test` holds that form.
 
 ## Agent hook files and protocols

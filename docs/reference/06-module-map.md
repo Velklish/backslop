@@ -21,7 +21,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 
 **Flags.** `parseCommandArgs(argv, options, { positionals, lang })` wraps `util.parseArgs` in strict mode. `options` is the `parseArgs` option map; `positionals` is the most positional arguments the command takes. It returns `{ values, positionals }`. It throws `CliError` for an unknown flag or an extra argument, and `HelpRequest` for `-h` or `--help`, which `main` catches and answers with the help text, exit 0. Every command calls it before it loads the project.
 
-**Messages.** Every user-facing message is a pair: `tr(lang, ru, en)` from `lib/i18n.js` returns the Russian text for `ru` and the English for `en`. Once the config is loaded the language is `cfg.lang`; before that, it is the `lang` passed to `run`. Outside a project that `lang` is `null`, and `pick(lang, ru, en)` returns both texts, `en / ru`. JSON output is language-neutral.
+**Messages.** Every user-facing message is written once, in English, as the key of `msg(lang, en, params)` from `lib/i18n.js`: `{name}` in the text takes `params.name`, and a function param is called with the language of the text it fills. For `en` the lookup returns the English text; otherwise it returns the Russian entry of the same key in [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs), the CLI's Russian localization, and a key without an entry falls back to the English. An entry is a string with a subset of the key's placeholders, or a function of the params, for word order, plural forms and a text that differs by context. Once the config is loaded the language is `cfg.lang`; before that, it is the `lang` passed to `run`. Outside a project that `lang` is `null`, and `msgBoth(lang, en, params)` returns both texts, `en / ru`, or the entry of the same key in `both` of that module when the two-language form is another. The key is a string literal at the call: `test/i18n.test.mjs` reads every key in `lib/` and `bin/` and fails on a key without an entry, on an entry no call uses, on a key written twice in the module, on one English text under two keys that differ only in placeholder names, and on a call whose params object has no param for a placeholder of its key. JSON output is language-neutral.
 
 ## Modules
 
@@ -64,7 +64,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 | `lib/config.js` | find, load and validate `backslop.json`; the layout paths; the managed-block markers; the `cli` spelling and its pin | `loadProject`, `loadConfig`, `validateConfig`, `saveConfig`, `layout`, `findRoot`, `projectHintsOrNull`, `CONFIG_FILE`, `STATUSES`, `LANGS`, `BLOCK_MARKERS`, `parseCli`, `pinRe`, `SOURCE` |
 | `lib/tasks.js` | the task model: a scan of the status directories and the archive, names and headers, the field and section names, queue order and placement, `createTask` | `scanTasks`, `findTask`, `getField`, `setField`, `sectionBody`, `queueOrder`, `placeInQueue`, `relocateTask`, `createTask`, `COST_LEVELS`, `SLUG_RE` |
 | `lib/templates.js` | strict `{{key}}` rendering, the `TEMPLATE_KEYS` registry, the ru/en parity check, the probe slots, the tool-repository sign | `renderTemplate`, `renderProjectTemplate`, `templateRel`, `templateParity`, `templateSlots`, `probeSlots`, `isToolRepo`, `TEMPLATES_DIR` |
-| `lib/i18n.js` | the two-language message helpers | `tr`, `pick` |
+| `lib/i18n.js` | the message lookup by English key, and the Russian localization `templates/i18n/ru.mjs` as `RU`: its messages, help text and parser words | `msg`, `msgBoth`, `RU` |
 | `lib/util.js` | `CliError` and `HelpRequest`, the output helpers, `parseCommandArgs`, `toPosix`, file read and write, the git wrapper and its helpers, the shell runner | `CliError`, `HelpRequest`, `parseCommandArgs`, `ok`, `info`, `warn`, `bad`, `note`, `printJson`, `toPosix`, `today`, `git`, `insideRepo`, `readText`, `writeText`, `readJson`, `runShell` |
 | `lib/version.js` | the tool version and version comparison | `TOOL_VERSION`, `compareVersions`, `normalizeVersion`, `latestVersion`, `stampNewerHead` |
 | `lib/mdwalk.js` | the markdown walkers: one set of files for the gates and for the commands that rewrite links; the live-pin files | `mdFiles`, `rootMarkdown`, `repoMarkdown`, `srcFiles`, `livePinFiles`, `stalePins`, `symlinkComponent`, `UnreadableDir` |
@@ -79,13 +79,13 @@ The page names code by file and by identifier, not by line: find a line with `gr
 | `lib/adapter-ownership.js` | the generated marker: what makes an adapter output owned by the tool | `markGenerated`, `hasGeneratedMarker`, `isOwnedAdapterFile`, `adapterRel`, `GENERATED_MARKER` |
 | `lib/legacy-roadmap.js` | the text of the retired `docs/ROADMAP.md` and its `docs/README.md` lines, which the migration compares against | `LEGACY_ROADMAP`, `LEGACY_README_LINES` |
 
-**Import rules that keep the graph acyclic.** `lib/text.js`, `lib/i18n.js`, `lib/version.js`, `lib/adapters-registry.js` and `lib/legacy-roadmap.js` import nothing from `lib/`; `lib/frontmatter.js` imports only `text`, and `lib/ids.js` only `util`. `lib/log.js` does not import `lib/tasks.js` because `tasks` reads the journal; a helper that both need goes into the lower module.
+**Import rules that keep the graph acyclic.** `lib/text.js`, `lib/i18n.js` and `lib/adapters-registry.js` import nothing from `lib/`, and `lib/version.js` and `lib/legacy-roadmap.js` only `i18n`; `lib/frontmatter.js` imports only `text`, and `lib/ids.js` only `util`. `lib/log.js` does not import `lib/tasks.js` because `tasks` reads the journal; a helper that both need goes into the lower module.
 
 ### Everything outside `lib/`
 
 | File | Responsibility | Key exports |
 |---|---|---|
-| `bin/backslop.js` | the CLI entry: `COMMANDS`, the help literals, the dynamic import of `lib/<command>.js`, the exit code | none |
+| `bin/backslop.js` | the CLI entry: `COMMANDS`, the English help literal, the dynamic import of `lib/<command>.js`, the exit code | none |
 | `scripts/release.mjs` | `npm run release`: `--bump` and the release checks; it uses `lib/util.js`, `lib/changelog-format.js` and `lib/version.js` | none |
 | `test/helpers.mjs` | the project builder, the CLI runner, the tool copy for self-host probes | `makeProject`, `cli`, `run`, `gitAll`, `put`, `read`, `cleanup`, `toolCopy`, `toolCli`, `changelogTool`, `resultTemplateParagraphs`, `BIN`, `REPO` |
 | `test/comment-scan.mjs` | the comment scanner behind the comment gate: `LIMIT` is 2 lines, `WIDTH` is 100 code points, over the trees `lib`, `test`, `bin` and `scripts` | `LIMIT`, `WIDTH`, `maskedLines`, `scannedCode`, `longBlocks`, `wideLines` |
@@ -99,19 +99,19 @@ Take `foo` as the name; the command is a read-only one that prints a line.
    ```js
    import { loadProject } from './config.js';
    import { ok, parseCommandArgs } from './util.js';
-   import { tr } from './i18n.js';
+   import { msg } from './i18n.js';
 
    export async function run(argv, { cwd, lang }) {
      parseCommandArgs(argv, {}, { positionals: 0, lang });
      const { cfg } = loadProject(cwd);
-     ok(tr(cfg.lang, 'foo: готово', 'foo: done'));
+     ok(msg(cfg.lang, 'foo: done in {docs}', { docs: cfg.docs }));
      return 0;
    }
    ```
 
-   Parse flags with `parseCommandArgs` before anything else, with the `lang` that `run` received (the project is not loaded yet). Load the project with `loadProject(cwd)`; from then on use `cfg.lang`. Throw `CliError` for a refusal a human can fix. Both texts of every message are written. A path in a message goes through `toPosix`. A command that only needs the language, as `changelog` does, skips `loadProject`.
+   Parse flags with `parseCommandArgs` before anything else, with the `lang` that `run` received (the project is not loaded yet). Load the project with `loadProject(cwd)`; from then on use `cfg.lang`. Throw `CliError` for a refusal a human can fix. Every message is an English key with its Russian entry in `messages` of [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs): here the key `'foo: done in {docs}'` and its Russian text with the same `{docs}`; see [Messages](#entry-point-and-dispatch). A path in a message goes through `toPosix`. A command that only needs the language, as `changelog` does, skips `loadProject`.
 2. **The allowlist.** Add `'foo'` to `COMMANDS` in `bin/backslop.js`. Without it the command answers `unknown command “foo”` with exit 1.
-3. **The help.** Add one line to `HELP_RU` and one to `HELP_EN`, in the same position, following the rules of [Help](#help): the description starts at column 54, and a synopsis longer than that puts the description on the next line. Nothing else in the help text changes unless the command adds a gate count or a shared rule.
+3. **The help.** Add one line to `HELP_EN` in `bin/backslop.js` and one to `help` in `templates/i18n/ru.mjs`, in the same position, following the rules of [Help](#help): the description starts at column 54, and a synopsis longer than that puts the description on the next line. Nothing else in the help text changes unless the command adds a gate count or a shared rule.
 4. **The docs.** A row in the command table of [02. CLI](02-cli.md) and a `### foo` section under it; the list of positional-argument counts in the "Flag parsing" paragraph of that page; a row in the command table of the README. If an orchestrator will depend on the command, [05](05-orchestrator-contract.md) gets its channel and exit-code lines.
 5. **The tests.** In `test/commands.test.mjs`, a test that builds a project with `makeProject()`, runs `cli(root, ['foo'])` and asserts `code`, `out` and `err`; see [Tests](#tests). Add the command to the two tests that loop over every command: "an extra positional is refused" in `test/commands.test.mjs`, with one argument beyond the command's limit, and "a non-string prefix is refused by every command" in `test/config.test.mjs` when it loads the config.
 6. **The CHANGELOG.** One entry under `## Unreleased` in `CHANGELOG.md`, with a bold title that is unique within the section (lint gate 7).
@@ -121,15 +121,15 @@ Take `foo` as the name; the command is a read-only one that prints a line.
 
 A gate is a function in `lib/lint.js` that `lintProject` calls. Gates are numbered; the number exists only in a `// N.` comment and in the docs.
 
-1. **The function.** Write `function lintX(project, err)`; `project` is `{ root, cfg, dirs }`, destructured in the signature as the others do. Add `note` as a third argument when the gate also warns. `err(file, msg)` records an error that turns `lint` red (exit 1); `file` is an absolute path and is printed relative to the project root. `note(file, msg)` records a warning that is printed and does not change the exit code. `msg` is `tr(cfg.lang, ru, en)`.
+1. **The function.** Write `function lintX(project, err)`; `project` is `{ root, cfg, dirs }`, destructured in the signature as the others do. Add `note` as a third argument when the gate also warns. `err(file, msg)` records an error that turns `lint` red (exit 1); `file` is an absolute path and is printed relative to the project root. `note(file, msg)` records a warning that is printed and does not change the exit code. The message is `msg(cfg.lang, en, params)` with its Russian entry in `templates/i18n/ru.mjs`.
 2. **The comment.** Put `// N. <what the gate checks>` above the function, where `N` is the next free number. The call order in `lintProject` is unrelated to the numbers: several functions may share a number (gate 4), and some calls carry none (the adapter outputs, the version warning, the live pins, template parity are checks outside the numbered gates).
 3. **The call.** Add `lintX(project, err);` to `lintProject`, destructuring what it needs there.
 4. **The tool-repository guard.** A gate that only makes sense in the tool's own repository starts with `if (!isToolRepo(root)) return;`. `isToolRepo` (`lib/templates.js`) compares the realpath of `<root>/templates` with the running tool's `templates/`; gates 11, 12 and 14 and template parity use it.
 5. **The docs.** A row in the table of [03. Lint gates](03-lint.md): the gate, what it catches, how to fix it. The [link rule](03-lint.md#link-rule) and the other sections change only if the gate touches them.
 6. **The red probe.** In `test/lint.test.mjs` add `probe('N. <case>', (root) => put(root, '<path>', '<bad text>'), /expected message/)`. `probe` builds a green project with `seedGreen`, applies the mutation, runs `lintProject` in process and asserts that some error matches the regular expression; a gate that cannot be reddened is not a gate. The case the gate accepts goes in `greenProbe(name, mutate)`, which asserts no errors. Extend `seedGreen` only when the new gate needs content that the green project lacks, and keep it green for every other probe; a fixture that rewrites every Markdown file keeps at least one link, or gate 1 reports `gate 1 read nothing`. A tool-repo-only gate is probed with `toolProbe(name, mutate, regex)`, or with `toolProject` when the probe also needs a green half, because the plain fixture never switches the gate on; see [The lint probe DSL](#the-lint-probe-dsl).
 7. **The count.** The number of gates is spelled as a word in five places; change every one, or the help, the docs and a test disagree:
-   - `HELP_RU` in `bin/backslop.js`, in the `lint` line (`четырнадцать гейтов:`), with the list of what the gates check;
-   - `HELP_EN` in the same file (`fourteen gates:`), with the same list;
+   - `HELP_EN` in `bin/backslop.js`, in the `lint` line (`fourteen gates:`), with the list of what the gates check;
+   - `help` in `templates/i18n/ru.mjs`, in the same line in Russian, with the same list;
    - the row of page 03 in [docs/reference/README.md](README.md);
    - the heading `## Checks outside the fourteen gates` in [03-lint.md](03-lint.md), and the link to its anchor `#checks-outside-the-fourteen-gates` in the table of that page;
    - the assertion `/четырнадцать гейтов/` in `test/review.test.mjs`, the help test.
@@ -142,7 +142,7 @@ A migration rewrites the files of a project when its layout format changes. It i
 ```js
 {
   since: '0.13.0',
-  title: { ru: '…', en: '…' },
+  title: (lang) => msg(lang, '…'),
   plan(project, rules) { … },       // optional: decides what to do, writes nothing
   report(project, plan, dry) { … }, // optional: prints what happened or would happen
   run(project, plan) { … },         // does the writing
@@ -150,7 +150,7 @@ A migration rewrites the files of a project when its layout format changes. It i
 ```
 
 - **`since`** is the release whose stamp the project must be below for the migration to run: it runs when `backslop.json` has no `version` stamp or the stamp is lower than `since`. It is the version that ships the format change. The entry may not name a version above `TOOL_VERSION`: `test/version.test.mjs` fails on it, because at the tool's own version the stamp is never written again and such an entry would print as due on every start. `since` is the version the release will ship; how and when the package version is raised is in [AGENTS.md § Release](../../AGENTS.md#release), and the test wants the number raised before the entry lands.
-- **`title`** is `{ ru, en }`. `migrate` prints it as `migration through v<since>: <title>` in the project language, and appends `(--dry-run)` in a dry run.
+- **`title`** is a function of the language that returns a message, with the Russian entry in `templates/i18n/ru.mjs`. `migrate` prints it as `migration through v<since>: <title>` in the project language, and appends `(--dry-run)` in a dry run.
 - **Idempotence.** The body must be safe to run twice: `migrate` runs again on a project at a lower stamp, and `upgrade` calls it on every update. The journal entry returns at once when `LOG.md` exists; the roadmap entry plans only a file that still equals the retired text, so a second pass finds nothing.
 - **`--dry-run`.** `migrate --dry-run` calls `plan`, never calls `run`, calls `report(project, plan, true)` and never writes the stamp. A migration that can refuse (an uncommitted edit of a file it would replace) decides in `plan`, so the refusal also happens in a dry run and before the first write. Without `plan` and `report` the dry run prints only the title line of that migration.
 - **`RULES_DOCS` are not migrations.** The rules pair (`backlog/README.md` and `archive/README.md`) is redrawn from the template by `planRules` on every `migrate`, below the tool's version or, at the same version, only when the file is an untouched render (or the render of the other language). It has no `since`, it refuses on an uncommitted edit before the first write, and a path behind a symlink is skipped with a warning. A change to those two templates needs no `MIGRATIONS` entry.
@@ -163,7 +163,7 @@ A migration rewrites the files of a project when its layout format changes. It i
 Everything the tool lays into a project comes from `templates/`. `templates/en/**` is the source layer, and its Russian twin in `templates/**` keeps the same file set. The two layers change in one commit. `templates/vendor/` holds third-party skills outside both layers: no twin, no rendering.
 
 1. **The pair.** Add or edit the file in `templates/en/<rel>` and in `templates/<rel>`. Render with `renderProjectTemplate(cfg, '<rel>', vars)`, which picks the layer by `cfg.lang` (`templateRel`), or with `renderTemplate(rel, vars)` for a path that already names the layer.
-2. **The placeholder.** `{{name}}` is letters and underscores. Pass every name in `vars` at each call. `renderTemplate` throws an `Error` when a placeholder has no key in `vars` (`<rel>: подстановке {{name}} не передан ключ name`): a literal `{{name}}` never reaches a reader, and the throw is a crash, not a refusal.
+2. **The placeholder.** `{{name}}` is letters and underscores. Pass every name in `vars` at each call. `renderTemplate` throws an `Error` when a placeholder has no key in `vars` (`<rel>: placeholder {{name}} is given no key name`, printed in Russian in every project): a literal `{{name}}` never reaches a reader, and the throw is a crash, not a refusal.
 3. **The key registry.** Declare the key in `TEMPLATE_KEYS` in `lib/templates.js`: one row per template group, a regular expression over the path below `templates/` and the list of keys the callers pass. The docs, skills and `agents-section.md` templates share one row, because `init` and the adapter renderer fill them with one set of variables. A new template file whose path no row matches needs a new row.
 4. **Gate 12** (tool repository only) checks the registry in both directions and in both layers: a placeholder with no key in its group, a file with placeholders and no row, and a declared key that no template of its group uses. It calls `templateSlots`.
 5. **Parity** (a check outside the numbered gates, tool repository only) calls `templateParity`, which skips `templates/vendor/`: the same set of files in both layers, the same set of placeholders in each pair, skill frontmatter with `name` equal to the directory name and a non-empty `description`, no Cyrillic in the English layer, and the same sequence of heading levels in each pair. The heading levels are read outside fenced code blocks, so a `# ` inside a fence is not a heading.
@@ -218,6 +218,7 @@ A probe is a mutation of a green project. A gate is confirmed by a probe that go
 | Help, versions and review regressions | `test/review.test.mjs` |
 | Shared modules | `test/config.test.mjs`, `test/tasks.test.mjs`, `test/links.test.mjs`, `test/mdwalk.test.mjs`, `test/util.test.mjs`, `test/version.test.mjs`, `test/adapter-ownership.test.mjs` |
 | The comment limit | `test/comment-length.test.mjs` |
+| The Russian localization: key parity of `lib/` and `bin/` with `templates/i18n/ru.mjs`, and the lookup | `test/i18n.test.mjs` |
 
 ### Windows
 
@@ -225,9 +226,9 @@ Windows is supported. A test that cannot run on win32 (a symlink, a shell shim w
 
 ## Help
 
-The help text is two hand-written template literals in `bin/backslop.js`, `HELP_RU` and `HELP_EN`; there is no generator.
+The help text is two hand-written template literals: `HELP_EN` in `bin/backslop.js` and `help` in `templates/i18n/ru.mjs`, a function of the tool version; there is no generator.
 
-- `help(lang)` is `pick(lang, HELP_RU, HELP_EN, both)`: the project language decides, and outside a project both texts are printed, English first.
+- `help(lang)` in `bin/backslop.js` returns `HELP_EN` for `en` and the Russian text for `ru`: the project language decides, and outside a project both texts are printed, English first.
 - The language is read from `backslop.json` by `projectHintsOrNull`; a broken config gives Russian.
 - `help`, `--help`, `-h` and no argument print it; so does `<command> --help`, through `HelpRequest` from `parseCommandArgs`. The exit code is 0, inside a project or outside.
 - **Alignment.** A command line starts with two spaces, then the synopsis, then spaces up to the description, which starts at column 54 (54 characters before it). A synopsis that does not fit in that width ends its line, and the description goes on the next line indented by 54 spaces; `brief` and `merge-changelog` are written so. Keep every line of both literals on that grid. The help test in `test/review.test.mjs` pins a few lines by the exact number of spaces, for example `version | --version | -v` and `show <N>`.

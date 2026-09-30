@@ -19,7 +19,7 @@
 ## Contributor invariants
 
 - Node >= 20, standard library only: no dependencies.
-- Every user-facing message goes through `tr(lang, ru, en)` from `lib/i18n.js`, with the project language (`cfg.lang` where a config is loaded) and both texts written. JSON output is language-neutral.
+- Every user-facing message goes through `msg(lang, en, params)` from `lib/i18n.js`, or `msgBoth` where the language may be unknown, with the project language (`cfg.lang` where a config is loaded). The English text is the key, with `{name}` placeholders filled from `params`; its Russian text is an entry of `templates/i18n/ru.mjs`, and `test/i18n.test.mjs` fails on a key without an entry and on an entry no code uses. JSON output is language-neutral.
 - A printed path goes through `toPosix` from `lib/util.js`.
 - Windows is supported. A test that cannot run on win32 carries `skip: process.platform === 'win32'` and says why.
 - A new `{{placeholder}}` in a template is declared in `TEMPLATE_KEYS` in `lib/templates.js`.

@@ -5,65 +5,9 @@ import process from 'node:process';
 import { CliError, HelpRequest, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { projectHintsOrNull } from '../lib/config.js';
-import { pick } from '../lib/i18n.js';
+import { RU, msgBoth } from '../lib/i18n.js';
 
 const COMMANDS = ['init', 'new', 'mv', 'archive', 'fold', 'show', 'adr', 'brief', 'seed', 'status', 'lint', 'gates', 'tracks', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
-
-const HELP_RU = `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
-
-Команды:
-  init [--dir docs] [--prefix BS] [--cli <команда>] [--lang ru|en] [--tools <CSV|none>]
-                                                      разложить скелет docs, adapters, блок в AGENTS.md, backslop.json
-  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <уровень>] [--hypothesis]]]
-                                                      завести задачу (по умолчанию в triage/) или находку задачи N / N.M;
-                                                      --minor — minor-находка или гипотеза в minor/, с полем «Цена»;
-                                                      --evidence обязателен с --minor: путь со строкой, команда с выводом
-                                                      и кодом, замер числом; непроверенное — предположением
-  mv <N…> <triage|queue|active|deferred|minor> [--top | --after M | --restore] [--evidence "…"]
-                                                      сменить статус: git mv между каталогами; номеров может быть несколько;
-                                                      в minor — только с уликой: раздел «Улика» или --evidence
-  archive <N> [--dry-run] [--range <база>..HEAD]      закрыть задачу: переезд в archive/ с правкой ссылок;
-                                                      печатает доки, которых коснулся ход задачи
-  archive <N.k> --into <M> [--dry-run]                закрыть minor-запись пачкой M: переезд в archive/<M>-<slug>/minor/ без своего result.md
-  fold <N> [--dry-run]                                свернуть закрытую задачу в строку archive/LOG.md: каталог уходит из дерева,
-                                                      тело — в заготовку сообщения коммита (stdout), ссылки — на якорь строки
-  fold [--older-than <дата>] [--embed-missing] [--dry-run]
-                                                      свернуть накопленный архив: тело каждой задачи обязано лежать в истории,
-                                                      строка журнала называет его ревизию; --embed-missing уносит тело,
-                                                      которого в истории нет, в заготовку сообщения коммита
-  show <N>                                            напечатать тело свёрнутой задачи (stdout) из ревизии, которую называет
-                                                      её строка журнала; шапка — в stderr
-  adr <slug> [--title "…"]                            завести ADR со следующим номером
-  brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"]
-        [--autonomy "…"] [--handover "…"] [--measurements]
-                                                      напечатать бриф worker'у по этим задачам
-  seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
-                                                      задачи «Справочник: …» по таблице reference/
-  status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage, minor по областям
-  lint                                                четырнадцать гейтов: ссылки, номера, раскладка бэклога, поля,
-                                                      архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
-                                                      цитаты, версии релиза, слоты шаблонов, журнал закрытых,
-                                                      непечатаемые байты;
-                                                      adapter outputs, равенство шаблонов и предупреждения
-                                                      о версии и закрытом родителе
-  gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
-                                                      прогнать команды из gates: код каждой, счёт зелёных, снимок дерева;
-                                                      область when сверяется с грязным деревом, --base добавляет дифф к ref
-  tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
-  upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli, gates и живых файлах, migrate и init новой версией
-  migrate [--dry-run]                                 миграция формата файлов, правила ведения и архива из шаблона, штамп версии
-  changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями
-  merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <файл>]
-                                                      слить две редакции CHANGELOG.md: записи секции невыпущенного
-                                                      по заголовку; результат в stdout или в --out, отчёт в stderr
-  version | --version | -v                            версия backslop
-  help | --help | -h | <команда> --help               эта справка
-
-Значение флага, начинающееся с дефиса, — формой с «=»: --title="--…". Без «=» оно принимается,
-если не совпадает с именем флага этой команды; -h и --help на месте значения — тоже значение.
-
-Запуск без установки: npx github:Velklish/backslop#v${TOOL_VERSION} <команда>
-`;
 
 const HELP_EN = `backslop — a file-based backlog with an archive, ADRs, and process skills
 
@@ -120,7 +64,10 @@ accepted unless it matches a flag name of that command; -h and --help in a value
 Run without installing: npx github:Velklish/backslop#v${TOOL_VERSION} <command>
 `;
 
-const help = (lang) => pick(lang, HELP_RU, HELP_EN, `${HELP_EN}\n${HELP_RU}`);
+const help = (lang) => {
+  if (lang === 'en') return HELP_EN;
+  return lang === 'ru' ? RU.help(TOOL_VERSION) : `${HELP_EN}\n${RU.help(TOOL_VERSION)}`;
+};
 
 async function main(argv) {
   const [name, ...rest] = argv;
@@ -135,10 +82,8 @@ async function main(argv) {
     return 0;
   }
   if (!COMMANDS.includes(name)) {
-    throw new CliError(pick(lang,
-      `неизвестная команда «${name}»; список — ${project?.cli} help`,
-      `unknown command “${name}”; see ${project?.cli} help`,
-      `Unknown command “${name}” / Неизвестная команда «${name}»; see / список — backslop help`));
+    throw new CliError(msgBoth(lang,
+      'unknown command “{name}”; see {cli} help', { name, cli: project?.cli }));
   }
   const mod = await import(`../lib/${name}.js`);
   try {
