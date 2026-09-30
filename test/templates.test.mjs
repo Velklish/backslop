@@ -227,19 +227,24 @@ test('self-host: the rules pair and the LOG header in docs/ are the render of th
   assert.equal(header, expected, `docs/archive/LOG.md header differs from its ${cfg.lang} template`);
 });
 
-// Свёрнутую пачку записью не догрузить: порядок её закрытия и шаг приёмки со свёрткой держатся
-// в обоих языковых слоях скилла пачек.
-test('backslop-batch: пачка сворачивается после своих записей, приёмка идёт через fold и заготовку', () => {
+// A folded batch cannot be reloaded by a write: its close order and the link of step 4 to the
+// backslop-task recipe stay in both language layers of the batch skill.
+test('backslop-batch: a batch is folded after its entries and step 4 links the backslop-task recipe', () => {
   for (const rel of ['skills/backslop-batch/SKILL.md', 'en/skills/backslop-batch/SKILL.md']) {
     const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
     const into = text.indexOf('`backslop archive N.k --into M`');
     assert.ok(into !== -1 && text.indexOf('`backslop fold M`', into) !== -1, `${rel}: fold M не назван после archive N.k --into M`);
-    const accept = text.split('\n').find((line) => line.startsWith('4. ') && line.includes('`backslop archive N`'));
-    assert.ok(accept, `${rel}: шаг приёмки с archive N не найден`);
-    assert.ok(accept.indexOf('`backslop fold N') > accept.indexOf('`backslop archive N`'), `${rel}: после archive N нет fold N`);
-    assert.ok(accept.includes('git commit -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"'), `${rel}: коммит приёмки не несёт заготовку`);
-    const track = accept.indexOf(rel.startsWith('en/') ? 'the message draft is not required there' : 'заготовка сообщения там не обязательна');
-    assert.ok(track !== -1 && accept.lastIndexOf('`backslop fold`', track) > accept.indexOf('`backslop fold N >'),
-      `${rel}: не назван track одним коммитом — свёртка следующим коммитом, fold N или массовый fold`);
+    const accept = text.split('\n').find((line) => line.startsWith('4. ') && line.includes('../backslop-task/SKILL.md#'));
+    assert.ok(accept, `${rel}: step 4 with the link to the backslop-task recipe not found`);
+    const heading = rel.startsWith('en/') ? 'acceptance-and-archive' : 'приёмка-и-архив';
+    assert.ok(accept.includes(`(../backslop-task/SKILL.md#${heading})`), `${rel}: step 4 does not link the backslop-task acceptance section`);
+    assert.ok(!accept.includes('BACKSLOP_DRAFT') && !accept.includes('git reset --soft'), `${rel}: step 4 restates the recipe instead of linking it`);
+    const track = accept.indexOf(rel.startsWith('en/') ? 'leaving as one commit' : 'уезжающий одним коммитом');
+    assert.ok(track !== -1 && accept.indexOf('`backslop fold N`', track) > accept.indexOf('`backslop archive N`', track),
+      `${rel}: the multi-task track is not named: archive directories without fold, fold in the next commit`);
+    const plain = rel.startsWith('en/') ? 'without the draft and without `reset --soft`' : 'без заготовки и без `reset --soft`';
+    assert.ok(accept.indexOf(plain, track) !== -1, `${rel}: the fold commit after a multi-task track is not named a plain commit without the draft`);
+    const gates = rel.startsWith('en/') ? 'Run gates before committing, on an unchanged tree' : 'Гейты — до коммита, на неподвижном дереве';
+    assert.ok(accept.includes(gates), `${rel}: step 4 does not say when the gates of the integrated tree run`);
   }
 });

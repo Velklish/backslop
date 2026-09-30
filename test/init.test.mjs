@@ -696,6 +696,9 @@ test('init: adapters имеют canonical layout; deselect удаляет тол
     assert.match(cursor, /^---\ndescription: ".+"\nalwaysApply: false\n---\n<!-- backslop:generated -->\n\n# backslop-batch/m);
     assert.match(cursor, /\(backslop-batch\/references\/measurements\.md\)/);
     assert.ok(existsSync(path.join(root, '.cursor/rules/backslop-batch/references/measurements.md')));
+    assert.match(cursor, /\(backslop-batch\/references\/merge-changelog\.md\)/);
+    assert.ok(existsSync(path.join(root, '.cursor/rules/backslop-batch/references/merge-changelog.md')));
+    assert.ok(existsSync(path.join(root, '.claude/skills/backslop-batch/references/merge-changelog.md')));
     assert.equal(cli(root, ['lint']).code, 0);
 
     r = cli(root, ['init', '--tools', 'none']);
