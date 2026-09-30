@@ -30,6 +30,7 @@ Owner decisions 8 and 9 of BS-183. The documentation assessment is both a score 
 - **Release rule.** A document with `Shippable: no` holds the release pass until its Blocking findings are closed. This is a rule in the skill text.
 - **Tests:** template parity, and both layers name the audit mode, the report fields and the cost mapping (assert stable headings, not prose).
 - **Documentation:** `docs/reference/01-layout.md`, the skill description; `CHANGELOG.md` under the unreleased section.
+- **Glossary evidence.** `docs/GLOSSARY.md` rows for documentation audit point their Evidence at ADR-055 until this card lands; repoint each to the file that now implements the term, as the glossary header requires.
 
 ## Out of scope
 

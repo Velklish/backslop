@@ -49,6 +49,7 @@ Owner decisions 5–7 of BS-183. The technical-writer pass runs in full (currenc
   - both layers name both modes and both ledgers (assert stable headings, not prose);
   - config validation for `writer`.
 - **Documentation:** `docs/reference/01-layout.md` (the skill in the adapter outputs, the `writer` field in the configuration table); `README.md` (the skill list); `CHANGELOG.md` under the unreleased section.
+- **Glossary evidence.** `docs/GLOSSARY.md` rows for writer pass, currency ledger and style ledger point their Evidence at ADR-055 until this card lands; repoint each to the file that now implements the term, as the glossary header requires.
 
 ## Out of scope
 
