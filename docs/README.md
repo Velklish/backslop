@@ -24,6 +24,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 | [adr/adr-052-step-overrides.md](adr/adr-052-step-overrides.md) | A project overrides a numbered step of the AGENTS.md block from backslop.json | Accepted |
 | [adr/adr-053-seed.md](adr/adr-053-seed.md) | Seeding: the seed command extracts candidates, the agent and the owner select | Accepted |
 | [adr/adr-054-tracks.md](adr/adr-054-tracks.md) | The tracks command observes a worker run and never removes anything | Accepted |
+| [adr/adr-055-docs-rules-ship-to-projects.md](adr/adr-055-docs-rules-ship-to-projects.md) | Documentation rules ship to projects: lint checks, writing skills, agent hooks and the writer pass | Accepted |
 
 ## Cross-cutting principles
 
