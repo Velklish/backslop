@@ -227,24 +227,56 @@ test('self-host: the rules pair and the LOG header in docs/ are the render of th
   assert.equal(header, expected, `docs/archive/LOG.md header differs from its ${cfg.lang} template`);
 });
 
-// A folded batch cannot be reloaded by a write: its close order and the link of step 4 to the
-// backslop-task recipe stay in both language layers of the batch skill.
-test('backslop-batch: a batch is folded after its entries and step 4 links the backslop-task recipe', () => {
+// A folded batch cannot be reloaded by a write: the close order lives in the backlog README
+// of both language layers, and the batch skill only links there.
+test('backlog README: a batch is folded after its entries', () => {
+  for (const rel of ['docs/backlog/README.md', 'en/docs/backlog/README.md']) {
+    const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
+    const open = text.indexOf(rel.startsWith('en/') ? 'Closing batch M' : 'Закрытие пачки M');
+    assert.ok(open !== -1, `${rel}: the closing paragraph of a batch is not found`);
+    const archive = text.indexOf('`{{cli}} archive M`', open);
+    const into = text.indexOf('`{{cli}} archive N.k --into M`', open);
+    const fold = text.indexOf('`{{cli}} fold M`', open);
+    assert.ok(archive !== -1 && archive < into && into < fold, `${rel}: the closing order is not archive M, the entries, fold M`);
+  }
+});
+
+test('backslop-batch: step 4 links the backslop-task recipe', () => {
   for (const rel of ['skills/backslop-batch/SKILL.md', 'en/skills/backslop-batch/SKILL.md']) {
     const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
-    const into = text.indexOf('`backslop archive N.k --into M`');
-    assert.ok(into !== -1 && text.indexOf('`backslop fold M`', into) !== -1, `${rel}: fold M не назван после archive N.k --into M`);
     const accept = text.split('\n').find((line) => line.startsWith('4. ') && line.includes('../backslop-task/SKILL.md#'));
     assert.ok(accept, `${rel}: step 4 with the link to the backslop-task recipe not found`);
     const heading = rel.startsWith('en/') ? 'acceptance-and-archive' : 'приёмка-и-архив';
     assert.ok(accept.includes(`(../backslop-task/SKILL.md#${heading})`), `${rel}: step 4 does not link the backslop-task acceptance section`);
     assert.ok(!accept.includes('BACKSLOP_DRAFT') && !accept.includes('git reset --soft'), `${rel}: step 4 restates the recipe instead of linking it`);
     const track = accept.indexOf(rel.startsWith('en/') ? 'leaving as one commit' : 'уезжающий одним коммитом');
-    assert.ok(track !== -1 && accept.indexOf('`backslop fold N`', track) > accept.indexOf('`backslop archive N`', track),
+    assert.ok(track !== -1 && accept.indexOf('`{{cli}} fold N`', track) > accept.indexOf('`{{cli}} archive N`', track),
       `${rel}: the multi-task track is not named: archive directories without fold, fold in the next commit`);
     const plain = rel.startsWith('en/') ? 'without the draft and without `reset --soft`' : 'без заготовки и без `reset --soft`';
     assert.ok(accept.indexOf(plain, track) !== -1, `${rel}: the fold commit after a multi-task track is not named a plain commit without the draft`);
     const gates = rel.startsWith('en/') ? 'Run gates before committing, on an unchanged tree' : 'Гейты — до коммита, на неподвижном дереве';
     assert.ok(accept.includes(gates), `${rel}: step 4 does not say when the gates of the integrated tree run`);
+  }
+});
+
+const BARE_COMMAND = /(^|[^{}a-z-])backslop (lint|status|new|adr|mv|gates|fold|archive|seed|brief|tracks|upgrade|migrate|show|changelog|merge-changelog)\b/m;
+
+test('skills: every runnable command is spelled with {{cli}}, none with a bare backslop', () => {
+  const files = [
+    ...srcFiles(TEMPLATES_DIR, '', ['.md']).filter(([rel]) => rel.startsWith('skills/')),
+    ...srcFiles(path.join(TEMPLATES_DIR, 'en'), '', ['.md']).filter(([rel]) => rel.startsWith('skills/')).map(([rel, abs]) => [`en/${rel}`, abs]),
+  ];
+  assert.ok(files.length >= 10, 'the skill files of both layers are found');
+  for (const [rel, abs] of files) {
+    assert.doesNotMatch(readFileSync(abs, 'utf8'), BARE_COMMAND, `${rel}: a command is spelled with a bare backslop`);
+  }
+});
+
+test('backslop-batch: the end of the run reads total of tracks --json, brief stubs are checked for [TODO', () => {
+  for (const rel of ['skills/backslop-batch/SKILL.md', 'en/skills/backslop-batch/SKILL.md']) {
+    const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
+    assert.match(text, /`\{\{cli\}\} tracks --json`/, `${rel}: the end of the run does not use tracks --json`);
+    assert.match(text, /`total`/, `${rel}: total is not named`);
+    assert.ok(text.includes('`[TODO`'), `${rel}: the [TODO check of the brief output is not named`);
   }
 });
