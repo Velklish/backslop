@@ -1,6 +1,6 @@
 # 02. CLI
 
-The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument is the command.
+The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument is the command, and only a name in its `COMMANDS` allowlist is run. The exit code of the process is the return value of the command's `run` (none means 0); a `CliError` is a refusal with exit 1. The modules behind the commands are in [06. Module map](06-module-map.md).
 
 **Exit codes and output channels** — which stream carries what, what `✔`, `✖` and `⚠` mark, and how to tell a result from a refusal — are in [05. Orchestrator contract](05-orchestrator-contract.md), with the JSON shapes and what is stable. An unknown command is a refusal that points to `help`.
 
