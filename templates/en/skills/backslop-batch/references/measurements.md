@@ -6,10 +6,10 @@ Wall-clock time in a live run measures neighbours rather than the subject: worke
 
 **Check the exit code of the command itself, not of a pipe**: `grep … | wc -l` prints `0` with exit code `0` when grep fails, so a tool failure reads as “no matches”. `npm test | tail` is the same class of mistake. Verify a zero measurement a second way.
 
-**An incomplete answer looks as confident as a complete one.** `git grep -E` does not understand `\s`; use POSIX classes. A character class written for particular names misses a neighbour containing a digit; checking a literal with a glob tests whether something with that prefix exists, not the recorded value. Check the exact literal you wrote down.
+**An incomplete answer looks as confident as a complete one.** `\s` in `git grep -E` is not portable: on macOS it silently matches nothing. Use POSIX classes such as `[[:space:]]`. A character class written for particular names misses a neighbour containing a digit; checking a literal with a glob tests whether something with that prefix exists, not the recorded value. Check the exact literal you wrote down.
 
-**A call count without parsing argv does not define a task boundary.** Count not “how often it was called” but “how often what the check names was called”. **Grep treats text as flat:** “found in a comment” is a hypothesis until language scopes are parsed.
+**When counting calls, count calls of exactly what the check names, filtered by arguments:** `git` invocations are not `git merge` invocations. **Grep treats text as flat:** “found in a comment” is a hypothesis until language scopes are parsed.
 
-**A gate run on a tree that is not byte-for-byte the commit proves nothing about the commit.** A test stand — container, clone, copy — is built from the whole tree; equality means `diff -r` is empty or `git status` in the stand is clean. For project gates `backslop gates` does the same accounting: `--require-clean` refuses on a dirty tree before the first command, and the closing snapshot names the commit and the tree state after the run. A dirty tree is not the only cause of such a refusal: without a git repository `--require-clean` does not start the run either, as there is nothing to check cleanliness against. A project that narrows its gates by path gets further refusals before the first command — the refusal itself names the condition.
+**A gate run on a tree that is not byte-for-byte the commit proves nothing about the commit.** A test stand — container, clone, copy — is built from the whole tree; equality means `diff -r` is empty or `git status` in the stand is clean. For project gates, use `{{cli}} gates --require-clean`.
 
-When asking a worker to measure, put this rule in their brief: only the orchestrator reads this file.
+`--measurements` carries only the three-point summary of these rules into a brief; any other rule from this file goes into the brief by hand, e.g. through `--handover`. Only the orchestrator reads this file.
