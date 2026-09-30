@@ -236,3 +236,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-170"></a>`BS-170-batch-integration-steps` · 2026-09-30 · completed · — · backslop-batch integration: squash reason, containment check, conflict mark, no ADR cite
 - <a id="bs-184"></a>`BS-184-lint-anchors-link-forms` · 2026-09-30 · completed · — · Lint gate 1 checks heading anchors and every Markdown link form
 - <a id="bs-171"></a>`BS-171-batch-run-brief-measurements` · 2026-09-30 · completed · — · backslop-batch: brief, tracks and triage text, measurements rules, one CLI spelling
+- <a id="bs-197"></a>`BS-197-skills-eval-skill-creator` · 2026-09-30 · completed · — · Evaluate the backslop-task and backslop-batch skill changes of this run with skill-creator
