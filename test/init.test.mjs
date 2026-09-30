@@ -257,6 +257,32 @@ test('init: the block tells a worker to commit, names the triage commit and the 
   }
 });
 
+test('init: the block names gates --base and the Windows shell, and the skill points to the block instead of restating it', () => {
+  for (const [lang, base, windows, gone, keepGoing, skillWindows] of [
+    ['ru', /^4\. .*`[^`]+ gates --require-clean --base <база>`, где `<база>` — коммит до взятия задачи/m, /^5\. .*На Windows выполняй эту последовательность команд в Git Bash\.$/m,
+      /Живые промахи|просто называется|три задачи/, /`--keep-going`/, /На Windows выполняй эту последовательность команд в Git Bash\./],
+    ['en', /^4\. .*`[^`]+ gates --require-clean --base <base>`, where `<base>` is the commit before the task was taken/m, /^5\. .*On Windows, run this recipe in Git Bash\.$/m,
+      /Real failures|simply called|three tasks/, /`--keep-going`/, /On Windows, run this recipe in Git Bash\./],
+  ]) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', '--lang', lang, '--tools', 'claude']);
+      assert.equal(r.code, 0, r.err);
+      const agents = read(root, 'AGENTS.md');
+      const block = agents.slice(agents.indexOf('<!-- backslop:start -->'), agents.indexOf('<!-- backslop:end -->'));
+      assert.match(block, base, `${lang}: step 4 names the --base invocation`);
+      assert.match(block, windows, `${lang}: step 5 puts the Windows note after the draft recipe`);
+      const skill = read(root, '.claude/skills/backslop-task/SKILL.md');
+      assert.match(skill, keepGoing, `${lang}: the skill names --keep-going`);
+      assert.match(skill, skillWindows, `${lang}: the skill carries the Windows note`);
+      assert.doesNotMatch(skill, gone, `${lang}: no history section, no alias sentence`);
+      assert.doesNotMatch(skill, /`backslop (?:status|mv|new|gates|archive|fold|lint|adr)[ `]/, `${lang}: every runnable command is spelled with the configured cli`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test('init: step 4 names the trimmed probe command, and without the field init names the missing duty', () => {
   for (const [lang, probe, named, duty, missing] of [
     ['ru', 'npm run probe', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
@@ -600,7 +626,6 @@ test('init: probe text in the block, the skill, the brief and the result stub on
       assert.ok(full.includes(`${named} ${passage(lang, 'breakage.md')} ${afterBreakage}`), `${lang}: breakage stands between the rule and the next sentence of step 4`);
       assert.ok(full.includes(`\n\n   ${passage(lang, 'second.md')}\n\n5. `), `${lang}: the second probe stays inside item 4, before item 5`);
       assert.ok(full.includes(verified), `${lang}: the acceptance step names the probe among the verification`);
-      assert.ok(full.includes(`\n${passage(lang, 'failure.md')}\n`), `${lang}: the probe bullet closes the real failures`);
       assert.match(read(root, 'AGENTS.md'), NONE, `${lang}: the block has its probe step back`);
       assert.equal(cli(root, ['new', 'b', '--queue']).code, 0);
       const declared = cli(root, ['brief', '2', '--track', 'x']);
