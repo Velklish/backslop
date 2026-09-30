@@ -322,6 +322,7 @@ test('release --bump: версия, заголовок секции CHANGELOG и
     assert.doesNotMatch(changelog, /Не выпущено/);
     assert.match(changelog, /^## v0\.1\.0 — 2026-09-01$/m);
     assert.deepEqual(r.log.trim().split('\n'), ['bin/backslop.js init'], 'init ran through the running node, not a PATH node');
+    assert.match(r.out, /затем npm run release -- 0\.3\.0 --no-publish\n$/, 'the next-step hint names --no-publish');
 
     // Повторный bump переименовал бы уже выпущенную секцию — отказ до записи файлов.
     const again = runRelease(f, ['0.4.0', '--bump']);

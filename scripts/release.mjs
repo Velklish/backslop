@@ -63,7 +63,7 @@ function bump(version) {
   writeFileSync('CHANGELOG.md', changelog.replace(heading[0], section));
   command(process.execPath, ['bin/backslop.js', 'init']);
   process.stdout.write(`release: bump ${current} → ${version}: package.json, CHANGELOG.md («${heading[0]}» → «${section}»), штамп backslop.json через init\n`);
-  process.stdout.write(`release: проверь дифф и закоммить, затем npm run release -- ${version}\n`);
+  process.stdout.write(`release: проверь дифф и закоммить, затем npm run release -- ${version} --no-publish\n`);
 }
 
 function main(argv) {
