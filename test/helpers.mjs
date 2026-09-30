@@ -109,6 +109,6 @@ export function cleanup(root) {
 // Абзацы шаблона `result.md` после заголовка — с подставленными номером и датой, как их кладёт
 // `archive`. Проба заглушки идёт на них, а не на выдуманную строку.
 export function resultTemplateParagraphs(lang, { id = 'BS-4', date = '2026-08-01' } = {}) {
-  const text = renderTemplate(templateRel(lang, 'result.md'), { id, date, prefix: id.split('-')[0] });
+  const text = renderTemplate(templateRel(lang, 'result.md'), { id, date, prefix: id.split('-')[0], cli: 'backslop', probeVerified: '' });
   return text.trim().split(/\n\s*\n/).slice(1);
 }

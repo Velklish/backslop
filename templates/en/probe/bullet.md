@@ -1,0 +1,1 @@
+- **Mutation probe**:{{probeRule}} Uncommitted, your fix would go with the reverted mutation. A probe that fails to turn a test red is a hole in the test, not excess caution.

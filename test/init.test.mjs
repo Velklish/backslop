@@ -563,22 +563,58 @@ test('init: a repeated --dir spelling the stored docs differently is not a confl
   }
 });
 
-// Команду пробы проекта называют и managed-блок, и скилл цикла задачи — из одного источника,
-// `agents-probe.md` в подстановке `{{probeRule}}`.
-test('init: шаг 4 скилла называет команду пробы проекта; поля probe нет — нет и предложения', () => {
-  const root = emptyRepo();
-  try {
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [] }, null, 2)}\n`);
-    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
-    const bare = read(root, '.claude/skills/backslop-task/SKILL.md');
-    assert.doesNotMatch(bare, /потом проба —/, 'нечего исполнять — требования в скилле нет');
-    assert.ok(!bare.includes('{{'), 'пустая подстановка не оставляет {{…}} читателю');
+// Probe text renders from `agents-probe.md` and `probe/*.md` through the slots of `probeSlots`, and
+// only when `probe` is declared: the block, the skill, the brief and the result stub stay silent.
+test('init: probe text in the block, the skill, the brief and the result stub only with the probe field', () => {
+  const NONE = /probe|проб(?:а|ы|у|ой|е)(?![а-яё])|мутацион|mutation/i;
+  const passage = (lang, file) => {
+    const text = readFileSync(path.join(REPO, 'templates', ...(lang === 'en' ? ['en'] : []), 'probe', file), 'utf8').trim();
+    assert.ok(text.length > 10, `${lang}: probe/${file} is not empty`);
+    return text;
+  };
+  for (const [lang, named, rule, afterBreakage, verified] of [
+    ['ru', 'сначала коммит, потом проба — `npm run probe`.', /после коммита|сначала коммит/g, 'Гейты гони на неподвижном дереве', 'гейты числом, мутационная проба, живой прогон'],
+    ['en', 'commit first, then run the probe — `npm run probe`.', /after the commit|commit first/g, 'Run gates on an unchanged tree', 'numerical gates, mutation probe and live run'],
+  ]) {
+    const root = emptyRepo();
+    try {
+      const cfg = { prefix: 'BS', docs: 'docs', gates: [], lang, tools: [] };
+      put(root, 'backslop.json', `${JSON.stringify(cfg, null, 2)}\n`);
+      assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+      assert.equal(cli(root, ['new', 'a', '--queue']).code, 0);
+      const skill = () => read(root, '.claude/skills/backslop-task/SKILL.md');
+      const bare = skill();
+      assert.doesNotMatch(read(root, 'AGENTS.md'), NONE, `${lang}: the block carries no probe text`);
+      assert.doesNotMatch(bare, NONE, `${lang}: the skill carries no probe text`);
+      assert.ok(!bare.includes('{{'), `${lang}: an empty slot leaves no {{…}} to the reader`);
+      const brief = cli(root, ['brief', '1', '--track', 'x']);
+      assert.equal(brief.code, 0, brief.err);
+      assert.doesNotMatch(brief.out, NONE, `${lang}: the brief carries no probe text`);
+      assert.equal(cli(root, ['archive', '1']).code, 0);
+      assert.doesNotMatch(read(root, `docs/archive/BS-1-a/result.md`), NONE, `${lang}: the result stub carries no probe text`);
 
-    put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], lang: 'ru', tools: [], probe: 'npm run probe' }, null, 2)}\n`);
-    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
-    assert.match(read(root, '.claude/skills/backslop-task/SKILL.md'), /сначала коммит, потом проба — `npm run probe`\./);
-  } finally {
-    cleanup(root);
+      put(root, 'backslop.json', `${JSON.stringify({ ...cfg, probe: 'npm run probe' }, null, 2)}\n`);
+      assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+      assert.ok(skill().includes(named), `${lang}: step 4 of the skill names the probe command`);
+      const full = skill();
+      assert.ok(full.includes(`${named} ${passage(lang, 'breakage.md')} ${afterBreakage}`), `${lang}: breakage stands between the rule and the next sentence of step 4`);
+      assert.ok(full.includes(`\n\n   ${passage(lang, 'second.md')}\n\n5. `), `${lang}: the second probe stays inside item 4, before item 5`);
+      assert.ok(full.includes(verified), `${lang}: the acceptance step names the probe among the verification`);
+      assert.ok(full.includes(`\n${passage(lang, 'failure.md')}\n`), `${lang}: the probe bullet closes the real failures`);
+      assert.match(read(root, 'AGENTS.md'), NONE, `${lang}: the block has its probe step back`);
+      assert.equal(cli(root, ['new', 'b', '--queue']).code, 0);
+      const declared = cli(root, ['brief', '2', '--track', 'x']);
+      assert.equal(declared.code, 0, declared.err);
+      assert.equal((declared.out.match(rule) ?? []).length, 1, `${lang}: the brief states commit first once`);
+      const sentence = passage(lang, '../agents-probe.md').replace('{{probe}}', 'npm run probe');
+      const bullet = passage(lang, 'bullet.md').replace('{{probeRule}}', ` ${sentence}`);
+      assert.ok(declared.out.includes(`\n${bullet}\n`), `${lang}: the brief carries the probe bullet whole`);
+      assert.ok(declared.out.includes(passage(lang, 'result.md')), `${lang}: the result contents of the brief name the probe`);
+      assert.equal(cli(root, ['archive', '2']).code, 0);
+      assert.match(read(root, 'docs/archive/BS-2-b/result.md'), NONE, `${lang}: the result stub asks for the probe`);
+    } finally {
+      cleanup(root);
+    }
   }
 });
 

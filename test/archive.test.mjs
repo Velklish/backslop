@@ -226,3 +226,21 @@ test('archive: a --range without .. is refused before the move, and the range fo
     cleanup(root);
   }
 });
+
+test('archive: the result stub names the gates command through the project cli', () => {
+  for (const lang of ['ru', 'en']) {
+    const root = makeProject();
+    try {
+      seed(root);
+      const cfg = { ...JSON.parse(read(root, 'backslop.json')), lang, cli: 'npx backslop@1.2.3' };
+      put(root, 'backslop.json', `${JSON.stringify(cfg, null, 2)}\n`);
+      const r = cli(root, ['archive', '1']);
+      assert.equal(r.code, 0, `${lang}: ${r.err}`);
+      const result = read(root, 'docs/archive/BS-1-a/result.md');
+      assert.ok(result.includes('`npx backslop@1.2.3 gates`'), `${lang}: result.md names the project cli`);
+      assert.ok(!result.includes('`backslop gates`'), `${lang}: no bare backslop command`);
+    } finally {
+      cleanup(root);
+    }
+  }
+});

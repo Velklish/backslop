@@ -131,7 +131,7 @@ Refusals:
 
 Behaviour:
 
-- `git mv` into `archive/<id>-<slug>/task.md` and a `result.md` blank. Outgoing and incoming links are rewritten across the repository's markdown, as `mv` does: the card's link to itself becomes `task.md`, and a root link becomes `/<docs>/archive/<id>-<slug>/task.md` from the repository root — with the subproject's path in a monorepo.
+- `git mv` into `archive/<id>-<slug>/task.md` and a `result.md` blank whose verification line names the gates command through the project's `cli`, and the mutation probe only where `probe` is declared. Outgoing and incoming links are rewritten across the repository's markdown, as `mv` does: the card's link to itself becomes `task.md`, and a root link becomes `/<docs>/archive/<id>-<slug>/task.md` from the repository root — with the subproject's path in a monorepo.
 - A file lying flat in `docs/backlog/` is found too and moves into the archive with the same link rewrite. A file outside the git index (or with no repository) is moved by a plain rename, with a warning.
 - `--into M` closes a minor entry by batch M: the file goes into `archive/<M>-<slug>/minor/` with the same link rewrite and gets no `result.md` of its own; the batch's `result.md` names the outcome for the entry. The batch is closed first: an unclosed batch's directory in the archive would read as a second file of its number.
 - The files under `<docs>/` and `CHANGELOG.md` that the task's work touched are always printed ([01 § Archive](01-layout.md#archive)): the selection takes the commits whose **subject** starts with `<prefix>-N:` (the number compared as a number; the body does not count, because a squash drags other subjects into it), and `--range` adds the commits of the range. Tracker cards (`<docs>/backlog`, `<docs>/archive`) are left out.
@@ -228,7 +228,7 @@ Behaviour:
 
 - Prints a worker brief to stdout: the track heading, the task definitions of the named tasks from disk (Work to do and Out of scope), the project's `gates`, `prefix`, `cli` and `probe`, and the fixed sections of [templates/brief.md](../../templates/brief.md). The worker boundary is stated there.
 - The orchestrator's decisions come as text arguments: `--track` — the track title; `--neighbour` (repeatable) — edit boundaries; `--entry` — where the subject lives and what to read first; `--autonomy` — what the participant closes alone and what goes to the orchestrator; `--handover` — the gate protocol and the report header. These are the brief slots; a slot without its flag is a placeholder ([05 § brief](05-orchestrator-contract.md#brief)). `--measurements` adds the measurement rule.
-- The probe item names the mutation-probe command only where `probe` is declared, with the same `agents-probe.md` template as the managed block.
+- The probe bullet and the probe item of the result contents appear only where `probe` is declared, and the bullet names the mutation-probe command with the same `agents-probe.md` template as the managed block.
 - The command only prints: where the brief goes is the orchestrator's decision.
 
 Output:
