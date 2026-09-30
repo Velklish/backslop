@@ -7,8 +7,8 @@ import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  EXTERNAL, brokenLinks, directoryLinks, normalizeHrefTarget, relativeLinks, rewriteFoldedLinks,
-  repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, splitHref,
+  EXTERNAL, anchorReader, anchorsOf, checkLinks, directoryLinks, hasAnchor, linksOf, normalizeHrefTarget, relativeLinks,
+  rewriteFoldedLinks, repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, slugOf, splitHref, uniqueSlugs,
 } from '../lib/links.js';
 import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
 
@@ -16,6 +16,9 @@ const FROM = 'docs/backlog/active';
 const TO = 'docs/archive/BS-42-move-breaks-links';
 
 const ENCODED = '[a](a%20b.md) [b](<a b.md>) [c](a%20b.md#x) [d](a%2Db.md) [e](%c3%a9.md)';
+
+// Gate 1 problems of a file as `{ href, real }`: `real` is the real spelling of a case mismatch.
+const broken = (file, root) => checkLinks(file, root).problems.map(({ href, real = null }) => ({ href, real }));
 
 test('moved file: link targets are recomputed from the new directory or left as written', () => {
   for (const [label, before, after, to = TO] of [
@@ -126,14 +129,21 @@ test('разбор: reference-style объявление только в нач�
   assert.deepEqual(relativeLinks('Первая строка абзаца,\n[Заметка]: пояснение\n'), []);
 });
 
-test('битые ссылки файла: цель резолвится от его каталога, якорь отбрасывается', () => {
+test('broken links of a file: the target resolves from its directory, the anchor against its headings', () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
   try {
     mkdirSync(path.join(sb, 'docs', 'reference'), { recursive: true });
     writeFileSync(path.join(sb, 'docs', 'reference', 'README.md'), '# Справочник\n');
     const file = path.join(sb, 'docs', 'note.md');
-    writeFileSync(file, '[ж](reference/README.md#верх) [м](reference/missing.md) [в](https://x.y) [к](/docs/reference/README.md?plain=1) [н](/nope.md)\n');
-    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/missing.md', real: null }, { href: '/nope.md', real: null }]);
+    writeFileSync(file, '[ж](reference/README.md#верх) [м](reference/missing.md) [в](https://x.y) [к](/docs/reference/README.md?plain=1#справочник) [н](/nope.md)\n');
+    assert.deepEqual(checkLinks(file, sb), {
+      counts: { links: 5, local: 4, anchors: 2 },
+      problems: [
+        { kind: 'anchor', line: 1, href: 'reference/README.md#верх', fragment: 'верх', target: 'docs/reference/README.md' },
+        { kind: 'missing', line: 1, href: 'reference/missing.md' },
+        { kind: 'missing', line: 1, href: '/nope.md' },
+      ],
+    });
   } finally {
     rmSync(sb, { recursive: true, force: true });
   }
@@ -147,9 +157,9 @@ test('directory links: only an existing directory counts; text from the source; 
     const file = path.join(sb, 'docs', 'note.md');
     for (const [label, note, expected] of [
       ['inline links, spans and fences', '[a](triage) [ф](triage/BS-5-x.md) [н](none) [`BS-5`](triage/#x) [в](https://x.y) [к](/docs/triage) `[s](triage)`\n\n```\n[f](triage)\n```\n', [
-        { text: 'a', href: 'triage' },
-        { text: '`BS-5`', href: 'triage/#x' },
-        { text: 'к', href: '/docs/triage' },
+        { text: 'a', href: 'triage', line: 1 },
+        { text: '`BS-5`', href: 'triage/#x', line: 1 },
+        { text: 'к', href: '/docs/triage', line: 1 },
       ]],
       ['reference-style: full, collapsed and shortcut forms, label case-insensitive', [
         'Полная [BS-5][f], регистр [`BS-6`][F], свёрнутая [BS-7][] и краткая [BS-8].',
@@ -168,14 +178,14 @@ test('directory links: only an existing directory counts; text from the source; 
         '```',
         '[Late] и [code].',
       ].join('\n'), [
-        { text: 'BS-5', href: 'triage' },
-        { text: '`BS-6`', href: 'triage' },
-        { text: 'BS-7', href: 'triage/' },
-        { text: 'BS-8', href: '/docs/triage#x' },
+        { text: 'BS-5', href: 'triage', line: 1 },
+        { text: '`BS-6`', href: 'triage', line: 1 },
+        { text: 'BS-7', href: 'triage/', line: 1 },
+        { text: 'BS-8', href: '/docs/triage#x', line: 1 },
       ]],
       ['text from the nearest bracket; a path through a file is neither a directory nor a refusal', 'Полуинтервал [0, 1) — см. BS-5. Шаблоны — [templates/](triage).\nЕщё [полуинтервал — BS-5,\nи [каталог](triage/).\n[BS-5](triage/BS-5-x.md/x)\n', [
-        { text: 'templates/', href: 'triage' },
-        { text: 'каталог', href: 'triage/' },
+        { text: 'templates/', href: 'triage', line: 1 },
+        { text: 'каталог', href: 'triage/', line: 3 },
       ]],
     ]) {
       writeFileSync(file, note);
@@ -276,8 +286,8 @@ test('monorepo: gates 1, 8, 13 and seed resolve a root link from the repository 
     assert.equal(r.code, 1, r.out);
     const errors = r.err.split('\n').filter((l) => l.startsWith('✖ docs/'));
     assert.deepEqual(errors, [
-      '✖ docs/note.md: битая ссылка /docs/README.md',
-      '✖ docs/note.md: ссылка /pkg/a/docs/archive/LOG.md#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью',
+      '✖ docs/note.md: битая ссылка /docs/README.md (строка 2)',
+      '✖ docs/note.md: ссылка /pkg/a/docs/archive/LOG.md#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью (строка 3)',
     ]);
 
     put(root, 'docs/reference/01-x.md', '# X\n');
@@ -345,7 +355,7 @@ test('broken links: a target that differs only in letter case is reported with i
     writeFileSync(path.join(sb, 'docs', 'reference', 'README.md'), '# Reference\n');
     const file = path.join(sb, 'docs', 'note.md');
     writeFileSync(file, '[ok](reference/README.md) [a](reference/readme.md#top) [b](/DOCS/reference/README.md) [c](Reference/)\n');
-    assert.deepEqual(brokenLinks(file, sb), [
+    assert.deepEqual(broken(file, sb), [
       { href: 'reference/readme.md#top', real: 'docs/reference/README.md' },
       { href: '/DOCS/reference/README.md', real: 'docs/reference/README.md' },
       { href: 'Reference/', real: 'docs/reference' },
@@ -363,7 +373,7 @@ test('broken links: a bare destination keeps balanced parentheses, and so does t
     const file = path.join(sb, 'docs', 'README.md');
     writeFileSync(file, '[foo](reference/foo(1).md) [t](reference/foo(1).md "title") [gone](reference/bar(2).md)\n');
     assert.deepEqual(relativeLinks('[foo](reference/foo(1).md)'), ['reference/foo(1).md']);
-    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/bar(2).md', real: null }]);
+    assert.deepEqual(broken(file, sb), [{ href: 'reference/bar(2).md', real: null }]);
     assert.equal(rewriteMovedLinks('[f](../queue/foo(1).md)', FROM, TO), '[f](../../backlog/queue/foo(1).md)');
     assert.equal(
       rewriteIncomingLinks('[f](foo(1).md#a)', FROM, `${FROM}/foo(1).md`, NEW),
@@ -380,11 +390,11 @@ test('broken links: a leading BOM hides neither a first-line definition nor a fi
     mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
     const file = path.join(sb, 'docs', 'NOTE.md');
     writeFileSync(file, '\uFEFF[missing]: reference/nope.md\n');
-    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/nope.md', real: null }]);
+    assert.deepEqual(broken(file, sb), [{ href: 'reference/nope.md', real: null }]);
     writeFileSync(file, '\uFEFF```\nexample\n```\n\nSee [missing](reference/nope.md).\n');
-    assert.deepEqual(brokenLinks(file, sb), [{ href: 'reference/nope.md', real: null }]);
+    assert.deepEqual(broken(file, sb), [{ href: 'reference/nope.md', real: null }]);
     writeFileSync(file, '\uFEFF[BS-5]: triage\n\nSee [BS-5].\n');
-    assert.deepEqual(directoryLinks(file, sb), [{ text: 'BS-5', href: 'triage' }]);
+    assert.deepEqual(directoryLinks(file, sb), [{ text: 'BS-5', href: 'triage', line: 3 }]);
   } finally {
     rmSync(sb, { recursive: true, force: true });
   }
@@ -397,4 +407,108 @@ test('external hrefs: any URI scheme, a drive letter, //host and #anchor are nei
   assert.ok(EXTERNAL.test('mailto:a@b') && !EXTERNAL.test('/docs/x.md') && !EXTERNAL.test('x.md'));
   const external = text.split(' [r]')[0];
   assert.equal(rewriteMovedLinks(external, FROM, TO), external);
+});
+
+test('parser: every link form with its line; code spans, fences and HTML comments hold none', () => {
+  const text = [
+    '[a](a.md) [t](t.md "title") [b](<b c.md>) ![i](i.png) [![badge](img.png)](outer.md)',
+    '[full][Ref] [ref][] [ref] [none][missing] [x] <a href="h.md">h</a> <https://e.org>',
+    '',
+    '[ref]: first.md',
+    '[REF]: second.md',
+    '',
+    '`[s](span.md)` <!-- [c](comment.md) [y][missing] --> an unclosed <!-- is text',
+    '[after](after.md)',
+    '',
+    '````', '```', '[n](nested.md)', '```', '````',
+  ].join('\n');
+  assert.deepEqual(linksOf(text).map(({ form, href, line }) => [form, href, line]), [
+    ['inline', 'a.md', 1], ['inline', 't.md', 1], ['inline', 'b c.md', 1], ['image', 'i.png', 1],
+    ['inline', 'outer.md', 1], ['image', 'img.png', 1],
+    ['reference', 'first.md', 2], ['reference', 'first.md', 2], ['reference', 'first.md', 2], ['unresolved', null, 2],
+    ['html', 'h.md', 2], ['autolink', 'https://e.org', 2],
+    ['definition', 'first.md', 4], ['definition', 'second.md', 5],
+    ['inline', 'after.md', 8],
+  ]);
+  assert.deepEqual(linksOf('[none][missing]\n')[0], { line: 1, text: 'none', form: 'unresolved', href: null, label: 'missing' });
+  // A label that is wholly a code span is still the written label, not an empty one.
+  assert.deepEqual(linksOf('See [the config][`cfg`].\n\n[`cfg`]: config.md\n')[0],
+    { line: 1, text: 'the config', form: 'reference', href: 'config.md', label: '`cfg`' });
+  // A fence behind `>` or a list marker is code: nothing in it is a link or a declaration.
+  assert.deepEqual(linksOf('> ```\n> [l]: x.md\n> [x][nolabel]\n> ```\n\n- ```\n  [y](y.md)\n  ```\n\n> ```\nlazy [z](z.md)\n'),
+    [{ line: 11, text: 'z', form: 'inline', href: 'z.md' }]);
+});
+
+test('parser: a declaration behind blockquote markers or a list marker; a lazy line declares nothing', () => {
+  const text = '> [g]: guide.md\n\nSee [t][g], [u][h], [x][n] and [y][lazy].\n\n- [h]: h.md\n\n> quote\n[lazy]: lazy.md\n\n1. [n]: n.md\n';
+  assert.deepEqual(linksOf(text).map(({ form, href, line }) => [form, href, line]), [
+    ['definition', 'guide.md', 1],
+    ['reference', 'guide.md', 3], ['reference', 'h.md', 3], ['reference', 'n.md', 3], ['unresolved', null, 3],
+    ['definition', 'h.md', 5], ['definition', 'n.md', 10],
+  ]);
+});
+
+test('parser: inside an open fence a quote or list marker is code, so `> ```` does not close it', () => {
+  for (const marker of ['> ', '- ']) {
+    const text = ['```markdown', `${marker}\`\`\``, `${marker}code [c](inner.md)`, `${marker}\`\`\``, '```', '', '[x](gone.md)', '', '## After', ''].join('\n');
+    assert.deepEqual(linksOf(text), [{ line: 7, text: 'x', form: 'inline', href: 'gone.md' }], marker);
+    assert.deepEqual([...anchorsOf(text)], ['after'], marker);
+  }
+});
+
+test('parser: a fence closes only on its own character, at least as long as the opening run', () => {
+  assert.deepEqual(relativeLinks('~~~~\n```\n[a](a.md)\n~~~\n[b](b.md)\n~~~~\n[c](c.md)\n'), ['c.md']);
+  assert.deepEqual(relativeLinks('````\n```\n[a](a.md)\n````\n[b](b.md)\n'), ['b.md']);
+});
+
+test('anchors: GitHub slugs as gitlab.ati.st renders them, duplicate suffixes, explicit ids', () => {
+  for (const [heading, slug] of [['A — B', 'a--b'], ['a  --  b', 'a------b'], ['Über Straße 2.0 (beta)', 'über-straße-20-beta']]) {
+    assert.equal(slugOf(heading), slug, heading);
+  }
+  // Each heading and its id as the gitlab.ati.st Markdown API rendered them.
+  const rendered = [
+    ['_emph_ and *star* word', 'emph-and-star-word'], ['![logo](l.png) Title', 'logo-title'], ['Tom &amp; Jerry', 'tom--jerry'],
+    ['`<a>` tag', 'a-tag'], ['snake_case name', 'snake_case-name'], ['foo_bar_', 'foo_bar_'], ['__init__ method', 'init-method'],
+    ['a \\_b\\_ c', 'a-_b_-c'], ['x&nbsp;y', 'xy'], ['&#169; c &lt;tag&gt;', '-c-tag'], ['**bold** _it_ ~~del~~', 'bold-it-del'],
+    ['1. Links', '1-links'], ['Result<T, E>', 'resultt-e'], ['See <https://x.y>', 'see-httpsxy'],
+    ['Tag <b>bold</b> and <br/> end', 'tag-bold-and--end'], ['Less < than > more', 'less--than--more'],
+  ];
+  assert.deepEqual([...anchorsOf(rendered.map(([h]) => `## ${h}`).join('\n'))], rendered.map(([, id]) => id));
+  assert.deepEqual([...anchorsOf('# &#99999999; &bogus; x\n')], ['99999999-bogus-x']);
+  // Setext headings and headings in a blockquote or a list item, as gitlab.ati.st gave their ids.
+  const nested = [
+    'Line one', 'Line two', '===', '', 'Text', '  ---', '', '- Foo', '  ---', '', '1. Bar', '   ===', '',
+    '- item', '---', '', 'Para', '', '---', '', '> quoted', '> ===', '', '1. ## Numbered *h*', '', '>> ## Deep', '',
+    '    ## indented code', '', '| a | b |', '|---|---|', '',
+  ].join('\n');
+  assert.deepEqual([...anchorsOf(nested)], ['line-one-line-two', 'text', 'foo', 'bar', 'quoted', 'numbered-h', 'deep']);
+  assert.deepEqual([...anchorsOf('> ```\n> # Setup\n> ```\n\n- ```\n  # Build\n  ```\n')], []);
+  assert.deepEqual(uniqueSlugs(['x', 'x', 'x-1', 'x']), ['x', 'x-1', 'x-1-1', 'x-2']);
+  const text = [
+    '# Ёлка Ü `code` [link](x.md)', '## Title ##', '## Title', '### ![logo](l.png) <b>Bold</b> `<a>` tag',
+    '```', '# In a fence', '```', '<!--', '# In a comment', '-->',
+    '<a name="named"></a> <span id="spanned"></span> `<b id="coded">`', '#no-space',
+  ].join('\n');
+  assert.deepEqual([...anchorsOf(text)], ['ёлка-ü-code-link', 'title', 'title-1', 'logo-bold-a-tag', 'spanned', 'named']);
+  const anchors = anchorsOf('# Über uns\n');
+  assert.ok(hasAnchor(anchors, 'über-uns') && hasAnchor(anchors, '%C3%BCber-uns') && hasAnchor(anchors, 'Über-Uns'));
+  assert.ok(!hasAnchor(anchors, 'uber-uns') && !hasAnchor(anchors, '%E0%A4%A'));
+});
+
+test('checkLinks: a non-Markdown target, a target outside the project and a skipped target keep their fragment', () => {
+  const top = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-links-')));
+  try {
+    const root = path.join(top, 'proj');
+    mkdirSync(path.join(root, 'docs'), { recursive: true });
+    writeFileSync(path.join(top, 'OUT.md'), '# Out\n');
+    writeFileSync(path.join(root, 'docs', 'code.js'), '');
+    writeFileSync(path.join(root, 'docs', 'LOG.md'), '# Log\n');
+    const file = path.join(root, 'docs', 'note.md');
+    writeFileSync(file, '[c](code.js#L10) [o](../../OUT.md#nope) [l](LOG.md#nope) [s](#nope) [h](#here) [d](.#x)\n\n## Here\n');
+    const { counts, problems } = checkLinks(file, root, '', anchorReader(root), (rel) => rel === 'docs/LOG.md');
+    assert.deepEqual(counts, { links: 6, local: 6, anchors: 2 });
+    assert.deepEqual(problems, [{ kind: 'anchor', line: 1, href: '#nope', fragment: 'nope', target: null }]);
+  } finally {
+    rmSync(top, { recursive: true, force: true });
+  }
 });

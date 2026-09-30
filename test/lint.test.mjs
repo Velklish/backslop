@@ -122,7 +122,7 @@ test('lint: 1. a link whose target differs only in letter case is an error on an
     put(root, 'docs/note.md', '[overview](reference/readme.md)\n');
     const r = cli(root, ['lint']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /docs\/note\.md: link target differs in case: docs\/reference\/README\.md \(link reference\/readme\.md\)/);
+    assert.match(r.err, /docs\/note\.md: link target differs in case: docs\/reference\/README\.md \(link reference\/readme\.md, line 1\)/);
     assert.match(r.err, /lint: errors 1\b/);
   } finally {
     cleanup(root);
@@ -141,8 +141,8 @@ test('lint: 1. balanced parentheses and every URI scheme pass; a BOM hides no fi
     put(root, 'docs/bom.md', '\uFEFF[missing]: reference/nope.md\n');
     put(root, 'docs/fence.md', '\uFEFF```\nexample\n```\n\nSee [missing](reference/nope.md).\n');
     assert.deepEqual(problems(root), [
-      'docs/bom.md: битая ссылка reference/nope.md',
-      'docs/fence.md: битая ссылка reference/nope.md',
+      'docs/bom.md: битая ссылка reference/nope.md (строка 1)',
+      'docs/fence.md: битая ссылка reference/nope.md (строка 5)',
     ]);
   } finally {
     cleanup(root);
@@ -183,8 +183,8 @@ test('lint: 1, 10, 13. a root markdown symlink into the project is read; one lea
     writeFileSync(path.join(outside, 'OUT.md'), '[broken](docs/none.md)\n');
     symlinkSync(path.join(outside, 'OUT.md'), path.join(root, 'OUT.md'));
     assert.deepEqual(problems(root), [
-      'README.md: битая ссылка docs/none.md',
-      'README.md: ссылка docs/archive/LOG.md#bs-55 ведёт на строку журнала, которой нет — якорь «bs-55» ни за одной записью',
+      'README.md: битая ссылка docs/none.md (строка 1)',
+      'README.md: ссылка docs/archive/LOG.md#bs-55 ведёт на строку журнала, которой нет — якорь «bs-55» ни за одной записью (строка 1)',
       'README.md: цитата ведёт на несуществующий файл docs/none.md',
     ]);
   } finally {
@@ -217,6 +217,95 @@ probe('adapter output отсутствует', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
   rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
 }, /generated output для adapter claude/);
+
+// The repro lines of the link gate, each appended alone to docs/README.md, where it is line 8.
+const appendReadme = (line) => (root) => {
+  put(root, 'docs/img.png', '');
+  put(root, 'docs/README.md', `${read(root, 'docs/README.md')}\n${line}\n`);
+};
+probe('1. a missing anchor in another file', appendReadme('[a](reference/README.md#no-such-heading)'),
+  /^docs\/README\.md: ссылка reference\/README\.md#no-such-heading: в docs\/reference\/README\.md нет якоря «no-such-heading» — ни заголовка, ни id с таким именем \(строка 8\)$/);
+probe('1. a missing anchor in the same file', appendReadme('[b](#no-such-section)'),
+  /^docs\/README\.md: ссылка #no-such-section: в docs\/README\.md нет якоря «no-such-section» .*\(строка 8\)$/);
+probe('1. a reference link whose label has no declaration', appendReadme('[c][nolabel]'),
+  /^docs\/README\.md: ссылка \[c\] ссылается на метку «nolabel», а объявления «\[nolabel\]: …» нет \(строка 8\)$/);
+probe('1. an HTML link to a missing file', appendReadme('<a href="missing-html.md">d</a>'),
+  /^docs\/README\.md: битая ссылка missing-html\.md \(строка 8\)$/);
+probe('1. a badge whose outer destination is missing', appendReadme('[![badge](img.png)](missing-badge.md)'),
+  /^docs\/README\.md: битая ссылка missing-badge\.md \(строка 8\)$/);
+probe('1. an adapter output link to a missing anchor', (root) => {
+  assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+  put(root, '.claude/skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n[x](../../../docs/README.md#no-such)\n');
+}, /SKILL\.md: ссылка \.\.\/\.\.\/\.\.\/docs\/README\.md#no-such: в docs\/README\.md нет якоря «no-such» .*\(строка 2\)$/);
+greenProbe('1. links in a fenced example or an HTML comment are not read', (root) => put(root, 'docs/note.md', [
+  '```', '[f](fenced.md) [c][nolabel] [a](#nowhere)', '```', '',
+  '<!-- [c](comment.md#x) <a href="gone.md">g</a>', '[x][nolabel] -->', '',
+  // A fence closes only on its own character, at least as long as the opening run.
+  '~~~~', '```', '[n](nested.md)', '~~~', '```', '[m](still-code.md)', '~~~~', '',
+  '[ok](#примеры) `[s](span.md)`', '', '## Примеры', '',
+].join('\n')));
+
+greenProbe('1. #top and a source-view line after ?plain=1 need no heading', (root) => put(root, 'docs/note.md',
+  '[t](#top) [T](reference/README.md#TOP) [l](reference/README.md?plain=1#L3) [r](reference/README.md?a=1&plain=1#L1-L2)\n'));
+probe('1. a line fragment without ?plain=1 is a heading anchor', (root) => put(root, 'docs/note.md', '[l](reference/README.md#L3)\n'),
+  /^docs\/note\.md: ссылка reference\/README\.md#L3: в docs\/reference\/README\.md нет якоря «L3» .*\(строка 1\)$/);
+greenProbe('1. a fence in a blockquote or a list item holds no link and no declaration', (root) => put(root, 'docs/note.md',
+  '> ```\n> [l]: x.md\n> [x][nolabel] [b](none.md#x)\n> ```\n\n- ```\n  [y][nolabel]\n  ```\n'));
+greenProbe('1. a declaration in a blockquote or a list item resolves its label', (root) => put(root, 'docs/note.md',
+  '> [l]: reference/README.md\n\nSee [t][l], [u][m] and [v][n].\n\n- [m]: reference/README.md\n\n1. [n]: reference/README.md#справочник\n'));
+
+test('lint: 1. a repeated heading takes -1, -2 in document order: #x-1 resolves, #x-2 does not', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/dup.md', '# X\n\n## X\n\n```\n# X\n```\n');
+    put(root, 'docs/note.md', '[0](dup.md#x) [1](dup.md#x-1) [2](dup.md#x-2) [u](dup.md#X-1) [e](dup.md#%78-1)\n');
+    assert.deepEqual(problems(root), [
+      'docs/note.md: ссылка dup.md#x-2: в docs/dup.md нет якоря «x-2» — ни заголовка, ни id с таким именем (строка 1)',
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 1. anchors are read from the target file, outside docs/ and outside the gate set', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'README.md', '# Проект\n\nСм. [docs](docs/README.md)\n');
+    put(root, 'notes/guide.md', '## Установка <a name="setup"></a>\n\n<span id="faq"></span>\n');
+    put(root, 'notes/code.js', '// line\n');
+    put(root, 'docs/note.md', [
+      '[r](../README.md#проект) [g](../notes/guide.md#установка) [s](../notes/guide.md#setup)',
+      '[f](../notes/guide.md#faq) [l](../notes/code.js#L1)',
+      '[r2](../README.md#нет) [g2](../notes/guide.md#нет)', '',
+    ].join('\n'));
+    assert.deepEqual(problems(root), [
+      'docs/note.md: ссылка ../README.md#нет: в README.md нет якоря «нет» — ни заголовка, ни id с таким именем (строка 3)',
+      'docs/note.md: ссылка ../notes/guide.md#нет: в notes/guide.md нет якоря «нет» — ни заголовка, ни id с таким именем (строка 3)',
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 1. gate 1 prints what it read; Markdown files without one link are an error', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/README.md', '# Документация\n');
+    let r = cli(root, ['lint']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /^✖ docs: гейт 1 не прочёл ничего: markdown-файлов 3, ссылок 0 — /m);
+    assert.match(r.out, /^ {2}гейт 1: файлов 3, ссылок 0, локальных 0, якорей проверено 0$/m);
+    seedGreen(root);
+    put(root, 'docs/note.md', '[a](reference/README.md#справочник) [e](https://example.com) <https://example.org>\n');
+    r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^ {2}гейт 1: файлов 16, ссылок 10, локальных 8, якорей проверено 1$/m);
+  } finally {
+    cleanup(root);
+  }
+});
 
 probe('2. заголовок не совпадает с именем', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', '# BS-8 · Не тот\n'), /заголовок называет BS-8/);
 probe('2. заголовок не по форме', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', 'Без заголовка\n'), /первая строка не/);
@@ -356,6 +445,9 @@ test('lint: 7. a CHANGELOG code fence neither resets the section nor adds entrie
   }
 });
 probe('8. ADR без строки в таблице', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Сирота\n'), /adr-002-orphan\.md: нет строки/);
+probe('8. an ADR row inside an HTML comment is not a row', (root) => put(root, 'docs/README.md', read(root, 'docs/README.md').replace(
+  '| [adr/adr-001-process.md](adr/adr-001-process.md) | процесс | Accepted |', '<!-- | [adr/adr-001-process.md](adr/adr-001-process.md) | процесс | Accepted | -->')),
+/adr-001-process\.md: нет строки в README\.md/);
 probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
 probe('8. an ADR file with an upper-case .MD extension is name-checked', (root) => put(root, 'docs/adr/adr-002-x.MD', '# ADR-002: X\n'), /docs\/adr\/adr-002-x\.MD: имя не по шаблону adr-NNN-<slug>\.md/);
 test('lint: 8. an ADR file name is checked even when no ADR is named correctly', () => {
@@ -898,6 +990,25 @@ probe('13. ссылка из корневого файла на промахну
   seedLog(root);
   put(root, 'README.md', 'См. [BS-5](docs/archive/LOG.md#bs-55)\n');
 }, /README\.md: ссылка docs\/archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
+greenProbe('13. a journal link inside an HTML comment is not read', (root) => {
+  seedLog(root);
+  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗакрыта [BS-5](archive/LOG.md#bs-5). <!-- [x](archive/LOG.md#bs-99) -->\n');
+});
+test('lint: 1. the adapter pass checks anchors into the journal, which gate 13 does not walk', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    seedLog(root);
+    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+    put(root, '.claude/skills/backslop-task/SKILL.md',
+      '<!-- backslop:generated -->\n[ok](../../../docs/archive/LOG.md#bs-5) [gone](../../../docs/archive/LOG.md#bs-999)\n');
+    assert.deepEqual(problems(root).filter((p) => p.startsWith('.claude/skills/backslop-task/')), [
+      '.claude/skills/backslop-task/SKILL.md: ссылка ../../../docs/archive/LOG.md#bs-999: в docs/archive/LOG.md нет якоря «bs-999» — ни заголовка, ни id с таким именем (строка 2)',
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
 
 test('lint: 13. the journal anchor is checked behind ?query and a %-escape; a malformed escape does not throw', () => {
   const root = makeProject({ git: false });
@@ -906,9 +1017,9 @@ test('lint: 13. the journal anchor is checked behind ?query and a %-escape; a ma
     seedLog(root);
     put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](archive/LOG.md?plain=1#bs-5) [q](archive/LOG.md?plain=1#bs-99) [e](archive/LOG%2Emd#bs-9) [m](a%E0%A4%A.md#bs-5)\n');
     assert.deepEqual(problems(root), [
-      'docs/ROADMAP.md: битая ссылка a%E0%A4%A.md#bs-5',
-      'docs/ROADMAP.md: ссылка archive/LOG.md?plain=1#bs-99 ведёт на строку журнала, которой нет — якорь «bs-99» ни за одной записью',
-      'docs/ROADMAP.md: ссылка archive/LOG%2Emd#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью',
+      'docs/ROADMAP.md: битая ссылка a%E0%A4%A.md#bs-5 (строка 3)',
+      'docs/ROADMAP.md: ссылка archive/LOG.md?plain=1#bs-99 ведёт на строку журнала, которой нет — якорь «bs-99» ни за одной записью (строка 3)',
+      'docs/ROADMAP.md: ссылка archive/LOG%2Emd#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью (строка 3)',
     ]);
   } finally {
     cleanup(root);

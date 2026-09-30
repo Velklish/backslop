@@ -21,7 +21,7 @@ export function makeProject({ docs = 'docs', git = true, stamp = true } = {}) {
   for (const d of ['backlog/triage', 'backlog/queue', 'backlog/active', 'backlog/deferred', 'backlog/minor', 'archive', 'adr', 'reference']) {
     mkdirSync(path.join(root, docs, d), { recursive: true });
   }
-  writeFileSync(path.join(root, docs, 'README.md'), '# Документация\n\n| Документ | Тема | Статус |\n|---|---|---|\n');
+  writeFileSync(path.join(root, docs, 'README.md'), '# Документация\n\n| Документ | Тема | Статус |\n|---|---|---|\n| [backlog/](backlog/README.md) | трекер | Живой |\n');
   writeFileSync(path.join(root, docs, 'backlog', 'README.md'), '# Backlog\n');
   writeFileSync(path.join(root, docs, 'archive', 'README.md'), '# Архив\n');
   if (git) {
