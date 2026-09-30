@@ -11,6 +11,7 @@
 ## Templates are the source
 
 - A process rule changes in `templates/en/**`, the source layer. Its Russian twin in `templates/**` keeps the same file set and changes in the same commit.
+- `templates/vendor/` is third-party text outside both layers: no twin, no rendering; each skill's `SOURCE.md` records its upstream and modifications.
 - `docs/backlog/README.md`, `docs/archive/README.md` and the header of `docs/archive/LOG.md` above its first journal line are rendered from the template of this repository's `lang`. A change to one of those templates updates its rendered file in the same commit.
 - Every other file in `docs/` is project content and diverges from its template on purpose.
 - `backslop.json` has `tools: []`: `init` writes no adapter outputs here.

@@ -62,6 +62,23 @@ test('isOwnedAdapterFile: цитата маркера в docs не владее�
   }
 });
 
+test('isOwnedAdapterFile: a LICENSE is owned by a marked SOURCE.md beside it, never by its own text', () => {
+  const dir = scratch();
+  try {
+    const license = put(dir, '.claude/skills/backslop-humanizer/LICENSE', 'MIT License\n');
+    assert.equal(isOwnedAdapterFile('.claude/skills/backslop-humanizer/LICENSE', license), false);
+    put(dir, '.claude/skills/backslop-humanizer/SOURCE.md', '# Source\n');
+    assert.equal(isOwnedAdapterFile('.claude/skills/backslop-humanizer/LICENSE', license), false);
+    put(dir, '.claude/skills/backslop-humanizer/SOURCE.md', markGenerated('# Source\n'));
+    assert.equal(isOwnedAdapterFile('.claude/skills/backslop-humanizer/LICENSE', license), true);
+    const marked = put(dir, 'docs/LICENSE', markGenerated('MIT\n'));
+    put(dir, 'docs/SOURCE.md', markGenerated('# Source\n'));
+    assert.equal(isOwnedAdapterFile('docs/LICENSE', marked), false, 'outside a harness root nothing is owned');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('repoMarkdown: docs с цитатой маркера остаются в обходе', () => {
   const dir = scratch();
   try {

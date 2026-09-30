@@ -22,8 +22,17 @@ Adapters are laid down only when selected in `tools`:
 | Adapter | Writes to |
 |---|---|
 | `claude` | `.claude/skills/backslop-*` and a `CLAUDE.md` stub (`@AGENTS.md`) when there was no such file |
-| `cursor` | `.cursor/rules/backslop-*.mdc` and namespaced `references/` |
+| `cursor` | `.cursor/rules/backslop-*.mdc` and namespaced `references/`, plus `LICENSE` and `SOURCE.md` of a vendored skill |
 | `codex` | `.agents/skills/backslop-*` |
+
+Every selected adapter lays out the process skills (`backslop-task`, `backslop-batch`, `backslop-seed`) and two vendored writing skills, for every `lang`:
+
+| Skill | Vendored from | Laid out with |
+|---|---|---|
+| `backslop-humanizer` | `templates/vendor/humanizer/` | `SKILL.md`, `LICENSE`, `SOURCE.md` |
+| `backslop-techdoc` | `templates/vendor/technical-documentation/` | `SKILL.md`, `references/*.md`, `LICENSE`, `SOURCE.md` |
+
+A vendored skill is laid out under its frontmatter `name`, as upstream's text: nothing in it is rendered. For `cursor`, its `SKILL.md` becomes `.cursor/rules/<name>.mdc` with the upstream `description` and `alwaysApply: false`, and the other files sit in `.cursor/rules/<name>/` with rebased links, as for the process skills. `LICENSE` is written byte for byte, without the marker.
 
 An existing `CLAUDE.md` is kept; when it neither imports `@AGENTS.md` nor is a symlink to `AGENTS.md`, `init` warns that Claude Code will not see the block. Deselecting `claude` removes `CLAUDE.md` only when its content is exactly the stub.
 
@@ -36,6 +45,7 @@ Owned outputs are a local generated result and do not belong in git. `init` keep
 - `init` rewrites the owned outputs of every selected adapter. An unmarked file at an adapter output path survives `init`: the selected adapter does not write over it, `init` reports it as foreign in a warning, and `lint` reports it as an error for a selected adapter.
 - Removal uses the same predicate — the marker in the file, not a match with the current template. Removal candidates are marked files under the root and the paths the current templates produce; only an owned candidate is removed. So the owned outputs of an unselected adapter are removed unless its root has a symlink component (see [Symlinks and traversal](#symlinks-and-traversal)), and so are marked files of a selected adapter that no current template produces. An unmarked file at a template path survives and is named in a warning; an unmarked file at a path no template produces is not even a candidate.
 - Removal is silent, as for any owned file: a committed one shows in `git status` (the `.gitignore` block does not hide it), an uncommitted one goes without a trace. Directories left empty are removed, up to and including the harness directory (`.claude`, `.cursor`, `.agents`).
+- **A vendored `LICENSE`** carries no marker, because the licence text stays verbatim. It is owned through its skill directory: a `LICENSE` under an adapter root is owned when the `SOURCE.md` beside it carries the marker. `init` reads ownership of every output of an adapter before its first write and every removal candidate before its first removal, so writing or removing `SOURCE.md` never decides the fate of its `LICENSE` in the same run. A foreign `LICENSE` keeps its `SOURCE.md` unwritten, so a later `init` does not come to own it either; a foreign `SOURCE.md` keeps its `LICENSE` unwritten, because no marker could then own it. Either way the whole vendored skill is skipped for that adapter, so it never ships without its licence, and the warning names the adapter and the skill. A marked `SOURCE.md` and its `LICENSE` that no current vendored skill produces are removed together.
 - `mv` and `archive` do not rewrite links inside owned outputs.
 
 ### Re-running init
@@ -47,7 +57,7 @@ Owned outputs are a local generated result and do not belong in git. `init` keep
 - **The AGENTS.md block.** The block is replaced between its markers, or appended at the end of the file when there are no markers. A marker counts only on a line of its own: a mention in prose is not a block. A marker that stands on its own line twice is refused, and so is a marker without its pair. `AGENTS.md`, and a `.gitignore` that `init` will rewrite, are read only as UTF-8: a file in another encoding is refused before the first write.
 - **Stamp and pin.** The `version` stamp is moved to the tool version; the pin in `cli` is left alone, and a mismatch between them is named in a warning.
 - **Subdirectory.** Running `init` in a subdirectory of an already initialized project is refused, and the refusal names the root.
-- **Before the first write.** The config, adapter-root, docs-directory and managed-block checks run before anything is written. A refusal on an adapter output path (see [Symlinks and traversal](#symlinks-and-traversal)) comes on write, after the config and the docs skeleton are on disk; once the cause is removed, the same `init` completes.
+- **Before the first write.** The config, adapter-root, docs-directory and managed-block checks run before anything is written. A refusal on an adapter output path (see [Symlinks and traversal](#symlinks-and-traversal)) comes on write, after the config and the docs skeleton are on disk; once the cause is removed, the same `init` completes. So does the refusal of a skill `description` the `cursor` adapter cannot read, in a template or a vendored `SKILL.md`: only a malformed skill in the tool itself triggers it.
 - **The tool's own repository** keeps `tools: []`: a plain `init` there creates no harness files and does not dirty the tracked tree, and `init --tools` with an adapter is refused there.
 
 ### Symlinks and traversal
@@ -247,7 +257,7 @@ The command behaviour of `fold` and `show` — revision choice, the per-file blo
 
 ## Templates
 
-Everything the tool writes from a template lives in [templates/](../../templates/). The English layer `templates/en/` is the source, and `templates/` holds its Russian twins. Keys are what the caller passes; a group shares one key set, and each file of the group uses part of it. The last column is what code reads back from the rendered text: a template edit keeps those strings.
+Everything the tool writes from a template lives in [templates/](../../templates/). The English layer `templates/en/` is the source, and `templates/` holds its Russian twins. `templates/vendor/` is outside both layers: third-party skills, copied verbatim, one directory each with its upstream files, `LICENSE` and `SOURCE.md`. Keys are what the caller passes; a group shares one key set, and each file of the group uses part of it. The last column is what code reads back from the rendered text: a template edit keeps those strings.
 
 | Template | Rendered by | Code | Keys | Strings code reads |
 |---|---|---|---|---|
@@ -261,6 +271,7 @@ Everything the tool writes from a template lives in [templates/](../../templates
 | `brief.md` | `brief` | [lib/brief.js](../../lib/brief.js) | `autonomy`, `cli`, `entry`, `gates`, `handover`, `measurements`, `neighbours`, `prefix`, `probeBullet`, `probeResult`, `tasks`, `track` | none: the brief goes to stdout |
 | `docs/**` — the documentation skeleton | `init`; `migrate` redraws `backlog/README.md` and `archive/README.md`; `fold` and `migrate` write `archive/LOG.md` when it is missing | [lib/init.js](../../lib/init.js), [lib/migrate.js](../../lib/migrate.js), [lib/fold.js](../../lib/fold.js) | docs/skills group | `backlog/README.md` and `archive/README.md` whole: they belong to the tool, `migrate` compares them with their render, and in this repository they are a 1:1 render, as is the `archive/LOG.md` header above its first journal line; the ADR rows of `README.md` as links (gate 8, [03](03-lint.md)); the first link of each row of `reference/README.md`, read by `seed --queue-reference` |
 | `skills/**` | the adapters, on `init` | [lib/adapters.js](../../lib/adapters.js) | docs/skills group | frontmatter `name` and `description`; the `cursor` adapter writes `description` into its rule file |
+| `vendor/*/**` — third-party skills | the adapters, on `init`, without rendering | [lib/adapters.js](../../lib/adapters.js) | none: `{{…}}` is not substituted | frontmatter `name`, the laid-out directory; `description`, which the `cursor` adapter reads as a JSON string, a YAML single-quoted scalar or a `\|` block |
 
 Rules:
 
@@ -270,6 +281,7 @@ Rules:
 - **The probe text** lives in its own templates, so the rule text stays in `templates/` and not in code: the sentence with the command in `agents-probe.md`, the other passages in `probe/*.md`. `probeSlots` in [lib/templates.js](../../lib/templates.js) renders each into its slot, and every slot is the empty string unless the config declares `probe`. `{{probeRule}}` carries the sentence into step 4 of the managed block and of the `backslop-task` skill; the other slots are `probeBreakage`, `probeSecond` and `probeVerified` in the skill, `probeBullet` and `probeResult` in the brief, and `probeVerified` in the `result.md` stub. The full list of places is in the probe-command ADR.
 - **Skill descriptions.** The `description` value in skill frontmatter stands in double quotes: a plain scalar with ": " inside does not parse as a YAML mapping, and the consumer's frontmatter gate would fail on every `init`. So `description: ""` is an empty value for parity, and an unclosed quote is a parity error and, for the `cursor` adapter, an `init` refusal naming the template. `npm test` holds the YAML-mapping form, not parity.
 - **Adapter outputs** are marked and owned as [Adapter ownership](#adapter-ownership) says.
+- **Vendored skills.** `templates/vendor/` has no language: parity, gate 12 and `TEMPLATE_KEYS` skip it, and the skill frontmatter test does too, because upstream's frontmatter is not in the YAML-mapping form above. Its `SOURCE.md` names the upstream URL, the full commit sha, the copy date, the upstream path, the modifications, and the sha256 of each upstream file. `npm test` holds it: every directory has `LICENSE` and such a `SOURCE.md`, and every file not listed as modified matches its recorded sha256. A new vendored skill needs no change in `lib/` when its frontmatter `description` is a one-line plain scalar, a one-line double- or single-quoted string, or a `|` block: these are the forms the `cursor` adapter decodes, and only for vendored skills; the form is read from the raw line, so a double-quoted string is decoded once. A ` # comment` after the value is not read as a comment and stays in the text. `init` with `cursor` selected refuses any other form (`>`, `|-`, `|2`, an unclosed quote, a scalar continued on an indented next line) and names the file. Its `name` must start with `backslop-`, or the `.gitignore` block does not cover it.
 
 ### Implementation notes
 

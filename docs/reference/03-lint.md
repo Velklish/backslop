@@ -38,9 +38,9 @@ One link rule serves gates 1, 8 and 13 and `seed --queue-reference`, and one par
 
 These errors fail `lint` without a gate number:
 
-- **Adapter outputs** of every selected adapter: the output file is present, is a file, and is owned (carries the generated marker); its links pass the gate 1 rule — target, anchor and label — and do not point to a directory while their text names a task. A foreign file without the marker at an owned path is an error — `init` does not overwrite it; remove or rename the file and rerun `init`, or deselect the adapter. A directory at an owned path is an error, since `init` refuses on it.
+- **Adapter outputs** of every selected adapter: the output file is present, is a file, and is owned (carries the generated marker; a vendored skill's `LICENSE` stays verbatim and is owned through the marked `SOURCE.md` beside it, see [01](01-layout.md#adapter-ownership)); its links pass the gate 1 rule — target, anchor and label — and do not point to a directory while their text names a task. A foreign file without the marker at an owned path is an error — `init` does not overwrite it; remove or rename the file and rerun `init`, or deselect the adapter. A directory at an owned path is an error, since `init` refuses on it.
 - **Claude stub.** The `claude` adapter is selected and `CLAUDE.md` is missing: `Claude stub is missing — run <cli> init`.
-- **Template parity**, in the tool's own repository: the layers `templates/` and `templates/en/` agree in five ways — one set of files; one set of placeholders in each pair; skill frontmatter in both layers, with `name` equal to the directory name and a non-empty `description`; one sequence of heading levels outside code blocks; no Cyrillic letter in the English layer.
+- **Template parity**, in the tool's own repository (`templates/vendor/` is outside both layers and is not compared): the layers `templates/` and `templates/en/` agree in five ways — one set of files; one set of placeholders in each pair; skill frontmatter in both layers, with `name` equal to the directory name and a non-empty `description`; one sequence of heading levels outside code blocks; no Cyrillic letter in the English layer.
 - **Live pins**: a stale or suffixed pin in a live file, or in `gates` and `probe` — see [Live-pin files](#live-pin-files).
 
 ## Live-pin files

@@ -37,6 +37,8 @@ Adapters are written only when selected — `init --tools claude,cursor,codex`; 
 | `cursor` | `.cursor/rules/backslop-*.mdc` and namespaced references |
 | `codex` | `.agents/skills/backslop-*` |
 
+Besides the process skills, each adapter lays out two third-party writing skills, `backslop-humanizer` and `backslop-techdoc`, with their `LICENSE` and `SOURCE.md` (see [Third-party components](#third-party-components)).
+
 `init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang ru`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
 
 With an adapter selected, ask an agent to "populate docs using backslop" once the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence.
@@ -119,5 +121,12 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 - `templates/` is the source of everything installed into a project; the repository's own `docs/` are managed with the same tool.
 - `node bin/backslop.js gates` runs the repository gates: `lint` and `npm test`.
 - Windows is supported.
+
+## Third-party components
+
+`templates/vendor/` holds two MIT-licensed skills that the adapters lay out in every project that selects one. Each directory carries the upstream `LICENSE` verbatim and a `SOURCE.md` with the upstream commit, the modifications and the sha256 of each upstream file.
+
+- **`backslop-humanizer`** — [humanizer](https://github.com/blader/humanizer) at commit `9862685f575c65a8247f90369951df1b3416e3d6`. MIT License, Copyright (c) 2025 Siqi Chen. Its patterns of AI writing are based on Wikipedia's "Signs of AI writing". Modification: the frontmatter `name` is `backslop-humanizer`.
+- **`backslop-techdoc`** — [technical-documentation](https://github.com/wondelai/skills/tree/c172996495bed0fcd26896a9416b2093fd7073f0/plugins/code-craftsmanship/skills/technical-documentation) from wondelai/skills at commit `c172996495bed0fcd26896a9416b2093fd7073f0`. MIT License, Copyright (c) 2025 Wondel.ai sp. z o.o. Its "About the Source" section is the CC BY 4.0 attribution to Google's developer documentation style guide and is unchanged. Modifications: the frontmatter `name` is `backslop-techdoc`; the affiliate query `?tag=wondelai00-20` is removed from two Further Reading links; in `references/release-notes.md`, an example link to `CHANGELOG.md` outside a code block is inline code, because it resolved to nothing.
 
 License: MIT.
