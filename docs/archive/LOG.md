@@ -229,3 +229,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-176"></a>`BS-176-orchestrator-contract-reference` · 2026-09-30 · completed · — · Add the English orchestrator contract page: JSON schemas, exit codes, stability list
 - <a id="bs-165"></a>`BS-165-probe-text-opt-in` · 2026-09-30 · completed · — · Probe text only when probe is declared; brief says it once; result stub names the CLI
 - <a id="bs-173.1"></a>`BS-173.1-release-bump-hint-omits-no-publish` · 2026-09-30 · completed · — · The --bump hint names the release command without --no-publish
+- <a id="bs-183"></a>`BS-183-docs-rules-adr` · 2026-09-30 · completed · — · ADR: documentation rules ship to projects through lint, the writing skills and the writer pass
