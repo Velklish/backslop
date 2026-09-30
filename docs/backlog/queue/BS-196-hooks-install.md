@@ -47,6 +47,7 @@ Owner decision 11 of BS-183 (2026-09-30): agent hooks are a project's choice, fo
   - `README.md`: a short section on hooks — what they do, how to select them, the trust step per harness;
   - `CHANGELOG.md` under the unreleased section;
   - the ADR of decision 11 names the `hooks` field, because it changes the config format.
+- **Glossary evidence.** `docs/GLOSSARY.md` rows for agent hook (its code column becomes the `hooks` field) point their Evidence at ADR-055 until this card lands; repoint each to the file that now implements the term, as the glossary header requires.
 
 ## Out of scope
 

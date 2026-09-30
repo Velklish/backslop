@@ -64,6 +64,7 @@ Links from documentation into the tracker, counted by the promptobus collector: 
   Green probes: a placeholder `<prefix>-N`, a `~/.config/x.json` path, and a bare `gates.json`.
 - **Messages** follow the localization convention of BS-184.
 - **Documentation:** the gate's row and rule in `docs/reference/03-lint.md`; the "Documentation checks" part of `README.md`; `CHANGELOG.md` under the unreleased section, marked as affecting projects: `lint` now fails on task ids and tracker links in documentation, and a project that carries them turns red on upgrade until its migration task clears them.
+- **Glossary evidence.** `docs/GLOSSARY.md` rows for project documentation point their Evidence at ADR-055 until this card lands; repoint each to the file that now implements the term, as the glossary header requires.
 
 ## Out of scope
 
