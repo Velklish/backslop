@@ -26,11 +26,16 @@ What made promptobus add them: on 2026-09-27 an audit of its documentation again
 9. A documentation fix carries a check that fails on the old text: a `quote:` block, a test or a lint rule.
 10. External URLs are checked by a separate command and never inside `gates`: a network answer is not reproducible.
 
+**Owner decisions, 2026-09-30:**
+
+11. Agent hooks are a project's choice. A `hooks` field in `backslop.json` lists the harnesses (`claude`, `cursor`, `codex`) whose project hook files carry backslop's records; it is empty by default. At the end of an agent's turn the stop hook runs `lint` and returns the turn when `lint` reports an error in a file the session changed. An error in any other file never returns a turn, so a project that turned red on upgrade is not blocked. All three harnesses ship in one release; a harness item that could not be measured ships on the Claude Code protocol and is stated as not verified.
+12. backslop ships documentation checks only. The checks this repository runs on its own code — comment length and width, the rule on where Cyrillic may appear — stay in this repository; a project adds its own code checks to `gates`.
+
 ## Work to do
 
 - Create the ADR: `node bin/backslop.js adr docs-rules-ship-to-projects --title "Documentation rules ship to projects: lint checks, writing skills and the writer pass"`. Follow the house style of the consolidated ADRs of BS-143 … BS-156: `Status: Accepted`, `Deciders: Velklish`, and no task or finding numbers, run ids, commit hashes or owner-decision notes in the text.
 - Context: why documentation drifts from the code under agent work, and why a green tracker lint does not show it. Broken anchors, task pointers, replaced ADRs and AI-writing patterns all pass a gate that checks only the tracker's own files.
-- Decision: decisions 1–10 above, each as a rule a project can follow.
+- Decision: decisions 1–12 above, each as a rule a project can follow. Decision 11 names the `hooks` field of `backslop.json`, because it changes the config format.
 - Options, only the rejected ones that still explain the choice, each with its cost in one sentence:
   - a separate `docs` command: a second entry point and a second `gates` line in every project;
   - one flag per check: the defaults decide everything, and the flag matrix multiplies the tests;
@@ -39,6 +44,9 @@ What made promptobus add them: on 2026-09-27 an audit of its documentation again
   - a mechanical slop check, as a word list or through Vale: false positives on reference prose, which the local rules allow (inanimate subjects, uniform sentences), and Vale is a binary outside the Node standard library;
   - a Russian slop pattern list: new text to maintain with no upstream;
   - a writer pass only by request: it would not run.
+  - git hooks instead of agent hooks: `core.hooksPath` is set per clone, it collides with husky and lefthook, and it does not stop an agent at the end of its turn;
+  - a hook that blocks on every `lint` error: a project red after an upgrade would block every agent turn until its migration task lands;
+  - shipping this repository's code checks (comment length, the language rule): they are one repository's style, not a documentation rule.
 - Consequences:
   - `lint` stops being a tracker-only check. The comment-gate ADR's reasoning, that a repository's own style rule stays out of the product, keeps holding for code comments; documentation rules are the product's.
   - `upgrade` turns `lint` red in a project whose documentation carries task ids, tracker links, broken anchors or replaced ADRs. `lint` lists every violation, so the project's migration task can clear them.
@@ -56,4 +64,4 @@ What made promptobus add them: on 2026-09-27 an audit of its documentation again
 
 - `node bin/backslop.js lint; echo rc=$?` prints `rc=0`: gate 8 finds the ADR row, and gate 6 finds a file for every task number the new text mentions.
 - `node bin/backslop.js gates; echo rc=$?` prints `rc=0`.
-- The reviewer finds each of decisions 1–10 in the ADR's Decision section and no task number, commit hash or run id in the ADR text: `grep -nE 'BS-[0-9]|\b[0-9a-f]{7,40}\b' docs/adr/adr-*-docs-rules-ship-to-projects.md; echo rc=$?` prints `rc=1`.
+- The reviewer finds each of decisions 1–12 in the ADR's Decision section and no task number, commit hash or run id in the ADR text: `grep -nE 'BS-[0-9]|\b[0-9a-f]{7,40}\b' docs/adr/adr-*-docs-rules-ship-to-projects.md; echo rc=$?` prints `rc=1`.

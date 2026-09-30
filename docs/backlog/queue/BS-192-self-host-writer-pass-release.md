@@ -3,7 +3,7 @@
 - **Order:** 1060
 - **Scope:** [Documentation index](../../README.md)
 - **Created:** 2026-09-28
-- **Dependencies:** BS-182, BS-183, BS-184, BS-185, BS-186, BS-187, BS-188, BS-189, BS-190, BS-191
+- **Dependencies:** BS-182, BS-183, BS-184, BS-185, BS-186, BS-187, BS-188, BS-189, BS-190, BS-191, BS-194, BS-195, BS-196
 
 ## Context
 
