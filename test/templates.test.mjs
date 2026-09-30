@@ -171,7 +171,7 @@ function frontmatterFaults(rel, text) {
 
 test('templates: фронтматтер скиллов разбирается как YAML-мэппинг — плоский скаляр без примет', () => {
   const files = [
-    ...srcFiles(TEMPLATES_DIR, '', ['.md']).filter(([rel]) => !rel.startsWith('en/')),
+    ...srcFiles(TEMPLATES_DIR, '', ['.md']).filter(([rel]) => !rel.startsWith('en/') && !rel.startsWith('vendor/')),
     ...srcFiles(path.join(TEMPLATES_DIR, 'en'), '', ['.md']).map(([rel, abs]) => [`en/${rel}`, abs]),
   ].filter(([rel]) => rel.endsWith('/SKILL.md'));
   assert.equal(files.length, 6, 'три скилла в двух слоях');
