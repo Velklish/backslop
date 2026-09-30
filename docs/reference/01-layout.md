@@ -276,3 +276,26 @@ Rules:
 - The keys of each group are `TEMPLATE_KEYS` in [lib/templates.js](../../lib/templates.js); `renderTemplate` throws on a placeholder without a key; gate 12 is `templateSlots`, and the layer comparison is `templateParity`, which walks the English layer and compares heading levels as a sequence after blanking fenced blocks. `test/templates.test.mjs` holds the 1:1 render of the rules pair in this repository, and the `archive/LOG.md` header above its first journal line, in the layer of `backslop.json` `lang`.
 - The names test in `test/templates.test.mjs` renders `task.md` and `minor.md` in both layers and checks the title line, each heading and each field label through the task parser: `readTitle`, `sections`, `sectionName`, `fieldName` and `getField` in [lib/tasks.js](../../lib/tasks.js). The field and section names are `FIELD_NAMES` and `SECTION_NAMES` there; the outcome words are `OUTCOME_FORMS` in [lib/log.js](../../lib/log.js); the step and boundary lines are `STEP_RE` and `WORKER_BOUNDARY_RE` in [lib/init.js](../../lib/init.js).
 - `frontmatterField` ([lib/frontmatter.js](../../lib/frontmatter.js)) strips the quotes, and both readers use it: `splitFrontmatter` for `.mdc` and parity. `cursorOutput` quotes the value again (`JSON.stringify`), and without the stripping the `.mdc` would carry double escaping. `frontmatterField` reads line by line and is blind to the YAML-mapping defect, which is why `npm test` holds that form.
+
+## Agent hook files and protocols
+
+Measured on 2026-09-30 on macOS with a hand-written project hook file that runs a probe on the start and stop events. Each harness ran headless, and Cursor also ran interactively in `tmux`. Versions: Claude Code 2.1.284, Codex `codex-cli 0.158.0`, Cursor `cursor-agent` 2026.09.26-dd393fe. What is stated below was observed on those versions, one run per cell unless the cell gives a run count; a cell that reads "not measured" was not tried.
+
+The user-level hook files were left on and ran beside the probe; their effect is not separated out. `~/.claude/settings.json` has `SessionStart`, `PreToolUse`, `PostToolUse` and `Stop` hooks, `~/.codex/hooks.json` has `PostToolUse`, `SessionStart` and `Stop`, and `~/.cursor/hooks.json` has `preToolUse`, `sessionStart`, `afterFileEdit` and `afterMCPExecution`, and no `stop`.
+
+| | Claude Code | Codex | Cursor |
+|---|---|---|---|
+| Project file | `.claude/settings.json` | `.codex/hooks.json` | `.cursor/hooks.json` |
+| Shape | `{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": …}]}]}}` | the same shape | `{"version": 1, "hooks": {"stop": [{"command": …}]}}` |
+| Start / stop event names | `SessionStart`, `Stop` | `SessionStart`, `Stop` | `sessionStart`, `stop` |
+| Start event fired | yes, in `-p` | yes | yes, in `-p` and interactively |
+| Session id field | `session_id` | `session_id` | `session_id` and `conversation_id`, equal |
+| Stop payload | `session_id`, `transcript_path`, `cwd`, `prompt_id`, `permission_mode`, `effort`, `hook_event_name`, `stop_hook_active`, `last_assistant_message`, `background_tasks`, `session_crons` | `session_id`, `turn_id`, `transcript_path` (null), `cwd`, `hook_event_name`, `model`, `permission_mode`, `stop_hook_active`, `last_assistant_message` | `conversation_id`, `generation_id`, `model`, `status`, `loop_count`, token counts, `session_id`, `hook_event_name`, `cursor_version`, `workspace_roots`, `user_email`, `transcript_path`; no `cwd` |
+| Loop flag | `stop_hook_active`: false, then true | `stop_hook_active`: false, then true | `loop_count`: 0, then 1 |
+| Stop fires headless | yes (`claude -p`) | yes (`codex exec`) | no: three `cursor-agent -p` runs logged `sessionStart` only; `stop` fired in the interactive TUI |
+| Exit 2 returns the turn | yes in two `claude -p` runs: second stop fired, the file the message asked for was written | yes in one `codex exec` run: same | no, in one interactive run |
+| What reaches the model | stderr, as a user message `Stop hook feedback:` + `[<command>]: <stderr>` | stderr, seen only through the model's behaviour; the injected text was not observed | stdout `{"followup_message": "…"}` with exit 0 returned the turn; stderr with exit 2 did not |
+| Trust step headless | none: the trust dialog is skipped in `-p`, and the directory had no `projects` entry in `~/.claude.json` | hooks did not run without `--dangerously-bypass-hook-trust`, also with `-c 'projects."<path>".trust_level="trusted"'` passed (whether the override took effect was not checked); persisted trust in `CODEX_HOME` was not measured | none in `-p` with `--force`, not measured without it; interactive `cursor-agent` shows a "Workspace Trust Required" dialog and needs `--trust` |
+| Linked worktree | not measured | the main checkout's `.codex/hooks.json` ran; the worktree's own copy did not | the worktree's own `.cursor/hooks.json` ran (checked on `sessionStart`) |
+
+The hook process ran with the project (or worktree) directory as its cwd in all three, and with its command line as configured.
