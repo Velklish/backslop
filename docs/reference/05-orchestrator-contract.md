@@ -36,7 +36,7 @@ What an orchestrator, a skill or a script may rely on when it drives backslop: h
 | 0 | success; `help`, `--help`, `-h`, `version`; `fold` with nothing to fold; a `gates` run where every gate that ran is green, with skips or without | the data or the report |
 | 1 | a refusal: an unknown command or flag, an extra argument, a missing or malformed `backslop.json`, a bad slug, an unknown task number, a move into the current status, a minor move without evidence, a `fold` of a folded task or of a result with a placeholder, a `brief` of a folded or unknown task, `tracks` without git, `seed` without a mode, any `gates` refusal | empty |
 | 1 | a red result: a gate is not green | the JSON result with `gates --json`; in text mode the gates’ own output, the green gate lines and the tree line, while the red gate lines and the summary are on stderr |
-| 1 | `lint` found errors | empty; the errors are on stderr |
+| 1 | `lint` found errors | the gate 1 counts line; the errors and the summary are on stderr |
 | 1 | `merge-changelog` left a conflict mark | the merged file, or empty with `--out` (the file is written) |
 | 1 | a crash: an exception that is not a refusal | empty for a `--json` mode; a stack trace on stderr |
 

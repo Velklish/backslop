@@ -191,7 +191,7 @@ test('archive: a card linking to itself points at task.md after the move', () =>
   try {
     put(root, 'docs/reference/README.md', '# Reference\n');
     put(root, 'docs/backlog/active/BS-3-gamma.md', '# BS-3 · Gamma\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n\n'
-      + 'See [self](BS-3-gamma.md#context), [query](./BS-3-gamma.md?plain=1) and [root](/docs/backlog/active/BS-3-gamma.md).\n');
+      + '## Context\n\nSee [self](BS-3-gamma.md#context), [query](./BS-3-gamma.md?plain=1) and [root](/docs/backlog/active/BS-3-gamma.md).\n');
     gitAll(root);
     const r = cli(root, ['archive', '3']);
     assert.equal(r.code, 0, r.err);
