@@ -6,7 +6,7 @@
 - This repository runs its own backlog with the tool: the command here is `node bin/backslop.js`.
 - How the tool works now, by subsystem: [`docs/reference/README.md`](docs/reference/README.md).
 - What an orchestrator may rely on is described on its own reference page: [`docs/reference/05-orchestrator-contract.md`](docs/reference/05-orchestrator-contract.md).
-- Where a command, a lint gate or a migration lives in `lib/` is described on the module-map reference page.
+- Where a command, a lint gate or a migration lives in `lib/` is described on the module-map reference page: [`docs/reference/06-module-map.md`](docs/reference/06-module-map.md).
 
 ## Templates are the source
 
