@@ -102,7 +102,7 @@ The role boundary is the same in solo and orchestrated work: a worker changes on
 
 ## For orchestrators
 
-An orchestrator on any harness works through the files and the CLI; what it can rely on is listed in [What is stable](docs/reference/02-cli.md#what-is-stable).
+An orchestrator on any harness works through the files and the CLI; what it can rely on — output channels, exit codes, the JSON shapes and the stable list — is in [05. Orchestrator contract](docs/reference/05-orchestrator-contract.md).
 
 ## Limitations
 

@@ -2,9 +2,9 @@
 
 The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument is the command.
 
-**Exit codes.** 0 is success. 1 is a refusal addressed to a person — printed as one `✖` line without a stack — or a red result: `lint` found errors, a gate is red, `merge-changelog` left a conflict mark. Any other exception is a code error and is printed with its stack. An unknown command is a refusal that points to `help`.
+**Exit codes and output channels** — which stream carries what, what `✔`, `✖` and `⚠` mark, and how to tell a result from a refusal — are in [05. Orchestrator contract](05-orchestrator-contract.md), with the JSON shapes and what is stable. An unknown command is a refusal that points to `help`.
 
-**Output.** `✔` is success, `✖` an error, `⚠` a warning; colour only on a terminal. A command whose stdout carries data (`fold`, `show`, `merge-changelog`, and the `--json` modes) writes its routine report to stderr, as lines without a symbol indented by two spaces; `⚠` there is only a real warning. A hint you can run names the command from the project's `cli` field; outside a project it names `backslop`. Long output (`status --json`) reaches the reader whole, and a reader that closes the pipe early ends the command quietly.
+**Output.** A hint you can run names the command from the project's `cli` field; outside a project it names `backslop`. Long output (`status --json`) reaches the reader whole, and a reader that closes the pipe early ends the command quietly.
 
 **Language.** Messages are in the project language (`lang` in `backslop.json`). An argv refusal, an unknown command, `help`, `version`, `changelog` and `merge-changelog` read `lang` without validating the rest of the config. Outside a project an argv or unknown-command refusal is one line in both languages, `EN / RU`, and `help` prints both full texts. A first `init` reports in the `--lang` language, or `ru` without it; its flag refusals before any language is known are `EN / RU`.
 
@@ -227,16 +227,16 @@ Refusals: no such task; not folded (the body is in the tree, and the path is nam
 Behaviour:
 
 - Prints a worker brief to stdout: the track heading, the task definitions of the named tasks from disk (Work to do and Out of scope), the project's `gates`, `prefix`, `cli` and `probe`, and the fixed sections of [templates/brief.md](../../templates/brief.md). The worker boundary is stated there.
-- The orchestrator's decisions come as text arguments: `--track` — the track title; `--neighbour` (repeatable) — edit boundaries; `--entry` — where the subject lives and what to read first; `--autonomy` — what the participant closes alone and what goes to the orchestrator; `--handover` — the gate protocol and the report header. These are the brief slots: without its flag, a brief slot prints `[TODO: …]` — a requirement to the brief's author, not a default. `--measurements` adds the measurement rule.
+- The orchestrator's decisions come as text arguments: `--track` — the track title; `--neighbour` (repeatable) — edit boundaries; `--entry` — where the subject lives and what to read first; `--autonomy` — what the participant closes alone and what goes to the orchestrator; `--handover` — the gate protocol and the report header. These are the brief slots; a slot without its flag is a placeholder ([05 § brief](05-orchestrator-contract.md#brief)). `--measurements` adds the measurement rule.
 - The probe item names the mutation-probe command only where `probe` is declared, with the same `agents-probe.md` template as the managed block.
 - The command only prints: where the brief goes is the orchestrator's decision.
 
 Output:
 
-- stdout is the brief alone. Without `probe`, a note goes to stderr.
+- stdout is the brief, stderr the notes: [05 § brief](05-orchestrator-contract.md#brief). Without `probe`, a note goes to stderr.
 - When `cli` is pinned below 0.10.0, stderr says the pinned version does not support `new --minor --evidence` and suggests `<cli> upgrade`; stdout does not change. An unpinned or floating `cli` gets no such note.
 
-Refusals: no task numbers named; a task found neither in the statuses nor in the archive (no partial brief is printed); `--neighbour` not in the form `path=track`; an archived task without `task.md` — there is no definition.
+Refusals: no task numbers named; a task found neither in the statuses nor in the archive (no partial brief is printed); `--neighbour` not in the form `path=track`; an archived task without `task.md` — there is no definition; a folded task is read with `show N`.
 
 ### seed
 
@@ -249,14 +249,14 @@ Behaviour:
 - A collision — two rows, or an already filed task, with one slug for different files — takes the parent directory's name into the slug (`api/README.md` → `describe-api-readme`), and the output names both hrefs, or the href and the task the slug matched (its number or card path).
 - A repeated run files no duplicates and counts the skipped ones: a task with the same slug is seeded when any code span of its Scope names the same file, and a Scope without a code span decides by the slug alone; a folded task is seeded when its journal title is `Reference: <label>` of this row (or the Russian form of that title), otherwise it is a collision, as for a live task.
 
-Output: `--scan --json` gives `{gates:[{command, evidence}], subsystems:[{name, evidence}], total}`, where `total` is the number of subsystem candidates.
+Output: the text listing, or `--scan --json`: [05 § `seed --scan --json`](05-orchestrator-contract.md#seed---scan---json).
 
 Refusals: no mode named, or both; `--json` with `--queue-reference`; no `reference/README.md`; a git failure while finding the repository root, in `git worktree list` for `--scan`, and while scanning foreign numbers, as for `new`. Tasks filed before a refusal stay, and a repeat skips them.
 
 ### status
 
 - Behaviour: a summary by directory; the `Minor` section goes by Scope — that is how batches are cut — with an empty Scope last.
-- Output: text, or the JSON of [`status --json`](#status---json).
+- Output: text, or the JSON of [05 § `status --json`](05-orchestrator-contract.md#status---json).
 - Refusals: none of its own.
 
 ### lint
@@ -282,12 +282,12 @@ Behaviour:
 Output:
 
 - One line per gate — the command, the outcome (its exit code, the ceiling, a signal, or no launch) and the time — and at the end "gates N, green M" with the tree snapshot. An entry skipped for its scope is named on a line of its own and counted separately.
-- `--json` gives the same content in machine form and sends the gates' own output to stderr: `gates` (per gate `{command, code, signal, error, ms, when}`, or `{command, when, skipped}` for a skipped entry, with the reason in `skipped` and **without** `code`, `signal`, `error` and `ms` — a naive `code !== 0` would count a skip as red), `total`, `green`, `skipped`, `outOfScope`, `scope{source, base, prefix, dropped, paths}` and `tree{head, clean, dirty}`. `tree.dirty` is one string: the `git status --porcelain` lines whole, leading space included, joined by line breaks.
-- `--json --dry-run` gives `{gates:[{command, when}], total, dryRun:true}`, without codes and times.
+- `--json` and `--json --dry-run` give the same content in machine form: [05 § `gates --json`](05-orchestrator-contract.md#gates---json).
+- A gate that is not green — a non-zero code, a signal, or a launch error, code 0 included — is a red result, not a refusal: exit 1, with the result on stdout for `--json` ([05 § Exit codes](05-orchestrator-contract.md#exit-codes)).
 
 Refusals:
 
-- A gate is not green — a non-zero code, a signal, or a launch error, code 0 included (exit 1, with the result on stdout for `--json`); `gates` is empty.
+- `gates` is empty.
 - `--require-clean` on a dirty tree or without git; `--require-clean` with an empty raw set of changed paths while some entry carries a scope — no base named, or the base gave no diff. A diff to the base that went entirely outside the project does not refuse, and a neighbour package's dirt in a monorepo does not lift the refusal.
 - `--base` empty, without git, or on a ref that does not resolve; `--dry-run` with `--require-clean` or `--base`.
 - A git failure while checking the repository, other than "no repository" and "git is not installed" (then every gate runs), or a failure of `git rev-parse --show-prefix` in a repository: a refusal with the cause before the first command, not an empty prefix that would compare `when` patterns with paths from the repository root.
@@ -299,10 +299,10 @@ Behaviour:
 - Lists the worktrees and local branches of a run: path, branch, whether it is merged into `HEAD` (`merge-base --is-ancestor`), the `<prefix>-N` commits not in `HEAD` (by commit subject, not body: a squashed commit drags other subjects into its body), and uncommitted work in the worktree. A detached worktree is measured by its sha.
 - The current tree and branch are not listed; a branch without a worktree is listed only when it carries task commits not in `HEAD`. A branch name is always read as a revision, even when it equals a path (`docs`).
 - A `git log` failure for a branch gives `pending: null` in `--json` and the line "task commits not in HEAD: could not be checked" rather than an empty list; a branch without a worktree with that answer stays listed.
-- `prunable` and `locked` in `--json` carry the porcelain lines of the same name (`false` for a branch without a worktree). For a `prunable` worktree — its directory is gone — `git status` is not called, `dirty` is `null`, and instead of the uncommitted line the listing prints "directory is gone — git worktree prune". A `locked` worktree gets the line "locked — git worktree unlock, then remove".
+- For a `prunable` worktree — its directory is gone — `git status` is not called, `dirty` is `null`, and instead of the uncommitted line the listing prints "directory is gone — git worktree prune". A `locked` worktree gets the line "locked — git worktree unlock, then remove".
 - The command only observes: `git worktree remove` and `git branch -D` remove.
 
-Output: the text listing, or `--json`: `{tracks:[{kind, path, branch, head, merged, pending, dirty, prunable, locked}], total}`.
+Output: the text listing, or `--json`: [05 § `tracks --json`](05-orchestrator-contract.md#tracks---json).
 
 Refusals: no git repository; a failure of `git worktree list`, `git rev-parse --show-toplevel` or `git for-each-ref` — with git's cause, not "no repository" and not an empty list.
 
@@ -379,59 +379,6 @@ Refusals:
 ### version and help
 
 - `version`, `--version` and `-v` print `backslop <version>` from `package.json`; `help`, `--help`, `-h` and `<command> --help` print the help. Exit code 0; no refusals.
-
-## `status --json`
-
-```json
-{
-  "prefix": "<prefix>",
-  "docs": "docs",
-  "active":   [{ "id": "<prefix>-N", "title": "…", "file": "docs/backlog/active/<prefix>-N-x.md", "created": "YYYY-MM-DD", "taken": "YYYY-MM-DD" }],
-  "queue":    [{ "id": "<prefix>-N", "title": "…", "file": "docs/backlog/queue/<prefix>-N-y.md", "created": "YYYY-MM-DD", "order": 10 }],
-  "deferred": [{ "id": "<prefix>-N", "title": "…", "file": "docs/backlog/deferred/<prefix>-N-z.md", "created": "YYYY-MM-DD", "deferred": "- **Deferred:** YYYY-MM-DD" }],
-  "triage":   [{ "id": "<prefix>-N.k", "title": "…", "file": "docs/backlog/triage/<prefix>-N.k-w.md", "created": "YYYY-MM-DD" }],
-  "minor":    [{ "id": "<prefix>-N.k", "title": "…", "file": "docs/backlog/minor/<prefix>-N.k-v.md", "created": "YYYY-MM-DD", "area": "[01. Layout](../../reference/01-layout.md)", "cost": "major (hypothesis)" }],
-  "archive": 12
-}
-```
-
-- The queue is sorted by Order, then by number; a task without Order goes last with `order: null`.
-- `deferred` is the first non-empty line of the Deferred section.
-- `minor` is sorted by Scope as a string, entries without Scope last with `area: null`; `cost` is the Cost field as written, `null` without it.
-- An empty or missing `created`, `taken`, `area` or `cost` is always `null`, never an empty string.
-- `archive` is the number of closed tasks: archive directories plus `LOG.md` journal lines, without minor entries closed with `--into`.
-- Paths are from the project root, in posix form.
-
-## What is stable
-
-An orchestrator of any harness works with backslop through files and the CLI; there is no other API. Stable:
-
-- The status directories and the archive; the file name `<prefix>-N[.k]-<slug>.md`; the line form of `<docs>/archive/LOG.md` and its anchor `#<number in lower case>`; the Russian and English header fields and task sections.
-- The `backslop.json` fields of the [01-layout config table](01-layout.md#backslopjson), `agents.stepOverrides` included; both forms of a `gates` entry — a string and `{ command, when }`; the pin forms `npx github:owner/repo#vX.Y.Z` and `npx backslop@X.Y.Z`.
-- The commands, and what of each is stable:
-
-| Command | Stable |
-|---|---|
-| `status --json` | the JSON above and the exit code |
-| `new <slug> --parent N[.M]`, `new … --minor --evidence "…"` | the file it writes, the next free `N.k`, the Parent field, the exit code |
-| `mv`, `archive`, `archive N.k --into M` | the effect on files and the exit code |
-| `fold`, `show` | the journal line, the draft and the body on stdout, the exit code |
-| `adr` | the file name and the exit code |
-| `brief` | the output, its brief slots (`--track`, `--neighbour`, `--entry`, `--autonomy`, `--handover`) and `--measurements` |
-| `gates --json` | the keys listed in [gates](#gates) and the exit code |
-| `tracks --json` | the keys listed in [tracks](#tracks) and the exit code |
-| `seed --scan --json` | the keys listed in [seed](#seed) and the exit code |
-| `lint` | the exit code: 0 without errors, 1 with errors |
-| `merge-changelog` | the exit codes: 0 merged; 1 with the result written and a conflict mark left; 1 with nothing written for a refusal |
-| `upgrade` | the effect on the pin, the rules pair and the live pins, and the exit code |
-
-- **Outcome discriminator** for a `--json` mode: exit 1 with JSON on stdout is a result (a red gate); exit 1 with empty stdout is a refusal.
-- **JSON keys** may be added; removing or renaming a key is a breaking change.
-- **Human text is not contract**: messages, report lines and the text output of any command may change.
-- A worker uses no status commands: its only write is a finding file, `new <slug> --parent N[.M]` (with `--minor --evidence "…"` for a minor or a hypothesis), on its own branch; with `--parent N.M`, `new` gives the next free `N.k` and writes the Parent field, and the command sees the numbers of neighbouring worktrees and local branches. The rest of the worker boundary is in [templates/brief.md](../../templates/brief.md).
-- The worker transport is the harness slot "How to raise a worker" in the `backslop-batch` skill; a new transport is a page with a variant for that harness slot, and nothing changes in the CLI.
-
-Changing any item is a contract change and is decided in an ADR.
 
 ## Release (repository script)
 

@@ -5,7 +5,7 @@
 - `bin/` and `lib/` hold the CLI; `templates/` holds everything the tool lays into a project; `test/` holds the tests; `docs/` holds this repository's backlog, decision log and reference.
 - This repository runs its own backlog with the tool: the command here is `node bin/backslop.js`.
 - How the tool works now, by subsystem: [`docs/reference/README.md`](docs/reference/README.md).
-- What an orchestrator may rely on is described on its own reference page.
+- What an orchestrator may rely on is described on its own reference page: [`docs/reference/05-orchestrator-contract.md`](docs/reference/05-orchestrator-contract.md).
 - Where a command, a lint gate or a migration lives in `lib/` is described on the module-map reference page.
 
 ## Templates are the source
@@ -27,7 +27,7 @@
 ## Contract changes
 
 - A behaviour change of a command updates `docs/reference/`, README and CHANGELOG in the same pass.
-- A contract change — file formats, commands, the composition of `status --json` — needs a new ADR.
+- A contract change — file formats, commands, the composition of `status --json` — needs a new ADR. What the contract covers is listed in [05 § What is stable](docs/reference/05-orchestrator-contract.md#what-is-stable).
 
 ## Verification protocol
 
