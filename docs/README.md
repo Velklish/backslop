@@ -4,7 +4,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 
 | Document | Topic | Status |
 |---|---|---|
-| [reference/](reference/README.md) | Subsystem reference: layout and file formats, the CLI and the orchestrator contract, lint gates, the finding verification protocol | Living |
+| [reference/](reference/README.md) | Subsystem reference: layout and file formats, the CLI, lint gates, the finding verification protocol, and the orchestrator contract (page 05) | Living |
 | [GLOSSARY.md](GLOSSARY.md) | Normative terminology: one concept, one name | Living |
 | [backlog/](backlog/README.md) | Task tracker: one file per task, status is the directory, summary is `node bin/backslop.js status` | Living |
 | [archive/](archive/README.md) | Closed tasks in two forms: a task directory with `task.md` and `result.md` until it is folded, then a line in `archive/LOG.md` | Living |
