@@ -25,7 +25,6 @@ The AGENTS.md block, the `backslop-task` skill and the worker brief require a mu
   - `probeBreakage` (`probe/breakage.md`) — the explanation of a deliberate breakage, after `probeRule` in step 4 of the skill.
   - `probeSecond` (`probe/second.md`) — the second-probe paragraph at the end of step 4 of the skill.
   - `probeVerified` (`probe/verified.md`) — the fragment ", mutation probe" in the contents of `result.md` in the acceptance step of the skill and in the verification line of the `result.md` stub written by `archive`.
-  - `probeFailure` (`probe/failure.md`) — the "mutation probe before committing" bullet of "Real failures" in the skill.
   - `probeBullet` (`probe/bullet.md`) — the probe bullet of the brief, under "How to work"; it takes `probeRule` for the rule and the command and keeps only the reason of its own, so the brief says "commit first" once.
   - `probeResult` (`probe/result.md`) — the probe item in the result contents of the brief.
 - **Without `probe`.** The block, the `backslop-task` skill, the brief and the `result.md` stub carry no probe sentence or passage. `init` says so in a note on stdout (`run` in `lib/init.js`); `brief` says so on stderr, so stdout stays a clean brief (`run` in `lib/brief.js`).

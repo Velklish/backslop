@@ -231,3 +231,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-173.1"></a>`BS-173.1-release-bump-hint-omits-no-publish` · 2026-09-30 · completed · — · The --bump hint names the release command without --no-publish
 - <a id="bs-183"></a>`BS-183-docs-rules-adr` · 2026-09-30 · completed · — · ADR: documentation rules ship to projects through lint, the writing skills and the writer pass
 - <a id="bs-194"></a>`BS-194-hooks-live-measurement` · 2026-09-30 · completed · — · Agent hooks: measure the turn return of a stop hook on live Claude Code, Cursor and Codex sessions
+- <a id="bs-169"></a>`BS-169-backslop-task-skill-fixes` · 2026-09-30 · completed · — · backslop-task: point to AGENTS block steps, add gates --base and --keep-going, cut history

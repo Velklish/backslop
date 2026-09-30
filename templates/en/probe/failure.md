@@ -1,1 +1,0 @@
-- **A mutation probe before committing** removed an entire round of changes together with the mutation: `git checkout` does not distinguish them.
