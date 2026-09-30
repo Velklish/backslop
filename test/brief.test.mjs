@@ -46,10 +46,10 @@ test('brief: заголовок track’а, постановки задач с �
     assert.match(r.out, /`npm test`, `npx backslop@1\.2\.3 lint`/);
     assert.match(r.out, /префиксом `BL-N:`/);
 
-    // Восемь неизменных пунктов брифа.
+    // Fixed items of the brief; the mutation-probe items are conditional, see the probe test below.
     for (const re of [/## Границы правки/, /## Критерий готовности/, /Доки — тем же ходом/,
       /Коммить в свою ветку сразу/, /Не пушь/, /Каталоги статусов и `archive\/` не трогай/,
-      /Находки — с меткой цены, и метка решает ход/, /Мутационная проба — после коммита/, /## Состав результата/]) {
+      /Находки — с меткой цены, и метка решает ход/, /## Состав результата/]) {
       assert.match(r.out, re);
     }
     assert.match(r.out, /коммиты по задаче, каждый с префиксом `BL-N:` — включая правки по ревью/);
@@ -257,7 +257,7 @@ test('brief: команда пробы — из поля probe проекта; �
     seed(root);
     let r = cli(root, ['brief', '3', '--track', 'миграция конфигов']);
     assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(r.out, /потом проба —/, 'поля probe нет — команду бриф не называет');
+    assert.doesNotMatch(r.out, /probe|проб(?:а|ы|у|ой|е)(?![а-яё])|мутацион|mutation/i, 'without the probe field the brief says nothing about the probe');
     // Выкинутое требование называется вслух, как у `init` (ADR-041), и в stderr: stdout — бриф.
     assert.match(r.err, /probe в backslop\.json не объявлен/);
     assert.doesNotMatch(r.out, /probe в backslop\.json не объявлен/, 'нота в stdout уехала бы worker’у частью постановки');
@@ -268,6 +268,7 @@ test('brief: команда пробы — из поля probe проекта; �
     r = cli(root, ['brief', '3', '--track', 'миграция конфигов']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /сначала коммит, потом проба — `npm run probe`\./);
+    assert.equal((r.out.match(/после коммита|сначала коммит/g) ?? []).length, 1, 'the brief states commit first once');
     assert.doesNotMatch(r.err, /probe в backslop\.json не объявлен/, 'поле объявлено — ноты нет');
   } finally { cleanup(root); }
 });
