@@ -242,3 +242,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-184.1"></a>`BS-184.1-rewrite-html-badge-links` · 2026-10-01 · completed · — · mv, archive and fold do not rewrite HTML links and badge destinations
 - <a id="bs-198"></a>`BS-198-owner-questions-task-titles` · 2026-10-01 · completed · — · Questions to the owner are self-contained, and a task is named with its title
 - <a id="bs-189"></a>`BS-189-writer-skill` · 2026-10-01 · completed · — · backslop-writer skill: the technical-writer pass with a currency ledger and a style ledger
+- <a id="bs-190"></a>`BS-190-writer-audit-mode` · 2026-10-02 · completed · — · backslop-writer audit mode: a score and shippability report, every finding filed with a regression check

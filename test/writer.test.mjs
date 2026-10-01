@@ -11,9 +11,16 @@ import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
 const TOOLS = ['claude', 'cursor', 'codex'];
 const SKILL = 'backslop-writer';
 const HEADING_RE = /^## .+$/gm;
+const AUDIT_HEADINGS = ['## Audit Mode', '## Audit Report', '## Filing Findings', '## Regression Check', '## Release Hold'];
+const AUDIT_AT = 6;
 
 function headings(rel) {
   return readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8').match(HEADING_RE) ?? [];
+}
+
+function sections(rel) {
+  const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
+  return text.split(/^## .+$/gm).slice(1);
 }
 
 function emptyRepo() {
@@ -32,18 +39,22 @@ test('writer templates: parity and stable headings', () => {
   assert.match(ru, /каждый документ и каждое настроенное место проверки актуальности[\s\S]*diff этого места не коснулся/);
   assert.match(en, /A fact the original states and the translation lacks is not added by the pass: record it in the currency ledger row and file a task with evidence\./);
   assert.match(ru, /Факт, который есть в оригинале, но отсутствует в переводе, этот проход не добавляет: запиши его в строку currency ledger и заведи задачу с уликой\./);
-  assert.deepEqual(headings('en/skills/backslop-writer/SKILL.md'), [
+  const enHeadings = headings('en/skills/backslop-writer/SKILL.md');
+  assert.deepEqual(enHeadings, [
     '## Precedence',
     '## Scope',
     '## Local Rules',
     '## Language',
     '## Release Mode',
     '## Batch Close Mode',
+    ...AUDIT_HEADINGS,
     '## Currency Ledger',
     '## Style Ledger',
     '## Output',
   ]);
-  assert.deepEqual(headings('skills/backslop-writer/SKILL.md'), [
+  const ruHeadings = headings('skills/backslop-writer/SKILL.md');
+  assert.equal(ruHeadings.length, enHeadings.length);
+  assert.deepEqual([...ruHeadings.slice(0, AUDIT_AT), ...ruHeadings.slice(AUDIT_AT + AUDIT_HEADINGS.length)], [
     '## Приоритет',
     '## Область',
     '## Локальные правила',
@@ -54,13 +65,38 @@ test('writer templates: parity and stable headings', () => {
     '## Style ledger',
     '## Output',
   ]);
+  assert.match(ruHeadings[AUDIT_AT], /audit$/);
+});
+
+test('writer templates: both layers carry the audit mode, its report fields and the cost mapping', () => {
+  for (const rel of ['en/skills/backslop-writer/SKILL.md', 'skills/backslop-writer/SKILL.md']) {
+    const [mode, report, filing, check, hold] = sections(rel).slice(AUDIT_AT, AUDIT_AT + AUDIT_HEADINGS.length);
+    assert.match(mode, /`backslop-techdoc`/, rel);
+    assert.match(mode, /references\/audit-checklist\.md/, rel);
+    for (const field of ['Score', 'Shippable', 'Blocking', 'Language', 'Local style guide', 'Findings', 'Filed as']) {
+      assert.ok(report.includes(`\`${field}\``), `${rel}: the report names no ${field} field`);
+    }
+    for (const [severity, cost] of [['Blocking', 'critical'], ['High', 'major'], ['Medium, Low', 'minor']]) {
+      assert.match(filing, new RegExp(`\\| ${severity} \\| \`${cost}\` \\|`), `${rel}: ${severity} is not mapped to ${cost}`);
+    }
+    assert.ok(filing.includes('{{cli}} new <slug> --parent N`'), `${rel}: no card command`);
+    assert.ok(filing.includes('{{cli}} new <slug> --parent N --minor --evidence "…"`'), `${rel}: no minor command`);
+    assert.ok(filing.includes('--minor --cost <level> --hypothesis --evidence'), `${rel}: no hypothesis command`);
+    assert.ok(filing.includes('<!-- quote:before:<path> -->'), `${rel}: no quote:before rule`);
+    assert.ok(check.includes('<!-- quote:<path> -->'), `${rel}: the regression check names no quote block`);
+    assert.ok(check.includes('`--evidence`'), `${rel}: the regression check does not place a minor entry's check`);
+    assert.ok(hold.includes('`Shippable: no`'), `${rel}: the release hold names no Shippable: no`);
+    for (const token of ['`{{cli}} archive N.k`', '`{{cli}} archive N.k --into M`', '`Filed as`', '`{{cli}} show N`']) {
+      assert.ok(hold.includes(token), `${rel}: the release hold lacks ${token}`);
+    }
+  }
 });
 
 test('init lays out backslop-writer in both languages and writes no writer config', () => {
   for (const lang of ['en', 'ru']) {
     const root = emptyRepo();
     try {
-      let r = cli(root, ['init', '--lang', lang, '--tools', TOOLS.join(',')]);
+      let r = cli(root, ['init', '--lang', lang, '--tools', TOOLS.join(','), '--cli', 'node bs.js']);
       assert.equal(r.code, 0, r.err);
       assert.equal(JSON.parse(read(root, 'backslop.json')).writer, undefined, 'init wrote writer by default');
       for (const rel of [
@@ -73,7 +109,7 @@ test('init lays out backslop-writer in both languages and writes no writer confi
       assert.match(read(root, `.claude/skills/${SKILL}/SKILL.md`), /^---\nname: backslop-writer\n[\s\S]*\n---\n<!-- backslop:generated -->\n/);
       const sourceRel = lang === 'en' ? `en/skills/${SKILL}/SKILL.md` : `skills/${SKILL}/SKILL.md`;
       const source = readFileSync(path.join(TEMPLATES_DIR, ...sourceRel.split('/')), 'utf8')
-        .replace(/\r\n/g, '\n').replaceAll('{{docs}}', 'docs');
+        .replace(/\r\n/g, '\n').replaceAll('{{docs}}', 'docs').replaceAll('{{cli}}', 'node bs.js');
       for (const adapter of ['.claude', '.agents']) {
         const actual = read(root, `${adapter}/skills/${SKILL}/SKILL.md`)
           .replace('<!-- backslop:generated -->\n', '');
