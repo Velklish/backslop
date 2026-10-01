@@ -21,7 +21,7 @@ Read in phases 2–3 of the `backslop-seed` skill. The first ADR, about the proc
 
 ## Do not
 
-- Do not rewrite history: an ADR is not edited into how it should have been. If the decision changed, create a new ADR linking to the old one and mark the old one “superseded”.
+- Do not invent a past rationale: if the decision changed after it was taken, record the decision that governs now, in one ADR per question: the earlier choice and the date it changed go into Context, not into a second ADR or a “superseded” status. An ADR that already exists for the question is rewritten in place, as the `backslop-task` skill says under “Changing a decision”.
 - Do not create an ADR for a future decision from this skill — an open question becomes a file in `triage/`, and an ADR appears once the decision is accepted.
 
 ## ADRs in another format
@@ -32,4 +32,4 @@ Leaving in place applies only to ADRs outside `{{docs}}/adr/`. A foreign-named f
 
 A migrated file is renamed to `adr-NNN-<slug>.md`: numbering sees only that form. When `{{docs}}/adr/` held no `adr-NNN-*.md` before `{{cli}} init`, number 001 belongs to the process ADR; otherwise the process ADR took the next free number. Migrated ADRs take the next free numbers and keep the original number and date in their text. Keeping the original numbers requires renumbering the process ADR first, and that needs the owner's consent, worded as *Talking to the owner* in the backslop section of AGENTS.md says.
 
-A migrated ADR is committed with no `[TODO]` left, and its Status stays `Proposed` until the owner accepts it, then `Accepted`.
+A migrated ADR is committed with no `[TODO]` left, and its Status stays `Proposed` until the owner accepts it, then `Accepted`. The status is a `**Status:** Proposed` line under the title, later `**Status:** Accepted`: `{{cli}} lint` reads only that form, so a `## Status` heading of another template, or a status word such as `Superseded` or `Deprecated`, fails it. A migrated ADR that another one replaced is folded into the one that governs now, as the `backslop-task` skill says under “Changing a decision”.

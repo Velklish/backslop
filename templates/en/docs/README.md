@@ -12,7 +12,7 @@ The canonical project documentation. For current work, use `{{cli}} status`; for
 
 ## Cross-cutting principles
 
-1. **An accepted decision is not edited; it is superseded.** A new decision on the same question gets a new ADR; the replaced ADR retains a “superseded by ADR-NNN” note.
+1. **The ADR directory holds current decisions only.** A new decision on a question already decided rewrites that question's ADR in place: same number, the rationale that still holds, the consequences of the change. An ADR that no longer governs anything is deleted; git keeps its history. A chain of ADRs on one question is folded into its highest number.
 2. **Evidence is stronger than intuition.** Put a number, file path, or command output in task definitions, results, and ADRs; state unverified claims as hypotheses.
 
 Create a new ADR with `{{cli}} adr <slug>` **and add a row to the table above**: without the row, `{{cli}} lint` fails.

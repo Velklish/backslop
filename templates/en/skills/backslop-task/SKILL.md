@@ -26,6 +26,16 @@ Steps 1–7 are in the backslop section of AGENTS.md; below, each step gets only
 6. **Triage review** — by the approver, immediately after acceptance (below).
 7. **Commit.** Where the branch goes — a branch and MR, or direct main — follows the project rules.
 
+## Changing a decision
+
+The ADR directory holds current decisions only (the first principle of `{{docs}}/README.md`). When the task decides again a question an ADR already decides:
+
+- **Rewrite that ADR in place:** same number and file, the decision as it stands now, the rationale that still holds, the consequences of the change. Its status stays `Proposed` or `Accepted`; there is no “superseded” status, and the status line names no other ADR — `{{cli}} lint` refuses both.
+- **A chain of ADRs on one question folds into its highest number,** the latest decision: rewrite that file in place and delete the lower ones, even when an older ADR holds most of the text. Carry over every constraint and measurement that still holds; a measurement keeps its version and date, or the next reader cannot tell whether it still applies. A measurement of an approach that is gone is dropped, not reworded to fit.
+- **List for the reviewer** where each constraint of a deleted ADR went, or why it no longer governs: a constraint dropped silently in a fold is a decision nobody took.
+- **Delete the replaced files** and their index rows; git keeps their history.
+- **Repoint every link** to a deleted ADR: documentation, the unreleased CHANGELOG section, code comments, test fixtures. A released CHANGELOG section keeps its statements; only its links to a deleted ADR are repointed to the survivor. `{{cli}} lint` finds a dead link in Markdown; search code and tests for the old number and file name yourself.
+
 ## What a worker does instead of closing
 
 When the worker is finished, they **commit to their branch** and send the result through the channel supplied by the harness: an agent answer or a message to the orchestrator. The result must include:

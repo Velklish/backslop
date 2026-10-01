@@ -254,9 +254,10 @@ The command behaviour of `fold` and `show` — revision choice, the per-file blo
 ## ADR
 
 - **File.** `docs/adr/adr-NNN-<slug>.md`, the number padded to three digits. `adr` gives the maximum number in the local `docs/adr/` plus one. The number is not protected across worktrees or branches: `adr` reads only the local tree, and only `new` checks other worktrees and branches.
-- **Template.** [templates/adr.md](../../templates/adr.md): Status, Date, Deciders, Context, Options, Decision, Consequences.
-- **Index.** Every ADR is linked from `docs/README.md`, as a row of its table; `lint` fails without the link (gate 8, [03](03-lint.md)).
-- **One ADR per topic.** A changed decision rewrites its ADR, in place or as a new file that replaces it. The replaced file is deleted, and nothing cites its number; there are no "superseded by" chains.
+- **Template.** [templates/adr.md](../../templates/adr.md): Status, Date, Deciders, Context, Options, Decision, Consequences. A new ADR starts as `Proposed`.
+- **Status.** `Proposed` or `Accepted`, on a `**Status:**` line; `lint` fails on another word, on a missing line and on a status line that names another ADR (gate 8, [03](03-lint.md#adr-status-line)).
+- **Index.** Every ADR is linked from `docs/README.md`, as a row of its table by convention; at most one table row links it, and that row's Status cell is the status word of the file. `lint` fails without the link, on a second row and on a differing cell (gate 8, [03](03-lint.md#adr-status-line)).
+- **Current decisions only.** A new decision on a question already decided rewrites that question's ADR in place: same number, the rationale that still holds, the consequences of the change. An ADR that no longer governs anything is deleted, and git keeps its history; a chain of ADRs on one question is folded into its highest number. The `backslop-task` skill says how to fold a chain and repoint its links. The principle is the first item of the index template; `migrate` does not redraw a project's `docs/README.md`.
 
 ## Templates
 

@@ -816,7 +816,7 @@ test('init --lang en: CLI и generated tree английские, mixed metadata
     assert.equal(r.code, 0, r.err);
     put(root, 'docs/README.md', read(root, 'docs/README.md').replace(
       '| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |',
-      '| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |\n| [adr/adr-002-english-decision.md](adr/adr-002-english-decision.md) | English decision | Accepted |',
+      '| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |\n| [adr/adr-002-english-decision.md](adr/adr-002-english-decision.md) | English decision | Proposed |',
     ));
     put(root, 'docs/backlog/triage/BS-2-russian.md', '# BS-2 · Русская задача\n\n- **Создана:** 2026-09-03\n');
     const json = JSON.parse(cli(root, ['status', '--json']).out);
