@@ -95,7 +95,7 @@ test('config: a non-string prefix is refused by every command, without a stack',
     for (const args of [
       ['init'], ['new', 'x'], ['mv', '1', 'queue'], ['archive', '1'], ['fold', '1'], ['fold'], ['show', '1'],
       ['adr', 'x'], ['brief', '1'], ['seed', '--scan'], ['status'], ['lint'], ['gates'], ['tracks'],
-      ['upgrade', '--dry-run'], ['migrate', '--dry-run'],
+      ['upgrade', '--dry-run'], ['migrate', '--dry-run'], ['links', '--external'],
     ]) {
       const r = cli(root, args);
       assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);

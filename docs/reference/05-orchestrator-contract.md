@@ -24,7 +24,7 @@ What an orchestrator, a skill or a script may rely on when it drives backslop: h
 | stderr | refusals, warnings, and the routine report of a data command |
 
 - **Data commands.** A `--json` mode writes exactly one JSON document to stdout, followed by a line break. `fold` writes only the commit message draft to stdout, `show` only the task body, `brief` only the brief, and `merge-changelog` without `--out` only the merged file. Their human report goes to stderr: `fold` and `show` report there as lines indented by two spaces, and a `--json` mode of `gates` sends the gates' own output there too.
-- **Other commands** (`new`, `mv`, `archive`, `adr`, `init`, `migrate`, `upgrade`, `seed --queue-reference`, and the text modes) report on stdout: a success line starting with `✔` and indented detail lines. Their warnings, their refusals and their red lines go to stderr: a red gate line and a red `gates N, green M` summary of `gates`, the errors and the summary of a red `lint`.
+- **Other commands** (`new`, `mv`, `archive`, `adr`, `init`, `migrate`, `upgrade`, `seed --queue-reference`, and the text modes) report on stdout: a success line starting with `✔` and indented detail lines. Their warnings, their refusals and their red lines go to stderr: a red gate line and a red `gates N, green M` summary of `gates`, the errors and the summary of a red `lint`. The text mode of `links --external` is the exception: every row and the summary line go to stdout, red run or not.
 - **A refusal** starts with a line starting with `✖` on stderr, without a stack; some refusals add detail lines after it (`gates --require-clean` on a dirty tree lists the dirty paths).
 - **`⚠`** marks a real warning — a file moved without `git mv`, a brief without a probe command — and not a failure: a warning alone does not change the exit code.
 - **Colour** is added only when the stream is a terminal and `NO_COLOR` is not set.
@@ -35,6 +35,8 @@ What an orchestrator, a skill or a script may rely on when it drives backslop: h
 |---|---|---|
 | 0 | success; `help`, `--help`, `-h`, `version`; `fold` with nothing to fold; a `gates` run where every gate that ran is green, with skips or without | the data or the report |
 | 1 | a refusal: an unknown command or flag, an extra argument, a missing or malformed `backslop.json`, a bad slug, an unknown task number, a move into the current status, a minor move without evidence, a `fold` of a folded task or of a result with a placeholder, a `brief` of a folded or unknown task, `tracks` without git, `seed` without a mode, any `gates` refusal | empty |
+| 1 | a dead external link: `links --external` found an address answered with 404, 410 or another status outside the other two classes | the rows and the summary line, or the JSON result with `--json` |
+| 2 | `links --external` found unverified addresses and no dead one | the rows and the summary line, or the JSON result with `--json` |
 | 1 | a red result: a gate is not green | the JSON result with `gates --json`; in text mode the gates’ own output, the green gate lines and the tree line, while the red gate lines and the summary are on stderr |
 | 1 | `lint` found errors | the gate 1 counts line; the errors and the summary are on stderr |
 | 1 | `merge-changelog` left a conflict mark | the merged file, or empty with `--out` (the file is written) |
@@ -42,7 +44,7 @@ What an orchestrator, a skill or a script may rely on when it drives backslop: h
 
 **Telling the outcomes apart.** For a `--json` mode:
 
-- exit 1 with JSON on stdout is a **result**: the command ran, and the result is red (`gates --json`, a gate that is not green);
+- exit 1 with JSON on stdout is a **result**: the command ran, and the result is red (`gates --json`, a gate that is not green; `links --external --json`, a dead address); exit 2 with JSON on stdout is a result too (`links --external --json`, unverified addresses only);
 - exit 1 with empty stdout is a **refusal**: the command did nothing, and stderr says why;
 - a crash is also exit 1 with empty stdout; its stderr carries a stack trace instead of a `✖` line, so a caller that reads only the exit code and stdout sees it as "no result", like a refusal.
 
@@ -267,6 +269,29 @@ A real run with a worktree on branch `track-a` carrying one task commit, a modif
 - `dirty` lists the uncommitted entries of a worktree, `[]` when it is clean. `null` means "could not be checked" for a worktree — `git status` failed, or the worktree is `prunable` — and "not applicable" for a branch.
 - `prunable` and `locked` are booleans: whether `git worktree list --porcelain` prints the line of that name for the worktree; `false` for a branch.
 
+## `links --external --json`
+
+A run over one document that links four addresses: one answered 200, one 404, one 429, and one to a closed port:
+
+```json
+{
+  "total": 4,
+  "ok": 1,
+  "dead": 1,
+  "unverified": 2,
+  "results": [
+    { "url": "http://127.0.0.1:8080/ok", "class": "ok", "status": 200, "error": null },
+    { "url": "http://127.0.0.1:8080/missing", "class": "dead", "status": 404, "error": null },
+    { "url": "http://127.0.0.1:8080/limited", "class": "unverified", "status": 429, "error": null },
+    { "url": "http://127.0.0.1:9/", "class": "unverified", "status": null, "error": "ECONNREFUSED" }
+  ]
+}
+```
+
+- `results` has one item per distinct address without its fragment, in document order of the gate 1 file set; `total` is its length, and `ok`, `dead` and `unverified` count the classes.
+- `class` is `ok`, `dead` or `unverified`, as in [02 § links](02-cli.md#links). `status` is the HTTP status of the final answer after redirects, `null` without an answer. `error` is `null` with an answer; without one it is the error code of the failure (`ECONNREFUSED`, `ENOTFOUND`) or, when there is none, its name (`TimeoutError`).
+- The exit code is 0 without a dead or unverified address, 1 with a dead one, 2 with unverified ones only. The command is outside `gates` and `lint`.
+
 ## `seed --scan --json`
 
 A real run in a repository with `package.json` scripts `test`, `lint` and `start`, a workflow `.github/workflows/ci.yml` and a directory `src/api`:
@@ -379,6 +404,7 @@ Stable, within one tagged version and across versions until an ADR changes it:
 | `status --json` | the keys of [`status --json`](#status---json), `null` for an empty `created`, `taken`, `area`, `cost` or `order`, the ordering of `queue` and `minor`, and the exit code |
 | `gates --json`, `gates --dry-run --json` | the keys of [`gates --json`](#gates---json) and the exit code |
 | `tracks --json` | the keys of [`tracks --json`](#tracks---json) and the exit code |
+| `links --external --json` | the keys of [`links --external --json`](#links---external---json), the three classes and the exit codes 0, 1 and 2 |
 | `seed --scan --json` | the keys of [`seed --scan --json`](#seed---scan---json) and the exit code |
 | `brief` | the output on stdout, its brief slots (`--track`, `--neighbour`, `--entry`, `--autonomy`, `--handover`) and their `[TODO` placeholder, and `--measurements` |
 | `new <slug> --parent N[.M]`, `new … --minor --evidence "…"` | the file it writes, the next free `N.k`, the Parent field, the exit code |
