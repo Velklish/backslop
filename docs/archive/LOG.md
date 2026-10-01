@@ -239,3 +239,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-197"></a>`BS-197-skills-eval-skill-creator` · 2026-09-30 · completed · — · Evaluate the backslop-task and backslop-batch skill changes of this run with skill-creator
 - <a id="bs-188"></a>`BS-188-vendor-writing-skills` · 2026-09-30 · completed · — · Vendor the humanizer and technical-documentation skills; adapters lay them out with licence and source
 - <a id="bs-179"></a>`BS-179-ru-localization-into-templates` · 2026-09-30 · completed · — · Move the Russian CLI localization into templates/i18n/ru.mjs
+- <a id="bs-184.1"></a>`BS-184.1-rewrite-html-badge-links` · 2026-10-01 · completed · — · mv, archive and fold do not rewrite HTML links and badge destinations
