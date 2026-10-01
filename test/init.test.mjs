@@ -283,6 +283,32 @@ test('init: the block names gates --base and the Windows shell, and the skill po
   }
 });
 
+test('init: the block carries the owner-talk rule in full and each skill links to it without restating it', () => {
+  for (const [lang, item, rule, link] of [
+    ['ru', '**Разговор с владельцем.**', [/что спрашивается, зачем и что меняет каждый ответ/, /не используй термины и сокращения, которые ты ввёл сам/i, /после его подтверждения/, /номером и заголовком, `BS-N — <заголовок>`, не одним номером: заголовок стоит при первом упоминании в сообщении, в каждом заголовке раздела и в каждой строке таблицы; дальше в том же абзаце можно называть одним номером/, /каждый пункт списка — отдельный абзац\./],
+      'пункту «Разговор с владельцем» секции backslop в AGENTS.md'],
+    ['en', '**Talking to the owner.**', [/what is asked, why, and what each answer changes/, /no term or abbreviation you coined yourself/i, /only after they confirm it/, /number and its title, `BS-N — <title>`, never by the number alone: the title goes at the first mention in a message, in every heading and in every table row; later mentions in the same paragraph may use the number alone/, /each list item counts as a paragraph\./],
+      '*Talking to the owner* in the backslop section of AGENTS.md'],
+  ]) {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', '--lang', lang, '--tools', 'claude']);
+      assert.equal(r.code, 0, r.err);
+      const agents = read(root, 'AGENTS.md');
+      const block = agents.slice(agents.indexOf('<!-- backslop:start -->'), agents.indexOf('<!-- backslop:end -->'));
+      assert.ok(block.includes(item), `${lang}: the block has the owner-talk item`);
+      for (const re of rule) assert.match(block, re, `${lang}: the item states ${re}`);
+      for (const [file, links] of [['backslop-task/SKILL.md', 2], ['backslop-batch/SKILL.md', 2], ['backslop-seed/SKILL.md', 4], ['backslop-seed/references/adr-backfill.md', 3], ['backslop-seed/references/glossary.md', 1]]) {
+        const text = read(root, `.claude/skills/${file}`);
+        assert.equal(text.split(link).length - 1, links, `${lang}: ${file} links to the owner-talk item at each owner-facing line`);
+        for (const re of rule) assert.doesNotMatch(text, re, `${lang}: ${file} does not restate ${re}`);
+      }
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
 test('init: step 4 names the trimmed probe command, and without the field init names the missing duty', () => {
   for (const [lang, probe, named, duty, missing] of [
     ['ru', 'npm run probe', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
