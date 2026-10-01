@@ -62,6 +62,7 @@ Each command links its reference section: behaviour, output and refusals.
 | [`lint`](docs/reference/02-cli.md#lint) | the tracker gates, adapter outputs and, in the tool's own repository, template parity ([gates](docs/reference/03-lint.md)) |
 | [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot |
 | [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty |
+| [`links --external [--json]`](docs/reference/02-cli.md#links) | request the http(s) links of the documents and classify each: ok, dead, unverified; outside `gates` and `lint` |
 | [`upgrade [--to X.Y.Z] [--dry-run] [--pin-only]`](docs/reference/02-cli.md#upgrade) | update the pins, then migrate and initialize with the new version |
 | [`migrate [--dry-run]`](docs/reference/02-cli.md#migrate) | migrate file formats, redraw the tracking and archive rules, update the version stamp |
 | [`changelog [--since X.Y.Z] [--to X.Y.Z]`](docs/reference/02-cli.md#changelog) | print backslop CHANGELOG entries between versions |

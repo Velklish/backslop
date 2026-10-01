@@ -384,7 +384,7 @@ test('an extra positional is refused with exit 1 and named; mv and brief take se
       [['init', 'extra-positional'], 'extra-positional'], [['new', 'a', '--', '--queue'], '--queue'],
       [['adr', 'x', 'extra'], 'extra'], [['show', '1', '2'], '2'], [['archive', '1', '999', '--dry-run'], '999'],
       [['tracks', 'x'], 'x'], [['seed', '--scan', 'x'], 'x'], [['changelog', 'x'], 'x'], [['merge-changelog', 'x'], 'x'],
-      [['upgrade', 'x'], 'x'], [['migrate', 'x'], 'x'],
+      [['upgrade', 'x'], 'x'], [['migrate', 'x'], 'x'], [['links', 'x', '--external'], 'x'],
     ]) {
       r = cli(root, args);
       assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);

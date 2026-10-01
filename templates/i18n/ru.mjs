@@ -504,6 +504,9 @@ export const messages = {
   '  nothing uncommitted': '  незакоммиченного нет',
   '  locked — git worktree unlock, then remove': '  заблокирован — git worktree unlock, потом remove',
   'tracks: worktrees and branches {entries}, not merged {notMerged}': 'tracks: worktree и веток {entries}, не влитых {notMerged}',
+  // lib/links.js
+  'links needs --external: local links are checked by {cli} lint': 'links требует --external: локальные ссылки проверяет {cli} lint',
+  'links: {urls} urls, {dead} dead, {unverified} unverified': 'links: адресов {urls}, мёртвых {dead}, непроверенных {unverified}',
   // lib/upgrade.js
   '{rel}: the path goes through the symlink {link} — pin not rewritten, the write would land behind the link': '{rel}: путь идёт через symlink {link} — пин не переставлен, запись ушла бы за ссылку',
   '{rel}: not valid UTF-8 — pin not rewritten; convert it, then rerun upgrade': '{rel}: не UTF-8 — пин не переставлен; перекодируй файл и повтори upgrade',
@@ -661,6 +664,8 @@ export const help = (version) => `backslop — бэклог для слопа: �
                                                       прогнать команды из gates: код каждой, счёт зелёных, снимок дерева;
                                                       область when сверяется с грязным деревом, --base добавляет дифф к ref
   tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
+  links --external [--json]                           запросить http(s)-ссылки документов и классифицировать каждую: ok, dead,
+                                                      unverified; код 0 — все ok, 1 — есть dead, 2 — только unverified; не в gates
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli, gates и живых файлах, migrate и init новой версией
   migrate [--dry-run]                                 миграция формата файлов, правила ведения и архива из шаблона, штамп версии
   changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями

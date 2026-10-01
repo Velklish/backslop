@@ -10,7 +10,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 
 **Flag parsing** is strict:
 
-- A command takes at most its number of positional arguments: none for `status`, `gates`, `tracks`, `seed`, `changelog`, `merge-changelog`, `upgrade`, `init`, `migrate` and `lint`; one for `new`, `adr`, `show`, `archive` and `fold`; any number for `mv` and `brief`. An extra argument is a refusal naming the first extra one: `new ee --title My Title` refuses on `Title` — quote a value with spaces. `fold` has its own refusal, because the bulk fold is the same command without a number. `--` does not lift the limit.
+- A command takes at most its number of positional arguments: none for `status`, `gates`, `tracks`, `links`, `seed`, `changelog`, `merge-changelog`, `upgrade`, `init`, `migrate` and `lint`; one for `new`, `adr`, `show`, `archive` and `fold`; any number for `mv` and `brief`. An extra argument is a refusal naming the first extra one: `new ee --title My Title` refuses on `Title` — quote a value with spaces. `fold` has its own refusal, because the bulk fold is the same command without a number. `--` does not lift the limit.
 - A string flag value that starts with a dash is accepted after a space too (`--title "--strategy …"`): the pair is joined into `--title=…` unless the value equals a flag name of this command. `--title --queue` is a refusal that suggests the form `--title=…`; the form with `=` is safe for any value. The help text states this rule.
 - `-h`/`--help` is a flag of every command: help with exit code 0, inside a project or outside. In the place of a string flag's value (`--title -h`, `--evidence --help`) it is the value, not a help request. An unknown flag and an extra argument beat help: `new --bogus --help` is the refusal `unknown flag “--bogus”` with exit code 1.
 - A refusal to parse argv names the flag.
@@ -43,6 +43,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 | `lint` | run the tracker gates |
 | `gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]` | run the project's gate commands |
 | `tracks [--json]` | list worktrees and run branches |
+| `links --external [--json]` | request the external links of the documents and classify each |
 | `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update backslop in the project |
 | `migrate [--dry-run]` | run the layout migrations and redraw the rules pair |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | print backslop's CHANGELOG sections |
@@ -305,6 +306,27 @@ Behaviour:
 Output: the text listing, or `--json`: [05 § `tracks --json`](05-orchestrator-contract.md#tracks---json).
 
 Refusals: no git repository; a failure of `git worktree list`, `git rev-parse --show-toplevel` or `git for-each-ref` — with git's cause, not "no repository" and not an empty list.
+
+### links
+
+Behaviour:
+
+- `--external` is required: `links` alone is a refusal, because gate 1 of `lint` already checks the local links and the command has no local mode.
+- Takes the `http` and `https` addresses of the files gate 1 reads, with the same parser (every link form, code and comments left out), in document order. An address without its fragment is one address: `…/a#x` and `…/a#y` are requested once, and the row carries the address without the fragment. Links to anything else (`mailto:`, relative paths, anchors) are not requested.
+- Requests the addresses one at a time with the global `fetch`: `GET`, redirects followed, a 20-second limit for each, the user agent `backslop-links`. There are no retries, no backoff, no authentication and no `robots.txt`.
+- The class of an address follows its final answer:
+
+| Class | Answer |
+|---|---|
+| `ok` | 2xx and 3xx |
+| `unverified` | 401, 403, 408, 429, any 5xx, or no answer: a refused connection, a failed name lookup, the timeout, an address `fetch` rejects |
+| `dead` | 404, 410 and every other status |
+
+- A network answer is not reproducible, so the command is never part of `gates` or `lint`, and `init` does not add it to `gates`: run it by hand.
+
+Output: one row per address, `<class> <status or error> <url>`, where the second word is the HTTP status or, without an answer, the error code (`ECONNREFUSED`) or name (`TimeoutError`); then `links: N urls, D dead, U unverified`. With `--json` one document replaces both: [05 § `links --external --json`](05-orchestrator-contract.md#links---external---json).
+
+Exit codes: 0 when every address is `ok`, or there is none; 1 when any is `dead`; 2 when some are `unverified` and none is `dead`. A refusal (no `--external`, a bad flag, a malformed config) is exit 1 with an empty stdout.
 
 ### upgrade
 
