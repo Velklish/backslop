@@ -174,7 +174,7 @@ test('templates: фронтматтер скиллов разбирается к
     ...srcFiles(TEMPLATES_DIR, '', ['.md']).filter(([rel]) => !rel.startsWith('en/') && !rel.startsWith('vendor/')),
     ...srcFiles(path.join(TEMPLATES_DIR, 'en'), '', ['.md']).map(([rel, abs]) => [`en/${rel}`, abs]),
   ].filter(([rel]) => rel.endsWith('/SKILL.md'));
-  assert.equal(files.length, 6, 'три скилла в двух слоях');
+  assert.equal(files.length, 8, 'four skills in two layers');
   assert.deepEqual(files.flatMap(([rel, abs]) => frontmatterFaults(rel, readFileSync(abs, 'utf8'))), []);
 });
 

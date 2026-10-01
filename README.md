@@ -22,7 +22,7 @@ Agents produce a lot of work, and it needs a tracker that lives in the repositor
 ## What appears in a project
 
 ```
-backslop.json                    config: prefix, docs, cli (with the version pin), gates, probe, version, source, lang, tools, agents
+backslop.json                    config: prefix, docs, cli (with the version pin), gates, probe, writer, version, source, lang, tools, agents
 AGENTS.md                        procedure section between <!-- backslop:start --> and <!-- backslop:end -->
 docs/…                           documentation skeleton, backlog, archive and its journal, first ADR
 ```
@@ -37,11 +37,11 @@ Adapters are written only when selected — `init --tools claude,cursor,codex`; 
 | `cursor` | `.cursor/rules/backslop-*.mdc` and namespaced references |
 | `codex` | `.agents/skills/backslop-*` |
 
-Besides the process skills, each adapter lays out two third-party writing skills, `backslop-humanizer` and `backslop-techdoc`, with their `LICENSE` and `SOURCE.md` (see [Third-party components](#third-party-components)).
+Each adapter lays out the process skills, the `backslop-writer` release and batch-close pass, and two third-party writing skills, `backslop-humanizer` and `backslop-techdoc`, with their `LICENSE` and `SOURCE.md` (see [Third-party components](#third-party-components)).
 
 `init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang ru`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
 
-With an adapter selected, ask an agent to "populate docs using backslop" once the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence.
+With an adapter selected, ask an agent to "populate docs using backslop" once the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a worker batch closes, `backslop-writer` checks documentation currency and, in release mode, style.
 
 ## Commands
 
