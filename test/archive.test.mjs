@@ -244,3 +244,42 @@ test('archive: the result stub names the gates command through the project cli',
     }
   }
 });
+
+test('archive: incoming HTML, badge destinations and contained definitions move with the task', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/active/BS-1-alpha.md', '# BS-1 · Альфа\n\n- **Взята:** 2026-09-01\n\n## Контекст\n\nтекст\n');
+    put(root, 'docs/ROADMAP.md', [
+      '# Roadmap',
+      '',
+      '<a href=\'backlog/active/BS-1-alpha.md#контекст\'>alpha</a>',
+      '[![inner](backlog/active/BS-1-alpha.md#контекст)](backlog/active/BS-1-alpha.md#контекст)',
+      'See [quoted][q] and [listed][l].',
+      '',
+      '> [q]: backlog/active/BS-1-alpha.md#контекст',
+      '- [l]: backlog/active/BS-1-alpha.md#контекст',
+      '',
+    ].join('\n'));
+    gitAll(root);
+
+    const r = cli(root, ['archive', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROADMAP.md'), [
+      '# Roadmap',
+      '',
+      '<a href=\'archive/BS-1-alpha/task.md#контекст\'>alpha</a>',
+      '[![inner](archive/BS-1-alpha/task.md#контекст)](archive/BS-1-alpha/task.md#контекст)',
+      'See [quoted][q] and [listed][l].',
+      '',
+      '> [q]: archive/BS-1-alpha/task.md#контекст',
+      '- [l]: archive/BS-1-alpha/task.md#контекст',
+      '',
+    ].join('\n'));
+    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n');
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});

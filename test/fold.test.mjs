@@ -84,6 +84,44 @@ test('fold N: корневая ссылка и каталог со слэшем 
   }
 });
 
+test('fold N: HTML, badge destinations and contained definitions point at the journal line', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    closed(root);
+    put(root, 'docs/ROADMAP.md', [
+      '# Roadmap',
+      '',
+      '<a href="archive/BS-1-alpha/task.md#контекст">alpha</a>',
+      '[![inner](archive/BS-1-alpha/task.md#контекст)](archive/BS-1-alpha/task.md#контекст)',
+      'See [quoted][q] and [listed][l].',
+      '',
+      '> [q]: archive/BS-1-alpha/task.md#контекст',
+      '- [l]: archive/BS-1-alpha/task.md#контекст',
+      '',
+    ].join('\n'));
+    gitAll(root);
+
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROADMAP.md'), [
+      '# Roadmap',
+      '',
+      '<a href="archive/LOG.md#bs-1">alpha</a>',
+      '[![inner](archive/LOG.md#bs-1)](archive/LOG.md#bs-1)',
+      'See [quoted][q] and [listed][l].',
+      '',
+      '> [q]: archive/LOG.md#bs-1',
+      '- [l]: archive/LOG.md#bs-1',
+      '',
+    ].join('\n'));
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold N: тело с ревизией — заготовка не обязательна, show N достаёт тело; без ревизии — обязательна', () => {
   const root = makeProject();
   try {

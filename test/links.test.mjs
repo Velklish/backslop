@@ -323,6 +323,96 @@ test('monorepo: mv, archive and fold keep a root link rooted at the repository r
   }
 });
 
+test('mv: incoming HTML href and both badge destinations move with the task', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/queue/BS-1-alpha.md',
+      '# BS-1 · Альфа\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
+    put(root, 'docs/ROADMAP.md', [
+      '# Roadmap',
+      '',
+      '<a href="backlog/queue/BS-1-alpha.md#контекст">alpha</a>',
+      '[![inner](backlog/queue/BS-1-alpha.md#контекст)](backlog/queue/BS-1-alpha.md#контекст)',
+      '[query](<backlog/queue/BS-1-alpha.md?key=`value`>)',
+      '',
+    ].join('\n'));
+    gitAll(root);
+
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROADMAP.md'), [
+      '# Roadmap',
+      '',
+      '<a href="backlog/active/BS-1-alpha.md#контекст">alpha</a>',
+      '[![inner](backlog/active/BS-1-alpha.md#контекст)](backlog/active/BS-1-alpha.md#контекст)',
+      '[query](<backlog/active/BS-1-alpha.md?key=`value`>)',
+      '',
+    ].join('\n'));
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: a bare destination with a backtick suffix keeps its distinct unmoved filename', () => {
+  const root = makeProject();
+  const backup = 'docs/backlog/queue/BS-1-alpha.md`backup`';
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/queue/BS-1-alpha.md',
+      '# BS-1 · Альфа\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
+    put(root, backup, 'backup\n');
+    put(root, 'docs/ROADMAP.md',
+      '[task](backlog/queue/BS-1-alpha.md) [backup](backlog/queue/BS-1-alpha.md`backup`)\n');
+    gitAll(root);
+
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, backup), 'backup\n');
+    assert.equal(read(root, 'docs/ROADMAP.md'),
+      '[task](backlog/active/BS-1-alpha.md) [backup](backlog/queue/BS-1-alpha.md`backup`)\n');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: incoming reference declarations behind quote or list markers move with the task', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/backlog/queue/BS-1-alpha.md',
+      '# BS-1 · Альфа\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
+    put(root, 'docs/ROADMAP.md', [
+      '# Roadmap',
+      '',
+      'See [quoted][q] and [listed][l].',
+      '',
+      '> [q]: backlog/queue/BS-1-alpha.md#контекст',
+      '- [l]: backlog/queue/BS-1-alpha.md#контекст',
+      '',
+    ].join('\n'));
+    gitAll(root);
+
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROADMAP.md'), [
+      '# Roadmap',
+      '',
+      'See [quoted][q] and [listed][l].',
+      '',
+      '> [q]: backlog/active/BS-1-alpha.md#контекст',
+      '- [l]: backlog/active/BS-1-alpha.md#контекст',
+      '',
+    ].join('\n'));
+    const lint = cli(root, ['lint']);
+    assert.equal(lint.code, 0, lint.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv, archive and fold refuse before any write when git fails to name the repository root', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
   const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
