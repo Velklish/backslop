@@ -407,4 +407,4 @@ Stable, within one tagged version and across versions until an ADR changes it:
 ### Changing the contract
 
 - A behaviour change of a command updates `docs/reference/`, README and CHANGELOG in the same pass.
-- A contract change — file formats, commands, the composition of `status --json` — needs a new ADR.
+- A contract change — file formats, commands, the composition of `status --json` — needs an ADR: a new one for a new question, or the ADR that decides the question rewritten in place (docs/README.md, principle 2).

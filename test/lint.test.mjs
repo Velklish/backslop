@@ -12,6 +12,7 @@ import { livePinFiles } from '../lib/mdwalk.js';
 import { rewriteProsePins } from '../lib/upgrade.js';
 import { REPO, cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run, toolCli, toolCopy } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
+import { msg } from '../lib/i18n.js';
 
 function seedGreen(root) {
   put(root, 'docs/README.md', [
@@ -1339,6 +1340,86 @@ test('lint: an upper-case CHANGELOG.MD or card file stays a record of its moment
     assert.deepEqual(rewriteProsePins(root, 'docs', 'BS', parseCli(`npx github:me/proj#v${V}`), `v${V}`), ['docs/notes/bs-8-y.md']);
     assert.equal(read(root, 'CHANGELOG.MD'), changelog);
     assert.equal(read(root, 'docs/notes/BS-7-x.MD'), `Measured on \`${old}\`.\n`);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Gate 8 reads each ADR's status line and the index rows that link ADRs.
+
+const ADR = 'docs/adr/adr-001-process.md';
+const adrWith = (root, status) => put(root, ADR, `# ADR-001: Process\n\n${status}\n**Date:** 2026-09-01\n`);
+const fold = msg('ru', 'fold the decision into the ADR that governs the question now, then delete the replaced file');
+const replacedStatus = (text) => `${ADR}: ${msg('ru', 'line {line}: “{text}” — an ADR holds a current decision, Proposed or Accepted; {fold}', { line: 3, text, fold })}`;
+
+function adrProbe(name, mutate, expected) {
+  test(`lint: 8. ${name}`, () => {
+    const root = makeProject({ git: false });
+    try {
+      seedGreen(root);
+      mutate(root);
+      const found = problems(root);
+      assert.ok(found.includes(expected(root)), `expected ${expected(root)}, found: ${found.join(' | ') || 'nothing'}`);
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
+for (const status of ['Superseded', 'Superseded in part', 'Deprecated', 'Rejected']) {
+  adrProbe(`a status of ${status} is refused`, (root) => adrWith(root, `**Status:** ${status}`), () => replacedStatus(`**Status:** ${status}`));
+}
+adrProbe('an ADR without a status line is refused', (root) => put(root, ADR, '# ADR-001: Process\n\n**Date:** 2026-09-01\n'),
+  () => `${ADR}: ${msg('ru', 'no status line — an ADR states “**Status:** Proposed” or “**Status:** Accepted”')}`);
+adrProbe('a status line naming another ADR by its number is a chain', (root) => adrWith(root, '**Status:** Accepted, refines ADR-007'),
+  () => `${ADR}: ${msg('ru', 'line {line}: “{text}” names another ADR, which marks a chain; {fold}', { line: 3, text: '**Status:** Accepted, refines ADR-007', fold })}`);
+adrProbe('a status line linking another ADR file is a chain', (root) => {
+  put(root, 'docs/adr/adr-002-next.md', '# ADR-002: Next\n\n**Status:** Accepted\n');
+  put(root, 'docs/README.md', `${read(root, 'docs/README.md')}| [adr/adr-002-next.md](adr/adr-002-next.md) | next | Accepted |\n`);
+  adrWith(root, '- **Status:** Accepted, partly replaced by [the next one](adr-002-next.md)');
+}, () => `${ADR}: ${msg('ru', 'line {line}: “{text}” names another ADR, which marks a chain; {fold}', {
+  line: 3, text: '- **Status:** Accepted, partly replaced by [the next one](adr-002-next.md)', fold,
+})}`);
+adrProbe('a Status cell that differs from the file is refused', (root) => put(root, 'docs/README.md', read(root, 'docs/README.md').replace('| Accepted |', '| Proposed |')),
+  () => `docs/README.md: ${msg('ru', 'line {line}: the Status cell “{cell}” of {adr} differs from its status line “{status}” — write the word of the file', {
+    line: 6, cell: 'Proposed', adr: ADR, status: 'Accepted',
+  })}`);
+adrProbe('an ADR listed in two rows is refused', (root) => put(root, 'docs/README.md', read(root, 'docs/README.md').replace(/^(\| \[adr\/.*)$/m, '$1\n$1')),
+  () => `docs/README.md: ${msg('ru', 'line {line}: {adr} is listed again (first at line {prev}) — keep one row per ADR', { line: 7, adr: ADR, prev: 6 })}`);
+
+greenProbe('8. a Proposed ADR with a Proposed row is green', (root) => {
+  adrWith(root, '**Status:** Proposed');
+  put(root, 'docs/README.md', read(root, 'docs/README.md').replace('| Accepted |', '| Proposed |'));
+});
+greenProbe('8. the list-item form of the status line is green', (root) => adrWith(root, '- **Status:** Accepted'));
+greenProbe('8. the Russian label of the status line is green', (root) => adrWith(root, `- **${msg('ru', 'Status')}:** Accepted (2026-09-01)`));
+greenProbe('8. a status line inside a code block does not count, the one after it does', (root) => put(root, ADR,
+  '# ADR-001: Process\n\n```\n**Status:** Superseded\n```\n\n**Status:** Accepted\n'));
+greenProbe('8. a prose link to an ADR is not a second row', (root) => put(root, 'docs/README.md', `${read(root, 'docs/README.md')}\nSee [the process ADR](adr/adr-001-process.md).\n`));
+
+const adrTable = (header, cell) => (root) => put(root, 'docs/README.md', `${read(root, 'docs/README.md').replace(/^\| \[adr\/.*\n/m, '')}
+| ADR | ${header} |
+|---|---|
+| [adr/adr-001-process.md](adr/adr-001-process.md) | ${cell} |
+`);
+greenProbe('8. an index table without a Status column is not compared', adrTable('Topic', 'Whatever'));
+greenProbe('8. a bold Russian Status header is read, and a matching cell is green', adrTable(`**${msg('ru', 'Status')}**`, 'Accepted'));
+adrProbe('a bold Russian Status header with a differing cell is refused', adrTable(`**${msg('ru', 'Status')}**`, 'Proposed'),
+  () => `docs/README.md: ${msg('ru', 'line {line}: the Status cell “{cell}” of {adr} differs from its status line “{status}” — write the word of the file', {
+    line: 9, cell: 'Proposed', adr: ADR, status: 'Accepted',
+  })}`);
+greenProbe('8. a status line naming the ADR itself is not a chain', (root) => adrWith(root, '**Status:** Accepted (ADR-001, revised 2026-09-01)'));
+
+test('lint: 8. an English project names the status errors in English', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+    adrWith(root, '**Status:** Superseded by ADR-002');
+    const found = problems(root);
+    const expected = `${ADR}: line 3: “**Status:** Superseded by ADR-002” — an ADR holds a current decision, Proposed or Accepted; `
+      + 'fold the decision into the ADR that governs the question now, then delete the replaced file';
+    assert.ok(found.includes(expected), found.join(' | '));
   } finally {
     cleanup(root);
   }

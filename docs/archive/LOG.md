@@ -243,3 +243,5 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-198"></a>`BS-198-owner-questions-task-titles` · 2026-10-01 · completed · — · Questions to the owner are self-contained, and a task is named with its title
 - <a id="bs-189"></a>`BS-189-writer-skill` · 2026-10-01 · completed · — · backslop-writer skill: the technical-writer pass with a currency ledger and a style ledger
 - <a id="bs-190"></a>`BS-190-writer-audit-mode` · 2026-10-02 · completed · — · backslop-writer audit mode: a score and shippability report, every finding filed with a regression check
+- <a id="bs-187"></a>`BS-187-adr-current-decisions-only` · 2026-10-02 · completed · — · ADRs hold current decisions only: gate 8 refuses a replaced status, templates state the rule
+- <a id="bs-154.1"></a>`BS-154.1-adr-status-column` · 2026-10-02 · batch BS-187 · — · Gate or drop the Status column of the docs/README.md ADR table

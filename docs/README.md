@@ -29,7 +29,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 ## Cross-cutting principles
 
 1. **An undocumented change is incomplete.** Update the reference, subsystem README, and CHANGELOG in the same pass as the code.
-2. **A topic has one ADR.** A changed decision rewrites it, in place or as a new file that replaces it; the replaced file is deleted and nothing cites its number — there are no "Superseded by" chains.
+2. **The ADR directory holds current decisions only.** A new decision on a question already decided rewrites that question's ADR in place: same number, the rationale that still holds, the consequences of the change. An ADR that no longer governs anything is deleted; git keeps its history. A chain of ADRs on one question is folded into its highest number.
 3. **Use only terms from the glossary.** If a required name is missing, propose it rather than silently inventing it.
 4. **Evidence is stronger than intuition.** Put a number, file path, or command output in task definitions, results, and ADRs; state unverified claims as hypotheses.
 5. **Repository rules** — templates as the source, generated adapter outputs, gates and comments — are in [AGENTS.md](../AGENTS.md).
