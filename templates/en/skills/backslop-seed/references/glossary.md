@@ -23,7 +23,7 @@ The starting size is 10–30 terms. Nobody reads a hundred-line glossary; it gro
 | order `[?]` | PurchaseOrder | A confirmed booking with an assigned executor — or any booking? The owner has not confirmed | `src/Orders/PurchaseOrder.cs`, README §2 |
 
 - Definition is one or two sentences distinguishing the concept from neighbours, not a code paraphrase.
-- The Term, EN and Evidence columns and the `[?]` mark are defined once, in the header of `{{docs}}/GLOSSARY.md`. If the user’s speech differs from the glossary, ask rather than staying silent: “The glossary defines X as Y, but this seems to mean Z — which is correct?”
+- The Term, EN and Evidence columns and the `[?]` mark are defined once, in the header of `{{docs}}/GLOSSARY.md`. If the user’s speech differs from the glossary, ask, worded as *Talking to the owner* in the backslop section of AGENTS.md says, rather than staying silent: “The glossary defines X as Y, but this seems to mean Z — which is correct?”
 
 ## Retired terms
 

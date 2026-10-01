@@ -5,7 +5,7 @@ Read in phases 2–3 of the `backslop-seed` skill. The first ADR, about the proc
 ## How many and which
 
 - **3–5 decisions**, not the entire history. Criterion: the decision still constrains changes — replacing it is expensive, and the next reader will ask “why this way?” Framework, store, broker, API format, and layering are typical candidates. Minor choices and tool defaults are not.
-- Show the owner the complete list of candidates with evidence **before writing**, using a multiple-choice survey. The owner determines whether an event was a decision or historical accident.
+- Show the owner the complete list of candidates with evidence **before writing**, using a multiple-choice survey worded as *Talking to the owner* in the backslop section of AGENTS.md says. The owner determines whether an event was a decision or historical accident.
 - A decision whose rationale cannot be reconstructed is recorded only on the owner’s word — and then honestly: “the reason is lost; recorded from the code state as of <date>”.
 
 ## Form of a retrospective record
@@ -26,10 +26,10 @@ Read in phases 2–3 of the `backslop-seed` skill. The first ADR, about the proc
 
 ## ADRs in another format
 
-If ADRs are found in another directory or template, ask the owner whether to move them into `{{docs}}/adr/` or leave them in place and link them from the index. Two parallel decision logs are the worst of the three choices.
+If ADRs are found in another directory or template, ask the owner, worded as *Talking to the owner* in the backslop section of AGENTS.md says, whether to move them into `{{docs}}/adr/` or leave them in place and link them from the index. Two parallel decision logs are the worst of the three choices.
 
 Leaving in place applies only to ADRs outside `{{docs}}/adr/`. A foreign-named file already inside it (for example `0001-use-pg.md`) cannot stay: `{{cli}} lint` rejects every name there that is not `adr-NNN-<slug>.md`, so rename it as described below or move it out of the directory.
 
-A migrated file is renamed to `adr-NNN-<slug>.md`: numbering sees only that form. When `{{docs}}/adr/` held no `adr-NNN-*.md` before `{{cli}} init`, number 001 belongs to the process ADR; otherwise the process ADR took the next free number. Migrated ADRs take the next free numbers and keep the original number and date in their text. Keeping the original numbers requires renumbering the process ADR first, and that needs the owner's consent.
+A migrated file is renamed to `adr-NNN-<slug>.md`: numbering sees only that form. When `{{docs}}/adr/` held no `adr-NNN-*.md` before `{{cli}} init`, number 001 belongs to the process ADR; otherwise the process ADR took the next free number. Migrated ADRs take the next free numbers and keep the original number and date in their text. Keeping the original numbers requires renumbering the process ADR first, and that needs the owner's consent, worded as *Talking to the owner* in the backslop section of AGENTS.md says.
 
 A migrated ADR is committed with no `[TODO]` left, and its Status stays `Proposed` until the owner accepts it, then `Accepted`.

@@ -96,7 +96,7 @@ After findings are addressed, **you verify the diff** in your context: the findi
 | Worker supplied a mutation probe and result | Diff cannot verify closure: a run is needed in an environment you lack |
 | Documentation and text; any minor finding | The finding was critical to a contract |
 
-The signal in the right column is not finding severity but whether the correction can produce a new failure of the same class. Limit: two reviewer launches for one result or three review rounds without progress — stop the loop and go to the owner with the findings as they stand. A round closing all preceding findings is progress: fixes create a new surface and the next reviewer sees it.
+The signal in the right column is not finding severity but whether the correction can produce a new failure of the same class. Limit: two reviewer launches for one result or three review rounds without progress — stop the loop and go to the owner with the findings as they stand, worded as *Talking to the owner* in the backslop section of AGENTS.md says. A round closing all preceding findings is progress: fixes create a new surface and the next reviewer sees it.
 
 ## Integration and acceptance
 
@@ -113,4 +113,4 @@ The signal in the right column is not finding severity but whether the correctio
 
 ## End of the run
 
-Report to the owner what closed, what remains, and where decisions are needed. `{{cli}} tracks --json` lists the run worktrees and branches: make sure `total` is 0 — a non-empty list names the path, the branch, task commits not in HEAD, and uncommitted work. `tracks` exits 0 either way, and its summary line is human text, not contract: read `total`. The command does not see live sessions; check those the way the harness provides.
+Report to the owner what closed, what remains, and where decisions are needed, worded as *Talking to the owner* in the backslop section of AGENTS.md says. `{{cli}} tracks --json` lists the run worktrees and branches: make sure `total` is 0 — a non-empty list names the path, the branch, task commits not in HEAD, and uncommitted work. `tracks` exits 0 either way, and its summary line is human text, not contract: read `total`. The command does not see live sessions; check those the way the harness provides.
