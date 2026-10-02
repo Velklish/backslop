@@ -112,7 +112,7 @@ function main(argv) {
   try {
     command('git', ['push', '--atomic', '--dry-run', 'origin', 'main', tag]);
   } catch (error) {
-    throw new Error(`${error.message}\nstate: the local tag ${tag} is created; origin is unchanged; the npm registry is untouched\nnext: fix the push refusal or roll the tag back — git tag -d ${tag} — and rerun release`);
+    throw new Error(`${error.message}\nstate: the local tag ${tag} is created; origin is unchanged; the npm registry is untouched\nnext: fix the push refusal, then delete the local tag — git tag -d ${tag} — and rerun release`);
   }
 
   if (publish) {

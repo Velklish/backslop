@@ -329,3 +329,18 @@ test('documentation-fix rule: both layers carry the check, the writer pass and t
     }
   }
 });
+
+test('backslop-task: the report step says an absent not-run or out-of-scope part of the gates summary is 0', () => {
+  const notRun = (en) => (en ? ', not run N' : ru(', not run {skipped}', { skipped: 'N' }));
+  const outOfScope = (en) => (en ? ' (out of scope K)' : ru(' (out of scope {outOfScope})', { outOfScope: 'K' }));
+  const enLine = readFileSync(path.join(TEMPLATES_DIR, 'en', 'skills', 'backslop-task', 'SKILL.md'), 'utf8').split('\n')
+    .find((line) => line.startsWith('- gate results as numbers'));
+  const ruLine = ruTwinLine('skills/backslop-task/SKILL.md', '- gate results as numbers');
+  assert.ok(enLine.includes(notRun(true)) && enLine.includes(outOfScope(true)), 'en: the line names both printed parts');
+  assert.ok(enLine.includes('a part that is absent means 0'), 'en: the line says what an absent part means');
+  assert.ok(ruLine.includes(notRun(false)) && ruLine.includes(outOfScope(false)), 'ru: the line names both printed parts as the tool prints them');
+  // The meaning clause is what the printed parts lead to: the same two zeros, after the last part.
+  const zeros = (line, last) => line.slice(line.indexOf(last) + last.length).match(/\b0\b/g)?.length ?? 0;
+  assert.equal(zeros(enLine, outOfScope(true)), 2, 'en: the clause says what an absent part is and what the report says');
+  assert.equal(zeros(ruLine, outOfScope(false)), 2, 'ru: the clause says what an absent part is and what the report says');
+});

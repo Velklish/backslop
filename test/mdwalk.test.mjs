@@ -1,7 +1,7 @@
 // The markdown walk: one set of files for the gates and for rewriting links on a move.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { markGenerated } from '../lib/adapter-ownership.js';
@@ -269,6 +269,49 @@ test('mv words an unreadable directory of the link walk, not a bare code', { ski
     assert.ok(r.err.endsWith(`✖ src/locked: the directory is not readable (EACCES) — links in it cannot be updated; ${TAIL_EN}\n`), r.err);
   } finally {
     chmodSync(locked, 0o755);
+    cleanup(root);
+  }
+});
+
+// A directory the link walk cannot list refuses the command, and the card stays where it was: a
+// repeat finds it in its status directory instead of answering "already there".
+test('mv and archive refuse over an unreadable directory before the card moves, and a repeat works', { skip: process.platform === 'win32' || asRoot }, () => {
+  const root = makeProject({ git: false });
+  const locked = path.join(root, 'src', 'locked');
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · a\n');
+    put(root, 'docs/backlog/queue/BS-2-b.md', '# BS-2 · b\n');
+    mkdirSync(locked, { recursive: true });
+    chmodSync(locked, 0o000);
+    let r = cli(root, ['mv', '1', 'queue']);
+    assert.equal(r.code, 1, r.out);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/triage/BS-1-a.md')), 'mv: the card stays in triage/');
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')), 'mv: nothing arrived in queue/');
+    r = cli(root, ['archive', '2']);
+    assert.equal(r.code, 1, r.out);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-2-b.md')), 'archive: the card stays in queue/');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/BS-2-b')), 'archive: no directory was made');
+    chmodSync(locked, 0o755);
+    r = cli(root, ['mv', '1', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    r = cli(root, ['archive', '2']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-2-b/task.md')));
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+  }
+});
+
+test('mv with a symlinked alias of a status directory in the link walk moves the card and does not read the old path', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · a\n');
+    symlinkSync(path.join(root, 'docs', 'backlog'), path.join(root, 'aa-alias'));
+    const r = cli(root, ['mv', '1', 'queue']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')), 'the card is in queue/');
+  } finally {
     cleanup(root);
   }
 });

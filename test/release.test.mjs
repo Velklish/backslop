@@ -360,3 +360,17 @@ test('release --bump renames `## Unreleased (after v0.1.0)` and refuses a releas
     cleanup(kac);
   }
 });
+
+test('release: the push --dry-run refusal tells the local tag is deleted before the rerun, not as an alternative', () => {
+  const f = fixture();
+  try {
+    const r = runRelease(f, '0.2.0', { FAKE_PUSH_DRY_FAIL: '1' });
+    assert.equal(r.code, 1);
+    const next = r.err.split('\n').find((line) => line.startsWith('next:'));
+    assert.ok(next, 'the refusal carries a next: line');
+    assert.match(next, /fix the push refusal, then delete the local tag — git tag -d v0\.2\.0 — and rerun release/);
+    assert.doesNotMatch(next, /\bor\b/, 'deleting the tag is not an alternative to fixing the push');
+  } finally {
+    cleanup(f);
+  }
+});

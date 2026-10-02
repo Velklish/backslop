@@ -787,3 +787,18 @@ test('gates: a repository without commits — there is a snapshot, no commit in 
     cleanup(root);
   }
 });
+
+test('gates: a run that skips nothing prints no not-run tail, and --json carries both counts as 0', () => {
+  const root = makeProject({ git: false });
+  try {
+    withGates(root, [mark('first', 0), mark('second', 0)]);
+    const r = cli(root, ['gates'], marked(root));
+    assert.equal(r.code, 0, r.err);
+    assert.ok(r.out.includes(ru(TALLY, { gates: 2, green: 2, tail: '', why: '' })), 'the summary ends at the green count');
+    assert.ok(!r.out.includes(ru(NOT_RUN, { skipped: 0 })), 'a zero is not printed');
+    const report = JSON.parse(cli(root, ['gates', '--json'], marked(root)).out);
+    assert.deepEqual([report.skipped, report.outOfScope], [0, 0]);
+  } finally {
+    cleanup(root);
+  }
+});

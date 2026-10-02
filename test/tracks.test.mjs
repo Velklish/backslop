@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { cleanup, cli, escapeRe, makeProject, put, ru, ruCard, ruRe, run } from './helpers.mjs';
@@ -290,6 +290,26 @@ test('tracks: a git log that fails reports pending as unchecked, not as empty', 
     assert.doesNotMatch(top.err, ruRe(NO_REPO));
   } finally {
     rmSync(shim, { recursive: true, force: true });
+    dropRun(root);
+  }
+});
+
+test('tracks --json: a dirty item is the porcelain line as git prints it, the status column included', () => {
+  const root = makeProject();
+  try {
+    seedRun(root);
+    const wt = beside(root, 'pending');
+    writeFileSync(path.join(wt, 'docs/backlog/queue/BS-1-a.md'), 'edited\n');
+    const json = cli(root, ['tracks', '--json']);
+    assert.equal(json.code, 0, json.err);
+    const pending = JSON.parse(json.out).tracks.find((t) => t.branch === 'track-pending');
+    assert.deepEqual(pending.dirty, [' M docs/backlog/queue/BS-1-a.md', '?? docs/backlog/queue/BS-3-c.md']);
+    assert.deepEqual(pending.dirty, run(wt, ['status', '--porcelain']).stdout.split('\n').filter(Boolean),
+      'the same lines as git status --porcelain of that worktree');
+    const contract = readFileSync(new URL('../docs/reference/05-orchestrator-contract.md', import.meta.url), 'utf8');
+    assert.ok(contract.includes('"dirty": [\n        " M a.txt",'), 'the contract example shows the status column');
+    assert.doesNotMatch(contract, /trimmed at both ends/, 'the contract no longer says the items are trimmed');
+  } finally {
     dropRun(root);
   }
 });
