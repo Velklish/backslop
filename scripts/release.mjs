@@ -41,13 +41,13 @@ function tagExistsOnOrigin(tag) {
   return command('git', ['ls-remote', '--exit-code', '--tags', 'origin', `refs/tags/${tag}`], { capture: true, allow: [2] }).status === 0;
 }
 
-// Бамп — отдельный ход до релиза: версия пакета, штамп раскладки (через init) и заголовок верхней
-// секции CHANGELOG. С релизом не совместить: preflight требует чистого дерева, а коммитит агент.
+// A bump is a step before the release: the package version, the layout stamp (via `init`) and
+// the top CHANGELOG heading. The release needs a clean tree, so the bump is committed first.
 function bump(version) {
   const pkg = readFileSync('package.json', 'utf8');
   const current = packageVersion();
-  // Только вверх: понижение прошло бы оба guard'а и оставило дерево полубампнутым —
-  // package.json на новой версии, а `init` уже отказал бы «штамп новее инструмента».
+  // Upward only: a lower version would pass the checks below and leave the tree half-bumped,
+  // because `init` refuses a stamp newer than the tool.
   if (compareVersions(version, current) <= 0) throw new Error(`package.json is at version ${current}: bump goes only upward, ${version} is not newer`);
   const bumped = pkg.replace(`"version": "${current}"`, `"version": "${version}"`);
   if (bumped === pkg) throw new Error(`package.json: no line "version": "${current}" — bump it by hand`);
@@ -57,8 +57,8 @@ function bump(version) {
   if (sectionVersion(heading[1].trim()) !== null) throw new Error(`CHANGELOG.md: the top section “${heading[0]}” is already released — nothing to rename to v${version}`);
   const section = `## v${version} — ${today()}`;
 
-  // Все проверки — до первой записи: отказ на середине дал бы рассинхрон, который ловит гейт 11.
-  // `init` этим не покрыт и может отказать после двух записей — тогда штамп останется прежним.
+  // All checks come before the first write: a refusal midway would leave drift lint catches.
+  // `init` is not covered and may refuse after two writes; the stamp then stays as it was.
   writeFileSync('package.json', bumped);
   writeFileSync('CHANGELOG.md', changelog.replace(heading[0], section));
   command(process.execPath, ['bin/backslop.js', 'init']);
