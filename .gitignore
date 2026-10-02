@@ -1,7 +1,7 @@
 node_modules/
 .DS_Store
 
-# Рабочие копии агентов: полный чекаут ветки субагента, не adapter output.
+# Agent working copies: a full checkout of a subagent's branch, not an adapter output.
 .claude/worktrees/
 
 # backslop adapter outputs; harness directories remain available for custom files.

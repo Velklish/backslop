@@ -97,14 +97,14 @@ async function main(argv) {
   }
 }
 
-// Читатель закрыл пайп (`status --json | head`) — не наша ошибка, выходим тихо.
+// The reader closed the pipe (`status --json | head`): not our error, exit quietly.
 process.stdout.on('error', (e) => {
   if (e.code === 'EPIPE') process.exit(0);
   throw e;
 });
 
-// Код возврата — через exitCode, а не process.exit: выход до сброса stdout режет длинный
-// вывод на размере буфера пайпа, и `status --json` уезжал бы оркестратору битым.
+// Exit code via exitCode, not process.exit: exiting before stdout drains truncates long output
+// at the pipe buffer size, and `status --json` would reach the orchestrator broken.
 main(process.argv.slice(2)).then(
   (code) => { process.exitCode = code; },
   (e) => {
