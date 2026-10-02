@@ -348,8 +348,6 @@ The files are shared: they hold the team's own settings and hooks, and other too
 
 **The trust step.** As measured above, the harnesses differ: Claude Code in `-p` needs no step; Codex in `codex exec` ran the hooks only with `--dangerously-bypass-hook-trust`, and persisted trust was not measured; Cursor in `-p` with `--force` needs none, and the interactive `cursor-agent` asks to trust the workspace (`--trust`). Cursor's `stop` fires only in the interactive terminal, and a linked Codex worktree runs the main checkout's `<project>/.codex/hooks.json`.
 
-**promptobus participants.** At promptobus `v0.21.0` (recorded on 2026-10-02 in the message of commit `8dc5fb0`, from the functions `refuseForeignProjectLayer` and `prepare` of its source), a Codex participant refuses a foreign `<project>/.codex/hooks.json` in the project, and a Cursor participant overwrites `<project>/.cursor/hooks.json` in its worktree. A project that runs promptobus Codex or Cursor participants should not select those hooks at that version; `init` says so in one line of its output when `cursor` or `codex` is selected.
-
 ### Session records
 
 `hook session-start` writes one file per harness and session, `<harness>-<session id>.json`, in `backslop/hooks/` under the git directory of the working tree (`git rev-parse --git-dir`): `.git/backslop/hooks/` in a checkout, `.git/worktrees/<name>/backslop/hooks/` in a linked worktree. In the name, every character of the id outside ASCII letters, digits, `.`, `_` and `-` becomes `_`, and the id is cut at 128 characters; two ids that differ only in such characters, or after the 128th, share one record. Git never tracks the git directory, so the record is neither tracked nor untracked, and each worktree has its own.

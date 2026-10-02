@@ -218,7 +218,6 @@ export const messages = {
   '--tools “{raw}”: a comma-separated list of claude, cursor, codex, or none': '--tools «{raw}»: claude, cursor, codex через запятую или none',
   '--hooks “{raw}”: a comma-separated list of claude, cursor, codex, or none': '--hooks «{raw}»: claude, cursor, codex через запятую или none',
   'agent hooks: {states}': 'хуки агента: {states}',
-  'agent hooks of {harnesses}: promptobus participants of these harnesses collide with {files} until promptobus accepts backslop\'s hook records — a project that runs such participants should not select these hooks': 'хуки агента для {harnesses}: участники promptobus этих харнессов конфликтуют с {files}, пока promptobus не примет записи хуков backslop, — проекту, где такие участники работают, эти хуки не выбирать',
   'not needed': 'не нужен',
   '# no adapters selected — nothing is generated': '# adapters не выбраны — generated outputs не создаются',
   '{name} is a directory, expected a file': '{name} — каталог, а нужен файл',
