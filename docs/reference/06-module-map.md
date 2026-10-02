@@ -128,13 +128,13 @@ A gate is a function in `lib/lint.js` that `lintProject` calls. Gates are number
 3. **The call.** Add `lintX(project, err);` to `lintProject`, destructuring what it needs there.
 4. **The tool-repository guard.** A gate that only makes sense in the tool's own repository starts with `if (!isToolRepo(root)) return;`. `isToolRepo` (`lib/templates.js`) compares the realpath of `<root>/templates` with the running tool's `templates/`; gates 11, 12 and 14 and template parity use it.
 5. **The docs.** A row in the table of [03. Lint gates](03-lint.md): the gate, what it catches, how to fix it. The [link rule](03-lint.md#link-rule) and the other sections change only if the gate touches them.
-6. **The red probe.** In `test/lint.test.mjs` add `probe('N. <case>', (root) => put(root, '<path>', '<bad text>'), /expected message/)`. `probe` builds a green project with `seedGreen`, applies the mutation, runs `lintProject` in process and asserts that some error matches the regular expression; a gate that cannot be reddened is not a gate. The case the gate accepts goes in `greenProbe(name, mutate)`, which asserts no errors. Extend `seedGreen` only when the new gate needs content that the green project lacks, and keep it green for every other probe; a fixture that rewrites every Markdown file keeps at least one link, or gate 1 reports `gate 1 read nothing`. A tool-repo-only gate is probed with `toolProbe(name, mutate, regex)`, or with `toolProject` when the probe also needs a green half, because the plain fixture never switches the gate on; see [The lint probe DSL](#the-lint-probe-dsl).
+6. **The red probe.** In `test/lint.test.mjs` add `probe('N. <case>', (root) => put(root, '<path>', '<bad text>'), errRe('<file>', '<English message key>', { params }))`. `probe` builds a green project with `seedGreen`, applies the mutation, runs `lintProject` in process and asserts that some error matches the regular expression; a gate that cannot be reddened is not a gate. The case the gate accepts goes in `greenProbe(name, mutate)`, which asserts no errors. Extend `seedGreen` only when the new gate needs content that the green project lacks, and keep it green for every other probe; a fixture that rewrites every Markdown file keeps at least one link, or gate 1 reports `gate 1 read nothing`. A tool-repo-only gate is probed with `toolProbe(name, mutate, regex)`, or with `toolProject` when the probe also needs a green half, because the plain fixture never switches the gate on; see [The lint probe DSL](#the-lint-probe-dsl).
 7. **The count.** The number of gates is spelled as a word in five places; change every one, or the help, the docs and a test disagree:
    - `HELP_EN` in `bin/backslop.js`, in the `lint` line (`fourteen gates:`), with the list of what the gates check;
    - `help` in `templates/i18n/ru.mjs`, in the same line in Russian, with the same list;
    - the row of page 03 in [docs/reference/README.md](README.md);
    - the heading `## Checks outside the fourteen gates` in [03-lint.md](03-lint.md), and the link to its anchor `#checks-outside-the-fourteen-gates` in the table of that page;
-   - the assertion `/четырнадцать гейтов/` in `test/review.test.mjs`, the help test.
+   - the assertion `/fourteen gates/` in `test/review.test.mjs`, the help test; the Russian count word has no literal check: the Russian help is compared whole with `RU.help` and its grid is pinned, but the word itself is not.
 8. **The CHANGELOG.** An entry under `## Unreleased`.
 
 ## Recipe: add a migration
@@ -182,7 +182,7 @@ Both helper modules are in `test/`; everything below is exported from [test/help
 
 | Helper | What it does |
 |---|---|
-| `makeProject({ docs = 'docs', git = true, stamp = true } = {})` | A temporary project built by hand, not by `init`, so an `init` defect does not redden another test. `backslop.json` has prefix `BS`, `gates: []`, **`lang: 'ru'`** and `tools: []`; `stamp: false` omits the `version` stamp. It creates the status directories, `archive/`, `adr/`, `reference/` and minimal READMEs — `docs/README.md` with one link, since Markdown files without any link fail gate 1 as `gate 1 read nothing` — and with `git: true` a repository on `main` with a test identity. Because `lang` is `ru`, messages come out in Russian and assertions match Russian text; a test of an English message rewrites `lang` to `en` in `backslop.json` first |
+| `makeProject({ docs = 'docs', git = true, stamp = true } = {})` | A temporary project built by hand, not by `init`, so an `init` defect does not redden another test. `backslop.json` has prefix `BS`, `gates: []`, **`lang: 'ru'`** and `tools: []`; `stamp: false` omits the `version` stamp. It creates the status directories, `archive/`, `adr/`, `reference/` and minimal READMEs — `docs/README.md` with one link, since Markdown files without any link fail gate 1 as `gate 1 read nothing` — and with `git: true` a repository on `main` with a test identity. Because `lang` is `ru`, messages come out in Russian, and a test builds its expectation through the Russian helpers below, never from a Russian literal; a test of an English message rewrites `lang` to `en` in `backslop.json` first |
 | `cli(root, args, { cwd = root, env = {} } = {})` | Runs `bin/backslop.js` as a real process and returns `{ code, out, err }`. `NO_COLOR` is set and `--no-warnings` is appended to `NODE_OPTIONS` |
 | `put(root, rel, text)`, `read(root, rel)` | Write a file, creating directories, and read one; `rel` is a posix path below the project |
 | `run(root, args)` | Runs `git -C root …` and throws when it exits non-zero |
@@ -195,12 +195,28 @@ Both helper modules are in `test/`; everything below is exported from [test/help
 | `BIN`, `REPO` | The path of `bin/backslop.js` and of the repository root |
 | `test/comment-scan.mjs` | `LIMIT`, `WIDTH`, `longBlocks`, `wideLines` and friends; used by `test/comment-length.test.mjs`, the comment gate of `npm test` |
 
+### Russian in tests
+
+No file in `test/` holds a Cyrillic letter: `rg '[\x{0400}-\x{04FF}]' test` finds nothing, test names, comments, assert messages and fixtures included. The Russian that a test needs comes from the places the tool itself reads it from:
+
+| Need | Helper |
+|---|---|
+| A Russian message, or a pattern for it, from its English key | `ru(en, params)`; `ruRe(en, params, flags)` — a literal pattern in which a placeholder without a param, or given `ANY`, matches any text; `ruHeadRe(en)` — the text before the first placeholder; `killedRe(command)` and `KILLED` — "killed by a signal" |
+| Task header field names and section names | `FIELD` and `SECTION` (`RU.fieldNames`, `RU.sectionNames` of `templates/i18n/ru.mjs`); `fieldSrc(key)` and `fieldRe(key, valueSrc, flags)` — a header line as a pattern; `RU_COMMANDS` — the "Commands:" line of the Russian help |
+| A Russian fixture document | `ruCard(id, title, fields, sections)` — a task card; `ruResult(id, date, rest)` and `ruResultHeading(id)` — `result.md` from the Russian template; `ruOutcome(kind, target)` and `ruOutcomeWord(kind, target)` — the outcome word as a result and as a journal line spell it |
+| A Russian template, as rendered or as written | `ruTemplate(rel, vars)`, `ruTemplateLines(rel)`; `ruTwinLine(rel, en)` — the line of the Russian template that is the twin of the English line holding `en`; `ruTextRe(text, fill)` and `ruLineRe(rel, en, fill)` — a template text or twin line as a pattern |
+| A Russian sentence that holds vocabulary words | `ruExpand(text)` fills the tokens from `RU.parserWords` |
+
+`ruExpand` tokens: `{word}` is the first spelling of the vocabulary word `closed`, `merged`, `rejected`, `withdrawn`, `completed`, `outcome`, `batch`, `result`, `not` or `into`; `{word.N}` is its spelling number N (alternatives and one-letter classes of the vocabulary source, in order); `{word-}` drops the last letter, for a test of a stem; a capital first letter (`{Closed}`) capitalises the word; `{with}` is the preposition inside the spelling of `rejected` that has one. `{rejectedMasculine}`, `{withdrawnNoun}`, `{outcomePlural}`, `{byRefusal}`, `{refusal}`, `{duplicate}` and `{done}` are look-alike forms that no vocabulary holds.
+
+Inputs that cannot come from a Russian source are built from code points: the look-alike forms above (`String.fromCodePoint` in `LOOKALIKES` of the helpers), the non-ASCII directory names of the git `quotePath` tests (`NON_ASCII_DIR` in `test/commands.test.mjs`, `DOCS_DIR` in `test/upgrade.test.mjs`), the non-ASCII names in `PKG` of `test/gates.test.mjs`, `ELKA` of `test/links.test.mjs` and `STEM` of `test/util.test.mjs`, and the cp1251 bytes in `test/init.test.mjs`. A test that asserts the absence of Russian uses `/\p{Script=Cyrillic}/u`.
+
 ### The lint probe DSL
 
 [test/lint.test.mjs](../../test/lint.test.mjs) holds one red probe per gate, named `lint: N. <case>`:
 
 - `seedGreen(root)` fills a `makeProject` with a project that has no errors: an ADR and its row, tasks in each status, an archived task, a reference page, a CHANGELOG and a README;
-- `probe(name, mutate, regex)` — `seedGreen`, then `mutate(root)`, then `lintProject` in process; passes when an error line `<file>: <msg>` matches `regex`;
+- `probe(name, mutate, regex)` — `seedGreen`, then `mutate(root)`, then `lintProject` in process; passes when some error line `<file>: <msg>` matches `regex`, which is the Russian message built from its English key (see [Russian in tests](#russian-in-tests));
 - `greenProbe(name, mutate)` — the same, and passes when there are no errors;
 - `problems(root)` and `warnings(root)` return the error and warning lines;
 - `toolProject(mutate)` — for gates that run only in the tool's own repository: a `toolCopy()`, `init` on it, `mutate(dir)`, then `lint` as a process; it returns `{ dir, code, out, err }`, and the caller removes `dir` with `cleanup`;
@@ -233,7 +249,7 @@ The help text is two hand-written template literals: `HELP_EN` in `bin/backslop.
 - `help(lang)` in `bin/backslop.js` returns `HELP_EN` for `en` and the Russian text for `ru`: the project language decides, and outside a project both texts are printed, English first.
 - The language is read from `backslop.json` by `projectHintsOrNull`; a broken config gives Russian.
 - `help`, `--help`, `-h` and no argument print it; so does `<command> --help`, through `HelpRequest` from `parseCommandArgs`. The exit code is 0, inside a project or outside.
-- **Alignment.** A command line starts with two spaces, then the synopsis, then spaces up to the description, which starts at column 54 (54 characters before it). A synopsis that does not fit in that width ends its line, and the description goes on the next line indented by 54 spaces; `brief` and `merge-changelog` are written so. Keep every line of both literals on that grid. The help test in `test/review.test.mjs` pins a few lines by the exact number of spaces, for example `version | --version | -v` and `show <N>`.
+- **Alignment.** A command line starts with two spaces, then the synopsis, then spaces up to the description, which starts at column 54 (54 characters before it). A synopsis that does not fit in that width ends its line, and the description goes on the next line indented by 54 spaces; `brief` and `merge-changelog` are written so. Keep every line of both literals on that grid. The help test in `test/review.test.mjs` checks the grid of both literals: every command line holds its description at column 54, or ends with its synopsis and is followed by a line that opens with 54 spaces.
 - **Two texts, one structure.** An edit of one literal has its counterpart in the other, in the same position.
-- **The gate count.** The `lint` line names the number of gates as a word, in both literals, and `test/review.test.mjs` matches the Russian word. The full list of places is in step 7 of [Recipe: add a lint gate](#recipe-add-a-lint-gate).
+- **The gate count.** The `lint` line names the number of gates as a word, in both literals, and `test/review.test.mjs` matches the English word; the Russian word has no literal check, the Russian help is only compared whole with `RU.help`. The full list of places is in step 7 of [Recipe: add a lint gate](#recipe-add-a-lint-gate).
 - **What tests pin.** The help test matches the Russian and English texts, and the `mv` line of the help against the usage refusal of `mv` itself, so the two name the same flags. A new command line gets no test of its own; add one next to the help test if the text must not drift.

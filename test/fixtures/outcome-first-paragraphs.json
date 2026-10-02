@@ -2,72 +2,72 @@
   {
     "id": "BL-092",
     "cut": false,
-    "heading": "# BL-092 · Результат",
-    "paragraph": "Закрыта отклонением: 2026-08-26, решение владельца.",
-    "outcome": "отклонена"
+    "heading": "# BL-092 · {Result}",
+    "paragraph": "{Closed.0} {rejected.3}: 2026-08-26, the owner's decision.",
+    "outcome": "{rejected.0}"
   },
   {
     "id": "BL-255",
     "cut": true,
-    "heading": "# Результат",
-    "paragraph": "Закрыта 2026-08-29 воркером `lint` захода night2 (слито в main перед v0.43.0).",
-    "outcome": "выполнена"
+    "heading": "# {Result}",
+    "paragraph": "{Closed.0} 2026-08-29 by worker `lint` of run night2 ({merged.1} {into} main before v0.43.0).",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-258",
     "cut": false,
-    "heading": "# Результат",
-    "paragraph": "Закрыта 2026-08-29: Windows-шапки (33 файла) — заходом 0829a, остальное — воркером `tests` захода night2 (слито в main перед v0.43.0).",
-    "outcome": "выполнена"
+    "heading": "# {Result}",
+    "paragraph": "{Closed.0} 2026-08-29: Windows headers (33 files) — by run 0829a, the rest — by worker `tests` of run night2 ({merged.1} {into} main before v0.43.0).",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-262",
     "cut": true,
-    "heading": "# Результат",
-    "paragraph": "Закрыта 2026-08-29 воркером `setup` захода night2 (слито в main перед v0.43.0) по решению владельца: асимметрия не сознательная.",
-    "outcome": "выполнена"
+    "heading": "# {Result}",
+    "paragraph": "{Closed.0} 2026-08-29 by worker `setup` of run night2 ({merged.1} {into} main before v0.43.0) by the owner's decision: the asymmetry is not deliberate.",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-267",
     "cut": true,
-    "heading": "# Результат",
-    "paragraph": "Закрыта 2026-08-29 заходом night2 двумя линиями (слито в main перед v0.43.0).",
-    "outcome": "выполнена"
+    "heading": "# {Result}",
+    "paragraph": "{Closed.0} 2026-08-29 by run night2 in two lines ({merged.1} {into} main before v0.43.0).",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-270",
     "cut": true,
-    "heading": "# Результат",
-    "paragraph": "Закрыта 2026-08-29 воркером `lint` захода night2 (слито в main перед v0.43.0).",
-    "outcome": "выполнена"
+    "heading": "# {Result}",
+    "paragraph": "{Closed.0} 2026-08-29 by worker `lint` of run night2 ({merged.1} {into} main before v0.43.0).",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-271",
     "cut": false,
-    "heading": "# Результат",
-    "paragraph": "Закрыта 2026-08-29 воркером `bus` захода night2 (слито в main перед v0.43.0); три итерации фидбека владельца по живой ленте за один день.",
-    "outcome": "выполнена"
+    "heading": "# {Result}",
+    "paragraph": "{Closed.0} 2026-08-29 by worker `bus` of run night2 ({merged.1} {into} main before v0.43.0); three iterations of owner feedback on the live feed in one day.",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-274",
     "cut": true,
-    "heading": "# Результат",
-    "paragraph": "**BL-274 закрыта 2026-08-29** воркером `supervisor` захода по бэклогу (слито в main перед v0.46.0).",
-    "outcome": "выполнена"
+    "heading": "# {Result}",
+    "paragraph": "**BL-274 {closed.0} 2026-08-29** by worker `supervisor` of the backlog run ({merged.1} {into} main before v0.46.0).",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-355",
     "cut": false,
-    "heading": "# BL-355 — результат: отклонена",
-    "paragraph": "**Закрыта:** 2026-08-31, решением владельца. Кода не написано.",
-    "outcome": "отклонена"
+    "heading": "# BL-355 — {result}: {rejected.0}",
+    "paragraph": "**{Closed.0}:** 2026-08-31, by the owner's decision. No code written.",
+    "outcome": "{rejected.0}"
   },
   {
     "id": "BL-456",
     "cut": true,
-    "heading": "# BL-456 · Результат",
-    "paragraph": "**Закрыта 2026-09-02.** Деревья не слиты в одно — и это решение, а не отказ: дерево в `reference/12` — весь дом `.promptobus/` (сессии, надзиратель, contact point'ы, конфиги участников — файлы слоя CLI), дерево в `reference/14` — только раскладка protocol v1, которую пишет движок.",
-    "outcome": "выполнена"
+    "heading": "# BL-456 · {Result}",
+    "paragraph": "**{Closed.0} 2026-09-02.** The trees {not} {merged.2} {into} one — and that is a decision, not a refusal: the tree in `reference/12` is the whole home of `.promptobus/` (sessions, the warden, contact points, participant configs — files of the CLI layer), the tree in `reference/14` is only the layout of protocol v1 that the engine writes.",
+    "outcome": "{completed.0}"
   },
   {
     "id": "PB-6",

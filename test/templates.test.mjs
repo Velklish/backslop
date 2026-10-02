@@ -5,14 +5,15 @@ import os from 'node:os';
 import path from 'node:path';
 import { TEMPLATES_DIR, renderProjectTemplate, renderTemplate, templateParity, templateRel, templateSlots } from '../lib/templates.js';
 import { srcFiles } from '../lib/mdwalk.js';
+import { slugOf } from '../lib/links.js';
 import {
   FIELD_AREA, FIELD_COST, FIELD_CREATED, FIELD_DEPS, FIELD_ORDER, FIELD_PARENT, FIELD_PREV_ORDER, FIELD_TAKEN,
   SECTION_CHECKS, SECTION_CONTEXT, SECTION_DEFERRED, SECTION_EVIDENCE, SECTION_OUT, SECTION_WORK,
   fieldName, getField, readTitle, sectionName, sections,
 } from '../lib/tasks.js';
-import { cleanup, put } from './helpers.mjs';
+import { SECTION, cleanup, put, ru, ruRe, ruTwinLine } from './helpers.mjs';
 
-test('template parity: состав и placeholders совпадают', () => {
+test('template parity: the composition and placeholders match', () => {
   assert.deepEqual(templateParity(), []);
 });
 
@@ -22,12 +23,12 @@ test('template parity and slot messages follow the project language', () => {
     put(root, 'adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
     put(root, 'only-ru.md', 'ru\n');
     put(root, 'en/adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
-    assert.deepEqual(templateParity(root, 'ru'), ['templates/only-ru.md: нет английского исходника templates/en/only-ru.md']);
-    assert.ok(templateSlots(root, 'ru').includes('templates/adr.md: подстановке {{budget}} не передан ключ'));
+    assert.deepEqual(templateParity(root, 'ru'), [ru('templates/{rel} has no en source templates/en/{rel}', { rel: 'only-ru.md' })]);
+    assert.ok(templateSlots(root, 'ru').includes(ru('templates/{layer}{rel} placeholder {{{name}}} has no key in vars', { layer: '', rel: 'adr.md', name: 'budget' })));
   } finally { cleanup(root); }
 });
 
-// Фикстура двух слоёв: рендер не нужен, гейт сравнивает файлы механически.
+// A fixture of two layers: no render is needed, the gate compares the files mechanically.
 function parity(files) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
   try {
@@ -56,7 +57,7 @@ const PARITY_CASES = [
   {
     name: 'a missing description and a foreign name in SKILL.md',
     files: {
-      'skills/backslop-task/SKILL.md': '---\nname: backslop-task\ndescription: Цикл одной задачи\n---\n\n# Заголовок\n',
+      'skills/backslop-task/SKILL.md': '---\nname: backslop-task\ndescription: One task cycle\n---\n\n# Heading\n',
       'en/skills/backslop-task/SKILL.md': '---\nname: backslop-tsk\n---\n\n# Title\n',
     },
     expected: [
@@ -75,7 +76,7 @@ const PARITY_CASES = [
   {
     name: 'a malformed quoted description is an error, not a throw',
     files: {
-      'skills/x/SKILL.md': '---\nname: x\ndescription: "Делает x"\n---\n\n# X\n',
+      'skills/x/SKILL.md': '---\nname: x\ndescription: "Does x in the other layer"\n---\n\n# X\n',
       'en/skills/x/SKILL.md': '---\nname: x\ndescription: "abc\n---\n\n# X\n',
     },
     expected: ['templates/en/skills/x/SKILL.md frontmatter description is not a valid JSON string'],
@@ -83,7 +84,7 @@ const PARITY_CASES = [
   {
     name: 'a malformed quoted name is an error, not a throw',
     files: {
-      'skills/x/SKILL.md': '---\nname: "x\ndescription: "Делает x"\n---\n\n# X\n',
+      'skills/x/SKILL.md': '---\nname: "x\ndescription: "Does x in the other layer"\n---\n\n# X\n',
       'en/skills/x/SKILL.md': '---\nname: x\ndescription: "Does x"\n---\n\n# X\n',
     },
     expected: ['templates/skills/x/SKILL.md frontmatter name is not a valid JSON string'],
@@ -91,7 +92,7 @@ const PARITY_CASES = [
   {
     name: 'a different number of headings; `# ` inside a code block is not a heading',
     files: {
-      'docs/README.md': '# Один\n\n## Два\n',
+      'docs/README.md': '# One\n\n## Two\n',
       'en/docs/README.md': '# One\n\n```sh\n# not a heading\n```\n',
     },
     expected: ['templates/docs/README.md headings differ from the en source templates/en/docs/README.md: expected 1, found 1,2'],
@@ -99,8 +100,8 @@ const PARITY_CASES = [
   {
     name: 'Cyrillic in a file of the English layer',
     files: {
-      'task.md': '# Задача\n',
-      'en/task.md': '# Task\n\nОписание\n',
+      'task.md': '# Task\n',
+      'en/task.md': `# Task\n\n${SECTION.context}\n`,
     },
     expected: ['templates/en/task.md contains Cyrillic'],
   },
@@ -137,39 +138,39 @@ for (const lang of ['ru', 'en']) {
   }
 }
 
-test('templates: agents-probe.md держит {{probe}} в код-спане — на этом стоит форма поля probe', () => {
+test('templates: agents-probe.md holds {{probe}} in a code span — the probe field form rests on it', () => {
   for (const rel of ['agents-probe.md', 'en/agents-probe.md']) {
     const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
-    assert.equal((text.match(/`/g) ?? []).length, 2, `${rel}: обратных кавычек ровно две — пара код-спана`);
-    assert.match(text, /`\{\{probe\}\}`/, `${rel}: значение стоит внутри код-спана`);
+    assert.equal((text.match(/`/g) ?? []).length, 2, `${rel}: exactly two backticks — the pair of a code span`);
+    assert.match(text, /`\{\{probe\}\}`/, `${rel}: the value stands inside a code span`);
   }
 });
 
-// Фронтматтер — YAML-мэппинг: значение либо JSON-строка, либо плоский скаляр без «: », « #»,
-// хвостового «:» и индикатора YAML первым символом. Парсера нет (ADR-039).
+// Frontmatter is a YAML mapping: a value is a JSON string or a flat scalar without “: ”, “ #”, a
+// trailing “:” and a YAML indicator as its first character. There is no parser.
 const YAML_INDICATOR = /^(?:[*&!%@`{[|>?#,\]}']|-(?:\s|$))/;
 
 function frontmatterFaults(rel, text) {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
-  if (!m) return [`${rel}: фронтматтера нет`];
+  if (!m) return [`${rel}: no frontmatter`];
   const faults = [];
   for (const line of m[1].split(/\r?\n/)) {
     const key = line.match(/^([A-Za-z][\w-]*): /)?.[1];
-    if (!key) { faults.push(`${rel}: строка не «ключ: значение» — ${line}`); continue; }
+    if (!key) { faults.push(`${rel}: the line is not “key: value” — ${line}`); continue; }
     const value = line.slice(key.length + 2);
     if (value.startsWith('"')) {
-      try { JSON.parse(value); } catch { faults.push(`${rel}: ${key} — закавыченное значение не разбирается как строка`); }
+      try { JSON.parse(value); } catch { faults.push(`${rel}: ${key} — the quoted value does not parse as a string`); }
       continue;
     }
-    if (value.includes(': ')) faults.push(`${rel}: ${key} — плоский скаляр с «: » внутри`);
-    if (value.includes(' #')) faults.push(`${rel}: ${key} — плоский скаляр с « #» внутри`);
-    if (value.endsWith(':')) faults.push(`${rel}: ${key} — плоский скаляр кончается на «:»`);
-    if (YAML_INDICATOR.test(value)) faults.push(`${rel}: ${key} — плоский скаляр начинается с индикатора YAML`);
+    if (value.includes(': ')) faults.push(`${rel}: ${key} — a flat scalar with “: ” inside`);
+    if (value.includes(' #')) faults.push(`${rel}: ${key} — a flat scalar with “ #” inside`);
+    if (value.endsWith(':')) faults.push(`${rel}: ${key} — a flat scalar ends with “:”`);
+    if (YAML_INDICATOR.test(value)) faults.push(`${rel}: ${key} — a flat scalar starts with a YAML indicator`);
   }
   return faults;
 }
 
-test('templates: фронтматтер скиллов разбирается как YAML-мэппинг — плоский скаляр без примет', () => {
+test('templates: skill frontmatter parses as a YAML mapping — a flat scalar without the telltale signs', () => {
   const files = [
     ...srcFiles(TEMPLATES_DIR, '', ['.md']).filter(([rel]) => !rel.startsWith('en/') && !rel.startsWith('vendor/')),
     ...srcFiles(path.join(TEMPLATES_DIR, 'en'), '', ['.md']).map(([rel, abs]) => [`en/${rel}`, abs]),
@@ -178,13 +179,13 @@ test('templates: фронтматтер скиллов разбирается к
   assert.deepEqual(files.flatMap(([rel, abs]) => frontmatterFaults(rel, readFileSync(abs, 'utf8'))), []);
 });
 
-// Слоты: пара «плейсхолдер ↔ ключ в vars». Обратная половина (ключ без места) на частичной фикстуре
-// шумит по чужим строкам реестра — она проверяется отдельной пробой ниже.
-test('template slots: реестр и шаблоны инструмента сходятся', () => {
+// Slots: the pair “placeholder ↔ key in vars”. The reverse half (a key with no place) on a partial
+// fixture is noisy over foreign registry rows — a separate probe below checks it.
+test('template slots: the registry and the tool templates agree', () => {
   assert.deepEqual(templateSlots(), []);
 });
 
-test('template slots: имя без ключа и шаблон вне реестра', () => {
+test('template slots: a name without a key and a template outside the registry', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
   try {
     put(root, 'adr.md', '{{date}} {{number}} {{title}} {{budget}}\n');
@@ -197,7 +198,7 @@ test('template slots: имя без ключа и шаблон вне реест
   } finally { cleanup(root); }
 });
 
-test('template slots: объявленный ключ, которому не нашлось места в шаблоне', () => {
+test('template slots: a declared key that found no place in a template', () => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-templates-'));
   try {
     put(root, 'adr.md', '{{date}} {{number}}\n');
@@ -206,13 +207,13 @@ test('template slots: объявленный ключ, которому не н�
   } finally { cleanup(root); }
 });
 
-test('renderTemplate: подстановка без ключа — отказ, а не буквальный {{…}} читателю', () => {
+test('renderTemplate: a placeholder without a key is a refusal, not a literal {{…}} to the reader', () => {
   assert.throws(() => renderTemplate('adr.md', { number: 1, title: 'x' }),
-    /adr\.md: подстановке \{\{date\}\} не передан ключ date/);
+    ruRe('{rel}: placeholder {m} is given no key {key}', { rel: 'adr.md', m: '{{date}}', key: 'date' }));
 });
 
-// Эта пара рендерится в docs/ репозитория 1:1 (AGENTS.md): без сверки правка одной стороны
-// расходится с другой молча, а цитаты и ссылки карточек смотрят в рабочую копию.
+// This pair renders into the repo docs/ 1:1 (AGENTS.md): without the check an edit of one side
+// drifts from the other silently, while card quotes and links look at the working copy.
 test('self-host: the rules pair and the LOG header in docs/ are the render of the template in the project language', () => {
   const repo = path.dirname(TEMPLATES_DIR);
   const cfg = JSON.parse(readFileSync(path.join(repo, 'backslop.json'), 'utf8'));
@@ -232,7 +233,7 @@ test('self-host: the rules pair and the LOG header in docs/ are the render of th
 test('backlog README: a batch is folded after its entries', () => {
   for (const rel of ['docs/backlog/README.md', 'en/docs/backlog/README.md']) {
     const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
-    const open = text.indexOf(rel.startsWith('en/') ? 'Closing batch M' : 'Закрытие пачки M');
+    const open = text.indexOf(rel.startsWith('en/') ? 'Closing batch M' : ruTwinLine('docs/backlog/README.md', 'Closing batch M'));
     assert.ok(open !== -1, `${rel}: the closing paragraph of a batch is not found`);
     const archive = text.indexOf('`{{cli}} archive M`', open);
     const into = text.indexOf('`{{cli}} archive N.k --into M`', open);
@@ -246,16 +247,25 @@ test('backslop-batch: step 4 links the backslop-task recipe', () => {
     const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
     const accept = text.split('\n').find((line) => line.startsWith('4. ') && line.includes('../backslop-task/SKILL.md#'));
     assert.ok(accept, `${rel}: step 4 with the link to the backslop-task recipe not found`);
-    const heading = rel.startsWith('en/') ? 'acceptance-and-archive' : 'приёмка-и-архив';
+    const heading = rel.startsWith('en/') ? 'acceptance-and-archive' : slugOf(ruTwinLine('skills/backslop-task/SKILL.md', '## Acceptance and archive').replace(/^#+ /, ''));
     assert.ok(accept.includes(`(../backslop-task/SKILL.md#${heading})`), `${rel}: step 4 does not link the backslop-task acceptance section`);
     assert.ok(!accept.includes('BACKSLOP_DRAFT') && !accept.includes('git reset --soft'), `${rel}: step 4 restates the recipe instead of linking it`);
-    const track = accept.indexOf(rel.startsWith('en/') ? 'leaving as one commit' : 'уезжающий одним коммитом');
+    // The Russian layer keeps the English sentence order: one index names the same fact.
+    const stepOf = (layer) => readFileSync(path.join(TEMPLATES_DIR, ...layer, ...rel.replace(/^en\//, '').split('/')), 'utf8').split('\n').find((line) => line.startsWith('4. '));
+    const sentences = (line) => line.trim().split('. ');
+    const enSentences = sentences(stepOf(['en']));
+    const trackAt = enSentences.findIndex((sentence) => sentence.includes('leaving as one commit'));
+    const plainAt = enSentences.findIndex((sentence) => sentence.includes('without the draft'));
+    const gates = 'Run gates before committing, on an unchanged tree';
+    assert.ok(trackAt !== -1 && plainAt > trackAt && enSentences.at(-1) === `${gates}.`, `${rel}: the English step lost the multi-task track, the plain fold commit or the gates sentence`);
+    assert.equal(sentences(accept).length, enSentences.length, `${rel}: step 4 does not keep the sentence order of the English layer`);
+    const en = rel.startsWith('en/');
+    const track = en ? accept.indexOf('leaving as one commit') : accept.indexOf(sentences(accept)[trackAt]);
     assert.ok(track !== -1 && accept.indexOf('`{{cli}} fold N`', track) > accept.indexOf('`{{cli}} archive N`', track),
       `${rel}: the multi-task track is not named: archive directories without fold, fold in the next commit`);
-    const plain = rel.startsWith('en/') ? 'without the draft and without `reset --soft`' : 'без заготовки и без `reset --soft`';
-    assert.ok(accept.indexOf(plain, track) !== -1, `${rel}: the fold commit after a multi-task track is not named a plain commit without the draft`);
-    const gates = rel.startsWith('en/') ? 'Run gates before committing, on an unchanged tree' : 'Гейты — до коммита, на неподвижном дереве';
-    assert.ok(accept.includes(gates), `${rel}: step 4 does not say when the gates of the integrated tree run`);
+    const plain = en ? accept.slice(track) : sentences(accept)[plainAt];
+    assert.ok(plain.includes(en ? 'without the draft and without `reset --soft`' : '`reset --soft`'), `${rel}: the fold commit after a multi-task track is not named a plain commit without the draft`);
+    assert.ok(en ? accept.includes(gates) : accept.endsWith('.') && accept.indexOf(sentences(accept).at(-1)) > accept.indexOf(sentences(accept)[plainAt]), `${rel}: step 4 does not say when the gates of the integrated tree run`);
   }
 });
 

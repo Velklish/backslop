@@ -20,8 +20,8 @@ export function wideOf(text) {
 
 const { files: scanned, empty: emptyTrees } = scannedCode(ROOT, TREES);
 
-test('каждое дерево, названное гейтом, несёт код, который он может судить', () => {
-  assert.deepEqual(emptyTrees, [], 'дерево из TREES не несёт ни одного файла, который git не игнорирует — убери его или почини имя');
+test('every tree the gate names carries code it can judge', () => {
+  assert.deepEqual(emptyTrees, [], 'a tree of TREES carries no file git does not ignore — remove it or fix the name');
 });
 
 // The walk: the long blocks and the wide lines of every file, and how many files it judged.
@@ -31,9 +31,9 @@ export function surveyTree(files) {
   let judged = 0;
   for (const rel of files) {
     const text = readFileSync(path.join(ROOT, rel), 'utf8');
-    for (const w of wideOf(text)) wide.push(`${rel}:${w.line} — ширина ${w.width}`);
+    for (const w of wideOf(text)) wide.push(`${rel}:${w.line} — width ${w.width}`);
     judged += 1;
-    for (const block of blocksOf(text)) offenders.push(`${rel}:${block.line} — длина ${block.length}`);
+    for (const block of blocksOf(text)) offenders.push(`${rel}:${block.line} — length ${block.length}`);
   }
   return { offenders, wide, judged };
 }
@@ -41,49 +41,49 @@ export function surveyTree(files) {
 const walk = surveyTree(scanned);
 
 test('the walk judges every file it reads', () => {
-  // Каждый вердикт ниже проверяет список на ПУСТОТУ, а обход, не прочитавший ни файла, наполняет
-  // их всех ничем — и проходит. Пол отделяет «прочитал ничего» от «прочитал всё».
-  assert.equal(walk.judged, scanned.length, `обход отсудил ${walk.judged} из ${scanned.length} файлов`);
+  // Every verdict below checks a list for EMPTINESS, and a walk that read no file fills them all
+  // with nothing and passes. The floor separates "read nothing" from "read everything".
+  assert.equal(walk.judged, scanned.length, `the walk judged ${walk.judged} of ${scanned.length} files`);
 });
 
 test('the walk refuses every long block of a file it judges and names the file and the line', () => {
   // The floor catches a walk that read NOTHING, not one that reads every file and judges none:
   // judged counts reads, not verdicts. So the judging branch runs here.
   const debtor = 'test/fixtures/comment-debtor.js.txt';
-  assert.ok(!scanned.includes(debtor), `${debtor} попал в обход — гейт судил бы носителя пробы как долг (ADR-046)`);
+  assert.ok(!scanned.includes(debtor), `${debtor} is in the walk — the gate would judge the probe carrier as debt (ADR-046)`);
   const carried = blocksOf(readFileSync(path.join(ROOT, debtor), 'utf8')).length;
-  assert.ok(carried > 0, `${debtor} больше не несёт длинных блоков — пробе нечего судить`);
+  assert.ok(carried > 0, `${debtor} carries no long blocks any more — the probe has nothing to judge`);
   const bare = surveyTree([debtor]);
   assert.equal(bare.offenders.length, carried, 'every long block of the file is refused');
-  assert.match(bare.offenders[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — длина \d+$/, 'and the refusal names the file and the line');
+  assert.match(bare.offenders[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — length \d+$/, 'and the refusal names the file and the line');
 });
 
 test('an inline comment is at most two lines long, in every file of the walk', () => {
-  assert.deepEqual(walk.offenders, [], `блоки комментария длиннее ${LIMIT} строк`);
+  assert.deepEqual(walk.offenders, [], `comment blocks longer than ${LIMIT} lines`);
 });
 
-test('строка инлайн-комментария не шире 100 знаков, в любом файле обхода', () => {
-  assert.deepEqual(walk.wide, [], `строки комментария шире ${WIDTH} знаков`);
+test('an inline comment line is at most 100 characters wide, in every file of the walk', () => {
+  assert.deepEqual(walk.wide, [], `comment lines wider than ${WIDTH} characters`);
 });
 
 test('the walk refuses every wide comment line of a file it judges', () => {
   const debtor = 'test/fixtures/comment-debtor.js.txt';
   const carried = wideOf(readFileSync(path.join(ROOT, debtor), 'utf8')).length;
-  assert.ok(carried > 0, `${debtor} больше не несёт широкой строки — пробе нечего судить`);
+  assert.ok(carried > 0, `${debtor} carries no wide line any more — the probe has nothing to judge`);
   const bare = surveyTree([debtor]);
   assert.equal(bare.wide.length, carried, 'every wide line of the file is refused');
-  assert.match(bare.wide[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — ширина 101$/, 'and the refusal names the file, the line and the width');
+  assert.match(bare.wide[0], /^test\/fixtures\/comment-debtor\.js\.txt:\d+ — width 101$/, 'and the refusal names the file, the line and the width');
 });
 
-test('ширина: строка комментария в 101 знак — нарушение той же природы, что третья строка блока', () => {
+test('width: a comment line of 101 characters is a violation of the same kind as a third line of a block', () => {
   const line = (width, indent = '') => `${indent}// ${'x'.repeat(width - indent.length - 3)}`;
   assert.deepEqual(wideOf(`${line(40)}\n${line(101)}\nconst x = 1;\n`), [{ line: 2, width: 101 }],
-    'блок в две строки, вторая — 101 знак');
-  assert.deepEqual(wideOf(`${line(100)}\n${line(100)}\nconst x = 1;\n`), [], 'ровно 100 — в пределе');
-  assert.deepEqual(wideOf(`${line(101, '    ')}\n`), [{ line: 1, width: 101 }], 'отступ входит в ширину');
-  assert.deepEqual(wideOf(`${line(100)}\r\n${line(100)}\r\n`), [], '`\\r` перевода строки CRLF — не знак');
-  assert.deepEqual(wideOf(`// ${'𝑥'.repeat(97)}\n`), [], 'знак — кодпоинт, а не единица UTF-16');
-  assert.deepEqual(wideOf(`const x = 1; // ${'x'.repeat(120)}\n`), [], 'хвост строки кода гейт не судит (ADR-046)');
+    'a block of two lines, the second one 101 characters');
+  assert.deepEqual(wideOf(`${line(100)}\n${line(100)}\nconst x = 1;\n`), [], 'exactly 100 is within the limit');
+  assert.deepEqual(wideOf(`${line(101, '    ')}\n`), [{ line: 1, width: 101 }], 'the indent counts into the width');
+  assert.deepEqual(wideOf(`${line(100)}\r\n${line(100)}\r\n`), [], 'the `\\r` of a CRLF line break is not a character');
+  assert.deepEqual(wideOf(`// ${'𝑥'.repeat(97)}\n`), [], 'a character is a code point, not a UTF-16 unit');
+  assert.deepEqual(wideOf(`const x = 1; // ${'x'.repeat(120)}\n`), [], 'the gate does not judge the tail of a code line (ADR-046)');
 });
 
 const one = (src) => blocksOf(src).map((r) => [r.line, r.length]);
@@ -110,11 +110,11 @@ const CASES = [
   { why: 'lexer: a code line ends a block whether or not it ends in a comment',
     src: '// a\n// b\nconst x = 1; // c\n// d\n// e\n', exp: [] },
   { why: 'lexer: a comment marker inside a string is not a comment',
-    src: "const s = '// не комментарий';\nconst u = 'http://x';\n", exp: [] },
+    src: "const s = '// not a comment';\nconst u = 'http://x';\n", exp: [] },
   { why: 'lexer: a block comment marker inside a string is not a comment',
     src: 'const s = "/*";\nconst t = "*/";\nconst u = 1;\n', exp: [] },
   { why: 'lexer: a comment marker inside a template literal that spans lines is not a comment',
-    src: 'const s = `// не комментарий\n// всё ещё нет`;\nconst y = 1;\n', exp: [] },
+    src: 'const s = `// not a comment\n// still not`;\nconst y = 1;\n', exp: [] },
   // Without regex state the backtick below opens a template that never closes, and nothing
   // after it is a comment any more. Why the gate needs a lexer: ADR-046.
   { why: 'lexer: a backtick inside a regex opens nothing',
@@ -137,12 +137,12 @@ test('lexer: the lines of a block include its bare continuation lines', () => {
   assert.deepEqual(blocksOf('/*\n a\n b\n */\n')[0].lines.map((l) => l.trim()), ['/*', 'a', 'b', '*/']);
 });
 
-test('чем оказался `/`, решает токен перед ним, и доказательство — комментарий рядом', () => {
-  // Неверно прочитанный `/` стоит комментария СПРАВА от него, а не разбора, — поэтому ассерт такой:
-  // регэксп, съевший `/* note */`, и деление, оставившее его, — два наблюдаемых исхода.
+test('what `/` turns out to be is decided by the token before it, and the proof is the comment next to it', () => {
+  // A misread `/` costs the comment to its RIGHT, not a parse error — hence this assert: a regexp
+  // that swallowed `/* note */` and a division that left it are the two observable outcomes.
   const noteOn = (src) => maskedLines(src)[0].trim();
-  assert.equal(noteOn('let i = 0; i++ / 2; /* note */'), '/* note */', '`++` — один токен: дальше деление');
-  assert.equal(noteOn('while (i--) { x(); } / 2; /* note */'), '/* note */', 'и `--` тоже; скобка тоже кончает значение');
-  assert.equal(noteOn('const v = !/\\s/.test(x); /* note */'), '/* note */', 'регэксп после `!` закрывается своим `/`');
-  assert.equal(noteOn('#!/usr/bin/env node // note'), '// note', 'шебанг не открывает ничего, что осталось бы открытым');
+  assert.equal(noteOn('let i = 0; i++ / 2; /* note */'), '/* note */', '`++` is one token: a division follows');
+  assert.equal(noteOn('while (i--) { x(); } / 2; /* note */'), '/* note */', 'so is `--`; a bracket also ends a value');
+  assert.equal(noteOn('const v = !/\\s/.test(x); /* note */'), '/* note */', 'a regexp after `!` closes with its own `/`');
+  assert.equal(noteOn('#!/usr/bin/env node // note'), '// note', 'a shebang opens nothing that would stay open');
 });

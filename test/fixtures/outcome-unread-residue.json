@@ -1,33 +1,33 @@
 [
   {
     "id": "BL-315",
-    "phrase": "**Закрыта отказом 2026-08-30** решением владельца (сбор ответов по очереди): …",
-    "outcome": "выполнена"
+    "phrase": "**{Closed.0} {byRefusal} 2026-08-30** by the owner's decision (collecting answers by the queue): …",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-497",
-    "phrase": "- **Закрыта отказом:** 2026-09-03, …",
-    "outcome": "выполнена"
+    "phrase": "- **{Closed.0} {byRefusal}:** 2026-09-03, …",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-507",
-    "phrase": "**Закрыта 2026-09-16. Закрыта границей, а не выполнена.**",
-    "outcome": "выполнена"
+    "phrase": "**{Closed.0} 2026-09-16. {Closed.0} by a boundary, but {not} {completed.0}.**",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-398",
-    "phrase": "**Закрыта:** 2026-09-01. Исход — снята вместе с предметом, кодом не чинилась.",
-    "outcome": "выполнена"
+    "phrase": "**{Closed.0}:** 2026-09-01. {Outcome} — {withdrawn.0} together with the subject, not fixed by code.",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-611",
-    "phrase": "**Закрыта 2026-09-10.** Дубль: тот же предмет … стоит в очереди как [`BL-552.4`].",
-    "outcome": "выполнена"
+    "phrase": "**{Closed.0} 2026-09-10.** {Duplicate}: the same subject … stands in the queue as [`BL-552.4`].",
+    "outcome": "{completed.0}"
   },
   {
     "id": "BL-294",
-    "phrase": "Закрыта 2026-08-29 воркером guide захода night8. … условие возврата сценария переписано под принцип касания (BL-018 снята с плана), …",
-    "outcome": "отклонена"
+    "phrase": "{Closed.0} 2026-08-29 by worker guide of run night8. … the return condition of the scenario rewritten under the touch principle (BL-018 {rejected.4}), …",
+    "outcome": "{rejected.0}"
   },
   {
     "id": "PB-169",

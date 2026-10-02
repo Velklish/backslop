@@ -1,5 +1,5 @@
-// Раннер гейтов: код возврата берётся у самой команды, а не у пайпа, и порядок прогона
-// виден в выводе. Фикстура — проект с двумя гейтами, где красный стоит первым.
+// The gates runner: the exit code comes from the command itself, not from the pipe, and the run
+// order is visible in the output. The fixture: a project with two gates, the red one first.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -7,95 +7,106 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSyn
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
+import { cleanup, cli, escapeRe, gitAll, makeProject, put, read, ru, ruRe, run } from './helpers.mjs';
 import { globToRe } from '../lib/gates.js';
+
+const TALLY = 'gates {gates}, green {green}{tail}{why}';
+const SCOPE_LINE = 'scope: {how}{from}, paths {paths}{out}';
+const KILLED = 'killed by {signal}';
+const NOT_RUN = ', not run {skipped}';
+const DROPPED = ', {dropped} dropped outside the project';
+const BASE_FAILED = '--base {base}: git diff failed — {why}';
+const NO_BASE = '--require-clean without --base: on a clean tree the changed path set is empty, so every scoped entry would be skipped. Name the base: --base <ref>';
+const EMPTY_SET = '--require-clean --base {base}: the changed path set is empty — the base yielded no diff, so every scoped entry would be skipped. Name the base the branch diverged from';
+// A non-ASCII (Cyrillic) project directory: git quotes such paths in porcelain output.
+const PKG = String.fromCodePoint(0x43f, 0x430, 0x43a, 0x435, 0x442);
 
 function withGates(root, gates) {
   put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), gates }, null, 2)}\n`);
 }
 
-// Гейт пишет метку в файл — видно, какие дошли до запуска. Путь — переменной окружения, а не
-// литералом в `node -e`: `\t` или `\r` в пути (Windows) стали бы escape-последовательностью.
+// A gate writes a mark to a file — it shows which ones reached a run. The path goes by an
+// environment variable, not as a literal in `node -e`: a `\t` or `\r` in a path would be an escape.
 const mark = (name, code) => `node -e "require('fs').appendFileSync(process.env.GATES_MARK,'${name}\\n');process.exit(${code})"`;
 const marked = (root) => ({ env: { GATES_MARK: path.join(root, 'ran.txt') } });
 const ran = (root) => {
   try { return read(root, 'ran.txt').trim().split('\n'); } catch { return []; }
 };
 
-test('gates: красный первым останавливает прогон, --keep-going досчитывает остальные', () => {
+test('gates: a red one first stops the run, --keep-going counts the rest', () => {
   const root = makeProject({ git: false });
   try {
     withGates(root, [mark('first', 1), mark('second', 0)]);
     let r = cli(root, ['gates'], marked(root));
     assert.equal(r.code, 1);
-    assert.deepEqual(ran(root), ['first'], 'второй гейт не должен запускаться без --keep-going');
-    assert.match(r.err, /гейтов 2, зелёных 0/);
-    assert.match(r.err, /не запущено 1/);
+    assert.deepEqual(ran(root), ['first'], 'the second gate must not run without --keep-going');
+    assert.match(r.err, ruRe(TALLY, { gates: 2, green: 0 }));
+    assert.match(r.err, ruRe(NOT_RUN, { skipped: 1 }));
 
     put(root, 'ran.txt', '');
     r = cli(root, ['gates', '--keep-going'], marked(root));
     assert.equal(r.code, 1);
     assert.deepEqual(ran(root), ['first', 'second']);
-    assert.match(r.err, /гейтов 2, зелёных 1/);
-    assert.doesNotMatch(r.err, /не запущено/);
+    assert.match(r.err, ruRe(TALLY, { gates: 2, green: 1 }));
+    assert.doesNotMatch(r.err, ruRe(NOT_RUN));
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: все зелёные — код 0; --dry-run печатает перечень и ничего не гоняет', () => {
+test('gates: all green — code 0; --dry-run prints the list and runs nothing', () => {
   const root = makeProject({ git: false });
   try {
     withGates(root, [mark('first', 0), mark('second', 0)]);
     let r = cli(root, ['gates', '--dry-run'], marked(root));
     assert.equal(r.code, 0, r.err);
-    assert.deepEqual(ran(root), [], '--dry-run не исполняет гейты');
+    assert.deepEqual(ran(root), [], '--dry-run runs no gates');
     assert.match(r.out, /first/);
     assert.match(r.out, /second/);
 
     r = cli(root, ['gates'], marked(root));
     assert.equal(r.code, 0, r.err);
     assert.deepEqual(ran(root), ['first', 'second']);
-    assert.match(r.out, /гейтов 2, зелёных 2/);
+    assert.match(r.out, ruRe(TALLY, { gates: 2, green: 2 }));
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: пустой список гейтов — отказ, а не зелёный ноль', () => {
+test('gates: an empty gates list — a refusal, not a green zero', () => {
   const root = makeProject({ git: false });
   try {
     withGates(root, []);
     const r = cli(root, ['gates']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /gates.*пуст/);
+    assert.match(r.err, ruRe('{config}: the gates list is empty — there is nothing to run'));
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: --require-clean отказывает на грязном дереве до первой команды', () => {
+test('gates: --require-clean refuses on a dirty tree before the first command', () => {
   const root = makeProject();
   try {
     withGates(root, [mark('first', 0)]);
-    gitAll(root, 'база');
-    put(root, 'docs/note.md', 'правка\n');
+    gitAll(root, 'base');
+    put(root, 'docs/note.md', 'edit\n');
     const r = cli(root, ['gates', '--require-clean'], marked(root));
     assert.equal(r.code, 1);
-    assert.match(r.err, /дерево нечисто/);
+    assert.match(r.err, ruRe('--require-clean: the tree is dirty, no gate was run:\n{dirty}'));
     assert.match(r.err, /docs\/note\.md/);
-    assert.deepEqual(ran(root), [], 'ни один гейт не запускается до проверки чистоты');
+    assert.deepEqual(ran(root), [], 'no gate runs before the cleanliness check');
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: --json — валидный JSON со снимком дерева, вывод гейтов в stderr', () => {
+test('gates: --json is valid JSON with a tree snapshot, the gate output goes to stderr', () => {
   const root = makeProject();
   try {
-    // Гейты здесь ничего не пишут: снимок дерева должен остаться чистым.
-    withGates(root, ['node -e "process.exit(0)"', `node -e "console.log('шум гейта');process.exit(1)"`]);
-    gitAll(root, 'база');
+    // The gates write nothing here: the tree snapshot must stay clean.
+    withGates(root, ['node -e "process.exit(0)"', `node -e "console.log('gate noise');process.exit(1)"`]);
+    gitAll(root, 'base');
     const r = cli(root, ['gates', '--keep-going', '--json']);
     assert.equal(r.code, 1);
     const report = JSON.parse(r.out);
@@ -107,7 +118,7 @@ test('gates: --json — валидный JSON со снимком дерева, 
     assert.ok(Number.isInteger(report.gates[0].ms));
     assert.match(report.tree.head, /^[0-9a-f]{40}$/);
     assert.equal(report.tree.clean, true);
-    assert.match(r.err, /шум гейта/, 'вывод гейта уходит в stderr, чтобы stdout остался JSON');
+    assert.match(r.err, /gate noise/, 'the gate output goes to stderr so that stdout stays JSON');
   } finally {
     cleanup(root);
   }
@@ -135,8 +146,8 @@ test('gates: the tree snapshot marks a dirty tree unclean; without git the tree 
   const root = makeProject();
   try {
     withGates(root, ['node -e "process.exit(0)"']);
-    gitAll(root, 'база');
-    put(root, 'docs/note.md', 'правка\n');
+    gitAll(root, 'base');
+    put(root, 'docs/note.md', 'edit\n');
     const r = cli(root, ['gates', '--json']);
     assert.equal(r.code, 0, r.err);
     const report = JSON.parse(r.out);
@@ -153,27 +164,27 @@ test('gates: the tree snapshot marks a dirty tree unclean; without git the tree 
   }
 });
 
-// Область записи сверяется с набором изменённых путей. Без --base набор — грязное дерево.
-test('gates: команда вне области не запускается и в зелёные не попадает', () => {
+// A record's scope is checked against the changed paths; without --base that is the dirty tree.
+test('gates: a command outside the scope does not run and does not count as green', () => {
   const root = makeProject();
   try {
     withGates(root, [mark('always', 0), { command: mark('docs-only', 0), when: ['docs/**'] }, { command: mark('code-only', 0), when: ['lib/**', '*.mjs'] }]);
-    // Метка гейтов — файл самих гейтов, а не правка проекта: без игнора она попадала бы в набор
-    // путей и меняла его счёт от прогона к прогону.
+    // The gates' mark is the gates' own file, not a project edit: without an ignore it would enter
+    // the path set and change its count from run to run.
     put(root, '.gitignore', 'ran.txt\n');
-    gitAll(root, 'база');
-    put(root, 'docs/note.md', 'правка\n');
+    gitAll(root, 'base');
+    put(root, 'docs/note.md', 'edit\n');
 
     const r = cli(root, ['gates', '--json'], marked(root));
-    assert.equal(r.code, 0, `пропуск по области не краснит итог: ${r.err}`);
-    assert.deepEqual(ran(root), ['always', 'docs-only'], 'запускается задетая область и команда без области');
+    assert.equal(r.code, 0, `a skip by scope does not redden the total: ${r.err}`);
+    assert.deepEqual(ran(root), ['always', 'docs-only'], 'the touched scope and the command without a scope run');
     const report = JSON.parse(r.out);
     assert.equal(report.total, 3);
     assert.equal(report.green, 2);
     assert.equal(report.outOfScope, 1);
     assert.equal(report.skipped, 1);
-    assert.equal(report.gates[2].code, undefined, 'пропущенная команда кода возврата не получает');
-    assert.match(report.gates[2].skipped, /область не задета/);
+    assert.equal(report.gates[2].code, undefined, 'a skipped command gets no exit code');
+    assert.match(report.gates[2].skipped, ruRe('skipped: the scope is untouched ({when}), {paths} paths in the set'));
     assert.deepEqual(report.gates[2].when, ['lib/**', '*.mjs']);
     assert.equal(report.scope.source, 'worktree');
     assert.equal(report.scope.base, null);
@@ -182,25 +193,25 @@ test('gates: команда вне области не запускается и
     put(root, 'ran.txt', '');
     const human = cli(root, ['gates'], marked(root));
     assert.equal(human.code, 0, human.err);
-    assert.match(human.out, /область: git status --porcelain, путей 1/);
-    assert.match(human.out, /пропущен: область не задета \(lib\/\*\*, \*\.mjs\), путей в наборе 1/);
-    assert.match(human.out, /гейтов 3, зелёных 2, не запущено 1 \(вне области 1\)/);
+    assert.match(human.out, ruRe(SCOPE_LINE, { how: 'git status --porcelain', from: '', paths: 1, out: '' }));
+    assert.match(human.out, ruRe('skipped: the scope is untouched ({when}), {paths} paths in the set', { when: 'lib/**, *.mjs', paths: 1 }));
+    assert.ok(human.out.includes(ru(TALLY, { gates: 3, green: 2, tail: ru(NOT_RUN, { skipped: 1 }), why: ru(' (out of scope {outOfScope})', { outOfScope: 1 }) })));
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: --base добавляет дифф к базе, источник набора назван в отчёте', () => {
+test('gates: --base adds the diff to the base, the source of the set is named in the report', () => {
   const root = makeProject();
   try {
     withGates(root, [{ command: mark('code-only', 0), when: ['lib/**'] }]);
     put(root, '.gitignore', 'ran.txt\n');
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
     put(root, 'lib/thing.js', 'export const a = 1;\n');
-    gitAll(root, 'правка кода');
+    gitAll(root, 'code edit');
 
-    // Дерево чисто: без --base набор пуст, и команда с областью пропускается.
+    // The tree is clean: without --base the set is empty, and a command with a scope is skipped.
     let report = JSON.parse(cli(root, ['gates', '--json'], marked(root)).out);
     assert.deepEqual(ran(root), []);
     assert.equal(report.outOfScope, 1);
@@ -208,37 +219,37 @@ test('gates: --base добавляет дифф к базе, источник н
 
     const r = cli(root, ['gates', '--json', '--base', base], marked(root));
     assert.equal(r.code, 0, r.err);
-    assert.deepEqual(ran(root), ['code-only'], 'дифф к базе задел область');
+    assert.deepEqual(ran(root), ['code-only'], 'the diff to the base touched the scope');
     report = JSON.parse(r.out);
     assert.equal(report.green, 1);
     assert.equal(report.outOfScope, 0);
     assert.equal(report.scope.source, 'base+worktree');
     assert.equal(report.scope.base, base);
     assert.deepEqual(report.scope.paths, ['lib/thing.js']);
-    assert.match(cli(root, ['gates', '--base', base], marked(root)).out, new RegExp(`область: git diff --name-only ${base}\\.\\.HEAD плюс git status --porcelain, путей 1`));
+    assert.match(cli(root, ['gates', '--base', base], marked(root)).out, ruRe(SCOPE_LINE, { how: `git diff --name-only ${base}..HEAD ${ru('plus')} git status --porcelain`, from: '', paths: 1, out: '' }));
 
-    const bad = cli(root, ['gates', '--base', 'нет-такой-ссылки'], marked(root));
+    const bad = cli(root, ['gates', '--base', 'no-such-ref'], marked(root));
     assert.equal(bad.code, 1);
-    assert.match(bad.err, /--base нет-такой-ссылки: git diff отказал/);
+    assert.match(bad.err, ruRe(BASE_FAILED, { base: 'no-such-ref' }));
   } finally {
     cleanup(root);
   }
 });
 
-test('gates --base: git diff, оборванный сигналом, — отказ называет сигнал, а не «null»', { skip: process.platform === 'win32' }, () => {
+test('gates --base: git diff killed by a signal — the refusal names the signal, not “null”', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
   const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
   try {
     withGates(root, [mark('always', 0)]);
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
     writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = diff ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
 
     const r = cli(root, ['gates', '--base', 'HEAD'], { env: { ...marked(root).env, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /--base HEAD: git diff отказал — оборван сигналом SIGKILL/);
+    assert.match(r.err, ruRe(BASE_FAILED, { base: 'HEAD', why: ru(KILLED, { signal: 'SIGKILL' }) }));
     assert.doesNotMatch(r.err, /\bnull\b/);
-    assert.deepEqual(ran(root), [], 'отказ до первой команды');
+    assert.deepEqual(ran(root), [], 'a refusal before the first command');
   } finally {
     cleanup(root);
     rmSync(shim, { recursive: true, force: true });
@@ -299,7 +310,7 @@ test('gates: a git failure other than no repository or no git refuses before the
 
     let r = cli(root, ['gates'], { env: { ...marked(root).env, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /git rev-parse --is-inside-work-tree: оборван сигналом SIGKILL/);
+    assert.match(r.err, new RegExp(escapeRe(`git rev-parse --is-inside-work-tree: ${ru(KILLED, { signal: 'SIGKILL' })}`)));
     assert.deepEqual(ran(root), [], 'refused before the first command');
 
     symlinkSync(process.execPath, path.join(empty, 'node'));
@@ -313,9 +324,9 @@ test('gates: a git failure other than no repository or no git refuses before the
   }
 });
 
-// Потолок сужен у настоящего `spawnSync` до 2 с, сама команда гейта — та же: оболочка ловит
-// SIGTERM потолка и выходит кодом 0, и `spawnSync` отдаёт ETIMEDOUT при `status` 0.
-test('gates: гейт с ошибкой запуска при коде 0 — не зелёный, итог и код возврата красные', { skip: process.platform === 'win32' }, () => {
+// The cap is narrowed to 2 s on the real `spawnSync`, the gate command is the same: the shell
+// traps the cap's SIGTERM and exits with code 0, and `spawnSync` returns ETIMEDOUT with `status` 0.
+test('gates: a gate with a launch error at code 0 is not green, the total and the exit code are red', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-gate-cap-')));
   try {
@@ -333,16 +344,16 @@ test('gates: гейт с ошибкой запуска при коде 0 — н�
 
     let r = cli(root, ['gates'], { env });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /✖ trap .* — превысил потолок 10 мин, \d+ ms/);
-    assert.doesNotMatch(r.err, /не запустился/);
+    assert.match(r.err, new RegExp(`✖ trap .* — ${escapeRe(ru('timed out after the {min}-min cap', { min: 10 }))}, \\d+ ms`));
+    assert.doesNotMatch(r.err, ruRe('did not start: {error}'));
     assert.doesNotMatch(r.out, /✔ trap/);
-    assert.match(r.err, /гейтов 2, зелёных 0, не запущено 1/);
-    assert.deepEqual(ran(root), [], 'без --keep-going прогон стоит на нём, как на красном');
+    assert.match(r.err, new RegExp(escapeRe(ru(TALLY, { gates: 2, green: 0, tail: ru(NOT_RUN, { skipped: 1 }), why: '' }))));
+    assert.deepEqual(ran(root), [], 'without --keep-going the run stops on it, as on a red one');
 
     r = cli(root, ['gates', '--json', '--keep-going'], { env });
     assert.equal(r.code, 1);
     const report = JSON.parse(r.out);
-    assert.equal(report.gates[0].code, 0, 'код у гейта — ноль: красит его ошибка, а не код');
+    assert.equal(report.gates[0].code, 0, 'the gate code is zero: the error reddens it, not the code');
     assert.match(report.gates[0].error, /ETIMEDOUT/);
     assert.equal(report.green, 1);
     assert.deepEqual(ran(root), ['after']);
@@ -351,8 +362,8 @@ test('gates: гейт с ошибкой запуска при коде 0 — н�
     withGates(root, ['sleep 5']);
     r = cli(root, ['gates'], { env });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /✖ sleep 5 — превысил потолок 10 мин, \d+ ms/);
-    assert.doesNotMatch(r.err, /сигнал/);
+    assert.match(r.err, new RegExp(`✖ sleep 5 — ${escapeRe(ru('timed out after the {min}-min cap', { min: 10 }))}, \\d+ ms`));
+    assert.doesNotMatch(r.err, new RegExp(['killed by signal {signal}', 'killed by {signal}'].map((en) => ruRe(en).source).join('|')));
     r = cli(root, ['gates', '--json'], { env });
     const capped = JSON.parse(r.out).gates[0];
     assert.equal(capped.signal, 'SIGTERM');
@@ -363,9 +374,9 @@ test('gates: гейт с ошибкой запуска при коде 0 — н�
   }
 });
 
-// Корень проекта ниже корня репозитория: git печатает `pkg/lib/x.js`, а образец написан рядом с
-// конфигом — `lib/**`. Без снятия префикса гейт не запускался бы никогда при зелёном итоге.
-test('gates: в монорепе пути приводятся к корню проекта', () => {
+// The project root is below the repository root: git prints `pkg/lib/x.js`, and the pattern is
+// written next to the config — `lib/**`. Without stripping the prefix the gate would never run.
+test('gates: in a monorepo paths are brought to the project root', () => {
   const repo = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-mono-')));
   try {
     run(repo, ['init', '-q', '-b', 'main']);
@@ -381,10 +392,10 @@ test('gates: в монорепе пути приводятся к корню п�
     }, null, 2)}\n`);
     writeFileSync(path.join(repo, '.gitignore'), 'ran.txt\n');
     run(repo, ['add', '-A']);
-    run(repo, ['commit', '-qm', 'база']);
+    run(repo, ['commit', '-qm', 'base']);
     put(repo, 'pkg/lib/x.js', 'export const a = 1;\n');
-    // Сосед по монорепе: путь вне проекта из набора уходит — образец от корня проекта про него
-    // ничего сказать не может.
+    // A monorepo neighbour: a path outside the project leaves the set — a pattern from the project
+    // root can say nothing about it.
     put(repo, 'other/lib/y.js', 'export const b = 2;\n');
 
     const inProject = { cwd: proj, env: { GATES_MARK: path.join(proj, 'ran.txt') } };
@@ -392,30 +403,30 @@ test('gates: в монорепе пути приводятся к корню п�
     assert.equal(r.code, 0, r.err);
     const report = JSON.parse(r.out);
     assert.equal(report.scope.prefix, 'pkg/');
-    assert.deepEqual(report.scope.paths, ['lib/x.js'], 'префикс снят, чужой путь отброшен');
+    assert.deepEqual(report.scope.paths, ['lib/x.js'], 'the prefix is stripped, the foreign path is dropped');
     assert.equal(report.scope.dropped, 1);
     assert.equal(report.green, 1);
-    assert.equal(report.outOfScope, 1, 'область docs/** не задета');
+    assert.equal(report.outOfScope, 1, 'the docs/** scope is untouched');
     const human = cli(repo, ['gates'], inProject).out;
-    assert.match(human, /пути от корня проекта \(pkg\/\)/);
-    assert.match(human, /отброшено 1 вне проекта/);
+    assert.match(human, ruRe(', paths relative to the project root ({prefix})', { prefix: 'pkg/' }));
+    assert.match(human, ruRe(DROPPED, { dropped: 1 }));
 
-    // Дифф целиком вне проекта — не «база не дала диффа»: изменения есть, наших среди них нет.
-    // Это честный пропуск, а не отказ, иначе матрица CI падала бы на каждом нетронутом пакете.
+    // A diff entirely outside the project is not "the base gave no diff": changes exist, none ours.
+    // It is an honest skip, not a refusal, else the CI matrix would fail on each untouched package.
     run(repo, ['add', '-A']);
-    run(repo, ['commit', '-qm', 'правки']);
+    run(repo, ['commit', '-qm', 'edits']);
     const base = run(repo, ['rev-parse', 'HEAD']).stdout.trim();
     put(repo, 'other/lib/z.js', 'export const c = 3;\n');
     run(repo, ['add', '-A']);
-    run(repo, ['commit', '-qm', 'правка соседа']);
+    run(repo, ['commit', '-qm', 'a neighbour edit']);
     writeFileSync(path.join(proj, 'ran.txt'), '');
 
     const foreign = cli(repo, ['gates', '--require-clean', '--base', base, '--json'], inProject);
     assert.equal(foreign.code, 0, foreign.err);
     const alien = JSON.parse(foreign.out);
-    assert.deepEqual(alien.scope.paths, [], 'наших путей в диффе нет');
-    assert.equal(alien.scope.dropped, 1, 'но дифф непуст — он весь вне проекта');
-    assert.equal(alien.outOfScope, 2, 'обе записи с областью пропущены честно');
+    assert.deepEqual(alien.scope.paths, [], 'there are no paths of ours in the diff');
+    assert.equal(alien.scope.dropped, 1, 'but the diff is non-empty — it is entirely outside the project');
+    assert.equal(alien.outOfScope, 2, 'both entries with a scope are skipped honestly');
     assert.equal(alien.green, 0);
   } finally {
     rmSync(repo, { recursive: true, force: true });
@@ -487,11 +498,11 @@ test('gates: neighbour dirt in a monorepo does not lift the empty-set refusal of
 
     let r = cli(repo, ['gates', '--require-clean'], { cwd: proj });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /--require-clean без --base/);
+    assert.match(r.err, ruRe(NO_BASE));
     r = cli(repo, ['gates', '--require-clean', '--base', 'HEAD'], { cwd: proj });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /--require-clean --base HEAD: набор изменённых путей пуст/);
-    assert.match(cli(repo, ['gates', '--base', 'HEAD'], { cwd: proj }).out, /отброшено 1 вне проекта/, 'the printed count stays');
+    assert.match(r.err, ruRe(EMPTY_SET, { base: 'HEAD' }));
+    assert.match(cli(repo, ['gates', '--base', 'HEAD'], { cwd: proj }).out, ruRe(DROPPED, { dropped: 1 }), 'the printed count stays');
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
@@ -502,7 +513,7 @@ test('gates: a non-ASCII project directory is stripped from quoted porcelain pat
   try {
     run(repo, ['init', '-q', '-b', 'main']);
     run(repo, ['config', 'core.quotePath', 'true']);
-    const proj = path.join(repo, 'пакет');
+    const proj = path.join(repo, PKG);
     mkdirSync(path.join(proj, 'docs', 'backlog'), { recursive: true });
     writeFileSync(path.join(proj, 'backslop.json'), `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: ['node -e "process.exit(0)"'], lang: 'ru', tools: [] }, null, 2)}\n`);
     let r = cli(repo, ['gates', '--json'], { cwd: proj });
@@ -513,8 +524,8 @@ test('gates: a non-ASCII project directory is stripped from quoted porcelain pat
     run(repo, ['config', 'commit.gpgsign', 'false']);
     run(repo, ['add', '-A']);
     run(repo, ['commit', '-qm', 'init']);
-    put(repo, 'пакет/plain.md', 'a\n');
-    put(repo, 'пакет/a b.md', 'b\n');
+    put(repo, `${PKG}/plain.md`, 'a\n');
+    put(repo, `${PKG}/a b.md`, 'b\n');
     r = cli(repo, ['gates', '--json'], { cwd: proj });
     assert.equal(r.code, 0, r.err);
     assert.equal(JSON.parse(r.out).tree.dirty, '?? "a b.md"\n?? plain.md');
@@ -579,53 +590,53 @@ test('gates: diff.relative=true does not drop the paths of a monorepo subproject
   }
 });
 
-test('gates: пустой --base и --require-clean без базы — отказ до первой команды', () => {
+test('gates: an empty --base and --require-clean without a base — a refusal before the first command', () => {
   const root = makeProject();
   try {
     withGates(root, [mark('always', 0), { command: mark('scoped', 0), when: ['lib/**'] }]);
     put(root, '.gitignore', 'ran.txt\n');
-    gitAll(root, 'база');
+    gitAll(root, 'base');
 
     for (const argv of [['gates', '--base', ''], ['gates', '--base', '   ']]) {
       const r = cli(root, argv, marked(root));
       assert.equal(r.code, 1);
-      assert.match(r.err, /--base пуст/);
-      assert.deepEqual(ran(root), [], 'до первой команды дело не дошло');
+      assert.match(r.err, ruRe('--base is empty: name a ref or drop the flag — an empty base would count the dirty tree alone and call it a diff'));
+      assert.deepEqual(ran(root), [], 'it did not get to the first command');
     }
 
     const clean = cli(root, ['gates', '--require-clean'], marked(root));
     assert.equal(clean.code, 1);
-    assert.match(clean.err, /--require-clean без --base/);
-    assert.deepEqual(ran(root), [], 'холостой прогон известен до первой команды');
+    assert.match(clean.err, ruRe(NO_BASE));
+    assert.deepEqual(ran(root), [], 'the idle run is known before the first command');
 
-    // Названная база холостой прогон не лечит: `HEAD..HEAD` пуст ровно так же, как чистое
-    // дерево. Отказ считается по набору путей, а не по форме флагов.
+    // A named base does not cure an idle run: `HEAD..HEAD` is empty just as a clean tree is. The
+    // refusal is counted by the path set, not by the form of the flags.
     const empty = cli(root, ['gates', '--require-clean', '--base', 'HEAD'], marked(root));
     assert.equal(empty.code, 1);
-    assert.match(empty.err, /--require-clean --base HEAD: набор изменённых путей пуст/);
-    assert.deepEqual(ran(root), [], 'до первой команды дело не дошло и с базой');
+    assert.match(empty.err, ruRe(EMPTY_SET, { base: 'HEAD' }));
+    assert.deepEqual(ran(root), [], 'it did not get to the first command with a base either');
   } finally {
     cleanup(root);
   }
 });
 
-// Непустой набор, не задевший областей, — случай законный: пропуск честный, отказа быть не
-// должно. Иначе отказ из предыдущей проверки съел бы штатную приёмку правки одних доков.
-test('gates: --require-clean на непустом наборе без совпадений — прогон, а не отказ', () => {
+// A non-empty set that touched no scope is legitimate: the skip is honest, no refusal is due.
+// Otherwise the refusal above would eat the routine acceptance of a docs-only edit.
+test('gates: --require-clean on a non-empty set without matches — a run, not a refusal', () => {
   const root = makeProject();
   try {
     withGates(root, [mark('always', 0), { command: mark('scoped', 0), when: ['lib/**'] }]);
     put(root, '.gitignore', 'ran.txt\n');
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
-    put(root, 'docs/note.md', 'правка\n');
-    gitAll(root, 'правка доков');
+    put(root, 'docs/note.md', 'edit\n');
+    gitAll(root, 'docs edit');
 
     const r = cli(root, ['gates', '--require-clean', '--base', base, '--json'], marked(root));
     assert.equal(r.code, 0, r.err);
     assert.deepEqual(ran(root), ['always']);
     const report = JSON.parse(r.out);
-    assert.deepEqual(report.scope.paths, ['docs/note.md'], 'набор непуст — отказа быть не должно');
+    assert.deepEqual(report.scope.paths, ['docs/note.md'], 'the set is non-empty — there must be no refusal');
     assert.equal(report.outOfScope, 1);
     assert.equal(report.green, 1);
   } finally {
@@ -633,27 +644,27 @@ test('gates: --require-clean на непустом наборе без совп�
   }
 });
 
-test('gates: --require-clean без --base законен, пока областей нет', () => {
+test('gates: --require-clean without --base is legitimate while there are no scopes', () => {
   const root = makeProject();
   try {
     withGates(root, [mark('always', 0)]);
     put(root, '.gitignore', 'ran.txt\n');
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     const r = cli(root, ['gates', '--require-clean'], marked(root));
     assert.equal(r.code, 0, r.err);
-    assert.deepEqual(ran(root), ['always'], 'список без областей ведёт себя как до BS-66');
+    assert.deepEqual(ran(root), ['always'], 'a list without scopes behaves as it did before scopes existed');
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: без git область не считается — гоняется всё', () => {
+test('gates: without git the scope is not counted — everything runs', () => {
   const root = makeProject({ git: false });
   try {
     withGates(root, [{ command: mark('code-only', 0), when: ['lib/**'] }]);
     const r = cli(root, ['gates', '--json'], marked(root));
     assert.equal(r.code, 0, r.err);
-    assert.deepEqual(ran(root), ['code-only'], 'набора путей нет — пропускать не по чему');
+    assert.deepEqual(ran(root), ['code-only'], 'there is no path set — nothing to skip by');
     const report = JSON.parse(r.out);
     assert.equal(report.green, 1);
     assert.equal(report.outOfScope, 0);
@@ -661,13 +672,13 @@ test('gates: без git область не считается — гоняет�
 
     const withBase = cli(root, ['gates', '--base', 'HEAD']);
     assert.equal(withBase.code, 1);
-    assert.match(withBase.err, /--base HEAD: git не отдал состояние дерева/);
+    assert.match(withBase.err, ruRe('--base {base}: git did not report the tree state, so the path set cannot be computed', { base: 'HEAD' }));
   } finally {
     cleanup(root);
   }
 });
 
-test('gates: glob — * не переходит слэш, ** переходит, **/ ловит и корень', () => {
+test('gates: glob — * does not cross a slash, ** does, **/ catches the root too', () => {
   for (const [pattern, hits, misses] of [
     ['docs/**', ['docs/a.md', 'docs/a/b/c.md'], ['docs', 'lib/a.md']],
     ['*.md', ['a.md'], ['docs/a.md']],
@@ -677,8 +688,8 @@ test('gates: glob — * не переходит слэш, ** переходит,
     ['src**/x.js', ['srcfoo/x.js', 'src/a/x.js'], ['srcx.js']],
     ['a/**/b.md', ['a/b.md', 'a/c/d/b.md'], ['ab.md']],
   ]) {
-    for (const p of hits) assert.ok(globToRe(pattern).test(p), `${pattern} обязан ловить ${p}`);
-    for (const p of misses) assert.ok(!globToRe(pattern).test(p), `${pattern} не должен ловить ${p}`);
+    for (const p of hits) assert.ok(globToRe(pattern).test(p), `${pattern} must catch ${p}`);
+    for (const p of misses) assert.ok(!globToRe(pattern).test(p), `${pattern} must not catch ${p}`);
   }
 });
 
@@ -686,13 +697,13 @@ test('gates: --dry-run lists every gate with its scope', () => {
   const root = makeProject();
   try {
     withGates(root, ['npm test', { command: 'npm run e2e', when: ['src/**'] }]);
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     const r = cli(root, ['gates', '--dry-run', '--json']);
     assert.equal(r.code, 0, r.err);
     const report = JSON.parse(r.out);
     assert.equal(report.dryRun, true);
     assert.deepEqual(report.gates, [{ command: 'npm test', when: null }, { command: 'npm run e2e', when: ['src/**'] }]);
-    assert.match(cli(root, ['gates', '--dry-run']).out, /npm run e2e — область: src\/\*\*/);
+    assert.match(cli(root, ['gates', '--dry-run']).out, new RegExp(`npm run e2e — ${ru('scope')}: src/\\*\\*`));
   } finally {
     cleanup(root);
   }
@@ -709,13 +720,13 @@ test('gates: help prints the gates usage line', () => {
   }
 });
 
-test('gates: исход различает код, сигнал и незапуск; формат строки гейта закреплён', () => {
+test('gates: the outcome tells code, signal and no-start apart; the gate line format is pinned', () => {
   const root = makeProject({ git: false });
   try {
     withGates(root, ['node -e "process.exit(3)"']);
     let r = cli(root, ['gates', '--keep-going']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /^✖ node -e "process\.exit\(3\)" — код 3, \d+ ms$/m);
+    assert.match(r.err, new RegExp(`^✖ node -e "process\\.exit\\(3\\)" — ${escapeRe(ru('exit code {status}', { status: 3 }))}, \\d+ ms$`, 'm'));
 
     withGates(root, ['node -e "process.kill(process.pid, \'SIGTERM\')"']);
     r = cli(root, ['gates', '--json']);
@@ -725,17 +736,17 @@ test('gates: исход различает код, сигнал и незапу�
     assert.equal(killed.signal, 'SIGTERM');
     r = cli(root, ['gates']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /— прерван сигналом SIGTERM, \d+ ms$/m);
-    assert.doesNotMatch(r.err, /потолок/, 'a self-kill is not the time cap');
+    assert.match(r.err, new RegExp(`— ${escapeRe(ru('killed by signal {signal}', { signal: 'SIGTERM' }))}, \\d+ ms$`, 'm'));
+    assert.doesNotMatch(r.err, new RegExp(`${ruRe('timed out after the {min}-min cap').source}|${ruRe('timed out after the {seconds}-second cap').source}`), 'a self-kill is not the time cap');
 
-    // Ненайденное имя — код самой оболочки (127 у sh, 1 или 9009 у cmd.exe), а не `r.error`: для
-    // него ветка «не запустился» через shell недостижима, и число от оболочки не проверяем.
-    withGates(root, ['такой-команды-нет-и-не-будет']);
+    // A name not found is the shell's own code (127 for sh, 1 or 9009 for cmd.exe), not `r.error`:
+    // for it the "did not start" branch through the shell is unreachable; its number is unchecked.
+    withGates(root, ['no-such-command-will-ever-exist']);
     r = cli(root, ['gates', '--json']);
     assert.equal(r.code, 1);
     const missing = JSON.parse(r.out).gates[0];
-    assert.notEqual(missing.code, 0, 'ненайденная команда не считается зелёной');
-    assert.equal(missing.error, null, 'через shell отказ приходит кодом оболочки, а не r.error');
+    assert.notEqual(missing.code, 0, 'a command not found does not count as green');
+    assert.equal(missing.error, null, 'through the shell the refusal arrives as the shell code, not r.error');
   } finally {
     cleanup(root);
   }
@@ -748,8 +759,8 @@ test('gates: --dry-run refuses --base and --require-clean before any gate runs',
     gitAll(root, 'base');
     put(root, 'docs/note.md', 'edit\n');
     for (const [flags, err] of [
-      [['--dry-run', '--base', 'HEAD'], /--dry-run и --base вместе бессмысленны/],
-      [['--dry-run', '--require-clean'], /--dry-run и --require-clean вместе бессмысленны/],
+      [['--dry-run', '--base', 'HEAD'], ruRe('--dry-run and --base make no sense together: the whole list is printed and no scope is computed')],
+      [['--dry-run', '--require-clean'], ruRe('--dry-run and --require-clean make no sense together: the list is printed without running any gate')],
     ]) {
       const r = cli(root, ['gates', ...flags], marked(root));
       assert.equal(r.code, 1, `${flags.join(' ')}: ${r.out}`);
@@ -761,17 +772,17 @@ test('gates: --dry-run refuses --base and --require-clean before any gate runs',
   }
 });
 
-test('gates: репозиторий без коммитов — снимок есть, коммита в нём нет', () => {
+test('gates: a repository without commits — there is a snapshot, no commit in it', () => {
   const root = makeProject();
   try {
     withGates(root, ['node -e "process.exit(0)"']);
     const r = cli(root, ['gates', '--json']);
     assert.equal(r.code, 0, r.err);
     const tree = JSON.parse(r.out).tree;
-    assert.notEqual(tree, null, 'репозиторий есть, снимок обязан быть');
+    assert.notEqual(tree, null, 'the repository exists, so the snapshot must exist');
     assert.equal(tree.head, null);
     assert.equal(tree.clean, false);
-    assert.match(cli(root, ['gates']).out, /коммитов ещё нет/);
+    assert.match(cli(root, ['gates']).out, ruRe('no commits yet'));
   } finally {
     cleanup(root);
   }

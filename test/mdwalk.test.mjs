@@ -1,4 +1,4 @@
-// Обход markdown: одно множество файлов для гейтов и для правки ссылок при переезде.
+// The markdown walk: one set of files for the gates and for rewriting links on a move.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -9,7 +9,7 @@ import { parseCli } from '../lib/config.js';
 import { livePinFiles, mdFiles, repoMarkdown, rootMarkdown, stalePins } from '../lib/mdwalk.js';
 import { rewriteProsePins } from '../lib/upgrade.js';
 import { CliError } from '../lib/util.js';
-import { cleanup, cli, makeProject, read } from './helpers.mjs';
+import { cleanup, cli, makeProject, read, ru } from './helpers.mjs';
 
 function put(root, rel, text = '# x\n') {
   const abs = path.join(root, ...rel.split('/'));
@@ -17,13 +17,13 @@ function put(root, rel, text = '# x\n') {
   writeFileSync(abs, text);
 }
 
-test('repoMarkdown: корень и каталоги вглубь, без .git, node_modules и worktrees агентов', () => {
+test('repoMarkdown: the root and directories in depth, without .git, node_modules and agent worktrees', () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
   try {
     put(sb, 'README.md');
     put(sb, 'docs/README.md');
     put(sb, 'docs/backlog/queue/BS-1-a.md');
-    put(sb, 'src/notes.txt', 'не markdown');
+    put(sb, 'src/notes.txt', 'not markdown');
     put(sb, '.git/COMMIT_EDITMSG.md');
     put(sb, 'node_modules/pkg/README.md');
     put(sb, '.claude/worktrees/w1/docs/README.md');
@@ -42,7 +42,7 @@ test('repoMarkdown: корень и каталоги вглубь, без .git, 
 
 // `srcFiles` follows links on purpose; the set of real paths stops loops (this test). The
 // harness-root test below guards that a file behind a directory link is found.
-test('mdFiles: симлинк на предка не зацикливает обход', { skip: process.platform === 'win32' }, () => {
+test('mdFiles: a symlink to an ancestor does not loop the walk', { skip: process.platform === 'win32' }, () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
   try {
     put(sb, 'docs/a.md');
@@ -54,9 +54,9 @@ test('mdFiles: симлинк на предка не зацикливает об
   }
 });
 
-// ADR-040. Ссылка внутрь проекта не роняет файлы проекта под их настоящим путём (общий seen по
-// realpath); цели ссылок — в отдельной песочнице, чтобы результат не зависел от порядка readdir.
-test('repoMarkdown: за ссылку на корне harness обход не заходит — на .claude и на .cursor/rules; ссылка внутрь проекта файлы проекта не теряет', { skip: process.platform === 'win32' }, () => {
+// ADR-040. A link into the project does not drop the project files from under their real path
+// (one shared `seen` by realpath); link targets sit in a separate sandbox: readdir order is moot.
+test('repoMarkdown: the walk does not follow a link at the harness root — to .claude and .cursor/rules; a link into the project does not lose the project files', { skip: process.platform === 'win32' }, () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
   const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-outside-'));
   try {
@@ -79,7 +79,7 @@ test('repoMarkdown: за ссылку на корне harness обход не з
   }
 });
 
-test('livePinFiles: markdown и исполняемые package/CI входят, история и служебные каталоги исключены', () => {
+test('livePinFiles: markdown and executable package/CI files are in, history and service directories are out', () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-walk-'));
   try {
     put(sb, 'README.md');
@@ -207,6 +207,9 @@ test('srcFiles: an unreadable directory is a CliError that names it', { skip: pr
   }
 });
 
+const WALK = '{rel}: the directory is not readable ({code}) — lint cannot walk it; restore read access or move it out of the project';
+const WHAT = '{rel}: the directory is not readable ({code}) — {what}; restore read access or move it out of the project';
+
 test('lint names an unreadable directory in the project language instead of a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
   const root = makeProject();
   const locked = path.join(root, 'src', 'locked');
@@ -215,7 +218,7 @@ test('lint names an unreadable directory in the project language instead of a st
     chmodSync(locked, 0o000);
     let r = cli(root, ['lint']);
     assert.equal(r.code, 1, r.out);
-    assert.equal(r.err, '✖ src/locked: каталог не читается (EACCES) — lint его не обходит; верни права на чтение или вынеси каталог из проекта\n');
+    assert.equal(r.err, `✖ ${ru(WALK, { rel: 'src/locked', code: 'EACCES' })}\n`);
     put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
     r = cli(root, ['lint']);
     assert.equal(r.code, 1, r.out);
@@ -226,7 +229,6 @@ test('lint names an unreadable directory in the project language instead of a st
   }
 });
 
-const TAIL_RU = 'верни права на чтение или вынеси каталог из проекта';
 const TAIL_EN = 'restore read access or move it out of the project';
 
 test('status and lint word an unreadable status directory or archive, not a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
@@ -237,10 +239,10 @@ test('status and lint word an unreadable status directory or archive, not a stac
       chmodSync(locked, 0o000);
       let r = cli(root, ['status']);
       assert.equal(r.code, 1, `${rel}: ${r.out}`);
-      assert.equal(r.err, `✖ ${rel}: каталог не читается (EACCES) — задачи из него не прочитать; ${TAIL_RU}\n`);
+      assert.equal(r.err, `✖ ${ru(WHAT, { rel, code: 'EACCES', what: ru('tasks cannot be read from it') })}\n`);
       r = cli(root, ['lint']);
       assert.equal(r.code, 1, `${rel}: ${r.out}`);
-      assert.equal(r.err, `✖ ${rel}: каталог не читается (EACCES) — lint его не обходит; ${TAIL_RU}\n`);
+      assert.equal(r.err, `✖ ${ru(WALK, { rel, code: 'EACCES' })}\n`);
       put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
       r = cli(root, ['status']);
       assert.equal(r.err, `✖ ${rel}: the directory is not readable (EACCES) — tasks cannot be read from it; ${TAIL_EN}\n`);
@@ -261,7 +263,7 @@ test('mv words an unreadable directory of the link walk, not a bare code', { ski
     chmodSync(locked, 0o000);
     let r = cli(root, ['mv', '1', 'queue']);
     assert.equal(r.code, 1, r.out);
-    assert.ok(r.err.endsWith(`✖ src/locked: каталог не читается (EACCES) — ссылки в нём не обновить; ${TAIL_RU}\n`), r.err);
+    assert.ok(r.err.endsWith(`✖ ${ru(WHAT, { rel: 'src/locked', code: 'EACCES', what: ru('links in it cannot be updated') })}\n`), r.err);
     put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
     r = cli(root, ['mv', '2', 'queue']);
     assert.ok(r.err.endsWith(`✖ src/locked: the directory is not readable (EACCES) — links in it cannot be updated; ${TAIL_EN}\n`), r.err);

@@ -1,5 +1,5 @@
-// Проверки скрипта релиза. Не для Windows: git и npm подменяются шимами с shebang, а acceptance
-// зовёт `npm` без shell; тесты, чей предмет зависит от платформы, помечены skip явно.
+// Checks of the release script. Not for Windows: git and npm are replaced by shebang shims, and
+// acceptance calls `npm` without a shell; tests whose subject depends on the platform say skip.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -20,8 +20,8 @@ function fixture({ version = '0.2.0' } = {}) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-release-')));
   const bin = path.join(root, 'fake-bin');
   mkdirSync(bin);
-  // Скрипт лежит в scripts/ и рядом с ним настоящий lib/util.js: релиз берёт оттуда today()
-  // для заголовка секции CHANGELOG, и плоская копия в корне не нашла бы модуль.
+  // The script sits in scripts/ with the real lib/util.js beside it: the release takes today() from
+  // there for the CHANGELOG section heading, and a flat copy in the root would not find the module.
   mkdirSync(path.join(root, 'scripts'));
   mkdirSync(path.join(root, 'lib'));
   copyFileSync(RELEASE, path.join(root, 'scripts', 'release.mjs'));
@@ -32,8 +32,8 @@ function fixture({ version = '0.2.0' } = {}) {
   copyFileSync(path.join(REPO, 'lib', 'i18n.js'), path.join(root, 'lib', 'i18n.js'));
   mkdirSync(path.join(root, 'templates', 'i18n'), { recursive: true });
   copyFileSync(path.join(REPO, 'templates', 'i18n', 'ru.mjs'), path.join(root, 'templates', 'i18n', 'ru.mjs'));
-  // `type: module` — не украшение: без него node перечитывает скопированные lib/*.js как CJS,
-  // и предупреждение MODULE_TYPELESS_PACKAGE_JSON садится в stderr, который тесты сверяют.
+  // `type: module` is no decoration: without it node rereads the copied lib/*.js as CJS, and the
+  // MODULE_TYPELESS_PACKAGE_JSON warning lands in the stderr the tests compare.
   writeFileSync(path.join(root, 'package.json'), `${JSON.stringify({ name: 'backslop', version, type: 'module' }, null, 2)}\n`);
   const shim = `#!${process.execPath}\nimport { appendFileSync, existsSync, writeFileSync } from 'node:fs';\nconst name = process.argv[1].split('/').pop();\nconst args = process.argv.slice(2);\nappendFileSync(process.env.RELEASE_LOG, [name, ...args].join(' ') + '\\n');\nif (name === 'git' && args[0] === 'branch') process.stdout.write(process.env.FAKE_BRANCH ?? 'main');\nif (name === 'npm' && args.join(' ') === 'pack --dry-run' && process.env.FAKE_GATE_DIRTY) writeFileSync('generated.txt', 'gate output\\n');\nif (name === 'git' && args[0] === 'status' && (process.env.FAKE_DIRTY || existsSync('generated.txt'))) process.stdout.write('?? generated.txt\\n');\nif (name === 'git' && args[0] === 'rev-parse') process.exit(process.env.FAKE_LOCAL_TAG ? 0 : 1);\nif (name === 'git' && args[0] === 'ls-remote') process.exit(process.env.FAKE_REMOTE_TAG ? 0 : 2);\nif (name === 'git' && args[0] === 'fetch') process.exit(process.env.FAKE_FETCH_FAIL ? 9 : 0);\nif (name === 'git' && args[0] === 'merge-base') process.exit(process.env.FAKE_DIVERGED ? 1 : 0);\nif (name === 'git' && args[0] === 'push' && args.includes('--dry-run')) process.exit(process.env.FAKE_PUSH_DRY_FAIL ? 8 : 0);\nif (name === 'npm' && process.env.FAKE_NPM_FAIL === args.join(' ')) process.exit(7);\nif (name === 'git' && process.env.FAKE_GIT_FAIL === args.join(' ')) process.exit(8);\n`;
   putExecutable(path.join(bin, 'git'), shim);
@@ -83,7 +83,7 @@ const through = (last) => SEQ.slice(0, SEQ.indexOf(last) + 1);
 test('release: every preflight and gate runs before the tag, the publish and the atomic push', () => {
   for (const row of [
     { label: 'published', args: ['0.2.0'], log: SEQ },
-    { label: '--no-publish', args: ['0.2.0', '--no-publish'], log: SEQ.filter((c) => c !== 'npm publish'), out: /npm publish не запускался/ },
+    { label: '--no-publish', args: ['0.2.0', '--no-publish'], log: SEQ.filter((c) => c !== 'npm publish'), out: /npm publish was not run/ },
   ]) {
     const f = fixture();
     try {
@@ -97,12 +97,12 @@ test('release: every preflight and gate runs before the tag, the publish and the
   }
 });
 
-test('release: изменения от gates останавливают release перед tag', () => {
+test('release: changes made by the gates stop the release before the tag', () => {
   const f = fixture();
   try {
     const r = runRelease(f, '0.2.0', { FAKE_GATE_DIRTY: '1' });
     assert.equal(r.code, 1);
-    assert.match(r.err, /gates изменили рабочее дерево; тег не создан/);
+    assert.match(r.err, /the gates changed the working tree; the tag is not created/);
     assert.match(r.err, /\?\? generated\.txt/);
     assert.match(r.log, /npm pack --dry-run\ngit status --porcelain\n$/);
     assert.doesNotMatch(r.log, /git tag|npm publish|git push/);
@@ -111,20 +111,20 @@ test('release: изменения от gates останавливают release 
   }
 });
 
-test('release: argument, package version, branch, dirty tree и tag collision останавливаются до gates и side effects', () => {
+test('release: argument, package version, branch, dirty tree and tag collision stop before the gates and side effects', () => {
   const cases = [
-    { version: 'v0.2.0', match: /форме X\.Y\.Z/, log: [] },
-    { fixture: { version: '0.1.0' }, match: /version 0\.1\.0.*запрошен 0\.2\.0/, log: [] },
-    { env: { FAKE_BRANCH: 'topic' }, match: /ветка «topic»/, log: ['git branch --show-current'] },
-    { env: { FAKE_DIRTY: '1' }, match: /рабочее дерево нечисто/, log: ['git branch --show-current', 'git status --porcelain'] },
-    { env: { FAKE_LOCAL_TAG: '1' }, match: /локальный тег v0\.2\.0 уже/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0'] },
-    { env: { FAKE_REMOTE_TAG: '1' }, match: /тег v0\.2\.0 уже.*origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0'] },
+    { version: 'v0.2.0', match: /one argument of the form X\.Y\.Z/, log: [] },
+    { fixture: { version: '0.1.0' }, match: /version 0\.1\.0.*the release asked for is 0\.2\.0/, log: [] },
+    { env: { FAKE_BRANCH: 'topic' }, match: /the current branch is “topic”/, log: ['git branch --show-current'] },
+    { env: { FAKE_DIRTY: '1' }, match: /the working tree is dirty/, log: ['git branch --show-current', 'git status --porcelain'] },
+    { env: { FAKE_LOCAL_TAG: '1' }, match: /the local tag v0\.2\.0 already exists/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0'] },
+    { env: { FAKE_REMOTE_TAG: '1' }, match: /the tag v0\.2\.0 already exists in origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0'] },
     { env: { FAKE_FETCH_FAIL: '1' }, match: /git fetch origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin'] },
-    { version: ['0.2.0', '--nope'], match: /неизвестный флаг --nope/, log: [] },
-    { version: ['0.2.0', '--bump', '--no-publish'], match: /вместе бессмысленны/, log: [] },
-    { version: ['0.1.0', '--bump'], match: /bump идёт только вверх, 0\.1\.0 не новее/, log: [] },
-    { version: ['0.3.0', '--bump'], setup: (f) => writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\nбез секций\n'), match: /нет ни одной секции/, log: [] },
-    { env: { FAKE_DIVERGED: '1' }, match: /не является fast-forward от origin\/main/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin', 'git merge-base --is-ancestor refs/remotes/origin/main HEAD'] },
+    { version: ['0.2.0', '--nope'], match: /unknown flag --nope/, log: [] },
+    { version: ['0.2.0', '--bump', '--no-publish'], match: /together make no sense/, log: [] },
+    { version: ['0.1.0', '--bump'], match: /bump goes only upward, 0\.1\.0 is not newer/, log: [] },
+    { version: ['0.3.0', '--bump'], setup: (f) => writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\nno sections\n'), match: /no “## ” section at all/, log: [] },
+    { env: { FAKE_DIVERGED: '1' }, match: /is not a fast-forward from origin\/main/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin', 'git merge-base --is-ancestor refs/remotes/origin/main HEAD'] },
   ];
   for (const c of cases) {
     const f = fixture(c.fixture);
@@ -140,7 +140,7 @@ test('release: argument, package version, branch, dirty tree и tag collision о
   }
 });
 
-test('release: каждый gate failure не допускает tag/publish/push', () => {
+test('release: every gate failure keeps the tag, the publish and the push from happening', () => {
   for (const failed of ['test', 'run lint', 'pack --dry-run']) {
     const f = fixture();
     try {
@@ -163,7 +163,7 @@ test('release: each failure names its state and next step; the fast-forward refu
       args: ['0.2.0'],
       env: { FAKE_PUSH_DRY_FAIL: '1' },
       // The tag command stays copyable: no punctuation right after it.
-      errRes: [/state: локальный тег v0\.2\.0 создан; origin не изменён; npm registry не тронут/, /git tag -d v0\.2\.0(\s|$)/],
+      errRes: [/state: the local tag v0\.2\.0 is created; origin is unchanged; the npm registry is untouched/, /git tag -d v0\.2\.0(\s|$)/],
       log: through('git push --atomic --dry-run origin main v0.2.0'),
     },
     {
@@ -171,10 +171,10 @@ test('release: each failure names its state and next step; the fast-forward refu
       args: ['0.2.0'],
       env: { FAKE_NPM_FAIL: 'publish' },
       errRes: [
-        /state: локальный тег v0\.2\.0 создан; origin не изменён; состояние npm registry неизвестно/,
+        /state: the local tag v0\.2\.0 is created; origin is unchanged; the npm registry state is unknown/,
         /next: npm view backslop@0\.2\.0 version/,
         /if published: git push --atomic origin main v0\.2\.0/,
-        /if E404: npm publish, затем git push --atomic origin main v0\.2\.0/,
+        /if E404: npm publish, then git push --atomic origin main v0\.2\.0/,
       ],
       log: through('npm publish'),
     },
@@ -182,28 +182,28 @@ test('release: each failure names its state and next step; the fast-forward refu
       label: 'atomic push failed after publish',
       args: ['0.2.0'],
       env: { FAKE_GIT_FAIL: push },
-      errRes: [/state: backslop@0\.2\.0 опубликован; локальный тег v0\.2\.0 создан; atomic push не подтверждён/, /next: git push --atomic origin main v0\.2\.0/],
+      errRes: [/state: backslop@0\.2\.0 is published; the local tag v0\.2\.0 is created; the atomic push is not confirmed/, /next: git push --atomic origin main v0\.2\.0/],
       log: SEQ,
     },
     {
       label: 'atomic push failed with --no-publish',
       args: ['0.2.0', '--no-publish'],
       env: { FAKE_GIT_FAIL: push },
-      errRes: [/npm publish не запускался \(--no-publish\)/],
-      absentRe: /опубликован/,
+      errRes: [/npm publish was not run \(--no-publish\)/],
+      absentRe: /is published/,
     },
     {
       label: 'not a fast-forward with --no-publish',
       args: ['0.2.0', '--no-publish'],
       env: { FAKE_DIVERGED: '1' },
-      errRes: [/не является fast-forward от origin\/main: atomic push отказал бы\n/],
+      errRes: [/is not a fast-forward from origin\/main: the atomic push would be refused\n/],
       absentRe: /npm publish/,
     },
     {
       label: 'not a fast-forward, published',
       args: ['0.2.0'],
       env: { FAKE_DIVERGED: '1' },
-      errRes: [/atomic push отказал бы после npm publish/],
+      errRes: [/the atomic push would be refused after npm publish/],
     },
   ]) {
     const f = fixture();
@@ -219,12 +219,12 @@ test('release: each failure names its state and next step; the fast-forward refu
   }
 });
 
-// Незапуск (причина в error), снятие сигналом и ненулевой код — разные отказы: «null !== 0» назвал
-// бы дефектом релиза машину без npm или sandbox, который его снял.
+// A launch that did not happen (the cause is in error), a kill by a signal and a non-zero code are
+// different refusals: "null !== 0" would call a machine without npm a release defect.
 function describeRun(label, r) {
-  if (r.error) return `${label}: запуск не состоялся — ${r.error.code ?? r.error.message}`;
-  if (r.signal) return `${label}: снят сигналом ${r.signal}`;
-  if (r.status !== 0) return `${label}: код ${r.status}\n${(r.stderr ?? '').trim()}`;
+  if (r.error) return `${label}: the launch did not happen — ${r.error.code ?? r.error.message}`;
+  if (r.signal) return `${label}: killed by signal ${r.signal}`;
+  if (r.status !== 0) return `${label}: exit code ${r.status}\n${(r.stderr ?? '').trim()}`;
   return null;
 }
 
@@ -235,8 +235,8 @@ function runOk(label, cmd, args, opts = {}) {
   return r;
 }
 
-// npm — со своим HOME, кэшем и конфигами в каталоге проверки и без npm_config_* от `npm test`:
-// иначе ~/.npmrc с токеном и Keychain под sandbox красили бы приёмку окружением; install — offline.
+// npm gets its own HOME, cache and configs in the check directory and no npm_config_* from `npm
+// test`: else a ~/.npmrc token and a sandboxed Keychain would redden acceptance; install: offline.
 function npmEnv(home, cache) {
   mkdirSync(home, { recursive: true });
   writeFileSync(path.join(home, '.npmrc'), '');
@@ -253,15 +253,15 @@ function npmEnv(home, cache) {
   };
 }
 
-test('acceptance-раннер различает несостоявшийся запуск, сигнал и ненулевой код', { skip: process.platform === 'win32' }, () => {
-  const missing = spawnSync(path.join(os.tmpdir(), 'backslop-такой-команды-нет'), [], { encoding: 'utf8' });
-  assert.match(describeRun('npm pack', missing), /^npm pack: запуск не состоялся — ENOENT$/);
+test('the acceptance runner tells a launch that did not happen from a signal and a non-zero code', { skip: process.platform === 'win32' }, () => {
+  const missing = spawnSync(path.join(os.tmpdir(), 'backslop-no-such-command'), [], { encoding: 'utf8' });
+  assert.match(describeRun('npm pack', missing), /^npm pack: the launch did not happen — ENOENT$/);
 
-  const failed = spawnSync(process.execPath, ['-e', 'process.stderr.write("нет доступа к реестру"); process.exit(7)'], { encoding: 'utf8' });
-  assert.match(describeRun('npm pack', failed), /^npm pack: код 7\nнет доступа к реестру$/);
+  const failed = spawnSync(process.execPath, ['-e', 'process.stderr.write("no access to the registry"); process.exit(7)'], { encoding: 'utf8' });
+  assert.match(describeRun('npm pack', failed), /^npm pack: exit code 7\nno access to the registry$/);
 
   const killed = spawnSync(process.execPath, ['-e', 'process.kill(process.pid, "SIGKILL")'], { encoding: 'utf8' });
-  assert.equal(describeRun('npm pack', killed), 'npm pack: снят сигналом SIGKILL');
+  assert.equal(describeRun('npm pack', killed), 'npm pack: killed by signal SIGKILL');
 
   assert.equal(describeRun('npm pack', spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8' })), null);
 });
@@ -286,23 +286,23 @@ test('packed tarball matches files, installs locally and its bin passes version,
     const tarball = path.join(packDir, packInfo.filename);
     writeFileSync(path.join(project, 'package.json'), '{"name":"acceptance","private":true}\n');
     const manifest = JSON.parse(readFileSync(path.join(REPO, 'package.json'), 'utf8'));
-    assert.deepEqual(Object.keys(manifest.dependencies ?? {}), [], '--offline держится на отсутствии зависимостей');
+    assert.deepEqual(Object.keys(manifest.dependencies ?? {}), [], '--offline rests on there being no dependencies');
 
-    // Состав tarball — ровно нужное инструменту: выпадение `templates/` команды ниже не поймают.
-    // Ожидаемое — файлы git, а не диск: `.DS_Store` и `._*` npm выбрасывает сам.
+    // The tarball content is exactly what the tool needs: a dropped `templates/` is not caught by
+    // the commands below. The expectation is the git files, not the disk: npm drops `.DS_Store`.
     const REQUIRED = ['bin', 'lib', 'templates', 'README.md', 'LICENSE', 'CHANGELOG.md'];
-    assert.deepEqual(manifest.files, REQUIRED, 'поле files package.json — контракт состава tarball');
+    assert.deepEqual(manifest.files, REQUIRED, 'the files field of package.json is the tarball content contract');
     const packedPaths = new Set(packInfo.files.map((f) => f.path));
     const tracked = runOk('git ls-files', 'git', ['-C', REPO, 'ls-files', '-z', '--', ...REQUIRED]).stdout.split('\0').filter(Boolean);
-    assert.ok(tracked.includes('templates/docs/backlog/README.md'), 'перечень отслеживаемых файлов — вглубь каталогов');
-    assert.deepEqual(tracked.filter((p) => !packedPaths.has(p)), [], 'отслеживаемые файлы из files, которых нет в tarball');
+    assert.ok(tracked.includes('templates/docs/backlog/README.md'), 'the tracked-files list reaches into directories');
+    assert.deepEqual(tracked.filter((p) => !packedPaths.has(p)), [], 'tracked files from files that are not in the tarball');
     const stray = [...packedPaths].filter((p) => p !== 'package.json' && !REQUIRED.some((e) => p === e || p.startsWith(`${e}/`)));
-    assert.deepEqual(stray, [], 'в tarball только состав files и package.json');
+    assert.deepEqual(stray, [], 'the tarball holds only the files content and package.json');
     runOk('npm install', 'npm', ['install', tarball, '--ignore-scripts', '--no-audit', '--no-fund', '--offline', '--cache', cache], { cwd: project, env });
     const bin = process.platform === 'win32' ? path.join(project, 'node_modules/.bin/backslop.cmd') : path.join(project, 'node_modules/.bin/backslop');
     let r = runOk('backslop version', bin, ['version'], { cwd: project });
-    // Версия берётся из манифеста: зашитый литерал делает этот вердикт релиз-блокером
-    // на каждом бампе — он краснел на 0.3.0, хотя предмет проверки от версии не зависит.
+    // The version comes from the manifest: a hardcoded literal makes this verdict a release blocker
+    // on every bump — it went red on 0.3.0 though the subject of the check does not depend on it.
     assert.match(r.stdout, new RegExp(`backslop ${manifest.version.replace(/\./g, '\\.')}`));
     runOk('backslop init', bin, ['init'], { cwd: project });
     runOk('backslop lint', bin, ['lint'], { cwd: project });
@@ -311,25 +311,25 @@ test('packed tarball matches files, installs locally and its bin passes version,
   }
 });
 
-test('release --bump: версия, заголовок секции CHANGELOG и штамп через init; preflight и тег не трогаются', () => {
+test('release --bump: the version, the CHANGELOG section heading and the stamp through init; preflight and the tag are not touched', () => {
   const f = fixture();
   try {
     putFakeCli(f);
-    writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\n## Не выпущено\n\n- **Одно** — раз\n\n## v0.1.0 — 2026-09-01\n\n- **Прежнее** — было\n');
+    writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\n## Unreleased\n\n- **One** — x\n\n## v0.1.0 — 2026-09-01\n\n- **Old** — y\n');
     const r = runRelease(f, ['0.3.0', '--bump']);
     assert.equal(r.code, 0, r.err);
     assert.equal(JSON.parse(readFileSync(path.join(f.root, 'package.json'), 'utf8')).version, '0.3.0');
     const changelog = readFileSync(path.join(f.root, 'CHANGELOG.md'), 'utf8');
     assert.match(changelog, /^## v0\.3\.0 — \d{4}-\d{2}-\d{2}$/m);
-    assert.doesNotMatch(changelog, /Не выпущено/);
+    assert.doesNotMatch(changelog, /Unreleased/);
     assert.match(changelog, /^## v0\.1\.0 — 2026-09-01$/m);
     assert.deepEqual(r.log.trim().split('\n'), ['bin/backslop.js init'], 'init ran through the running node, not a PATH node');
-    assert.match(r.out, /затем npm run release -- 0\.3\.0 --no-publish\n$/, 'the next-step hint names --no-publish');
+    assert.match(r.out, /then npm run release -- 0\.3\.0 --no-publish\n$/, 'the next-step hint names --no-publish');
 
-    // Повторный bump переименовал бы уже выпущенную секцию — отказ до записи файлов.
+    // A repeated bump would rename an already released section — a refusal before any write.
     const again = runRelease(f, ['0.4.0', '--bump']);
     assert.equal(again.code, 1);
-    assert.match(again.err, /верхняя секция «## v0\.3\.0 — \d{4}-\d{2}-\d{2}» уже выпущена/);
+    assert.match(again.err, /the top section “## v0\.3\.0 — \d{4}-\d{2}-\d{2}” is already released/);
     assert.equal(JSON.parse(readFileSync(path.join(f.root, 'package.json'), 'utf8')).version, '0.3.0');
   } finally {
     cleanup(f);
@@ -353,7 +353,7 @@ test('release --bump renames `## Unreleased (after v0.1.0)` and refuses a releas
     writeFileSync(path.join(kac.root, 'CHANGELOG.md'), released);
     const again = runRelease(kac, ['0.3.0', '--bump']);
     assert.equal(again.code, 1);
-    assert.match(again.err, /верхняя секция «## \[0\.2\.0\] - 2026-09-01» уже выпущена/);
+    assert.match(again.err, /the top section “## \[0\.2\.0\] - 2026-09-01” is already released/);
     assert.equal(readFileSync(path.join(kac.root, 'CHANGELOG.md'), 'utf8'), released);
   } finally {
     cleanup(f);

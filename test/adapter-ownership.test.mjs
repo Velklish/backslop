@@ -24,8 +24,8 @@ test('hasGeneratedMarker: only the markGenerated position owns a file, whatever 
   const rows = [
     { name: 'LF plain', text: markGenerated('# skill\n'), expect: true },
     { name: 'LF frontmatter', text: markGenerated('---\ndescription: "x"\nalwaysApply: false\n---\n\n# rule\n'), expect: true },
-    { name: 'quoted in the body', text: `# note\n\nмаркер ${GENERATED_MARKER} в тексте\n`, expect: false },
-    { name: 'CRLF plain', text: markGenerated('# skill\r\n\r\nтекст\r\n'), expect: true },
+    { name: 'quoted in the body', text: `# note\n\nmarker ${GENERATED_MARKER} in the text\n`, expect: false },
+    { name: 'CRLF plain', text: markGenerated('# skill\r\n\r\ntext\r\n'), expect: true },
     { name: 'CRLF frontmatter', text: crlfFrontmatter, expect: true },
     { name: 'CRLF after the marker', text: markGenerated('# skill\n').replace(/\n/g, '\r\n'), expect: true },
     { name: 'BOM plain', text: `\uFEFF${markGenerated('# skill\n')}`, expect: true },
@@ -39,18 +39,18 @@ test('hasGeneratedMarker: only the markGenerated position owns a file, whatever 
     rows.forEach(({ name, text, expect }, i) => {
       assert.equal(hasGeneratedMarker(put(dir, `${i}.md`, text)), expect, name);
     });
-    // Маркер лёг после CRLF-фронтматтера, а не перед ним: перед ним он владел бы файлом,
-    // стоя не в своей позиции, и cursor rule уехал бы с испорченной шапкой.
+    // The marker lies after the CRLF frontmatter, not before it: before it, it would own the file
+    // from a position that is not its own, and the cursor rule would ship with a spoiled header.
     assert.match(crlfFrontmatter, /^---\r\n[\s\S]*?\r\n---\r\n<!-- backslop:generated -->/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('isOwnedAdapterFile: цитата маркера в docs не владеет файлом; adapter path + маркер — владеет', () => {
+test('isOwnedAdapterFile: a marker quoted in docs owns no file; an adapter path + marker owns it', () => {
   const dir = scratch();
   try {
-    const docs = put(dir, 'docs/adr.md', `# ADR\n\nцитата ${GENERATED_MARKER}\n`);
+    const docs = put(dir, 'docs/adr.md', `# ADR\n\nquote ${GENERATED_MARKER}\n`);
     const skill = put(dir, '.claude/skills/other/note.md', markGenerated('# note\n'));
     assert.equal(isOwnedAdapterFile('docs/marked.md', put(dir, 'docs/marked.md', markGenerated('# x\n'))), false);
     assert.equal(isOwnedAdapterFile('docs/adr.md', docs), false);
@@ -79,10 +79,10 @@ test('isOwnedAdapterFile: a LICENSE is owned by a marked SOURCE.md beside it, ne
   }
 });
 
-test('repoMarkdown: docs с цитатой маркера остаются в обходе', () => {
+test('repoMarkdown: docs with a marker quote stay in the walk', () => {
   const dir = scratch();
   try {
-    put(dir, 'docs/GLOSSARY.md', `# Глоссарий\n\nowned output: \`${GENERATED_MARKER}\`\n`);
+    put(dir, 'docs/GLOSSARY.md', `# Glossary\n\nowned output: \`${GENERATED_MARKER}\`\n`);
     put(dir, '.claude/skills/backslop-task/SKILL.md', markGenerated('# skill\n'));
     const rels = repoMarkdown(dir).map(([rel]) => rel).sort();
     assert.deepEqual(rels, ['docs/GLOSSARY.md']);

@@ -8,6 +8,8 @@ import { CliError, insideRepo, isSameTree, lsFiles, porcelainPaths } from '../li
 import { scannedCode } from './comment-scan.mjs';
 import { cleanup, gitAll, makeProject, put, run } from './helpers.mjs';
 
+// A non-ASCII (Cyrillic) file stem: git quotes such paths, and the readers must undo the quoting.
+const STEM = String.fromCodePoint(0x442, 0x435, 0x441, 0x442);
 // Runs `fn` with process.env patched; git inherits the environment of this process.
 function withEnv(patch, fn) {
   const saved = Object.fromEntries(Object.keys(patch).map((key) => [key, process.env[key]]));
@@ -76,9 +78,9 @@ test('porcelainPaths: files from the repository root, both names of a rename, no
     put(root, 'docs/old.md', 'old\n');
     gitAll(root);
     run(root, ['mv', 'docs/old.md', 'docs/new.md']);
-    put(root, 'docs/тест.md', 'new\n');
+    put(root, `docs/${STEM}.md`, 'new\n');
     put(root, 'notes/deep/a.md', 'untracked\n');
-    assert.deepEqual(porcelainPaths(root).sort(), ['docs/new.md', 'docs/old.md', 'docs/тест.md', 'notes/deep/a.md'].sort());
+    assert.deepEqual(porcelainPaths(root).sort(), ['docs/new.md', 'docs/old.md', `docs/${STEM}.md`, 'notes/deep/a.md'].sort());
     assert.equal(withEnv({ GIT_CEILING_DIRECTORIES: path.dirname(plain) }, () => porcelainPaths(plain)), null);
   } finally {
     cleanup(root);
@@ -91,10 +93,10 @@ test('lsFiles: a non-ASCII path arrives unquoted; a git failure is a CliError', 
   const plain = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-plain-')));
   try {
     put(root, 'lib/a.js', '');
-    put(root, 'lib/тест.js', '');
+    put(root, `lib/${STEM}.js`, '');
     run(root, ['add', 'lib']);
     put(root, 'lib/new.js', '');
-    assert.deepEqual(lsFiles(root, ['lib']), ['lib/a.js', 'lib/тест.js']);
+    assert.deepEqual(lsFiles(root, ['lib']), ['lib/a.js', `lib/${STEM}.js`]);
     assert.deepEqual(lsFiles(root, ['lib'], ['--others', '--exclude-standard']), ['lib/new.js']);
     assert.throws(() => withEnv({ GIT_CEILING_DIRECTORIES: path.dirname(plain) }, () => lsFiles(plain, ['lib'], [], 'en')),
       (e) => e instanceof CliError && e.message.startsWith('git ls-files -z -- lib: '));
@@ -108,11 +110,11 @@ test('scannedCode: a staged non-ASCII file is judged, a tracked file deleted fro
   const root = makeProject();
   try {
     put(root, 'lib/a.js', '');
-    put(root, 'lib/тест.js', '');
+    put(root, `lib/${STEM}.js`, '');
     put(root, 'lib/gone.js', '');
     run(root, ['add', 'lib']);
     rmSync(path.join(root, 'lib/gone.js'));
-    assert.deepEqual(scannedCode(root, ['lib']), { files: ['lib/a.js', 'lib/тест.js'], empty: [] });
+    assert.deepEqual(scannedCode(root, ['lib']), { files: ['lib/a.js', `lib/${STEM}.js`], empty: [] });
   } finally {
     cleanup(root);
   }

@@ -1,5 +1,5 @@
-// Гейты lint: зелёный проект и по красной пробе на каждый гейт. Проба — мутация зелёного
-// проекта; без неё гейт нечем отличить от холостого.
+// The lint gates: a green project and a red probe per gate. A probe mutates the green project;
+// without it a gate cannot be told from an idle one.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -10,38 +10,91 @@ import { loadProject, parseCli } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
 import { livePinFiles } from '../lib/mdwalk.js';
 import { rewriteProsePins } from '../lib/upgrade.js';
-import { REPO, cleanup, cli, gitAll, makeProject, put, read, resultTemplateParagraphs, run, toolCli, toolCopy } from './helpers.mjs';
+import { ANY, FIELD, KILLED, REPO, SECTION, cleanup, cli, escapeRe, gitAll, killedRe, makeProject, put, read, resultTemplateParagraphs, ru, ruCard, ruExpand, ruOutcome, ruOutcomeWord, ruRe, ruResult, ruResultHeading, ruHeadRe, run, toolCli, toolCopy } from './helpers.mjs';
 import { TOOL_VERSION } from '../lib/version.js';
 import { msg } from '../lib/i18n.js';
+import { formatCost } from '../lib/tasks.js';
+
+const AREA = '[x](../../reference/README.md)';
+const ANCHOR = SECTION.context.toLowerCase();
+const DEFERRED_BODY = '- **Reason:** no runner\n- **Return condition:** a runner appears';
+const ONE = 'One concept, one name.';
+const closed = (id, date = '2026-08-01') => ruResult(id, date, `${ruOutcome('completed')}.`);
+const STAMP = ruResult('BS-4', '2026-08-01').split('\n\n')[1].trim();
+const findingLine = (id) => ru('Finding discovered while working on {id}.', { id });
+const EVIDENCE_STUB = ru('Evidence: [TODO: file path or command output]');
 
 function seedGreen(root) {
   put(root, 'docs/README.md', [
-    '# Документация', '',
-    '| Документ | Тема | Статус |', '|---|---|---|',
-    '| [backlog/](backlog/README.md) | трекер | Живой |',
-    '| [adr/adr-001-process.md](adr/adr-001-process.md) | процесс | Accepted |',
+    '# Documentation', '',
+    '| Document | Topic | Status |', '|---|---|---|',
+    '| [backlog/](backlog/README.md) | tracker | Live |',
+    '| [adr/adr-001-process.md](adr/adr-001-process.md) | process | Accepted |',
     '',
   ].join('\n'));
-  put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Процесс\n\n**Status:** Accepted\n');
-  put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n');
-  put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n');
-  put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
-  put(root, 'docs/backlog/triage/BS-2.1-d.md', '# BS-2.1 · Г\n\nНаходка при работе над BS-2.\n');
-  // Находка BS-4.1 разобрана — уехала в deferred/; закрытый родитель BS-4 её не красит.
-  put(root, 'docs/backlog/deferred/BS-4.1-f.md', '# BS-4.1 · Е\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** ждёт раннера\n- **Условие возврата:** появится раннер\n');
-  put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n');
-  put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
-  put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — одно имя.\n\nПример:\n\n```\nбез фенса\n```\n');
-  put(root, 'docs/quoting.md', ['# Цитаты', '',
-    '<!-- quote:reference/README.md -->', '', '```', 'Одно понятие — одно имя.', '```', '', '<!-- /quote -->', '',
-    // Цитата куска документации: фенс внутри цитаты — часть текста, а не обёртка.
-    '<!-- quote:reference/README.md -->', '', 'Пример:', '', '```', 'без фенса', '```', '', '<!-- /quote -->', ''].join('\n'));
-  put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — BS-4\n\n## v0.1.0\n\n- **Одно** — прежняя редакция\n');
-  put(root, 'README.md', 'См. [docs](docs/README.md)\n');
+  put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Process\n\n**Status:** Accepted\n');
+  put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'A', { order: 10, area: AREA }));
+  put(root, 'docs/backlog/active/BS-2-b.md', ruCard('BS-2', 'B', { area: AREA, taken: '2026-09-01' }));
+  put(root, 'docs/backlog/deferred/BS-3-c.md', ruCard('BS-3', 'C', { area: AREA }, [['deferred', DEFERRED_BODY]]));
+  put(root, 'docs/backlog/triage/BS-2.1-d.md', `${ruCard('BS-2.1', 'D')}\n${findingLine('BS-2')}\n`);
+  // The finding BS-4.1 is triaged into deferred/; the closed parent BS-4 does not redden it.
+  put(root, 'docs/backlog/deferred/BS-4.1-f.md', ruCard('BS-4.1', 'E', { area: AREA }, [['deferred', DEFERRED_BODY]]));
+  put(root, 'docs/archive/BS-4-e/task.md', ruCard('BS-4', 'D'));
+  put(root, 'docs/archive/BS-4-e/result.md', closed('BS-4'));
+  put(root, 'docs/reference/README.md', `# ${SECTION.context}\n\n${ONE}\n\nExample:\n\n\`\`\`\nno fence\n\`\`\`\n`);
+  put(root, 'docs/quoting.md', ['# Quotes', '',
+    '<!-- quote:reference/README.md -->', '', '```', ONE, '```', '', '<!-- /quote -->', '',
+    // A quote of a piece of documentation: a fence inside it is part of the text, not a wrapper.
+    '<!-- quote:reference/README.md -->', '', 'Example:', '', '```', 'no fence', '```', '', '<!-- /quote -->', ''].join('\n'));
+  put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — BS-4\n\n## v0.1.0\n\n- **One** — the earlier revision\n');
+  put(root, 'README.md', 'See [docs](docs/README.md)\n');
 }
 
 const problems = (root) => lintProject(loadProject(root)).errors.map((p) => `${p.file}: ${p.msg}`);
 const warnings = (root) => lintProject(loadProject(root)).warnings.map((p) => `${p.file}: ${p.msg}`);
+
+// An error line "<file>: <message>" in the Russian of a `lang: ru` project: as text, as a pattern
+// source, as a pattern.
+const errLine = (file, en, params) => `${file}: ${ru(en, params)}`;
+const errSrc = (file, en, params) => `${escapeRe(`${file}: `)}${ruRe(en, params).source}`;
+const errRe = (file, en, params) => new RegExp(errSrc(file, en, params));
+const exactRe = (file, en, params) => new RegExp(`^${errSrc(file, en, params)}$`);
+const atLine = (lineNo) => ru('line {lineNo}', { lineNo });
+const noErrorsRe = (count) => ruRe('lint: no errors{tail}', count === undefined ? {} : { tail: ru(', warnings {warnings}', { warnings: count }) });
+
+const BROKEN = 'broken link {href} (line {line})';
+const NO_ANCHOR = 'link {href}: {where} has no anchor “{fragment}” — no heading or id by that name (line {line})';
+const NO_LABEL = 'link [{text}] uses the label “{label}”, and there is no declaration “[{label}]: …” (line {line})';
+const DIR_LINK = 'link [{text}]({href}) points to a directory while its text names a task — point it at the task file or its journal line (line {line})';
+const JOURNAL_MISS = 'link {href} points at a journal line that does not exist — anchor “{anchor}” belongs to no entry (line {line})';
+const QUOTE_MISSING = 'quote points at a missing file {href}';
+const QUOTE_DIFF = 'quote no longer matches {href}: “{first}”';
+const QUOTE_OPEN = 'quote block “quote:{href}” is not closed by “/quote”';
+const QUOTE_CLOSER = 'line {line}: “/quote” closes no quote block';
+const QUOTE_MARKER = 'line {line}: the quote marker does not parse';
+const HEAD_NAMES = 'heading names {heading}, but filename names {id}';
+const TODO_LINE = 'line {line}: the [TODO] placeholder remains';
+const MINOR_NO_COST = 'minor entry has no “{label}” field: critical, major or minor; a hypothesis carries “(hypothesis)”';
+const NO_AREA = 'has no “{label}” field naming the reference section this task belongs to';
+const AREA_EMPTY = '“{label}” is empty: name the reference section';
+const AREA_INCOMPLETE = '“{label}” is incomplete: the [TODO] placeholder from new remains';
+const NO_ORDER = 'queue task has no “{field}” field — queue position is not set';
+const DUP_FIELD = 'field “{field}” occurs more than once on lines {lines}';
+const SECTION_INCOMPLETE = '“{section}” section is incomplete: [TODO] remains';
+const DEFERRED_MISSING = 'deferred task has no “## {section}” section with a reason and return condition';
+const DUP_ENTRY = 'line {line}: entry title “{title}” already exists in section “{section}” (line {prev}) — keep one revision';
+const ADR_NAME = 'name does not match adr-NNN-<slug>.md';
+const FINDING_PARENT = 'finding {id} sits in triage/ while task {parentId} is closed — triage it (approver)';
+const LAYOUT_OLDER = 'layout is older than the tool: v{stamp} < v{version} — run {cli} upgrade';
+const UNPINNED = 'an unpinned cli fetches a fresh version on every run — run {cli} upgrade';
+const REACH = 'reachability of journal revisions from HEAD was not checked: {why}';
+const PIN_DIFFERS = '{at}: pin {pin} differs from cli — expected {expected}; {cli} upgrade rewrites it';
+const PIN_TOOL = 'line {line}: pin {pin} — the tool is on v{version}';
+const PKG_VERSION = 'package.json version v{version} differs from the {config} stamp v{stamp} — npm run release -- X.Y.Z --bump updates both';
+const BYTE = 'byte {code} at offset {at} (line {line}): {why} — write it as an escape sequence (\\u00{hex})';
+const NUL_WHY = ru('NUL makes the file binary to git and grep, and searching it finds nothing');
+const CONTROL_WHY = ru('an invisible control byte: neither an editor nor the output shows it');
+const NO_OUTCOME = 'result.md names no outcome word — completed, rejected, or merged into {prefix}-N — in its first paragraph or heading: a bare “Closed” or an “Outcome:” marker is not an outcome, folding would read either as “completed”, and with no word at all it would write “—”';
 
 function probe(name, mutate, expect) {
   test(`lint: ${name}`, () => {
@@ -50,7 +103,7 @@ function probe(name, mutate, expect) {
       seedGreen(root);
       mutate(root);
       const found = problems(root);
-      assert.ok(found.some((p) => expect.test(p)), `ожидалось /${expect.source}/, найдено: ${found.join(' | ') || 'ничего'}`);
+      assert.ok(found.some((p) => expect.test(p)), `expected /${expect.source}/, found: ${found.join(' | ') || 'nothing'}`);
     } finally {
       cleanup(root);
     }
@@ -70,15 +123,15 @@ function greenProbe(name, mutate) {
   });
 }
 
-test('lint: зелёный проект без ошибок, CLI выходит нулём', () => {
+test('lint: a green project has no errors, the CLI exits 0', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
     assert.deepEqual(problems(root), []);
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /ошибок нет/);
-    assert.equal(r.err, '', 'зелёный lint молчит и в stderr');
+    assert.match(r.out, noErrorsRe());
+    assert.equal(r.err, '', 'a green lint is silent in stderr too');
   } finally {
     cleanup(root);
   }
@@ -91,8 +144,8 @@ test('lint: an unknown flag is refused like in every other command', () => {
     for (const args of [['--bogus'], ['--json'], ['--nope', '--json', 'foo']]) {
       const r = cli(root, ['lint', ...args]);
       assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
-      assert.match(r.err, new RegExp(`^✖ неизвестный флаг «${args[0]}»`), args.join(' '));
-      assert.doesNotMatch(r.out, /ошибок нет/, `${args.join(' ')}: lint ran anyway`);
+      assert.match(r.err, new RegExp(`^✖ ${ruRe('unknown option “{flag}”; see the command’s --help for its flags', { flag: args[0] }).source}`), args.join(' '));
+      assert.doesNotMatch(r.out, noErrorsRe(), `${args.join(' ')}: lint ran anyway`);
     }
     assert.equal(cli(root, ['lint']).code, 0);
   } finally {
@@ -109,12 +162,12 @@ test('lint: EN project accepts RU metadata and reports errors in English', () =>
     const r = cli(root, ['lint']);
     assert.equal(r.code, 1);
     assert.match(r.err, /result is incomplete/);
-    assert.doesNotMatch(r.err, /[А-Яа-яЁё]/);
+    assert.doesNotMatch(r.err, /\p{Script=Cyrillic}/u);
   } finally { cleanup(root); }
 });
 
-probe('1. битая ссылка в docs', (root) => put(root, 'docs/note.md', '[нет](reference/none.md)\n'), /docs\/note\.md: битая ссылка reference\/none\.md/);
-probe('1. битая ссылка в корневом README', (root) => put(root, 'README.md', '[нет](docs/none.md)\n'), /README\.md: битая ссылка/);
+probe('1. a broken link in docs', (root) => put(root, 'docs/note.md', '[missing](reference/none.md)\n'), errRe('docs/note.md', BROKEN, { href: 'reference/none.md' }));
+probe('1. a broken link in the root README', (root) => put(root, 'README.md', '[missing](docs/none.md)\n'), errRe('README.md', BROKEN));
 test('lint: 1. a link whose target differs only in letter case is an error on any filesystem', () => {
   const root = makeProject({ git: false });
   try {
@@ -142,14 +195,14 @@ test('lint: 1. balanced parentheses and every URI scheme pass; a BOM hides no fi
     put(root, 'docs/bom.md', '\uFEFF[missing]: reference/nope.md\n');
     put(root, 'docs/fence.md', '\uFEFF```\nexample\n```\n\nSee [missing](reference/nope.md).\n');
     assert.deepEqual(problems(root), [
-      'docs/bom.md: битая ссылка reference/nope.md (строка 1)',
-      'docs/fence.md: битая ссылка reference/nope.md (строка 5)',
+      errLine('docs/bom.md', BROKEN, { href: 'reference/nope.md', line: 1 }),
+      errLine('docs/fence.md', BROKEN, { href: 'reference/nope.md', line: 5 }),
     ]);
   } finally {
     cleanup(root);
   }
 });
-probe('1. an upper-case .MD file is walked', (root) => put(root, 'docs/NOTE.MD', '[missing](reference/nope.md)\n'), /docs\/NOTE\.MD: битая ссылка reference\/nope\.md/);
+probe('1. an upper-case .MD file is walked', (root) => put(root, 'docs/NOTE.MD', '[missing](reference/nope.md)\n'), errRe('docs/NOTE.MD', BROKEN, { href: 'reference/nope.md' }));
 test('lint: 1, 8, 13. a git failure while finding the repository root refuses instead of resolving blind', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
   const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
@@ -159,8 +212,8 @@ test('lint: 1, 8, 13. a git failure while finding the repository root refuses in
     writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = "$KILL_ON" ] && kill -9 $$; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
     assert.equal(cli(root, ['lint']).code, 0);
     for (const [arg, cause] of [
-      ['--is-inside-work-tree', /git rev-parse --is-inside-work-tree: оборван сигналом SIGKILL/],
-      ['--show-prefix', /git rev-parse --show-prefix: оборван сигналом SIGKILL/],
+      ['--is-inside-work-tree', killedRe('git rev-parse --is-inside-work-tree')],
+      ['--show-prefix', killedRe('git rev-parse --show-prefix')],
     ]) {
       const r = cli(root, ['lint'], { env: { KILL_ON: arg, PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
       assert.equal(r.code, 1, `${arg}: ${r.out}`);
@@ -184,40 +237,40 @@ test('lint: 1, 10, 13. a root markdown symlink into the project is read; one lea
     writeFileSync(path.join(outside, 'OUT.md'), '[broken](docs/none.md)\n');
     symlinkSync(path.join(outside, 'OUT.md'), path.join(root, 'OUT.md'));
     assert.deepEqual(problems(root), [
-      'README.md: битая ссылка docs/none.md (строка 1)',
-      'README.md: ссылка docs/archive/LOG.md#bs-55 ведёт на строку журнала, которой нет — якорь «bs-55» ни за одной записью (строка 1)',
-      'README.md: цитата ведёт на несуществующий файл docs/none.md',
+      errLine('README.md', BROKEN, { href: 'docs/none.md', line: 1 }),
+      errLine('README.md', JOURNAL_MISS, { href: 'docs/archive/LOG.md#bs-55', anchor: 'bs-55', line: 1 }),
+      errLine('README.md', QUOTE_MISSING, { href: 'docs/none.md' }),
     ]);
   } finally {
     cleanup(root);
     rmSync(outside, { recursive: true, force: true });
   }
 });
-probe('1. ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1](../triage) — карточка\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
-probe('1. reference-style ссылка с номером задачи ведёт на каталог', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Находка.** [BS-2.1][f] — карточка\n\n[f]: ../triage\n`), /BS-1-a\.md: ссылка \[BS-2\.1\]\(\.\.\/triage\) ведёт на каталог/);
-probe('1. ссылка с номером задачи на каталог в generated adapter output', (root) => {
+probe('1. a link with a task number points at a directory', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Finding.** [BS-2.1](../triage) — a card\n`), errRe('BS-1-a.md', DIR_LINK, { text: 'BS-2.1', href: '../triage' }));
+probe('1. a reference-style link with a task number points at a directory', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n**Finding.** [BS-2.1][f] — a card\n\n[f]: ../triage\n`), errRe('BS-1-a.md', DIR_LINK, { text: 'BS-2.1', href: '../triage' }));
+probe('1. a link with a task number to a directory in generated adapter output', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
-  put(root, '.claude/skills/backslop-task/SKILL.md', `${read(root, '.claude/skills/backslop-task/SKILL.md')}\nСм. [BS-2](../../../docs/backlog/triage)\n`);
-}, /\.claude\/skills\/backslop-task\/SKILL\.md: ссылка \[BS-2\]\(\.\.\/\.\.\/\.\.\/docs\/backlog\/triage\) ведёт на каталог/);
-probe('1. номер в тексте ссылки на каталог — и в код-спане', (root) => put(root, 'README.md', 'См. [`BS-2.1` · находка](docs/backlog/triage/)\n'), /README\.md: ссылка \[`BS-2\.1` · находка\]\(docs\/backlog\/triage\/\) ведёт на каталог/);
-greenProbe('1. незакрытая скобка с номером перед ссылкой на каталог — не текст ссылки', (root) => put(root, 'docs/note.md', 'Полуинтервал [0, 1) — см. BS-2.1. Раскладка — [backlog/](backlog/triage).\n'));
-greenProbe('1. каталог без номера в тексте и карточка с номером — законные цели', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n[triage/](../triage) и **Находка.** [BS-2.1](../triage/BS-2.1-d.md)\n`));
-probe('1. битая ссылка в скилле backslop', (root) => {
+  put(root, '.claude/skills/backslop-task/SKILL.md', `${read(root, '.claude/skills/backslop-task/SKILL.md')}\nSee [BS-2](../../../docs/backlog/triage)\n`);
+}, errRe('.claude/skills/backslop-task/SKILL.md', DIR_LINK, { text: 'BS-2', href: '../../../docs/backlog/triage' }));
+probe('1. the number in the text of a directory link — in a code span too', (root) => put(root, 'README.md', 'See [`BS-2.1` · finding](docs/backlog/triage/)\n'), errRe('README.md', DIR_LINK, { text: '`BS-2.1` · finding', href: 'docs/backlog/triage/' }));
+greenProbe('1. an unclosed bracket with a number before a directory link is not link text', (root) => put(root, 'docs/note.md', 'A half-open interval [0, 1) — see BS-2.1. The layout — [backlog/](backlog/triage).\n'));
+greenProbe('1. a directory without a number in the text and a card with a number are legal targets', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n[triage/](../triage) and **Finding.** [BS-2.1](../triage/BS-2.1-d.md)\n`));
+probe('1. a broken link in a backslop skill', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
-  put(root, '.claude/skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n[нет](../none.md)\n');
-}, /SKILL\.md: битая ссылка/);
-probe('adapter: нет Claude stub', (root) => {
+  put(root, '.claude/skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n[missing](../none.md)\n');
+}, errRe('SKILL.md', BROKEN));
+probe('adapter: no Claude stub', (root) => {
   const cfg = JSON.parse(read(root, 'backslop.json'));
   put(root, 'backslop.json', `${JSON.stringify({ ...cfg, tools: ['claude'] }, null, 2)}\n`);
-}, /CLAUDE\.md: нет Claude stub/);
-probe('1. битая ссылка в Cursor rule проверяется отдельно', (root) => {
+}, errRe('CLAUDE.md', 'Claude stub is missing — run {cli} init'));
+probe('1. a broken link in a Cursor rule is checked separately', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'cursor']).code, 0);
   put(root, '.cursor/rules/backslop-task.mdc', '<!-- backslop:generated -->\n[missing](backslop-task/references/none.md)\n');
-}, /backslop-task\.mdc: битая ссылка/);
-probe('adapter output отсутствует', (root) => {
+}, errRe('backslop-task.mdc', BROKEN));
+probe('adapter output is missing', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
   rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
-}, /generated output для adapter claude/);
+}, ruRe('generated output for adapter {tool} is missing — run {cli} init', { tool: 'claude' }));
 
 // The repro lines of the link gate, each appended alone to docs/README.md, where it is line 8.
 const appendReadme = (line) => (root) => {
@@ -225,35 +278,35 @@ const appendReadme = (line) => (root) => {
   put(root, 'docs/README.md', `${read(root, 'docs/README.md')}\n${line}\n`);
 };
 probe('1. a missing anchor in another file', appendReadme('[a](reference/README.md#no-such-heading)'),
-  /^docs\/README\.md: ссылка reference\/README\.md#no-such-heading: в docs\/reference\/README\.md нет якоря «no-such-heading» — ни заголовка, ни id с таким именем \(строка 8\)$/);
+  exactRe('docs/README.md', NO_ANCHOR, { href: 'reference/README.md#no-such-heading', where: 'docs/reference/README.md', fragment: 'no-such-heading', line: 8 }));
 probe('1. a missing anchor in the same file', appendReadme('[b](#no-such-section)'),
-  /^docs\/README\.md: ссылка #no-such-section: в docs\/README\.md нет якоря «no-such-section» .*\(строка 8\)$/);
+  exactRe('docs/README.md', NO_ANCHOR, { href: '#no-such-section', where: 'docs/README.md', fragment: 'no-such-section', line: 8 }));
 probe('1. a reference link whose label has no declaration', appendReadme('[c][nolabel]'),
-  /^docs\/README\.md: ссылка \[c\] ссылается на метку «nolabel», а объявления «\[nolabel\]: …» нет \(строка 8\)$/);
+  exactRe('docs/README.md', NO_LABEL, { text: 'c', label: 'nolabel', line: 8 }));
 probe('1. an HTML link to a missing file', appendReadme('<a href="missing-html.md">d</a>'),
-  /^docs\/README\.md: битая ссылка missing-html\.md \(строка 8\)$/);
+  exactRe('docs/README.md', BROKEN, { href: 'missing-html.md', line: 8 }));
 probe('1. a badge whose outer destination is missing', appendReadme('[![badge](img.png)](missing-badge.md)'),
-  /^docs\/README\.md: битая ссылка missing-badge\.md \(строка 8\)$/);
+  exactRe('docs/README.md', BROKEN, { href: 'missing-badge.md', line: 8 }));
 probe('1. an adapter output link to a missing anchor', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
   put(root, '.claude/skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n[x](../../../docs/README.md#no-such)\n');
-}, /SKILL\.md: ссылка \.\.\/\.\.\/\.\.\/docs\/README\.md#no-such: в docs\/README\.md нет якоря «no-such» .*\(строка 2\)$/);
+}, new RegExp(`${errSrc('SKILL.md', NO_ANCHOR, { href: '../../../docs/README.md#no-such', where: 'docs/README.md', fragment: 'no-such', line: 2 })}$`));
 greenProbe('1. links in a fenced example or an HTML comment are not read', (root) => put(root, 'docs/note.md', [
   '```', '[f](fenced.md) [c][nolabel] [a](#nowhere)', '```', '',
   '<!-- [c](comment.md#x) <a href="gone.md">g</a>', '[x][nolabel] -->', '',
   // A fence closes only on its own character, at least as long as the opening run.
   '~~~~', '```', '[n](nested.md)', '~~~', '```', '[m](still-code.md)', '~~~~', '',
-  '[ok](#примеры) `[s](span.md)`', '', '## Примеры', '',
+  `[ok](#${ANCHOR}) \`[s](span.md)\``, '', `## ${SECTION.context}`, '',
 ].join('\n')));
 
 greenProbe('1. #top and a source-view line after ?plain=1 need no heading', (root) => put(root, 'docs/note.md',
   '[t](#top) [T](reference/README.md#TOP) [l](reference/README.md?plain=1#L3) [r](reference/README.md?a=1&plain=1#L1-L2)\n'));
 probe('1. a line fragment without ?plain=1 is a heading anchor', (root) => put(root, 'docs/note.md', '[l](reference/README.md#L3)\n'),
-  /^docs\/note\.md: ссылка reference\/README\.md#L3: в docs\/reference\/README\.md нет якоря «L3» .*\(строка 1\)$/);
+  errRe('docs/note.md', NO_ANCHOR, { href: 'reference/README.md#L3', where: 'docs/reference/README.md', fragment: 'L3', line: 1 }));
 greenProbe('1. a fence in a blockquote or a list item holds no link and no declaration', (root) => put(root, 'docs/note.md',
   '> ```\n> [l]: x.md\n> [x][nolabel] [b](none.md#x)\n> ```\n\n- ```\n  [y][nolabel]\n  ```\n'));
 greenProbe('1. a declaration in a blockquote or a list item resolves its label', (root) => put(root, 'docs/note.md',
-  '> [l]: reference/README.md\n\nSee [t][l], [u][m] and [v][n].\n\n- [m]: reference/README.md\n\n1. [n]: reference/README.md#справочник\n'));
+  `> [l]: reference/README.md\n\nSee [t][l], [u][m] and [v][n].\n\n- [m]: reference/README.md\n\n1. [n]: reference/README.md#${ANCHOR}\n`));
 
 test('lint: 1. a repeated heading takes -1, -2 in document order: #x-1 resolves, #x-2 does not', () => {
   const root = makeProject({ git: false });
@@ -262,7 +315,7 @@ test('lint: 1. a repeated heading takes -1, -2 in document order: #x-1 resolves,
     put(root, 'docs/dup.md', '# X\n\n## X\n\n```\n# X\n```\n');
     put(root, 'docs/note.md', '[0](dup.md#x) [1](dup.md#x-1) [2](dup.md#x-2) [u](dup.md#X-1) [e](dup.md#%78-1)\n');
     assert.deepEqual(problems(root), [
-      'docs/note.md: ссылка dup.md#x-2: в docs/dup.md нет якоря «x-2» — ни заголовка, ни id с таким именем (строка 1)',
+      errLine('docs/note.md', NO_ANCHOR, { href: 'dup.md#x-2', where: 'docs/dup.md', fragment: 'x-2', line: 1 }),
     ]);
   } finally {
     cleanup(root);
@@ -273,17 +326,17 @@ test('lint: 1. anchors are read from the target file, outside docs/ and outside 
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'README.md', '# Проект\n\nСм. [docs](docs/README.md)\n');
-    put(root, 'notes/guide.md', '## Установка <a name="setup"></a>\n\n<span id="faq"></span>\n');
+    put(root, 'README.md', `# ${SECTION.context}\n\nSee [docs](docs/README.md)\n`);
+    put(root, 'notes/guide.md', `## ${SECTION.verification} <a name="setup"></a>\n\n<span id="faq"></span>\n`);
     put(root, 'notes/code.js', '// line\n');
     put(root, 'docs/note.md', [
-      '[r](../README.md#проект) [g](../notes/guide.md#установка) [s](../notes/guide.md#setup)',
+      `[r](../README.md#${ANCHOR}) [g](../notes/guide.md#${SECTION.verification.toLowerCase()}) [s](../notes/guide.md#setup)`,
       '[f](../notes/guide.md#faq) [l](../notes/code.js#L1)',
-      '[r2](../README.md#нет) [g2](../notes/guide.md#нет)', '',
+      `[r2](../README.md#${SECTION.evidence.toLowerCase()}) [g2](../notes/guide.md#${SECTION.evidence.toLowerCase()})`, '',
     ].join('\n'));
     assert.deepEqual(problems(root), [
-      'docs/note.md: ссылка ../README.md#нет: в README.md нет якоря «нет» — ни заголовка, ни id с таким именем (строка 3)',
-      'docs/note.md: ссылка ../notes/guide.md#нет: в notes/guide.md нет якоря «нет» — ни заголовка, ни id с таким именем (строка 3)',
+      errLine('docs/note.md', NO_ANCHOR, { href: `../README.md#${SECTION.evidence.toLowerCase()}`, where: 'README.md', fragment: SECTION.evidence.toLowerCase(), line: 3 }),
+      errLine('docs/note.md', NO_ANCHOR, { href: `../notes/guide.md#${SECTION.evidence.toLowerCase()}`, where: 'notes/guide.md', fragment: SECTION.evidence.toLowerCase(), line: 3 }),
     ]);
   } finally {
     cleanup(root);
@@ -293,27 +346,27 @@ test('lint: 1. anchors are read from the target file, outside docs/ and outside 
 test('lint: 1. gate 1 prints what it read; Markdown files without one link are an error', () => {
   const root = makeProject({ git: false });
   try {
-    put(root, 'docs/README.md', '# Документация\n');
+    put(root, 'docs/README.md', '# Documentation\n');
     let r = cli(root, ['lint']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /^✖ docs: гейт 1 не прочёл ничего: markdown-файлов 3, ссылок 0 — /m);
-    assert.match(r.out, /^ {2}гейт 1: файлов 3, ссылок 0, локальных 0, якорей проверено 0$/m);
+    assert.match(r.err, new RegExp(`^✖ docs: ${ruRe('gate 1 read nothing: {files} Markdown files and not one link — a walk that reads no link does not prove a clean tree; check the docs field in {config} and link the documents from the index', { files: 3 }).source}`, 'm'));
+    assert.match(r.out, new RegExp(`^ {2}${ruRe('gate 1: files {files}, links {links}, local {local}, anchors checked {anchors}', { files: 3, links: 0, local: 0, anchors: 0 }).source}$`, 'm'));
     seedGreen(root);
-    put(root, 'docs/note.md', '[a](reference/README.md#справочник) [e](https://example.com) <https://example.org>\n');
+    put(root, 'docs/note.md', `[a](reference/README.md#${ANCHOR}) [e](https://example.com) <https://example.org>\n`);
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /^ {2}гейт 1: файлов 16, ссылок 10, локальных 8, якорей проверено 1$/m);
+    assert.match(r.out, new RegExp(`^ {2}${ruRe('gate 1: files {files}, links {links}, local {local}, anchors checked {anchors}', { files: 16, links: 10, local: 8, anchors: 1 }).source}$`, 'm'));
   } finally {
     cleanup(root);
   }
 });
 
-probe('2. заголовок не совпадает с именем', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', '# BS-8 · Не тот\n'), /заголовок называет BS-8/);
-probe('2. заголовок не по форме', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', 'Без заголовка\n'), /первая строка не/);
-probe('2. находка без родителя', (root) => put(root, 'docs/backlog/triage/BS-7.1-x.md', '# BS-7.1 · Сирота\n'), /без родителя BS-7/);
-probe('2. чужой файл в каталоге статуса', (root) => put(root, 'docs/backlog/queue/notes.md', '# заметки\n'), /имя не по шаблону/);
-probe('3. файл вне каталога статуса', (root) => put(root, 'docs/backlog/BS-9-x.md', '# BS-9 · Х\n'), /файл вне каталога статуса/);
-probe('3. каталог не статус', (root) => mkdirSync(path.join(root, 'docs/backlog/done')), /каталог не статус/);
+probe('2. the heading does not match the name', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', '# BS-8 · Not that one\n'), ruRe(HEAD_NAMES, { heading: 'BS-8' }));
+probe('2. the heading is not in the form', (root) => put(root, 'docs/backlog/triage/BS-9-x.md', 'No heading\n'), ruRe('first line is not “# {id} · Title”'));
+probe('2. a finding without a parent', (root) => put(root, 'docs/backlog/triage/BS-7.1-x.md', '# BS-7.1 · Orphan\n'), ruRe('finding {id} has no parent {parent}', { parent: 'BS-7' }));
+probe('2. a foreign file in a status directory', (root) => put(root, 'docs/backlog/queue/notes.md', '# notes\n'), ruRe('name does not match {prefix}-N[.k]-<slug>.md', { prefix: 'BS' }));
+probe('3. a file outside a status directory', (root) => put(root, 'docs/backlog/BS-9-x.md', '# BS-9 · X\n'), ruRe('file is outside a status directory: tasks belong in one of {dirs}'));
+probe('3. a directory that is not a status', (root) => mkdirSync(path.join(root, 'docs/backlog/done')), ruRe('directory is not a status; statuses are {statuses}'));
 test('lint: 3. a status directory symlinked inside the project is a status; one leading outside is not followed', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-lint-outside-'));
@@ -325,132 +378,140 @@ test('lint: 3. a status directory symlinked inside the project is a status; one 
     unlinkSync(path.join(root, 'docs/backlog/queue'));
     renameSync(path.join(root, 'store-queue'), path.join(outside, 'queue'));
     symlinkSync(path.join(outside, 'queue'), path.join(root, 'docs/backlog/queue'));
-    assert.ok(problems(root).some((p) => /^docs\/backlog\/queue: файл вне каталога статуса/.test(p)), problems(root).join(' | '));
+    assert.ok(problems(root).some((p) => new RegExp(`^${errSrc('docs/backlog/queue', 'file is outside a status directory: tasks belong in one of {dirs}')}`).test(p)), problems(root).join(' | '));
   } finally {
     cleanup(root);
     rmSync(outside, { recursive: true, force: true });
   }
 });
-probe('3. нет каталога статуса', (root) => rmSync(path.join(root, 'docs/backlog/deferred'), { recursive: true }), /каталога статуса нет/);
-probe('3. нет каталога minor', (root) => rmSync(path.join(root, 'docs/backlog/minor'), { recursive: true }), /docs\/backlog\/minor: каталога статуса нет/);
-probe('4. minor без цены', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Родитель:** BS-1\n'), /в minor\/ без поля «Цена»/);
-probe('4. цена не разбирается', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** дорого\n'), /«Цена» не разбирается/);
-probe('4. major в minor без гипотезы', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** major\n'), /«Цена» major без пометки «гипотеза»/);
-probe('4. цена повторяется', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n- **Цена:** minor\n'), /поле «Цена» повторяется/);
-probe('5. чужой файл в minor/ пачки', (root) => put(root, 'docs/archive/BS-4-e/minor/notes.md', '# заметки\n'), /archive\/BS-4-e\/minor\/notes\.md: в minor\/ пачки только файлы записей/);
-probe('5. каталог в minor/ пачки', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x.md'), { recursive: true }), /archive\/BS-4-e\/minor\/BS-4\.9-x\.md: в minor\/ пачки только файлы записей/);
-probe('2. запись в minor/ пачки с чужим заголовком', (root) => put(root, 'docs/archive/BS-4-e/minor/BS-4.1-m.md', '# BS-4.2 · Не та\n'), /archive\/BS-4-e\/minor\/BS-4\.1-m\.md: заголовок называет BS-4\.2/);
-// Вторая дверь в minor/ закрыта с той же стороны, что new --minor:
-// раздел «Улика» обязателен (ADR-047).
-probe('4. minor без раздела «Улика»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст: запись уезжает в пачку без разбора/);
-probe('4. minor с пустой «Уликой»', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\n## Контекст\n\nистория\n'), /BS-1\.1-m\.md: в minor\/ без раздела «## Улика» или он пуст/);
-probe('4. «Улика» в minor/ заглушкой', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\n'), /BS-1\.1-m\.md: раздел «Улика» не заполнен: осталась заглушка \[TODO\]/);
-probe('4. заглушка вне «Области» в minor/', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Цена:** minor\n\n## Улика\n\nУлика: [TODO: путь]\n'), /BS-1\.1-m\.md: строка 7: осталась заглушка \[TODO\]/);
-probe('4. очередь без порядка', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n'), /без поля «Порядок»/);
-probe('4. порядок не число', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** высокий\n'), /не целое число/);
-probe('4. два файла очереди с одним порядком', (root) => put(root, 'docs/backlog/queue/BS-5-f.md', '# BS-5 · Е\n\n- **Порядок:** 10\n'), /BS-5-f\.md: «Порядок» 10 уже у docs\/backlog\/queue\/BS-1-a\.md/);
-probe('4. дубль поля в одном файле с RU/EN алиасами', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Order:** 20\n'), /BS-1-a\.md: поле «Порядок» повторяется в строках 3, 4/);
-probe('4. «Прежний порядок» в очереди не заменяет «Порядок»', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Прежний порядок:** 10\n- **Область:** [x](../../reference/README.md)\n'), /BS-1-a\.md: в очереди без поля «Порядок»/);
-probe('4. дубль «Прежнего порядка» с RU/EN алиасами', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n- **Прежний порядок:** 20\n- **Previous order:** 30\n'), /BS-2-b\.md: поле «Прежний порядок» повторяется в строках 5, 6/);
-probe('4. разобранная задача без «Области»', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n'), /BS-1-a\.md: без поля «Область»/);
-probe('4. «Область» пуста', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:**\n- **Взята:** 2026-09-01\n'), /BS-2-b\.md: «Область» пуста/);
-probe('4. в работе без даты', (root) => put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n'), /без даты «Взята/);
-probe('4. отложена без раздела', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n'), /без раздела «## Отложено»/);
-probe('4. отложена с [TODO]', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n## Отложено\n\n- **Причина:** [TODO]\n'), /не заполнен: остался \[TODO\]/);
-probe('4. второй раздел «Отложено»', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** готово\n- **Условие возврата:** готово\n\n## Отложено\n\n- **Причина:** второй\n- **Условие возврата:** второй\n'), /раздел «Отложено» повторяется 2 раза/);
-probe('4. заглушка в любом файле backlog', (root) => put(root, 'docs/backlog/queue/BS-5-todo.md', '# BS-5 · Заглушка\n\n- [TODO]\n'), /docs\/backlog\/queue\/BS-5-todo\.md: строка 3: осталась заглушка \[TODO\]/);
-probe('4. каноническая улика находки', (root) => put(root, 'docs/backlog/queue/BS-5-finding.md', '# BS-5 · Находка\n\nНаходка при работе над BS-1.\nУлика: [TODO: путь к файлу или команда с выводом]\nЦитату файла оборачивай в блок.\n'), /BS-5-finding\.md: строка 4: осталась заглушка \[TODO\]/);
-probe('4. поле с двоеточием вне жирного', (root) => put(root, 'docs/backlog/queue/BS-6-reason.md', '# BS-6 · Причина\n\n- **Reason**: [TODO]\n'), /BS-6-reason\.md: строка 3: осталась заглушка \[TODO\]/);
+probe('3. no status directory', (root) => rmSync(path.join(root, 'docs/backlog/deferred'), { recursive: true }), ruRe('status directory is missing — create it empty'));
+probe('3. no minor directory', (root) => rmSync(path.join(root, 'docs/backlog/minor'), { recursive: true }), errRe('docs/backlog/minor', 'status directory is missing — create it empty'));
+probe('4. minor without a cost', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', ruCard('BS-1.1', 'M', { parent: 'BS-1' })), ruRe(MINOR_NO_COST, { label: FIELD.cost }));
+probe('4. the cost is unreadable', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', ruCard('BS-1.1', 'M', { cost: 'expensive' })), ruRe('“{label}” is unreadable: critical, major or minor; a hypothesis is “major (hypothesis)”', { label: FIELD.cost }));
+probe('4. major in minor without a hypothesis', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', ruCard('BS-1.1', 'M', { cost: 'major' })), ruRe('“{label}” {level} without the “hypothesis” mark: with evidence such a finding is fixed now, not queued for a batch — fix it or {cli} mv N.k triage', { label: FIELD.cost, level: 'major' }));
+probe('4. the cost is repeated', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', `${ruCard('BS-1.1', 'M', { cost: 'minor' })}- **${FIELD.cost}:** minor\n`), ruRe(DUP_FIELD, { field: FIELD.cost }));
+probe('5. a foreign file in the minor/ of a batch', (root) => put(root, 'docs/archive/BS-4-e/minor/notes.md', '# notes\n'), errRe('archive/BS-4-e/minor/notes.md', 'minor/ of a batch holds only entry files {prefix}-N[.k]-<slug>.md', { prefix: 'BS' }));
+probe('5. a directory in the minor/ of a batch', (root) => mkdirSync(path.join(root, 'docs/archive/BS-4-e/minor/BS-4.9-x.md'), { recursive: true }), errRe('archive/BS-4-e/minor/BS-4.9-x.md', 'minor/ of a batch holds only entry files {prefix}-N[.k]-<slug>.md', { prefix: 'BS' }));
+probe('2. an entry in the minor/ of a batch with a foreign heading', (root) => put(root, 'docs/archive/BS-4-e/minor/BS-4.1-m.md', '# BS-4.2 · Not that one\n'), errRe('archive/BS-4-e/minor/BS-4.1-m.md', HEAD_NAMES, { heading: 'BS-4.2' }));
+// The second door into minor/ is closed from the same side as new --minor:
+// the Evidence section is required.
+const MINOR_NO_EVIDENCE = 'minor entry has no “## {heading}” section or it is empty: the entry goes to a batch without review — write the evidence: a path with a line, a command with its output and exit code, or a measurement with a number';
+probe('4. minor without an Evidence section', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', ruCard('BS-1.1', 'M', { cost: 'minor' }, [['context', 'history']])), errRe('BS-1.1-m.md', MINOR_NO_EVIDENCE, { heading: SECTION.evidence }));
+probe('4. minor with an empty Evidence', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', `${ruCard('BS-1.1', 'M', { cost: 'minor' })}\n## ${SECTION.evidence}\n\n## ${SECTION.context}\n\nhistory\n`), errRe('BS-1.1-m.md', MINOR_NO_EVIDENCE, { heading: SECTION.evidence }));
+probe('4. Evidence in minor/ as a stub', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', ruCard('BS-1.1', 'M', { cost: 'minor' }, [['evidence', `${findingLine('BS-1')}\n${EVIDENCE_STUB}`]])), errRe('BS-1.1-m.md', SECTION_INCOMPLETE, { section: SECTION.evidence, of: 'evidence' }));
+probe('4. a stub outside Area in minor/', (root) => put(root, 'docs/backlog/minor/BS-1.1-m.md', ruCard('BS-1.1', 'M', { cost: 'minor' }, [['evidence', 'Evidence: [TODO: path]']])), errRe('BS-1.1-m.md', TODO_LINE, { line: 7 }));
+probe('4. a queue without an order', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'A')), ruRe(NO_ORDER, { field: FIELD.order }));
+probe('4. the order is not a number', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'A', { order: 'high' })), ruRe('“{field}” is not an integer', { field: FIELD.order }));
+probe('4. two queue files with one order', (root) => put(root, 'docs/backlog/queue/BS-5-f.md', ruCard('BS-5', 'E', { order: 10 })), errRe('BS-5-f.md', '“{field}” {rank} is already used by {first} — reorder with {cli} mv N queue --top | --after M', { field: FIELD.order, rank: 10, first: 'docs/backlog/queue/BS-1-a.md' }));
+probe('4. a duplicate field in one file with RU/EN aliases', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${ruCard('BS-1', 'A', { order: 10 })}- **Order:** 20\n`), errRe('BS-1-a.md', DUP_FIELD, { field: FIELD.order, lines: '3, 4' }));
+probe('4. the Previous order in the queue does not replace the Order', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'A', { previousOrder: 10, area: AREA })), errRe('BS-1-a.md', NO_ORDER, { field: FIELD.order }));
+probe('4. a duplicate Previous order with RU/EN aliases', (root) => put(root, 'docs/backlog/active/BS-2-b.md', `${ruCard('BS-2', 'B', { area: AREA, taken: '2026-09-01', previousOrder: 20 })}- **Previous order:** 30\n`), errRe('BS-2-b.md', DUP_FIELD, { field: FIELD.previousOrder, lines: '5, 6' }));
+probe('4. a triaged task without an Area', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'A', { order: 10 })), errRe('BS-1-a.md', NO_AREA, { label: FIELD.area }));
+probe('4. the Area is empty', (root) => put(root, 'docs/backlog/active/BS-2-b.md', ruCard('BS-2', 'B', { area: '', taken: '2026-09-01' })), errRe('BS-2-b.md', AREA_EMPTY, { label: FIELD.area }));
+probe('4. in progress without a date', (root) => put(root, 'docs/backlog/active/BS-2-b.md', ruCard('BS-2', 'B')), ruRe('active task has no “{field}: YYYY-MM-DD” date', { field: FIELD.taken }));
+probe('4. deferred without a section', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', ruCard('BS-3', 'C')), ruRe(DEFERRED_MISSING, { section: SECTION.deferred }));
+probe('4. deferred with [TODO]', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', ruCard('BS-3', 'C', {}, [['deferred', '- **Reason:** [TODO]']])), ruRe(SECTION_INCOMPLETE, { section: SECTION.deferred }));
+probe('4. a second Deferred section', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', ruCard('BS-3', 'C', { area: AREA }, [['deferred', '- **Reason:** done\n- **Return condition:** done'], ['deferred', '- **Reason:** second\n- **Return condition:** second']])), ruRe('“{section}” section occurs {sections} times — keep one', { section: SECTION.deferred, sections: 2 }));
+probe('4. a stub in any backlog file', (root) => put(root, 'docs/backlog/queue/BS-5-todo.md', '# BS-5 · Stub\n\n- [TODO]\n'), errRe('docs/backlog/queue/BS-5-todo.md', TODO_LINE, { line: 3 }));
+probe('4. the canonical evidence of a finding', (root) => put(root, 'docs/backlog/queue/BS-5-finding.md', `# BS-5 · Finding\n\n${findingLine('BS-1')}\n${EVIDENCE_STUB}\n${ru('Quote a file inside a “<!-- quote:path --> … <!-- /quote -->” block rather than by line number: numbers drift silently, the block is guarded by lint. If unverified, state it as an assumption.')}\n`), errRe('BS-5-finding.md', TODO_LINE, { line: 4 }));
+probe('4. a field with a colon outside the bold', (root) => put(root, 'docs/backlog/queue/BS-6-reason.md', '# BS-6 · Reason\n\n- **Reason**: [TODO]\n'), errRe('BS-6-reason.md', TODO_LINE, { line: 3 }));
 test('lint: 4. a placeholder value after a field name that starts with [TODO is a placeholder', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/backlog/queue/BS-6-name.md', '# BS-6 · Имя\n\n- [TODO] note: [TODO: step]\n- [TODO]: [TODO]\n');
-    assert.deepEqual(problems(root).filter((p) => /: строка \d+: осталась заглушка/.test(p)), [
-      'docs/backlog/queue/BS-6-name.md: строка 3: осталась заглушка [TODO]',
-      'docs/backlog/queue/BS-6-name.md: строка 4: осталась заглушка [TODO]',
+    put(root, 'docs/backlog/queue/BS-6-name.md', '# BS-6 · Name\n\n- [TODO] note: [TODO: step]\n- [TODO]: [TODO]\n');
+    assert.deepEqual(problems(root).filter((p) => ruRe(TODO_LINE).test(p)), [
+      errLine('docs/backlog/queue/BS-6-name.md', TODO_LINE, { line: 3 }),
+      errLine('docs/backlog/queue/BS-6-name.md', TODO_LINE, { line: 4 }),
     ]);
   } finally {
     cleanup(root);
   }
 });
-probe('4. placeholder in a numbered item', (root) => put(root, 'docs/backlog/queue/BS-5-num.md', '# BS-5 · N\n\n1. [TODO]\n2) [TODO: command]\n'), /BS-5-num\.md: строка 4: осталась заглушка \[TODO\]/);
-probe('4. placeholder in a task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-box.md', '# BS-5 · B\n\n- [ ] [TODO]\n'), /BS-5-box\.md: строка 3: осталась заглушка \[TODO\]/);
-probe('4. placeholder in a checked task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-done.md', '# BS-5 · D\n\n- [x] [TODO: step]\n'), /BS-5-done\.md: строка 3: осталась заглушка \[TODO\]/);
-probe('4. placeholder in a table cell', (root) => put(root, 'docs/backlog/queue/BS-5-table.md', '# BS-5 · T\n\n| a | b |\n|---|---|\n| done | [TODO] |\n'), /BS-5-table\.md: строка 5: осталась заглушка \[TODO\]/);
+probe('4. placeholder in a numbered item', (root) => put(root, 'docs/backlog/queue/BS-5-num.md', '# BS-5 · N\n\n1. [TODO]\n2) [TODO: command]\n'), errRe('BS-5-num.md', TODO_LINE, { line: 4 }));
+probe('4. placeholder in a task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-box.md', '# BS-5 · B\n\n- [ ] [TODO]\n'), errRe('BS-5-box.md', TODO_LINE, { line: 3 }));
+probe('4. placeholder in a checked task-list box', (root) => put(root, 'docs/backlog/queue/BS-5-done.md', '# BS-5 · D\n\n- [x] [TODO: step]\n'), errRe('BS-5-done.md', TODO_LINE, { line: 3 }));
+probe('4. placeholder in a table cell', (root) => put(root, 'docs/backlog/queue/BS-5-table.md', '# BS-5 · T\n\n| a | b |\n|---|---|\n| done | [TODO] |\n'), errRe('BS-5-table.md', TODO_LINE, { line: 5 }));
 
-// Ранг, сохранённый уходом из очереди: «Порядка» в этих каталогах нет и не требуется.
-greenProbe('«Прежний порядок» вне queue/ гейт полей не красит', (root) => {
-  put(root, 'docs/backlog/active/BS-2-b.md', '# BS-2 · Б\n\n- **Область:** [x](../../reference/README.md)\n- **Взята:** 2026-09-01\n- **Прежний порядок:** 20\n');
-  put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n- **Прежний порядок:** 30\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n');
+// The rank kept by leaving the queue: these directories have no Order field and need none.
+greenProbe('4. the Previous order outside queue/ does not redden the fields gate', (root) => {
+  put(root, 'docs/backlog/active/BS-2-b.md', ruCard('BS-2', 'B', { area: AREA, taken: '2026-09-01', previousOrder: 20 }));
+  put(root, 'docs/backlog/deferred/BS-3-c.md', ruCard('BS-3', 'C', { area: AREA, previousOrder: 30 }, [['deferred', DEFERRED_BODY]]));
 });
 
-greenProbe('текст о TODO внутри заполненного значения не красит backlog', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** заполнено; проверка [TODO] не должна искать подстроку\n\n| a | b |\n|---|---|\n| заполнено; [TODO] внутри | 1. [TODO] в тексте |\n'));
-greenProbe('заголовок секции внутри fenced-примера не считается дублем', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n## Отложено\n\n- **Причина:** нет раннера\n- **Условие возврата:** появится раннер\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n'));
+greenProbe('4. text about TODO inside a filled value does not redden the backlog', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${ruCard('BS-1', 'A', { order: 10, area: 'filled in; the [TODO] check must not search a substring' })}\n| a | b |\n|---|---|\n| filled in; [TODO] inside | 1. [TODO] in the text |\n`));
+greenProbe('4. a section heading inside a fenced example is not a duplicate', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', `${ruCard('BS-3', 'C', { area: AREA }, [['deferred', DEFERRED_BODY]])}\n\`\`\`markdown\n## ${SECTION.deferred}\n- **Reason:** example\n\`\`\`\n`));
 
-probe('fenced-only заголовок секции не заменяет раздел', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · В\n\n- **Область:** [x](../../reference/README.md)\n\n```markdown\n## Отложено\n- **Причина:** пример\n```\n'), /без раздела «## Отложено»/);
-probe('5. архив без result.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/result.md')), /нет result\.md/);
-probe('5. результат не дописан', (root) => put(root, 'docs/archive/BS-4-e/result.md', '# BS-4 · Результат\n\n**Закрыта 2026-08-01.** [TODO: исход]\n'), /результат не дописан/);
-// Построчный разбор заглушек `docs/backlog/**` строку шаблона заглушкой не считает: проба на
-// голую `- [TODO]` не отличила бы рабочий гейт от холостого.
+probe('4. a fenced-only section heading does not replace the section', (root) => put(root, 'docs/backlog/deferred/BS-3-c.md', `${ruCard('BS-3', 'C', { area: AREA })}\n\`\`\`markdown\n## ${SECTION.deferred}\n- **Reason:** example\n\`\`\`\n`), ruRe(DEFERRED_MISSING, { section: SECTION.deferred }));
+probe('5. an archive without result.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/result.md')), ruRe('result.md with the closing date is missing'));
+probe('5. the result is not finished', (root) => put(root, 'docs/archive/BS-4-e/result.md', `${ruResultHeading('BS-4')}\n\n${STAMP} [TODO: outcome]\n`), ruRe('result is incomplete: [TODO] remains'));
+// The line scan of docs/backlog/** does not count a template line as a stub; a probe on a bare
+// `- [TODO]` would not tell a working gate from an idle one.
 for (const lang of ['ru', 'en']) {
   const paragraphs = resultTemplateParagraphs(lang);
-  assert.ok(paragraphs.length > 0 && paragraphs.every((p) => p.includes('[TODO')), `шаблон result.md (${lang}) без заглушек — проба была бы холостой`);
+  assert.ok(paragraphs.length > 0 && paragraphs.every((p) => p.includes('[TODO')), `the result.md template (${lang}) has no stubs — the probe would be idle`);
   paragraphs.forEach((p, i) => {
-    probe(`5. абзац ${i + 1} шаблона result.md (${lang}) — единственная заглушка`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${p}\n`), /BS-4-e\/result\.md: результат не дописан/);
+    probe(`5. paragraph ${i + 1} of the result.md template (${lang}) is the only stub`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `${ruResultHeading('BS-4')}\n\n${p}\n`), errRe('BS-4-e/result.md', 'result is incomplete: [TODO] remains'));
   });
 }
-greenProbe('5. заглушка, показанная в коде, — рассказ о ней, а не она сама', (root) => put(root, 'docs/archive/BS-4-e/result.md', [
-  '# BS-4 · Результат', '',
-  '**Закрыта 2026-08-01.** Выполнена: гейт краснел на `[TODO: исход]` в прозе, а ``[TODO`` в код-спане — пример.', '',
-  '```', '**Закрыта 2026-08-01.** [TODO: исход]', '```', '',
+greenProbe('5. a stub shown in code is a story about it, not the stub itself', (root) => put(root, 'docs/archive/BS-4-e/result.md', [
+  ruResultHeading('BS-4'), '',
+  `${STAMP} ${ruOutcome('completed')}: the gate used to redden on \`[TODO: outcome]\` in prose, while \`\`[TODO\`\` in a code span is an example.`, '',
+  '```', `${STAMP} [TODO: outcome]`, '```', '',
 ].join('\n')));
-// Исход словом словаря: голое «Закрыта» свёртка прочла бы «выполнена», и отказ стал бы выполнением.
-for (const [first, lang] of [['**Закрыта 2026-08-01.** Готово.', 'ru'], ['**Закрыта 2026-08-01.** Отказ: беспредметна.', 'ru'], ['**Закрыта 2026-08-01.** Дубль BS-2.', 'ru'], ['**Закрыта 2026-08-01.** Слито в main.', 'ru'], ['**Closed 2026-08-01.** Done.', 'en']]) {
-  probe(`5. первый абзац result.md без слова исхода: «${first}»`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${first}\n\n**Проверки.** Отклонена гипотеза о кэше.\n`),
-    /archive\/BS-4-e: result\.md не называет исход словом словаря — выполнена, отклонена, снята с плана или слита в BS-N — ни в первом абзаце, ни в заголовке/);
+// An outcome is a vocabulary word: the fold would read a bare “Closed” as completed, and a
+// rejection would turn into a completion.
+for (const [label, first] of [
+  ['a bare “done”', ruExpand(`${STAMP} {Done}.`)],
+  ['a refusal noun', ruExpand(`${STAMP} {Refusal}: moot.`)],
+  ['a duplicate', ruExpand(`${STAMP} {Duplicate} BS-2.`)],
+  ['merged into a branch', ruExpand(`${STAMP} {Merged.1} {into} main.`)],
+  ['English “done”', '**Closed 2026-08-01.** Done.'],
+]) {
+  probe(`5. the first paragraph of result.md without an outcome word: ${label}`, (root) => put(root, 'docs/archive/BS-4-e/result.md', `${ruResultHeading('BS-4')}\n\n${first}\n\n${ruExpand(`**${SECTION.verification}.** {Rejected.0} a hypothesis about the cache.`)}\n`),
+    errRe('archive/BS-4-e', NO_OUTCOME, { prefix: 'BS' }));
 }
-test('lint: 5. слово исхода из словаря в первом абзаце или заголовке — любой исход и оба языка', () => {
+test('lint: 5. a vocabulary outcome word in the first paragraph or heading — any outcome and both languages', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    for (const first of ['**Закрыта 2026-08-01.** Выполнена.', '**Закрыта 2026-08-01.** Отклонена: беспредметна.', '**Закрыта 2026-08-01.** Снята с плана.', '**Закрыта 2026-08-01.** Слита в BS-2.', '**Closed 2026-08-01.** Completed.', '**Closed 2026-08-01.** Rejected.', '**Closed 2026-08-01.** Merged into BS-2.']) {
-      put(root, 'docs/archive/BS-4-e/result.md', `# BS-4 · Результат\n\n${first}\n`);
+    for (const first of ['**{Closed.0} 2026-08-01.** {Completed.0}.', '**{Closed.0} 2026-08-01.** {Rejected.0}: moot.', '**{Closed.0} 2026-08-01.** {Rejected.4}.', '**{Closed.0} 2026-08-01.** {Merged.0} {into} BS-2.', '**Closed 2026-08-01.** Completed.', '**Closed 2026-08-01.** Rejected.', '**Closed 2026-08-01.** Merged into BS-2.']) {
+      put(root, 'docs/archive/BS-4-e/result.md', `${ruResultHeading('BS-4')}\n\n${ruExpand(first)}\n`);
       assert.deepEqual(problems(root), [], first);
     }
-    // Исход в заголовке старого архива свёртка читает — гейт тоже.
-    for (const heading of ['# BS-4 — результат (снята с плана 2026-08-13)', '# BS-4 — результат: отклонена']) {
-      put(root, 'docs/archive/BS-4-e/result.md', `${heading}\n\nОписание дефекта без слова исхода.\n`);
+    // The outcome in the heading of an old archive is read by the fold — the gate reads it too.
+    for (const heading of ['# BS-4 — {result} ({rejected.4} 2026-08-13)', '# BS-4 — {result}: {rejected.0}']) {
+      put(root, 'docs/archive/BS-4-e/result.md', `${ruExpand(heading)}\n\nA defect description without an outcome word.\n`);
       assert.deepEqual(problems(root), [], heading);
     }
   } finally {
     cleanup(root);
   }
 });
-probe('5. каталог архива не по шаблону', (root) => put(root, 'docs/archive/old-stuff/task.md', '# x\n'), /old-stuff: имя не по шаблону/);
-probe('6. упоминание номера без файла в docs', (root) => put(root, 'docs/ROADMAP.md', 'Сделаем в BS-99.\n'), /упоминает BS-99/);
-probe('6. упоминание номера без файла в CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Закрыта** BS-2.7\n'), /CHANGELOG\.md: упоминает BS-2\.7/);
-greenProbe('6. упоминание номера внутри блока кода — пример, а не ссылка', (root) => put(root, 'docs/note.md', 'Пример вывода:\n\n```\n  10  BS-77 · Пример\n```\n\nА в прозе `BS-4` — ссылка.\n'));
+probe('5. an archive directory not matching the pattern', (root) => put(root, 'docs/archive/old-stuff/task.md', '# x\n'), errRe('old-stuff', 'name does not match {prefix}-N[.k]-<slug>', { prefix: 'BS' }));
+probe('6. a number mentioned without a file in docs', (root) => put(root, 'docs/ROADMAP.md', 'We will do it in BS-99.\n'), ruRe('mentions {id}, but no task file exists in statuses or archive', { id: 'BS-99' }));
+probe('6. a number mentioned without a file in CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Unreleased\n\n- **Closed** BS-2.7\n'), errRe('CHANGELOG.md', 'mentions {id}, but no task file exists in statuses or archive', { id: 'BS-2.7' }));
+greenProbe('6. a number mentioned inside a code block is an example, not a reference', (root) => put(root, 'docs/note.md', 'Sample output:\n\n```\n  10  BS-77 · Example\n```\n\nAnd in prose `BS-4` is a link.\n'));
 
-probe('7. дубль заголовка записи в секции CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — раз\n- **Одно** — два\n'), /заголовок записи «Одно» уже есть/);
+probe('7. a duplicate entry title in a CHANGELOG section', (root) => put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — once\n- **One** — twice\n'), ruRe(DUP_ENTRY, { title: 'One' }));
 test('lint: 7. a CHANGELOG code fence neither resets the section nor adds entries', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
     put(root, 'CHANGELOG.md', '## 1.0.0\n\n- **Alpha** — one\n\n```\n## 0.9.0\n```\n\n- **Alpha** — two\n');
-    assert.deepEqual(problems(root), ['CHANGELOG.md: строка 9: заголовок записи «Alpha» уже есть в секции «1.0.0» (строка 3) — оставь одну редакцию']);
+    assert.deepEqual(problems(root), [errLine('CHANGELOG.md', DUP_ENTRY, { line: 9, title: 'Alpha', section: '1.0.0', prev: 3 })]);
     put(root, 'CHANGELOG.md', '## 1.0.0\n\n- **Entry format** — real\n\n```\n- **Entry format** — example\n- **Entry format** — example\n```\n');
     assert.deepEqual(problems(root), []);
   } finally {
     cleanup(root);
   }
 });
-probe('8. ADR без строки в таблице', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Сирота\n'), /adr-002-orphan\.md: нет строки/);
+probe('8. an ADR without a row in the table', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Orphan\n'), errRe('adr-002-orphan.md', 'no row in {readme} — the ADR table is maintained manually'));
 probe('8. an ADR row inside an HTML comment is not a row', (root) => put(root, 'docs/README.md', read(root, 'docs/README.md').replace(
-  '| [adr/adr-001-process.md](adr/adr-001-process.md) | процесс | Accepted |', '<!-- | [adr/adr-001-process.md](adr/adr-001-process.md) | процесс | Accepted | -->')),
-/adr-001-process\.md: нет строки в README\.md/);
-probe('8. номер ADR занят дважды', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Снова\n'), /номер ADR 1 уже занят/);
-probe('8. an ADR file with an upper-case .MD extension is name-checked', (root) => put(root, 'docs/adr/adr-002-x.MD', '# ADR-002: X\n'), /docs\/adr\/adr-002-x\.MD: имя не по шаблону adr-NNN-<slug>\.md/);
+  '| [adr/adr-001-process.md](adr/adr-001-process.md) | process | Accepted |', '<!-- | [adr/adr-001-process.md](adr/adr-001-process.md) | process | Accepted | -->')),
+errRe('adr-001-process.md', 'no row in {readme} — the ADR table is maintained manually', { readme: 'README.md' }));
+probe('8. an ADR number is taken twice', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Again\n'), ruRe('ADR number {number} is already used by {name}', { number: 1 }));
+probe('8. an ADR file with an upper-case .MD extension is name-checked', (root) => put(root, 'docs/adr/adr-002-x.MD', '# ADR-002: X\n'), errRe('docs/adr/adr-002-x.MD', ADR_NAME));
 test('lint: 8. an ADR file name is checked even when no ADR is named correctly', () => {
   const root = makeProject({ git: false });
   try {
@@ -458,13 +519,13 @@ test('lint: 8. an ADR file name is checked even when no ADR is named correctly',
     rmSync(path.join(root, 'docs/adr/adr-001-process.md'));
     put(root, 'docs/adr/ADR-001-process.md', '# ADR-001: Process\n\n**Status:** Accepted\n');
     put(root, 'docs/README.md', read(root, 'docs/README.md').replaceAll('adr/adr-001-process.md', 'adr/ADR-001-process.md'));
-    assert.deepEqual(problems(root), ['docs/adr/ADR-001-process.md: имя не по шаблону adr-NNN-<slug>.md']);
+    assert.deepEqual(problems(root), [errLine('docs/adr/ADR-001-process.md', ADR_NAME)]);
     assert.equal(cli(root, ['lint']).code, 1);
   } finally {
     cleanup(root);
   }
 });
-probe('8. файл в adr/ не по шаблону', (root) => put(root, 'docs/adr/decision.md', '# x\n'), /decision\.md: имя не по шаблону adr-NNN/);
+probe('8. an ADR file name not matching the pattern', (root) => put(root, 'docs/adr/decision.md', '# x\n'), errRe('decision.md', ADR_NAME));
 test('lint: 8. an ADR row linked from the root, with ?query or with a %-escape counts as its row', () => {
   const root = makeProject({ git: false });
   try {
@@ -478,22 +539,22 @@ test('lint: 8. an ADR row linked from the root, with ?query or with a %-escape c
     cleanup(root);
   }
 });
-test('lint: находка под закрытым родителем остаётся предупреждением для approver', () => {
+test('lint: a finding under a closed parent stays a warning for the approver', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/archive/BS-2-b/task.md', '# BS-2 · Б\n');
-    put(root, 'docs/archive/BS-2-b/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
-    put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
-    put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
-    put(root, 'docs/backlog/triage/BS-007.1-x.md', '# BS-007.1 · Находка\n');
+    put(root, 'docs/archive/BS-2-b/task.md', ruCard('BS-2', 'B'));
+    put(root, 'docs/archive/BS-2-b/result.md', closed('BS-2'));
+    put(root, 'docs/archive/BS-007-old/task.md', ruCard('BS-007', 'Old'));
+    put(root, 'docs/archive/BS-007-old/result.md', closed('BS-007'));
+    put(root, 'docs/backlog/triage/BS-007.1-x.md', ruCard('BS-007.1', 'Finding'));
     rmSync(path.join(root, 'docs/backlog/active/BS-2-b.md'));
     assert.deepEqual(problems(root), []);
-    assert.ok(warnings(root).some((w) => /BS-007\.1-x\.md: находка BS-007\.1 лежит в triage\/, а задача BS-007 закрыта — разбери её \(approver\)/.test(w)), warnings(root).join(' | '));
-    assert.ok(warnings(root).some((w) => /BS-2\.1-d\.md: находка BS-2\.1 лежит в triage\/, а задача BS-2 закрыта — разбери её \(approver\)/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => errRe('BS-007.1-x.md', FINDING_PARENT, { id: 'BS-007.1', parentId: 'BS-007' }).test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => errRe('BS-2.1-d.md', FINDING_PARENT, { id: 'BS-2.1', parentId: 'BS-2' }).test(w)), warnings(root).join(' | '));
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.err, /разбери её \(approver\)/);
+    assert.match(r.err, ruRe(FINDING_PARENT));
   } finally {
     cleanup(root);
   }
@@ -503,9 +564,9 @@ test('lint: gate 9 takes no evidence from Parent — a triage finding under an a
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/archive/BS-1.1-g/task.md', '# BS-1.1 · Ж\n');
-    put(root, 'docs/archive/BS-1.1-g/result.md', '# BS-1.1 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
-    put(root, 'docs/backlog/triage/BS-1.2-h.md', '# BS-1.2 · З\n\n- **Родитель:** BS-1.1\n\nНаходка при работе над BS-1.1.\n');
+    put(root, 'docs/archive/BS-1.1-g/task.md', ruCard('BS-1.1', 'G'));
+    put(root, 'docs/archive/BS-1.1-g/result.md', closed('BS-1.1'));
+    put(root, 'docs/backlog/triage/BS-1.2-h.md', `${ruCard('BS-1.2', 'H', { parent: 'BS-1.1' })}\n${findingLine('BS-1.1')}\n`);
     assert.deepEqual(problems(root), []);
     assert.ok(!warnings(root).some((w) => /BS-1\.2/.test(w)), warnings(root).join(' | '));
     const r = cli(root, ['lint']);
@@ -516,33 +577,33 @@ test('lint: gate 9 takes no evidence from Parent — a triage finding under an a
   }
 });
 
-test('lint: пустая или незаполненная «Область» в minor/ — предупреждение, не ошибка', () => {
+test('lint: an empty or unfilled Area in minor/ is a warning, not an error', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/backlog/minor/BS-1.1-m.md', '# BS-1.1 · М\n\n- **Область:** \n- **Цена:** minor\n\n## Улика\n\nlib/a.js:1\n');
-    put(root, 'docs/backlog/minor/BS-1.2-n.md', '# BS-1.2 · Н\n\n- **Цена:** major (гипотеза)\n\n## Улика\n\nпредположительно течёт\n');
-    put(root, 'docs/backlog/minor/BS-1.3-o.md', '# BS-1.3 · О\n\n- **Область:** [x](../../reference/README.md)\n- **Цена:** critical (hypothesis)\n\n## Evidence\n\npresumably leaks\n');
-    put(root, 'docs/backlog/minor/BS-1.4-p.md', '# BS-1.4 · П\n\n- **Область:** [TODO: раздел](../../reference/README.md)\n- **Цена:** minor\n\n## Улика\n\nlib/b.js:2\n');
+    put(root, 'docs/backlog/minor/BS-1.1-m.md', ruCard('BS-1.1', 'M', { area: '', cost: 'minor' }, [['evidence', 'lib/a.js:1']]));
+    put(root, 'docs/backlog/minor/BS-1.2-n.md', ruCard('BS-1.2', 'N', { cost: formatCost('major', true) }, [['evidence', 'presumably leaking']]));
+    put(root, 'docs/backlog/minor/BS-1.3-o.md', `${ruCard('BS-1.3', 'O', { area: AREA, cost: 'critical (hypothesis)' })}\n## Evidence\n\npresumably leaks\n`);
+    put(root, 'docs/backlog/minor/BS-1.4-p.md', ruCard('BS-1.4', 'P', { area: '[TODO: section](../../reference/README.md)', cost: 'minor' }, [['evidence', 'lib/b.js:2']]));
     assert.deepEqual(problems(root), []);
-    assert.ok(warnings(root).some((w) => /BS-1\.4-p\.md: «Область» не заполнена: осталась заглушка/.test(w)), warnings(root).join(' | '));
-    assert.ok(warnings(root).some((w) => /BS-1\.1-m\.md: «Область» пуста/.test(w)), warnings(root).join(' | '));
-    assert.ok(warnings(root).some((w) => /BS-1\.2-n\.md: без поля «Область»/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => errRe('BS-1.4-p.md', AREA_INCOMPLETE, { label: FIELD.area }).test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => errRe('BS-1.1-m.md', AREA_EMPTY, { label: FIELD.area }).test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => errRe('BS-1.2-n.md', NO_AREA, { label: FIELD.area }).test(w)), warnings(root).join(' | '));
     assert.ok(!warnings(root).some((w) => /BS-1\.3-o\.md/.test(w)), warnings(root).join(' | '));
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /ошибок нет, предупреждений 3/);
+    assert.match(r.out, noErrorsRe(3));
   } finally {
     cleanup(root);
   }
 });
 
-test('lint: запись, закрытая пачкой, известна упоминаниям и не считается сиротой', () => {
+test('lint: an entry closed as a batch is known to mentions and is not an orphan', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/archive/BS-4-e/minor/BS-4.2-m.md', '# BS-4.2 · Закрыта пачкой\n\n- **Цена:** minor\n');
-    put(root, 'docs/note.md', 'См. BS-4.2 — закрыта пачкой BS-4.\n');
+    put(root, 'docs/archive/BS-4-e/minor/BS-4.2-m.md', ruCard('BS-4.2', 'Closed as a batch', { cost: 'minor' }));
+    put(root, 'docs/note.md', ruExpand('See BS-4.2 — {closed.0} {batch} BS-4.\n'));
     assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
   } finally {
@@ -550,66 +611,66 @@ test('lint: запись, закрытая пачкой, известна упо
   }
 });
 
-test('lint: предупреждения о версии не красят гейт', () => {
+test('lint: version warnings do not redden the gate', () => {
   const root = makeProject({ git: false, stamp: false });
   try {
     seedGreen(root);
     const setConfig = (patch) => put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), ...patch }, null, 2)}\n`);
-    assert.ok(warnings(root).some((w) => /backslop\.json: нет штампа версии/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => errRe('backslop.json', 'version stamp is missing — run {cli} upgrade or init').test(w)), warnings(root).join(' | '));
     setConfig({ version: '0.0.1' });
-    assert.ok(warnings(root).some((w) => /скелет старее инструмента: v0\.0\.1 </.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => ruRe(LAYOUT_OLDER, { stamp: '0.0.1' }).test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: 'npx github:me/proj#v0.0.1' });
-    assert.ok(warnings(root).some((w) => /пин в cli v0\.0\.1 расходится со штампом/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => ruRe('cli pin v{pin} differs from version stamp v{stamp} — run {cli} upgrade', { pin: '0.0.1' }).test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: `npx github:me/proj#v${TOOL_VERSION}` });
     assert.deepEqual(warnings(root), []);
     setConfig({ version: '9.9.9' });
-    assert.ok(warnings(root).some((w) => /штамп новее инструмента: v9\.9\.9 >/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => ruRe('version stamp is newer than the tool: v{stamp} > v{version} — update the installation or cli pin', { stamp: '9.9.9' }).test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: 'npx github:me/proj' });
-    assert.ok(warnings(root).some((w) => /cli без пина тянет свежую версию/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => ruRe(UNPINNED).test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: 'npx backslop' });
-    assert.ok(warnings(root).some((w) => /cli без пина тянет свежую версию/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => ruRe(UNPINNED).test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: 'npx backslop@latest' });
-    assert.ok(warnings(root).some((w) => /cli без пина тянет свежую версию/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => ruRe(UNPINNED).test(w)), warnings(root).join(' | '));
     setConfig({ version: TOOL_VERSION, cli: 'backslop' });
-    assert.deepEqual(warnings(root), [], 'глобальная установка пина не несёт и не предупреждает');
+    assert.deepEqual(warnings(root), [], 'a global installation carries no pin and does not warn');
     setConfig({ version: '0.0.1', cli: 'backslop' });
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.err, /⚠ backslop\.json: скелет старее инструмента/);
-    assert.match(r.out, /ошибок нет, предупреждений 1/);
+    assert.match(r.err, new RegExp(`⚠ ${errSrc('backslop.json', LAYOUT_OLDER)}`));
+    assert.match(r.out, noErrorsRe(1));
   } finally {
     cleanup(root);
   }
 });
 
-test('lint: CLI печатает каждую ошибку и выходит единицей', () => {
+test('lint: the CLI prints every error and exits 1', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    put(root, 'docs/note.md', '[нет](none.md)\n');
+    put(root, 'docs/note.md', '[missing](none.md)\n');
     const r = cli(root, ['lint']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /docs\/note\.md: битая ссылка none\.md/);
-    assert.match(r.err, /lint: ошибок 1/);
+    assert.match(r.err, errRe('docs/note.md', BROKEN, { href: 'none.md' }));
+    assert.match(r.err, ruRe('lint: errors {errors}{tail}', { errors: 1 }));
   } finally {
     cleanup(root);
   }
 });
 
-greenProbe('номер с ведущими нулями — форма файла сохраняется, сравнение числовое', (root) => {
-  put(root, 'docs/archive/BS-007-old/task.md', '# BS-007 · Старая\n');
-  put(root, 'docs/archive/BS-007-old/result.md', '# BS-007 · Результат\n\n**Закрыта 2026-08-01.** Выполнена.\n');
-  put(root, 'docs/ROADMAP.md', 'Сделано в BS-007, она же BS-7.\n');
+greenProbe('a number with leading zeros — the file form is kept, the comparison is numeric', (root) => {
+  put(root, 'docs/archive/BS-007-old/task.md', ruCard('BS-007', 'Old'));
+  put(root, 'docs/archive/BS-007-old/result.md', closed('BS-007'));
+  put(root, 'docs/ROADMAP.md', 'Done in BS-007, which is also BS-7.\n');
 });
-probe('2. номер занят дважды в разных формах записи', (root) => put(root, 'docs/backlog/triage/BS-004-e2.md', '# BS-004 · Дубль\n'), /номер BS-004 уже занят: docs\/archive\/BS-4-e\/task\.md/);
+probe('2. a number is taken twice in different spellings', (root) => put(root, 'docs/backlog/triage/BS-004-e2.md', '# BS-004 · Duplicate\n'), ruRe('number {id} is already used by {rel}', { id: 'BS-004', rel: 'docs/archive/BS-4-e/task.md' }));
 
-// 11. Гейт релиза работает только в дереве самого инструмента, поэтому его пробы, как и пробы
-// парности, идут на копии инструмента: у обычной фикстуры своей версии нет.
+// 11. The release gate works only in the tool's own tree, so its probes, like the parity ones, run
+// on a tool copy: an ordinary fixture has no version of its own.
 function bumpPackage(dir, version) {
   put(dir, 'package.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'package.json')), version }, null, 2)}\n`);
 }
 
-test('lint: 11. свежая копия инструмента — гейт релиза молчит', () => {
+test('lint: 11. a fresh tool copy — the release gate is silent', () => {
   let project;
   try {
     project = toolProject(() => {});
@@ -617,49 +678,49 @@ test('lint: 11. свежая копия инструмента — гейт ре
   } finally { if (project) cleanup(project.dir); }
 });
 
-probe('adapter output — каталог на owned-пути, на котором init отказывает', (root) => {
+probe('adapter output — a directory at an owned path, where init refuses', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
   rmSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
   mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'));
-}, /SKILL\.md: owned adapter output не является файлом/);
+}, errRe('SKILL.md', 'owned adapter output is not a file — init refuses on it'));
 // ADR-040: ownership is the marker alone, so an unmarked file at a template path is foreign.
 // The copy adds the template to both layers, since the parity gate runs there too.
-toolProbe('adapter output без маркера — чужой файл на owned-пути выбранного adapter\'а', (dir) => {
+toolProbe('adapter output without the marker — a foreign file at an owned path of the selected adapter', (dir) => {
   put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n');
   put(dir, 'templates/en/skills/backslop-task/references/extra.md', '# extra\n');
-  // `init --tools` в корне инструмента отказывает;
-  // adapter в self-host выбирается правкой конфига.
+  // `init --tools` refuses in the tool root;
+  // in self-host an adapter is chosen by editing the config.
   put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), tools: ['claude'] }, null, 2)}\n`);
   const r = toolCli(dir, ['init']);
   assert.equal(r.code, 0, r.err);
-  put(dir, '.claude/skills/backslop-task/references/extra.md', '# мой файл на этом пути\n');
-}, /extra\.md: на пути adapter output claude чужой файл без маркера/);
+  put(dir, '.claude/skills/backslop-task/references/extra.md', '# my file at this path\n');
+}, errRe('extra.md', 'a foreign file without the {marker} marker sits at the {tool} adapter output path — init does not overwrite it: remove or rename the file and run {cli} init, or deselect the adapter', { tool: 'claude' }));
 
-toolProbe('11. version package.json расходится со штампом', (dir) => bumpPackage(dir, '9.9.9'), /версия package\.json v9\.9\.9 расходится со штампом backslop\.json v\d+\.\d+\.\d+/);
+toolProbe('11. the package.json version differs from the stamp', (dir) => bumpPackage(dir, '9.9.9'), ruRe(PKG_VERSION, { version: '9.9.9', config: 'backslop.json', stamp: TOOL_VERSION }));
 
-toolProbe('11. нет секции CHANGELOG на выпускаемую версию', (dir) => {
+toolProbe('11. no CHANGELOG section for the released version', (dir) => {
   bumpPackage(dir, '9.9.9');
   put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), version: '9.9.9' }, null, 2)}\n`);
-  put(dir, 'CHANGELOG.md', '# Changelog\n\n## Не выпущено\n\n- **Одно** — было\n');
-}, /нет секции «## v9\.9\.9»/);
+  put(dir, 'CHANGELOG.md', '# Changelog\n\n## Unreleased\n\n- **One** — it was\n');
+}, ruRe('no “## v{version}” section — the released version has no entry', { version: '9.9.9' }));
 
-toolProbe('11. устаревший пин в прозе README', (dir) => put(dir, 'README.md', 'Ставится `npx github:Velklish/backslop#v0.2.0`\n'), /README\.md: строка 1: пин github:Velklish\/backslop#v0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
+toolProbe('11. a stale pin in the README prose', (dir) => put(dir, 'README.md', 'Install `npx github:Velklish/backslop#v0.2.0`\n'), errRe('README.md', PIN_TOOL, { line: 1, pin: 'github:Velklish/backslop#v0.2.0', version: TOOL_VERSION }));
 
 test('lint: 11. a stale release pin with a .git suffix or without v in README', () => {
   let project;
   try {
     project = toolProject((dir) => put(dir, 'README.md', 'Install `npx github:Velklish/backslop.git#v0.2.0` or `npx github:Velklish/backslop#0.2.0`\n'));
     assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /README\.md: строка 1: пин github:Velklish\/backslop\.git#v0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
-    assert.match(project.err, /README\.md: строка 1: пин github:Velklish\/backslop#0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
+    assert.match(project.err, errRe('README.md', PIN_TOOL, { line: 1, pin: 'github:Velklish/backslop.git#v0.2.0', version: TOOL_VERSION }));
+    assert.match(project.err, errRe('README.md', PIN_TOOL, { line: 1, pin: 'github:Velklish/backslop#0.2.0', version: TOOL_VERSION }));
   } finally { if (project) cleanup(project.dir); }
 });
 
-toolProbe('11. устаревший npm-пин в прозе AGENTS.md', (dir) => put(dir, 'AGENTS.md', `${read(dir, 'AGENTS.md')}\nРелиз ставится как \`npx backslop@0.2.0\`.\n`), /AGENTS\.md: .*пин backslop@0\.2\.0 — инструмент на v\d+\.\d+\.\d+/);
+toolProbe('11. a stale npm pin in the AGENTS.md prose', (dir) => put(dir, 'AGENTS.md', `${read(dir, 'AGENTS.md')}\nThe release is installed as \`npx backslop@0.2.0\`.\n`), errRe('AGENTS.md', PIN_TOOL, { pin: 'backslop@0.2.0', version: TOOL_VERSION }));
 
 // A `templates` link to the running tool's own directory wakes the self-host gates.
 test('lint: 11. a malformed package.json is a gate error, and the other gates still report', { skip: process.platform === 'win32' }, () => {
-  for (const [lang, parsed] of [['ru', /^✖ .*package\.json: не разбирается: .*JSON/m], ['en', /^✖ .*package\.json: cannot be parsed: .*JSON/m]]) {
+  for (const [lang, parsed] of [['ru', new RegExp(`^✖ .*package\\.json: ${ruRe('cannot be parsed: {message}', { message: `${ANY}JSON` }).source}`, 'm')], ['en', /^✖ .*package\.json: cannot be parsed: .*JSON/m]]) {
     const root = makeProject({ git: false });
     try {
       seedGreen(root);
@@ -671,7 +732,7 @@ test('lint: 11. a malformed package.json is a gate error, and the other gates st
       assert.equal(r.code, 1, `${lang}: ${r.out}`);
       assert.match(r.err, parsed, lang);
       assert.match(r.err, /stray\.md: .*nowhere\.md/, `${lang}: the links gate still reports`);
-      assert.match(r.err, /^✖ lint: (ошибок|errors) 2\b/m, lang);
+      assert.match(r.err, new RegExp(`^✖ ${escapeRe(lang === 'ru' ? ru('lint: errors {errors}{tail}', { errors: 2, tail: '' }) : 'lint: errors 2')}\\b`, 'm'), lang);
       assert.doesNotMatch(r.err, /SyntaxError|lintReleaseVersions/, lang);
     } finally {
       cleanup(root);
@@ -679,11 +740,11 @@ test('lint: 11. a malformed package.json is a gate error, and the other gates st
   }
 });
 
-// Гейт парности работает только в дереве самого инструмента, поэтому проба идёт на копии
-// (toolCopy): обычная фикстура с каталогом `templates/` гейт не будит.
+// The parity gate works only in the tool's own tree, so the probe runs on a copy (toolCopy): an
+// ordinary fixture with a `templates/` directory does not wake the gate.
 function toolProject(mutate) {
   const dir = toolCopy();
-  assert.equal(toolCli(dir, ['init']).code, 0, 'копия инструмента раскладывается сама собой');
+  assert.equal(toolCli(dir, ['init']).code, 0, 'the tool copy lays itself out');
   mutate(dir);
   return { dir, ...toolCli(dir, ['lint']) };
 }
@@ -699,7 +760,7 @@ function toolProbe(name, mutate, re) {
   });
 }
 
-test('lint: template parity: переименование canonical-скилла не выключает гейт', () => {
+test('lint: template parity: renaming the canonical skill does not switch the gate off', () => {
   let project;
   try {
     project = toolProject((dir) => {
@@ -709,11 +770,11 @@ test('lint: template parity: переименование canonical-скилла
       }
     });
     assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /skills\/backslop-tsk\/SKILL\.md: name во фронтматтере — backslop-task, ожидался backslop-tsk/);
+    assert.match(project.err, ruRe('{file} frontmatter name is {name}, expected {skill}', { file: 'skills/backslop-tsk/SKILL.md', name: 'backslop-task', skill: 'backslop-tsk' }));
   } finally { if (project) cleanup(project.dir); }
 });
 
-test('lint: 11. гейт релиза жив после переименования canonical-скилла', () => {
+test('lint: 11. the release gate is alive after renaming the canonical skill', () => {
   let project;
   try {
     project = toolProject((dir) => {
@@ -724,13 +785,13 @@ test('lint: 11. гейт релиза жив после переименован
       put(dir, 'package.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'package.json')), version: '9.9.9' }, null, 2)}\n`);
     });
     assert.equal(project.code, 1, project.out);
-    assert.match(project.err, /версия package\.json v9\.9\.9 расходится со штампом/);
+    assert.match(project.err, ruRe(PKG_VERSION, { version: '9.9.9', config: 'backslop.json', stamp: TOOL_VERSION }));
   } finally { if (project) cleanup(project.dir); }
 });
 
-// 14. Непечатаемый байт: гейт судит отслеживаемые файлы,
-// поэтому копия инструмента заводит индекс git.
-test('lint: 14. байт ниже 0x09 в отслеживаемом исходнике инструмента — ошибка с файлом, смещением и строкой', () => {
+// 14. A non-printable byte: the gate judges tracked files,
+// so the tool copy gets a git index.
+test('lint: 14. a byte below 0x09 in a tracked tool source is an error with the file, offset and line', () => {
   let red;
   let green;
   try {
@@ -741,26 +802,26 @@ test('lint: 14. байт ниже 0x09 в отслеживаемом исход�
       run(dir, ['add', '-A']);
     });
     assert.equal(red.code, 1, red.out);
-    assert.match(red.err, /lib\/probe\.js: байт 0x00 на смещении 27 \(строка 2\): NUL делает файл бинарным для git и grep, и поиск по нему молчит — запиши его escape-последовательностью \(\\u0000\)/);
-    assert.match(red.err, /bin\/probe\.txt: байт 0x01 на смещении 2 \(строка 1\): невидимый управляющий байт: в редакторе и в выводе его не видно — запиши его escape-последовательностью \(\\u0001\)/);
-    assert.doesNotMatch(red.err, /0x01[^\n]*git/, 'про git — только у NUL: прочие байты git бинарными не считает');
-    assert.equal(red.err.match(/: байт 0x/g).length, 2, 'копия инструмента других таких байтов не несёт');
+    assert.match(red.err, errRe('lib/probe.js', BYTE, { code: '0x00', at: 27, line: 2, why: NUL_WHY, hex: '00' }));
+    assert.match(red.err, errRe('bin/probe.txt', BYTE, { code: '0x01', at: 2, line: 1, why: CONTROL_WHY, hex: '01' }));
+    assert.doesNotMatch(red.err, /0x01[^\n]*git/, 'only NUL mentions git: git does not count the other bytes as binary');
+    assert.equal(red.err.match(new RegExp(`: ${ruHeadRe(BYTE).source}0x`, 'g')).length, 2, 'the tool copy carries no other such bytes');
 
     green = toolProject((dir) => {
       put(dir, 'lib/probe.js', 'const a = 1;\n\tconst key = `a\\u0000b`;\n');
-      put(dir, 'docs/untracked.md', 'не в индексе \u0001\n');
+      put(dir, 'docs/untracked.md', 'not in the index \u0001\n');
       run(dir, ['init', '-q']);
       run(dir, ['add', '-A', '--', 'lib', 'bin', 'templates', 'package.json']);
     });
     assert.equal(green.code, 0, green.err);
-    assert.doesNotMatch(green.err, /байт 0x|не проверены/);
+    assert.doesNotMatch(green.err, new RegExp(`${ruHeadRe(BYTE).source}0x|${ruRe('non-printable bytes were not checked: {message}').source}`));
   } finally {
     if (red) cleanup(red.dir);
     if (green) cleanup(green.dir);
   }
 });
 
-test('lint: 14. чужой проект гейт байтов не судит — его docs/** и test/** законно бинарные', () => {
+test('lint: 14. a foreign project is not judged by the byte gate — its docs/** and test/** may be binary', () => {
   const root = makeProject();
   try {
     seedGreen(root);
@@ -773,22 +834,22 @@ test('lint: 14. чужой проект гейт байтов не судит �
   }
 });
 
-// 12. Плейсхолдеры шаблонов: плейсхолдер без ключа в vars. Проба в обе стороны — иначе гейт не
-// отличить от холостого: красное без зелёного доказывает только то, что он умеет ругаться.
+// 12. Template placeholders: a placeholder with no key in vars. The probe goes both ways, else the
+// gate is indistinguishable from an idle one: red without green proves only that it can complain.
 function withSlot(dir, name) {
   for (const rel of ['templates/brief.md', 'templates/en/brief.md']) {
     put(dir, rel, `${read(dir, rel)}\n{{${name}}}\n`);
   }
 }
 
-test('lint: 12. слот шаблона без ключа в vars красит гейт, с ключом — нет', () => {
+test('lint: 12. a template slot without a key in vars reddens the gate, with a key it does not', () => {
   let red;
   let green;
   try {
     red = toolProject((dir) => withSlot(dir, 'budget'));
     assert.equal(red.code, 1, red.out);
-    assert.match(red.err, /templates\/brief\.md: подстановке \{\{budget\}\} не передан ключ/);
-    assert.match(red.err, /templates\/en\/brief\.md: подстановке \{\{budget\}\} не передан ключ/);
+    assert.match(red.err, ruRe('templates/{layer}{rel} placeholder {{{name}}} has no key in vars', { layer: '', rel: 'brief.md', name: 'budget' }));
+    assert.match(red.err, ruRe('templates/{layer}{rel} placeholder {{{name}}} has no key in vars', { layer: 'en/', rel: 'brief.md', name: 'budget' }));
 
     green = toolProject((dir) => {
       withSlot(dir, 'budget');
@@ -802,7 +863,7 @@ test('lint: 12. слот шаблона без ключа в vars красит �
   }
 });
 
-toolProbe('template parity: пропавший английский слой — ошибка, а не тишина', (dir) => rmSync(path.join(dir, 'templates', 'en'), { recursive: true }), /templates\/en\/ нет/);
+toolProbe('template parity: a missing English layer is an error, not silence', (dir) => rmSync(path.join(dir, 'templates', 'en'), { recursive: true }), ruRe('templates/en/ is missing'));
 
 test('lint: template parity and slot errors follow an en project language', () => {
   const dir = toolCopy();
@@ -836,66 +897,66 @@ test('lint: 4. the Area placeholder from new is an error in a task past triage',
     seedGreen(root);
     assert.equal(cli(root, ['new', 'queued', '--queue']).code, 0);
     const found = problems(root);
-    assert.ok(found.some((p) => /queued\.md: «Область» не заполнена/.test(p)), found.join(' | ') || 'ничего');
+    assert.ok(found.some((p) => errRe('queued.md', AREA_INCOMPLETE, { label: FIELD.area }).test(p)), found.join(' | ') || 'nothing');
   } finally {
     cleanup(root);
   }
 });
 
-// Карточка, заведённая штатной командой, обязана проходить гейт до разбора: в triage/ её
-// заготовки не проверяются вовсе. Та же карточка в queue/ разобрана — краснеет каждая.
-test('lint: 4. карточка new в triage/ гейт не красит, она же в queue/ — красит каждую заглушку', () => {
+// A card made by the regular command must pass the gate before triage: its stubs in triage/ are not
+// checked at all. The same card in queue/ is triaged — every stub reddens.
+test('lint: 4. a card from new passes the gate in triage/, in queue/ every stub reddens', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
-    assert.equal(cli(root, ['new', 'placeholders', '--title', 'Заготовки']).code, 0);
+    assert.equal(cli(root, ['new', 'placeholders', '--title', 'Stubs']).code, 0);
     assert.deepEqual(problems(root), []);
     assert.equal(cli(root, ['mv', '5', 'queue']).code, 0);
     const found = problems(root);
     const todoLines = read(root, 'docs/backlog/queue/BS-5-placeholders.md')
       .split('\n').map((line, i) => (line.includes('[TODO') ? i + 1 : 0)).filter(Boolean);
-    assert.ok(todoLines.length >= 4, `в карточке new заготовок ${todoLines.length}`);
+    assert.ok(todoLines.length >= 4, `the new card has ${todoLines.length} stubs`);
     for (const line of todoLines) {
-      assert.ok(found.some((p) => p === `docs/backlog/queue/BS-5-placeholders.md: строка ${line}: осталась заглушка [TODO]`),
-        `строка ${line} не покраснела: ${found.join(' | ') || 'ничего'}`);
+      assert.ok(found.some((p) => p === errLine('docs/backlog/queue/BS-5-placeholders.md', TODO_LINE, { line })),
+        `line ${line} did not redden: ${found.join(' | ') || 'nothing'}`);
     }
   } finally {
     cleanup(root);
   }
 });
 
-greenProbe('10. цитата в docs/archive — снимок момента, а показанная в фенсе — не блок', (root) => {
-  // Закрытая задача цитирует то, чего в файле давно нет: красить её нельзя.
-  put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\n<!-- quote:../reference/README.md -->\n\nчего в файле нет\n\n<!-- /quote -->\n');
-  // Форма блока, показанная внутри фенса, — пример, а не цитата.
-  put(root, 'docs/howto.md', ['# Как цитировать', '', '```markdown', '<!-- quote:reference/none.md -->', 'что угодно', '<!-- /quote -->', '```', ''].join('\n'));
+greenProbe('10. a quote in docs/archive is a snapshot of the moment, and one shown in a fence is not a block', (root) => {
+  // A closed task quotes what the file no longer holds: it must not be reddened.
+  put(root, 'docs/archive/BS-4-e/task.md', `${ruCard('BS-4', 'D')}\n<!-- quote:../reference/README.md -->\n\nwhat the file does not hold\n\n<!-- /quote -->\n`);
+  // A block form shown inside a fence is an example, not a quote.
+  put(root, 'docs/howto.md', ['# How to quote', '', '```markdown', '<!-- quote:reference/none.md -->', 'anything', '<!-- /quote -->', '```', ''].join('\n'));
 });
-test('lint: 10. quote:before сохраняет снимок до правки, но не скрывает ошибки блока', () => {
+test('lint: 10. quote:before keeps the snapshot before the edit but does not hide block errors', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
     put(root, 'docs/quoting.md', [
-      '# Цитаты', '',
+      '# Quotes', '',
       '<!-- quote:before:reference/README.md -->', '',
-      'состояние до правки', '',
+      'the state before the edit', '',
       '<!-- /quote -->', '',
     ].join('\n'));
     assert.deepEqual(problems(root), []);
-    put(root, 'docs/quoting.md', '<!-- quote:before:reference/missing.md -->\n\nсостояние до правки\n\n<!-- /quote -->\n');
-    assert.ok(problems(root).some((p) => /quoting\.md: цитата ведёт на несуществующий файл reference\/missing\.md/.test(p)), problems(root).join(' | '));
+    put(root, 'docs/quoting.md', '<!-- quote:before:reference/missing.md -->\n\nthe state before the edit\n\n<!-- /quote -->\n');
+    assert.ok(problems(root).some((p) => errRe('quoting.md', QUOTE_MISSING, { href: 'reference/missing.md' }).test(p)), problems(root).join(' | '));
   } finally {
     cleanup(root);
   }
 });
 
-probe('10. второй маркер закрывает незакрытый блок ошибкой', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n\n<!-- /quote -->\n'), /quoting\.md: блок цитаты .* не закрыт/);
-probe('10. цитата разошлась с файлом', (root) => put(root, 'docs/reference/README.md', '# Справочник\n\nОдно понятие — два имени.\n'), /quoting\.md: цитата разошлась с reference\/README\.md/);
-probe('10. цитата ведёт на несуществующий файл', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\nтекст\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);
-probe('10. блок цитаты не закрыт', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/README.md -->\n\nОдно понятие — одно имя.\n'), /quoting\.md: блок цитаты .* не закрыт/);
-probe('10. a spaced opener is a quote block', (root) => put(root, 'docs/quoting.md', '<!-- quote: reference/README.md -->\n\nnot the text\n\n<!-- /quote -->\n'), /quoting\.md: цитата разошлась с reference\/README\.md: «not the text»/);
-probe('10. a spaced quote:before opener still checks the target', (root) => put(root, 'docs/quoting.md', '<!-- quote: before: reference/none.md -->\n\ntext\n\n<!-- /quote -->\n'), /quoting\.md: цитата ведёт на несуществующий файл reference\/none\.md/);
-probe('10. a closer with no open block', (root) => put(root, 'docs/quoting.md', `${read(root, 'docs/quoting.md')}\n<!-- /quote -->\n`), /quoting\.md: строка 21: «\/quote» не закрывает ни одного блока цитаты/);
-probe('10. a quote marker that does not parse', (root) => put(root, 'docs/quoting.md', '<!-- quote reference/README.md -->\n\ntext\n'), /quoting\.md: строка 1: маркер цитаты не разбирается/);
+probe('10. a second marker closes an unclosed block with an error', (root) => put(root, 'docs/quoting.md', `<!-- quote:reference/README.md -->\n\n${ONE}\n\n<!-- quote:reference/README.md -->\n\n${ONE}\n\n<!-- /quote -->\n`), errRe('quoting.md', QUOTE_OPEN));
+probe('10. the quote diverged from the file', (root) => put(root, 'docs/reference/README.md', `# ${SECTION.context}\n\nOne concept, two names.\n`), errRe('quoting.md', QUOTE_DIFF, { href: 'reference/README.md' }));
+probe('10. a quote points at a missing file', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\ntext\n\n<!-- /quote -->\n'), errRe('quoting.md', QUOTE_MISSING, { href: 'reference/none.md' }));
+probe('10. a quote block is not closed', (root) => put(root, 'docs/quoting.md', `<!-- quote:reference/README.md -->\n\n${ONE}\n`), errRe('quoting.md', QUOTE_OPEN));
+probe('10. a spaced opener is a quote block', (root) => put(root, 'docs/quoting.md', '<!-- quote: reference/README.md -->\n\nnot the text\n\n<!-- /quote -->\n'), errRe('quoting.md', QUOTE_DIFF, { href: 'reference/README.md', first: 'not the text' }));
+probe('10. a spaced quote:before opener still checks the target', (root) => put(root, 'docs/quoting.md', '<!-- quote: before: reference/none.md -->\n\ntext\n\n<!-- /quote -->\n'), errRe('quoting.md', QUOTE_MISSING, { href: 'reference/none.md' }));
+probe('10. a closer with no open block', (root) => put(root, 'docs/quoting.md', `${read(root, 'docs/quoting.md')}\n<!-- /quote -->\n`), errRe('quoting.md', QUOTE_CLOSER, { line: 21 }));
+probe('10. a quote marker that does not parse', (root) => put(root, 'docs/quoting.md', '<!-- quote reference/README.md -->\n\ntext\n'), errRe('quoting.md', QUOTE_MARKER, { line: 1 }));
 test('lint: 10. a quote marker inside inline code or mid-prose is prose', () => {
   const root = makeProject({ git: false });
   try {
@@ -911,25 +972,27 @@ test('lint: 10. a finding card fresh from new passes the quote gate', () => {
   try {
     seedGreen(root);
     assert.equal(cli(root, ['new', 'finding', '--parent', '1']).code, 0);
-    assert.ok(!problems(root).some((p) => /цитат/.test(p)), problems(root).join(' | '));
+    assert.ok(!problems(root).some((p) => [QUOTE_MISSING, QUOTE_DIFF, QUOTE_OPEN, QUOTE_CLOSER, QUOTE_MARKER].some((en) => ruRe(en).test(p))), problems(root).join(' | '));
   } finally {
     cleanup(root);
   }
 });
 
-// Пять ветвей err(), которые до сих пор можно было вырезать при зелёном npm test.
-probe('2. каталог вместо файла задачи в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), /каталог внутри каталога статуса/);
-// Каталог, названный как файл задачи: scanTasks читал его как файл и падал EISDIR раньше гейта.
-probe('2. каталог, названный как файл задачи, в каталоге статуса', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md')), /BS-9-sub\.md: каталог внутри каталога статуса/);
-probe('2. symlink на каталог с именем файла задачи — та же диагностика', (root) => {
+// Five err() branches that could still be cut out while npm test stayed green.
+const DIR_IN_STATUS = 'directory inside a status directory: each task must be one file';
+probe('2. a directory instead of a task file in a status directory', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/sub')), ruRe(DIR_IN_STATUS));
+// A directory named like a task file: scanTasks read it as a file and fell over with EISDIR
+// before the gate.
+probe('2. a directory named like a task file in a status directory', (root) => mkdirSync(path.join(root, 'docs/backlog/queue/BS-9-sub.md')), errRe('BS-9-sub.md', DIR_IN_STATUS));
+probe('2. a symlink to a directory named like a task file — the same diagnostic', (root) => {
   mkdirSync(path.join(root, 'docs/shared'));
   symlinkSync(path.join(root, 'docs/shared'), path.join(root, 'docs/backlog/queue/BS-9-sub.md'));
-}, /BS-9-sub\.md: каталог внутри каталога статуса/);
-probe('2. битая ссылка с именем файла задачи в каталоге статуса', (root) => {
+}, errRe('BS-9-sub.md', DIR_IN_STATUS));
+probe('2. a dangling link named like a task file in a status directory', (root) => {
   symlinkSync(path.join(root, 'docs/nowhere.md'), path.join(root, 'docs/backlog/queue/BS-9-sub.md'));
-}, /BS-9-sub\.md: битая ссылка в каталоге статуса/);
-probe('3. каталога бэклога нет', (root) => rmSync(path.join(root, 'docs/backlog'), { recursive: true }), /каталога бэклога нет/);
-probe('5. посторонний файл в архиве', (root) => put(root, 'docs/archive/NOTES.txt', 'заметка\n'), /в архиве только каталоги задач, README\.md и LOG\.md/);
+}, errRe('BS-9-sub.md', 'dangling symlink in a status directory: a task is a file, and the link points to nothing'));
+probe('3. no backlog directory', (root) => rmSync(path.join(root, 'docs/backlog'), { recursive: true }), ruRe('backlog directory is missing — run {cli} init'));
+probe('5. a stray file in the archive', (root) => put(root, 'docs/archive/NOTES.txt', 'a note\n'), ruRe('archive may contain only task directories, README.md, and {log}'));
 test('lint: 5. an archive task directory symlinked inside the project is a task directory', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   try {
@@ -941,59 +1004,59 @@ test('lint: 5. an archive task directory symlinked inside the project is a task 
     cleanup(root);
   }
 });
-probe('5. каталог архива без task.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/task.md')), /нет task\.md — постановки/);
-probe('8. ADR есть, а индекса документации нет', (root) => rmSync(path.join(root, 'docs/README.md')), /нет индекса документации, а ADR есть/);
+probe('5. an archive directory without task.md', (root) => rmSync(path.join(root, 'docs/archive/BS-4-e/task.md')), ruRe('task.md specification is missing'));
+probe('8. an ADR exists but the documentation index does not', (root) => rmSync(path.join(root, 'docs/README.md')), ruRe('documentation index is missing while ADRs exist'));
 
-// 13. Журнал закрытых: запись разбирается, якорь равен номеру, ссылка на якорь ведёт на запись —
-// у каждого своя проба; достижимость ревизии из HEAD проверяют тесты ниже.
+// 13. The closed-tasks journal: an entry parses, the anchor equals the number, a link to an anchor
+// leads to an entry — one probe each; reachability of the revision from HEAD is checked below.
 const LOG_GREEN = [
-  '# Журнал закрытых задач',
+  '# Journal of closed tasks',
   '',
-  'Строка на задачу.',
+  'One line per task.',
   '',
-  '- <a id="bs-5"></a>`BS-5-folded` · 2026-08-02 · выполнена · `abcdef1234` · Свёрнутая',
+  `- <a id="bs-5"></a>\`BS-5-folded\` · 2026-08-02 · ${ruOutcomeWord('completed')} · \`abcdef1234\` · Folded`,
   '',
 ].join('\n');
 
 function seedLog(root) {
   put(root, 'docs/archive/LOG.md', LOG_GREEN);
-  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗакрыта [BS-5](archive/LOG.md#bs-5).\n');
+  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nClosed [BS-5](archive/LOG.md#bs-5).\n');
 }
 
-test('lint: журнал закрытых рядом с каталогом архива — зелёный', () => {
+test('lint: the closed-tasks journal next to the archive directory is green', () => {
   const root = makeProject({ git: false });
   try {
     seedGreen(root);
     seedLog(root);
     assert.deepEqual(problems(root), []);
-    assert.ok(warnings(root).some((w) => /LOG\.md: достижимость ревизий журнала из HEAD не проверена/.test(w)), warnings(root).join(' | '));
+    assert.ok(warnings(root).some((w) => errRe('LOG.md', REACH).test(w)), warnings(root).join(' | '));
   } finally {
     cleanup(root);
   }
 });
 
-probe('13. строка журнала не разбирается', (root) => {
+probe('13. a journal line does not parse', (root) => {
   seedLog(root);
-  put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('· 2026-08-02 ·', '· вчера ·'));
-}, /LOG\.md: строка 5 выглядит записью журнала, но не разбирается/);
+  put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('· 2026-08-02 ·', '· yesterday ·'));
+}, errRe('LOG.md', 'line {line} looks like a journal entry but does not parse: “{raw}”', { line: 5 }));
 
-probe('13. якорь строки не совпадает с номером', (root) => {
+probe('13. the line anchor does not match the number', (root) => {
   seedLog(root);
   put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('id="bs-5"', 'id="bs-50"'));
-}, /LOG\.md: строка 5: якорь «bs-50» не совпадает с номером/);
+}, errRe('LOG.md', 'line {line}: anchor “{anchor}” does not match the number — incoming links point at “{expected}”', { line: 5, anchor: 'bs-50' }));
 
-probe('13. ссылка ведёт на якорь, которого в журнале нет', (root) => {
+probe('13. a link points to an anchor the journal does not have', (root) => {
   seedLog(root);
-  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗакрыта [BS-5](archive/LOG.md#bs-55).\n');
-}, /ROADMAP\.md: ссылка archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
+  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nClosed [BS-5](archive/LOG.md#bs-55).\n');
+}, errRe('ROADMAP.md', JOURNAL_MISS, { href: 'archive/LOG.md#bs-55', anchor: 'bs-55' }));
 
-probe('13. ссылка из корневого файла на промахнувшийся якорь', (root) => {
+probe('13. a link from a root file to a missed anchor', (root) => {
   seedLog(root);
-  put(root, 'README.md', 'См. [BS-5](docs/archive/LOG.md#bs-55)\n');
-}, /README\.md: ссылка docs\/archive\/LOG\.md#bs-55 ведёт на строку журнала, которой нет/);
+  put(root, 'README.md', 'See [BS-5](docs/archive/LOG.md#bs-55)\n');
+}, errRe('README.md', JOURNAL_MISS, { href: 'docs/archive/LOG.md#bs-55', anchor: 'bs-55' }));
 greenProbe('13. a journal link inside an HTML comment is not read', (root) => {
   seedLog(root);
-  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nЗакрыта [BS-5](archive/LOG.md#bs-5). <!-- [x](archive/LOG.md#bs-99) -->\n');
+  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nClosed [BS-5](archive/LOG.md#bs-5). <!-- [x](archive/LOG.md#bs-99) -->\n');
 });
 test('lint: 1. the adapter pass checks anchors into the journal, which gate 13 does not walk', () => {
   const root = makeProject({ git: false });
@@ -1004,7 +1067,7 @@ test('lint: 1. the adapter pass checks anchors into the journal, which gate 13 d
     put(root, '.claude/skills/backslop-task/SKILL.md',
       '<!-- backslop:generated -->\n[ok](../../../docs/archive/LOG.md#bs-5) [gone](../../../docs/archive/LOG.md#bs-999)\n');
     assert.deepEqual(problems(root).filter((p) => p.startsWith('.claude/skills/backslop-task/')), [
-      '.claude/skills/backslop-task/SKILL.md: ссылка ../../../docs/archive/LOG.md#bs-999: в docs/archive/LOG.md нет якоря «bs-999» — ни заголовка, ни id с таким именем (строка 2)',
+      errLine('.claude/skills/backslop-task/SKILL.md', NO_ANCHOR, { href: '../../../docs/archive/LOG.md#bs-999', where: 'docs/archive/LOG.md', fragment: 'bs-999', line: 2 }),
     ]);
   } finally {
     cleanup(root);
@@ -1018,57 +1081,57 @@ test('lint: 13. the journal anchor is checked behind ?query and a %-escape; a ma
     seedLog(root);
     put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](archive/LOG.md?plain=1#bs-5) [q](archive/LOG.md?plain=1#bs-99) [e](archive/LOG%2Emd#bs-9) [m](a%E0%A4%A.md#bs-5)\n');
     assert.deepEqual(problems(root), [
-      'docs/ROADMAP.md: битая ссылка a%E0%A4%A.md#bs-5 (строка 3)',
-      'docs/ROADMAP.md: ссылка archive/LOG.md?plain=1#bs-99 ведёт на строку журнала, которой нет — якорь «bs-99» ни за одной записью (строка 3)',
-      'docs/ROADMAP.md: ссылка archive/LOG%2Emd#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью (строка 3)',
+      errLine('docs/ROADMAP.md', BROKEN, { href: 'a%E0%A4%A.md#bs-5', line: 3 }),
+      errLine('docs/ROADMAP.md', JOURNAL_MISS, { href: 'archive/LOG.md?plain=1#bs-99', anchor: 'bs-99', line: 3 }),
+      errLine('docs/ROADMAP.md', JOURNAL_MISS, { href: 'archive/LOG%2Emd#bs-9', anchor: 'bs-9', line: 3 }),
     ]);
   } finally {
     cleanup(root);
   }
 });
 
-// Закрытая задача, закоммиченная между `archive N` и `fold N`:
-// этот коммит и становится ревизией строки журнала.
+// A closed task committed between `archive N` and `fold N`:
+// that commit becomes the revision of the journal line.
 function foldCommitted(root) {
-  put(root, 'docs/archive/BS-5-folded/task.md', '# BS-5 · Свёрнутая\n\n- **Область:** [x](../../reference/README.md)\n');
-  put(root, 'docs/archive/BS-5-folded/result.md', '# BS-5 · Результат\n\n**Закрыта 2026-08-02.** Выполнена.\n');
-  gitAll(root, 'BS-5: приёмка до свёртки');
+  put(root, 'docs/archive/BS-5-folded/task.md', ruCard('BS-5', 'Folded', { area: AREA }));
+  put(root, 'docs/archive/BS-5-folded/result.md', closed('BS-5', '2026-08-02'));
+  gitAll(root, 'BS-5: acceptance before the fold');
   const r = cli(root, ['fold', '5']);
   assert.equal(r.code, 0, r.err);
-  assert.match(read(root, 'docs/archive/LOG.md'), /· `[0-9a-f]{10}` · Свёрнутая/, 'строка называет ревизию');
+  assert.match(read(root, 'docs/archive/LOG.md'), /· `[0-9a-f]{10}` · Folded/, 'the line names the revision');
   return r.out;
 }
 
-test('lint: 13. ревизия строки журнала не достижима из HEAD — squash выбросил коммит между archive и fold', () => {
+test('lint: 13. the journal line revision is not reachable from HEAD — squash dropped the commit between archive and fold', () => {
   const root = makeProject();
   try {
     seedGreen(root);
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
     const draft = foldCommitted(root);
-    assert.deepEqual(problems(root), [], 'до squash ревизия строки лежит в истории HEAD');
+    assert.deepEqual(problems(root), [], 'before the squash the line revision is in the HEAD history');
     run(root, ['add', '-A']);
     run(root, ['reset', '-q', '--soft', base]);
     run(root, ['commit', '-q', '-m', draft]);
     const line = read(root, 'docs/archive/LOG.md').split('\n').findIndex((l) => l.startsWith('- <a id="bs-5">')) + 1;
     const found = problems(root);
-    assert.ok(found.some((p) => new RegExp(`LOG\\.md: строка ${line}: ревизия [0-9a-f]{10} не достижима из HEAD`).test(p)), found.join(' | ') || 'ничего');
+    assert.ok(found.some((p) => errRe('LOG.md', 'line {line}: revision {commit} is not reachable from HEAD — show will not find the body through it; such a revision is left by a commit that a squash or rebase dropped after folding', { line }).test(p)), found.join(' | ') || 'nothing');
   } finally {
     cleanup(root);
   }
 });
 
-test('lint: 13. неполный клон — достижимость ревизий журнала не проверяется, предупреждение вместо ошибки', () => {
+test('lint: 13. a shallow clone — reachability of journal revisions is not checked, a warning instead of an error', () => {
   const root = makeProject();
   const clone = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shallow-')));
   try {
     seedGreen(root);
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     foldCommitted(root);
-    gitAll(root, 'BS-5: закрыта');
+    gitAll(root, 'BS-5: closed');
     run(root, ['clone', '-q', '--depth', '1', `file://${root}`, clone]);
-    assert.deepEqual(problems(clone).filter((p) => p.startsWith('docs/archive/LOG.md')), [], 'ревизии в неполном клоне нет, и это не довод против строки');
-    assert.ok(warnings(clone).some((w) => /LOG\.md: достижимость ревизий журнала из HEAD не проверена: клон неполный/.test(w)), warnings(clone).join(' | '));
+    assert.deepEqual(problems(clone).filter((p) => p.startsWith('docs/archive/LOG.md')), [], 'the revision is absent from a shallow clone, and that is no argument against the line');
+    assert.ok(warnings(clone).some((w) => errRe('LOG.md', REACH, { why: ru('the clone is shallow and lacks older commits') }).test(w)), warnings(clone).join(' | '));
   } finally {
     cleanup(root);
     cleanup(clone);
@@ -1080,12 +1143,12 @@ test('lint: 13. a failed git rev-list warns with the signal name or the first st
   const bin = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
   try {
     seedGreen(root);
-    gitAll(root, 'база');
+    gitAll(root, 'base');
     foldCommitted(root);
     const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
     for (const { label, shim, expect, forbid } of [
-      { label: 'killed by a signal', shim: 'kill -9 $$', expect: /LOG\.md: достижимость ревизий журнала из HEAD не проверена: оборван сигналом SIGKILL$/m, forbid: /git null/ },
-      { label: 'multi-line stderr', shim: "{ printf 'fatal: первая\\nвторая\\n' >&2; exit 128; }", expect: /LOG\.md: достижимость ревизий журнала из HEAD не проверена: fatal: первая$/m, forbid: /вторая/ },
+      { label: 'killed by a signal', shim: 'kill -9 $$', expect: new RegExp(`${errSrc('LOG.md', REACH, { why: KILLED })}$`, 'm'), forbid: /git null/ },
+      { label: 'multi-line stderr', shim: "{ printf 'fatal: first\\nsecond\\n' >&2; exit 128; }", expect: new RegExp(`${errSrc('LOG.md', REACH, { why: 'fatal: first' })}$`, 'm'), forbid: /second/ },
     ]) {
       writeFileSync(path.join(bin, 'git'), `#!/bin/sh\nfor a in "$@"; do [ "$a" = rev-list ] && ${shim}; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
       const r = cli(root, ['lint'], { env: { PATH: `${bin}${path.delimiter}${process.env.PATH}` } });
@@ -1099,9 +1162,9 @@ test('lint: 13. a failed git rev-list warns with the signal name or the first st
   }
 });
 
-probe('2. номер занят и каталогом архива, и строкой журнала', (root) => {
+probe('2. a number is taken by both an archive directory and a journal line', (root) => {
   put(root, 'docs/archive/LOG.md', LOG_GREEN.replace('bs-5', 'bs-4').replace('BS-5-folded', 'BS-4-e'));
-}, /номер BS-4 уже занят/);
+}, ruRe('number {id} is already used by {rel}', { id: 'BS-4' }));
 
 test('lint: a layout directory that is a file is a gate error naming the path, not a stack', () => {
   for (const rel of ['docs/backlog', 'docs/backlog/queue', 'docs/adr', 'docs/archive/BS-4-e/minor', 'docs/archive']) {
@@ -1112,7 +1175,7 @@ test('lint: a layout directory that is a file is a gate error naming the path, n
       put(root, rel, 'x\n');
       const r = cli(root, ['lint']);
       assert.equal(r.code, 1, `${rel}: ${r.out}`);
-      assert.ok(r.err.split('\n').includes(`✖ ${rel}: файл, а нужен каталог`), `${rel}: ${r.err}`);
+      assert.ok(r.err.split('\n').includes(`✖ ${rel}: ${ru('a file, expected a directory')}`), `${rel}: ${r.err}`);
       assert.doesNotMatch(r.err, /ENOTDIR|node:fs|\n\s+at /, `${rel}: a stack`);
     } finally {
       cleanup(root);
@@ -1223,17 +1286,17 @@ test('lint: a live pin that differs from cli is an error naming the file and lin
     put(root, '.github/workflows/ci.yml', `steps:\n  - run: npx github:me/proj#v${V} init\n`);
     assert.deepEqual(problems(root), []);
 
-    put(root, 'docs/archive/README.md', '# Архив\n\nПереезд делает `npx github:me/proj#v0.1.0 archive N`.\n');
-    assert.ok(problems(root).some((p) => p.includes('docs/archive/README.md: строка 3: пин github:me/proj#v0.1.0 расходится с cli')), problems(root).join(' | '));
-    put(root, 'docs/archive/README.md', `# Архив\n\nПереезд делает \`npx github:me/proj#v${V} archive N\`.\n`);
+    put(root, 'docs/archive/README.md', '# Archive\n\nThe move is done by `npx github:me/proj#v0.1.0 archive N`.\n');
+    assert.ok(problems(root).some((p) => errRe('docs/archive/README.md', PIN_DIFFERS, { at: atLine(3), pin: 'github:me/proj#v0.1.0' }).test(p)), problems(root).join(' | '));
+    put(root, 'docs/archive/README.md', `# Archive\n\nThe move is done by \`npx github:me/proj#v${V} archive N\`.\n`);
     assert.deepEqual(problems(root), []);
 
-    // npm-форма пина сверяется тем же способом.
+    // The npm form of a pin is compared the same way.
     setConfig(root, { cli: `npx backslop@${V}`, version: V });
-    put(root, 'docs/ROADMAP.md', 'Ставится `npx backslop@0.3.0`.\n');
-    assert.ok(problems(root).some((p) => /docs\/ROADMAP\.md: строка 1: пин backslop@0\.3\.0 расходится с cli/.test(p)), problems(root).join(' | '));
-    put(root, 'docs/ROADMAP.md', `Ставится \`npx backslop@${V}\`.\n`);
-    put(root, 'docs/archive/README.md', '# Архив\n');
+    put(root, 'docs/ROADMAP.md', 'Installed with `npx backslop@0.3.0`.\n');
+    assert.ok(problems(root).some((p) => errRe('docs/ROADMAP.md', PIN_DIFFERS, { at: atLine(1), pin: 'backslop@0.3.0' }).test(p)), problems(root).join(' | '));
+    put(root, 'docs/ROADMAP.md', `Installed with \`npx backslop@${V}\`.\n`);
+    put(root, 'docs/archive/README.md', '# Archive\n');
     assert.deepEqual(problems(root), []);
   } finally {
     cleanup(root);
@@ -1245,14 +1308,14 @@ test('lint: a stale pin in history files or quoted as card evidence is not drift
   try {
     seedGreen(root);
     setConfig(root, { cli: `npx github:me/proj#v${TOOL_VERSION}`, version: TOOL_VERSION });
-    // Записи о моменте — не инструкция: их версии дрейфом не считаются.
-    put(root, 'CHANGELOG.md', '## Не выпущено\n\n- **Одно** — было `npx github:me/proj#v0.1.0`\n');
-    put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Процесс\n\n**Status:** Accepted\n\nПри `npx github:me/proj#v0.1.0`.\n');
-    put(root, 'docs/archive/BS-4-e/task.md', '# BS-4 · Д\n\nГнали `npx github:me/proj#v0.1.0 lint`.\n');
+    // Records of a moment are not instructions: their versions are not drift.
+    put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — it was `npx github:me/proj#v0.1.0`\n');
+    put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Process\n\n**Status:** Accepted\n\nAt `npx github:me/proj#v0.1.0`.\n');
+    put(root, 'docs/archive/BS-4-e/task.md', `${ruCard('BS-4', 'D')}\nRan with \`npx github:me/proj#v0.1.0 lint\`.\n`);
     assert.deepEqual(problems(root), []);
 
-    // Карточка задачи цитирует пин уликой момента — предупреждать не о чем.
-    put(root, 'docs/backlog/queue/BS-1-a.md', '# BS-1 · А\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\nЗамер сделан на `npx github:me/proj#v0.1.0`.\n');
+    // A task card quotes the pin as the evidence of the moment — nothing to warn about.
+    put(root, 'docs/backlog/queue/BS-1-a.md', `${ruCard('BS-1', 'A', { order: 10, area: AREA })}\nMeasured on \`npx github:me/proj#v0.1.0\`.\n`);
     assert.deepEqual(problems(root), []);
   } finally {
     cleanup(root);
@@ -1264,10 +1327,10 @@ test('lint: an unpinned cli leaves a stale prose pin silent', () => {
   const V = TOOL_VERSION;
   try {
     seedGreen(root);
-    put(root, 'docs/notes.md', 'Ставится `npx backslop@0.3.0`.\n');
+    put(root, 'docs/notes.md', 'Installed with `npx backslop@0.3.0`.\n');
     setConfig(root, { cli: `npx backslop@${V}`, version: V });
-    assert.ok(problems(root).some((p) => p.startsWith('docs/notes.md: строка 1:')), 'a pinned cli sees the stale pin');
-    // cli без пина — сверять не с чем: self-host и глобальная установка молчат.
+    assert.ok(problems(root).some((p) => p.startsWith(`docs/notes.md: ${atLine(1)}:`)), 'a pinned cli sees the stale pin');
+    // A cli without a pin has nothing to compare with: self-host and a global install stay silent.
     setConfig(root, { cli: 'node bin/backslop.js', version: V });
     assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
@@ -1293,7 +1356,7 @@ test('lint: a pin in a journal entry is a record of its moment, the LOG.md heade
 
     put(root, 'docs/archive/LOG.md', `# Log\n\nBodies: \`${old} show N\`.\n\n${entry}\n`);
     assert.equal(problems(root).length, 1, problems(root).join(' | '));
-    assert.match(problems(root)[0], /^docs\/archive\/LOG\.md: строка 3: пин github:me\/proj#v0\.1\.0 расходится с cli/);
+    assert.match(problems(root)[0], new RegExp(`^${errSrc('docs/archive/LOG.md', PIN_DIFFERS, { at: atLine(3), pin: 'github:me/proj#v0.1.0' })}`));
     assert.deepEqual(rewriteProsePins(root, 'docs', 'BS', parseCli(now), V), ['docs/archive/LOG.md']);
     assert.equal(read(root, 'docs/archive/LOG.md'), `# Log\n\nBodies: \`${now} show N\`.\n\n${entry}\n`);
     assert.deepEqual(problems(root), []);
@@ -1310,8 +1373,8 @@ test('lint: a prose pin in the other forms parseCli accepts, .git suffix or no v
     put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), cli: `npx github:me/proj#v${V}`, version: V }, null, 2)}\n`);
     put(root, 'docs/ROADMAP.md', 'Run `npx github:me/proj.git#v0.1.0 lint` or `npx github:me/proj#0.1.0 lint`.\n');
     const found = problems(root);
-    assert.ok(found.some((p) => p.includes('docs/ROADMAP.md: строка 1: пин github:me/proj.git#v0.1.0 расходится с cli')), found.join(' | '));
-    assert.ok(found.some((p) => p.includes('docs/ROADMAP.md: строка 1: пин github:me/proj#0.1.0 расходится с cli')), found.join(' | '));
+    assert.ok(found.some((p) => errRe('docs/ROADMAP.md', PIN_DIFFERS, { at: atLine(1), pin: 'github:me/proj.git#v0.1.0' }).test(p)), found.join(' | '));
+    assert.ok(found.some((p) => errRe('docs/ROADMAP.md', PIN_DIFFERS, { at: atLine(1), pin: 'github:me/proj#0.1.0' }).test(p)), found.join(' | '));
     put(root, 'docs/ROADMAP.md', `Run \`npx github:me/proj.git#v${V} lint\` or \`npx github:me/proj#${V} lint\`.\n`);
     assert.deepEqual(problems(root), [], 'the current version in another form is no drift');
   } finally {
@@ -1336,7 +1399,7 @@ test('lint: an upper-case CHANGELOG.MD or card file stays a record of its moment
     assert.ok(!live.includes('CHANGELOG.MD') && !live.includes('docs/notes/BS-7-x.MD'), live.join(' '));
     assert.ok(live.includes('docs/notes/bs-8-y.md'), live.join(' '));
     assert.equal(problems(root).length, 1, problems(root).join(' | '));
-    assert.match(problems(root)[0], /^docs\/notes\/bs-8-y\.md: строка 1: пин github:me\/proj#v0\.1\.0 расходится с cli/);
+    assert.match(problems(root)[0], new RegExp(`^${errSrc('docs/notes/bs-8-y.md', PIN_DIFFERS, { at: atLine(1), pin: 'github:me/proj#v0.1.0' })}`));
     assert.deepEqual(rewriteProsePins(root, 'docs', 'BS', parseCli(`npx github:me/proj#v${V}`), `v${V}`), ['docs/notes/bs-8-y.md']);
     assert.equal(read(root, 'CHANGELOG.MD'), changelog);
     assert.equal(read(root, 'docs/notes/BS-7-x.MD'), `Measured on \`${old}\`.\n`);
