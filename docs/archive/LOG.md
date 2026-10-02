@@ -253,3 +253,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-195"></a>`BS-195-hook-command` · 2026-10-02 · completed · — · Agent hooks: a hook command that returns the turn on lint errors in the files the session changed
 - <a id="bs-191"></a>`BS-191-process-docs-hooks` · 2026-10-02 · completed · — · Process: a documentation fix carries a check red on the old text; the writer pass at release and at batch close
 - <a id="bs-182"></a>`BS-182-cyrillic-only-in-templates-gate` · 2026-10-02 · completed · — · Gate: Cyrillic only in templates/, docs/backlog/ and docs/archive/
+- <a id="bs-196"></a>`BS-196-hooks-install` · 2026-10-02 · completed · — · Agent hooks: the hooks field and owned hook records in the Claude Code, Cursor and Codex project files

@@ -79,6 +79,7 @@ export const messages = {
   '{config}: docs “{docs}” — expected a relative path inside the project': '{config}: docs «{docs}» — нужен относительный путь внутри проекта',
   '{config}: cli must be a non-empty command string': '{config}: cli — непустая строка команды',
   '{config}: tools must be a unique array of claude, cursor, codex': '{config}: tools — список без повторов из claude, cursor, codex',
+  '{config}: hooks must be a unique array of claude, cursor, codex': '{config}: hooks — список без повторов из claude, cursor, codex',
   '{config}: version “{version}” — expected X.Y.Z': '{config}: version «{version}» — нужна форма X.Y.Z',
   '{config}: source must be a git URL or repository path containing release tags': '{config}: source — строка: git-адрес или путь репозитория с тегами релизов',
   '{label} must not contain a backtick: the template puts it in a code span, and a backtick inside closes it': '{label} — значение без обратной кавычки: шаблон ставит его в код-спан, и кавычка внутри его закрывает',
@@ -182,6 +183,21 @@ export const messages = {
   'the event on stdin is not a JSON object with a session_id': 'событие на stdin — не JSON-объект с session_id',
   'lint errors in changed files returned the turn {limit} times in a row; letting it end:': 'ошибки lint в изменённых файлах {limit} раза подряд возвращали ход; ход закончен, ошибки остались:',
   'fix these errors in the files named above; do not bypass the hook': 'исправь эти ошибки в названных выше файлах; хук не обходи',
+  // lib/hooks-install.js
+  'agent hook file path contains a symlink: {link} — backslop does not write through a foreign link; replace it with a plain directory or file, or drop {harness} from --hooks': 'в пути файла хуков агента символическая ссылка: {link} — сквозь чужую ссылку backslop не пишет; замени её обычным каталогом или файлом либо убери {harness} из --hooks',
+  '{rel} is not a file': '{rel} — не файл',
+  '{rel} is not valid JSON ({cause}): init merges its hook records into the file and does not overwrite it — fix the file, or drop {harness} from --hooks': '{rel} — не JSON ({cause}): init вливает свои записи хуков в файл и не перезаписывает его — почини файл или убери {harness} из --hooks',
+  '{rel}: the top level is not an object — init merges its hook records into it and does not overwrite it': '{rel}: верхний уровень — не объект; init вливает в файл свои записи хуков и не перезаписывает его',
+  '{rel}: hooks is not an object — init merges its hook records into it and does not overwrite it': '{rel}: hooks — не объект; init вливает в файл свои записи хуков и не перезаписывает его',
+  '{rel}: hooks.{key} is not an array — init merges its hook records into it and does not overwrite it': '{rel}: hooks.{key} — не массив; init вливает в файл свои записи хуков и не перезаписывает его',
+  '{rel} written': '{rel} записан',
+  '{rel} removed': '{rel} удалён',
+  '{cause} — init refuses on it': '{cause} — на этом init откажет',
+  'backslop agent hook records for {harness} sit here, behind the symlink {link}, and the hooks field of {config} does not select {harness} — init does not remove records through a link: remove them by hand': 'здесь, за символической ссылкой {link}, записи хуков агента backslop для {harness}, а поле hooks в {config} {harness} не выбирает — сквозь ссылку init записи не снимает: удали их вручную',
+  'backslop agent hook records for {harness} sit here, but the hooks field of {config} does not select {harness} — run {cli} init': 'здесь записи хуков агента backslop для {harness}, а поле hooks в {config} {harness} не выбирает — запусти {cli} init',
+  'the agent hook record “{command}” runs another cli than this project’s {cli} — run {cli} init': 'запись хука агента «{command}» запускает не cli этого проекта {cli} — запусти {cli} init',
+  'the agent hook records of {harness} differ from what init writes: a duplicate or a record under another event — run {cli} init': 'записи хуков агента для {harness} расходятся с тем, что пишет init: дубль или запись под другим событием — запусти {cli} init',
+  'the {key} agent hook record of {harness} is missing: expected “{command}” — run {cli} init': 'нет записи хука агента {key} для {harness}: ожидается «{command}» — запусти {cli} init',
   // lib/init.js
   '--dir “{dir}”: expected a relative path inside the project': '--dir «{dir}»: нужен относительный путь внутри проекта',
   '{config} already sets {key} = “{value}”; change it in the config, not with this flag': '{config} уже есть, и там {key} = «{value}»; менять — правкой конфига, не флагом',
@@ -199,6 +215,9 @@ export const messages = {
   'next: {cli} lint validates the layout; update with {cli} upgrade': 'дальше: {cli} lint — проверка скелета; обновление — {cli} upgrade',
   'next: {cli} lint validates the layout; an adapter installs the skills, including the one that populates docs: {cli} init --tools claude|cursor|codex; update with {cli} upgrade': 'дальше: {cli} lint — проверка скелета; скиллы, и с ними наполнение docs, ставит adapter: {cli} init --tools claude|cursor|codex; обновление — {cli} upgrade',
   '--tools “{raw}”: a comma-separated list of claude, cursor, codex, or none': '--tools «{raw}»: claude, cursor, codex через запятую или none',
+  '--hooks “{raw}”: a comma-separated list of claude, cursor, codex, or none': '--hooks «{raw}»: claude, cursor, codex через запятую или none',
+  'agent hooks: {states}': 'хуки агента: {states}',
+  'agent hooks of {harnesses}: promptobus participants of these harnesses collide with {files} until promptobus accepts backslop\'s hook records — a project that runs such participants should not select these hooks': 'хуки агента для {harnesses}: участники promptobus этих харнессов конфликтуют с {files}, пока promptobus не примет записи хуков backslop, — проекту, где такие участники работают, эти хуки не выбирать',
   'not needed': 'не нужен',
   '# no adapters selected — nothing is generated': '# adapters не выбраны — generated outputs не создаются',
   '{name} is a directory, expected a file': '{name} — каталог, а нужен файл',
@@ -641,8 +660,8 @@ export const sectionNames = {
 export const help = (version) => `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
 Команды:
-  init [--dir docs] [--prefix BS] [--cli <команда>] [--lang ru|en] [--tools <CSV|none>]
-                                                      разложить скелет docs, adapters, блок в AGENTS.md, backslop.json
+  init [--dir docs] [--prefix BS] [--cli <команда>] [--lang ru|en] [--tools <CSV|none>] [--hooks <CSV|none>]
+                                                      разложить скелет docs, adapters, хуки агента, блок в AGENTS.md, backslop.json
   new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <уровень>] [--hypothesis]]]
                                                       завести задачу (по умолчанию в triage/) или находку задачи N / N.M;
                                                       --minor — minor-находка или гипотеза в minor/, с полем «Цена»;

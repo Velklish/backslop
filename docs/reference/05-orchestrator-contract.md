@@ -375,7 +375,7 @@ These are the commands an orchestrator uses to change the tracker. The behaviour
 
 ## `backslop.json`
 
-The single owner of the field semantics is the [01 config table](01-layout.md#backslopjson). The ten fields, in the order `init` writes them:
+The single owner of the field semantics is the [01 config table](01-layout.md#backslopjson). The eleven fields, in the order `init` writes them:
 
 | Field | For an orchestrator |
 |---|---|
@@ -388,6 +388,7 @@ The single owner of the field semantics is the [01 config table](01-layout.md#ba
 | `source` | where `upgrade` takes release tags from |
 | `lang` | `ru` or `en`: the language of human text |
 | `tools` | the selected adapters |
+| `hooks` | the harnesses whose project hook files carry backslop's agent hook records, or absent |
 | `agents.stepOverrides` | replacements of numbered steps of the managed block |
 
 ## What is stable
