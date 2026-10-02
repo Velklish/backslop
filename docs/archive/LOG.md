@@ -333,3 +333,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.49"></a>`BS-192.49-layout-promptobus-participants-unverified` · 2026-10-02 · batch BS-208 · — · 01-layout.md promptobus participants: the behaviour of promptobus v0.21.0 is unverified
 - <a id="bs-192.52"></a>`BS-192.52-cli-init-promptobus-line-unverified` · 2026-10-02 · batch BS-208 · — · 02-cli.md init line on promptobus: the collision with hook files is unverified
 - <a id="bs-207"></a>`BS-207-status-deferred-shows-date-line` · 2026-10-02 · completed · — · status prints the Deferred date line where a reader expects the reason
+- <a id="bs-186.3"></a>`BS-186.3-unreleased-section-without-tags` · 2026-10-02 · completed · — · Gate 15 reads a released versioned top CHANGELOG section as unreleased when the clone has no matching tag

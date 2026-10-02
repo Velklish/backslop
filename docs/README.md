@@ -384,6 +384,12 @@ A record has this form:
 
 <!-- quote:reference/03-lint.md -->
 ```text
+- **The set.** Root `README*.md` (any letter case), every `.md` under `<docs>/` except `<docs>/backlog/` and `<docs>/archive/` — ADRs included — and, in `CHANGELOG.md`, the unreleased section only. The unreleased section is the first `## ` section whose title does not start with a version, and there is none when every section is versioned; the tags of the clone are not read, so a versioned top section is released whether or not its tag exists. Released sections are history and stay with gate 6.
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
 - **Directory links that name a task.** The same gate reports a link to an existing directory whose text names a project task (`<prefix>-N[.k]` anywhere in the link text, in a code span too): inline `[<prefix>-N](../triage)` and reference-style — full `[<prefix>-N][f]`, collapsed `[<prefix>-N][]` and shortcut `[<prefix>-N]` with the declaration `[f]: ../triage` (labels compare case-insensitively). Such a link promises a card and delivers a directory, and it looks whole while broken; gate 6 does not report it, because the number exists. A directory link without a task id is allowed: `[templates/](../../templates/)` shows a directory, and nothing but the directory can show it. A link inside a code span or a fenced code block is an example and is not read.
 ```
 <!-- /quote -->
