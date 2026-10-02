@@ -1,8 +1,8 @@
 # Glossary
 
-The normative vocabulary for backslop. Project texts use only names from this glossary: one concept, one name. When a second spelling appears, either add it to “Retired terms” as a replacement or remove it from the text.
+The normative vocabulary for backslop. Project texts use only names from this glossary: one concept, one name. When a second spelling appears, either add it to "Retired terms" as a replacement or remove it from the text.
 
-The “Term” column is the spelling in project prose; EN is the identifier in code, and `—` means the concept has none. Evidence identifies where the term lives: a file in the code or the templates, or a section of the reference.
+The "Term" column is the spelling in project prose; EN is the identifier in code, and `—` means the concept has none. Evidence identifies where the term lives: a file in the code or the templates, or a section of the reference.
 
 ## Terms
 
@@ -33,7 +33,7 @@ The “Term” column is the spelling in project prose; EN is the identifier in 
 | track | `track` | A direction within a run that shares no files with its neighbours; one worker, one track | [templates/en/skills/backslop-batch/SKILL.md](../templates/en/skills/backslop-batch/SKILL.md) |
 | brief | `brief` | A self-contained assignment for a worker: tasks, boundaries, definition of done, what the result contains | [templates/en/skills/backslop-batch/SKILL.md](../templates/en/skills/backslop-batch/SKILL.md) |
 | brief slot | — | An orchestrator decision the brief leaves to its author (`--track`, `--neighbour`, `--entry`, `--autonomy`, `--handover`); without its flag it prints `[TODO: …]` | [lib/brief.js](../lib/brief.js); [02 § brief](reference/02-cli.md#brief) |
-| harness slot | — | The place in the `backslop-batch` skill where the harness plugs in its worker transport: the section “How to raise a worker” | [templates/en/skills/backslop-batch/SKILL.md](../templates/en/skills/backslop-batch/SKILL.md); [05 § Worker and approver](reference/05-orchestrator-contract.md#worker-and-approver) |
+| harness slot | — | The place in the `backslop-batch` skill where the harness plugs in its worker transport: the section "How to raise a worker" | [templates/en/skills/backslop-batch/SKILL.md](../templates/en/skills/backslop-batch/SKILL.md); [05 § Worker and approver](reference/05-orchestrator-contract.md#worker-and-approver) |
 | template placeholder | `placeholders` | A `{{name}}` in `templates/**` that rendering replaces with a declared key of its template group; lint gate 12 checks the pairs | [lib/templates.js](../lib/templates.js), `placeholders`, `TEMPLATE_KEYS`; [03 § Gates](reference/03-lint.md#gates) |
 | worker | — | The role that changes and verifies: implementation, documentation, gates and commits on its own branch; it never moves task files or touches the archive | [templates/en/skills/backslop-task/SKILL.md](../templates/en/skills/backslop-task/SKILL.md) |
 | approver | — | The role that accepts: review, archive, `result.md`, fold and the triage review | [templates/en/skills/backslop-task/SKILL.md](../templates/en/skills/backslop-task/SKILL.md) |

@@ -49,7 +49,7 @@ An agent hook makes the coding agent fix the `lint` errors it introduced before 
 
 Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hooks none` removes them); a first `init` selects none. The records go into `<project>/.claude/settings.json`, `<project>/.cursor/hooks.json` and `<project>/.codex/hooks.json`, next to the team's own settings and hooks, which `init` keeps; it never touches the user-level files in your home directory. The rules are in [Agent hook records](docs/reference/01-layout.md#agent-hook-records).
 
-Each harness runs a project hook only after its own trust step:
+As measured on 2026-09-30 with Claude Code 2.1.284, `codex-cli 0.158.0` and `cursor-agent` 2026.09.26-dd393fe, the trust step before a project hook runs differs by harness (the record is the message of commit `43f35f8`; the measurements are in [Agent hook files and protocols](docs/reference/01-layout.md#agent-hook-files-and-protocols)):
 
 | Harness | Trust step |
 |---|---|
@@ -57,7 +57,7 @@ Each harness runs a project hook only after its own trust step:
 | Codex | `codex exec` ran the hooks only with `--dangerously-bypass-hook-trust`; a linked worktree runs the main checkout's file |
 | Cursor | none in `cursor-agent -p --force`; the interactive `cursor-agent` asks to trust the workspace (`--trust`); `stop` fires only in the interactive terminal |
 
-A project that runs promptobus Codex or Cursor participants should not select those hooks yet: those participants collide with the hook file until promptobus accepts backslop's records.
+At promptobus `v0.21.0` (recorded on 2026-10-02 in the message of commit `8dc5fb0`), Codex participants refuse a foreign `<project>/.codex/hooks.json` and Cursor participants overwrite `<project>/.cursor/hooks.json`, so a project that runs such participants should not select those hooks.
 
 ## Commands
 
@@ -96,7 +96,7 @@ The command is long, so a project records it in the `cli` field of `backslop.jso
 npx github:Velklish/backslop upgrade
 ```
 
-The project command `<cli> upgrade` works too, from any version 0.2.0 or later; the untagged form above always runs fresh backslop and still updates the project to the latest tag.
+The project command `<cli> upgrade` runs the code of the pinned version and finishes from a pin of 0.11.1 or later. For an older pin, use the untagged form above, which always runs fresh backslop and still updates the project to the latest tag; pins earlier than 0.9.0 are unsupported.
 
 - **What it does.** `upgrade` takes the latest tag (or `--to X.Y.Z`), test-runs the new version, moves the pin in `cli` and inside the `gates` and `probe` commands, runs the new version's `migrate` and `init`, moves pins in the [live files](docs/reference/03-lint.md#live-pin-files), and prints the tool's CHANGELOG between the two versions.
 - **Preview.** `--dry-run` prints the plan only; it does not include the output of `migrate`. Preview the format migrations and the rules redraw with `npx github:Velklish/backslop#v<new> migrate --dry-run`.

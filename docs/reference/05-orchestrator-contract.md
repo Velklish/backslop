@@ -37,7 +37,7 @@ What an orchestrator, a skill or a script may rely on when it drives backslop: h
 | 1 | a refusal: an unknown command or flag, an extra argument, a missing or malformed `backslop.json`, a bad slug, an unknown task number, a move into the current status, a minor move without evidence, a `fold` of a folded task or of a result with a placeholder, a `brief` of a folded or unknown task, `tracks` without git, `seed` without a mode, any `gates` refusal | empty |
 | 1 | a dead external link: `links --external` found an address answered with 404, 410 or another status outside the other two classes | the rows and the summary line, or the JSON result with `--json` |
 | 2 | `links --external` found unverified addresses and no dead one | the rows and the summary line, or the JSON result with `--json` |
-| 1 | a red result: a gate is not green | the JSON result with `gates --json`; in text mode the gates’ own output, the green gate lines and the tree line, while the red gate lines and the summary are on stderr |
+| 1 | a red result: a gate is not green | the JSON result with `gates --json`; in text mode the gates' own output, the green gate lines and the tree line, while the red gate lines and the summary are on stderr |
 | 1 | `lint` found errors | the gate 15 skip notes, if any, and the gate 1 counts line; the errors and the summary are on stderr |
 | 1 | `merge-changelog` left a conflict mark | the merged file, or empty with `--out` (the file is written) |
 | 1 | a crash: an exception that is not a refusal | empty for a `--json` mode; a stack trace on stderr |
@@ -179,7 +179,7 @@ A real run in a directory without git, with a first gate that exits 3 and no `--
 ```
 
 - **A gate that ran** is `{command, code, signal, error, ms, when}`. It is green only when `code` is 0 and `error` is `null`: a gate stopped by the 10-minute ceiling can carry `code` 0 and a non-empty `error`. `code` is the exit code, `null` when there is none (a signal, a launch error); `signal` is the signal name or `null`; `error` is the launch or ceiling error text or `null`; `when` is the entry's pattern list, or `null` for a string entry.
-- **A gate skipped for its scope** is `{command, when, skipped}`, where `skipped` is a human-readable reason string, and it has **no** `code`, `signal`, `error` or `ms`: a check `code !== 0` would count a skip as red. Test for the `skipped` key.
+- **A gate skipped for its scope** is `{command, when, skipped}`, where `skipped` is a human-readable reason string, and it has no `code`, `signal`, `error` or `ms`: a check `code !== 0` would count a skip as red. Test for the `skipped` key.
 - **Counts.** `total` is the number of entries in the `gates` field of `backslop.json`. `green` counts the gates that ran green. `outOfScope` counts the entries skipped for their scope. The top-level `skipped` is a number: `outOfScope` plus the gates that never ran because an earlier gate was red without `--keep-going`. Those gates are absent from the `gates` list, so the list can be shorter than `total`.
 - **`scope`** is `{source, base, prefix, dropped, paths}`: `source` is `worktree` (the dirty tree) or `base+worktree` (the diff to `--base` plus the dirty tree); `base` is the `--base` ref or `null`; `prefix` is the project directory from the repository root with a trailing slash (`pkg/`), `""` when the project is the repository root; `dropped` counts paths outside the project; `paths` is the sorted set of changed paths from the project root. `scope` is `null` when no entry has a `when` and no `--base` is named, and when there is no git.
 - **`tree`** is `{head, clean, dirty}`: `head` is the full sha of `HEAD`, or `null` in a repository without commits; `clean` is a boolean; `dirty` is one string, see [Two shapes of `dirty`](#two-shapes-of-dirty). `tree` is `null` without git.
@@ -326,7 +326,7 @@ A real run in a repository with `package.json` scripts `test`, `lint` and `start
 }
 ```
 
-- `gates` items are `{command, evidence}`, `subsystems` items `{name, evidence}`. `total` is the number of **subsystem** candidates, not of all items.
+- `gates` items are `{command, evidence}`, `subsystems` items `{name, evidence}`. `total` is the number of subsystem candidates, not of all items.
 - `evidence` is a human-readable pointer to where the candidate was found — a script key (`package.json → scripts.test`), a file with a line (`.github/workflows/ci.yml:7`) or a path (`src/api`) — not a locator to parse.
 - A script becomes a gate candidate only when its name matches `GATE_NAME` in [lib/seed.js](../../lib/seed.js), which is why `start` is absent above; the walk skips the directories of `SKIP_BUILD` in the same file. The lists live in the code, and the sources are named in [02 § seed](02-cli.md#seed).
 - The choice stays with the caller: a candidate is not a gate or a subsystem until the agent and the owner say so.
@@ -335,15 +335,15 @@ A real run in a repository with `package.json` scripts `test`, `lint` and `start
 
 The two commands report uncommitted work in different shapes, and a caller must not read one as the other:
 
-- `gates --json` `tree.dirty` is **one string**: the lines of `git status --porcelain -- .` joined by line breaks, leading space included, `""` on a clean tree. Untracked directories are collapsed (`?? src/`), and in a monorepo paths are from the project root. The paths `gates` actually compares with `when` patterns are in `scope.paths`, one file per item (`src/api/a.js`).
-- `tracks --json` `dirty` is **an array**: one item per `git status --porcelain` line of that worktree, as git prints it, leading space included (` M a.txt`).
+- `gates --json` `tree.dirty` is one string: the lines of `git status --porcelain -- .` joined by line breaks, leading space included, `""` on a clean tree. Untracked directories are collapsed (`?? src/`), and in a monorepo paths are from the project root. The paths `gates` compares with `when` patterns are in `scope.paths`, one file per item (`src/api/a.js`).
+- `tracks --json` `dirty` is an array: one item per `git status --porcelain` line of that worktree, as git prints it, leading space included (` M a.txt`).
 
 ## `brief`
 
 - **stdout is the brief alone**: the track heading, the Work to do and Out of scope sections of the named tasks, the project's `gates`, `prefix`, `cli` and `probe`, and the fixed sections of the brief template. Its content goes to the worker as it is.
 - **stderr carries notes** as `⚠` lines: a missing `probe` field, and a `cli` pinned below 0.10.0. A note never changes stdout or the exit code.
 - **Brief slots.** The orchestrator's decisions come as flags: `--track`, `--neighbour` (repeatable, `path=track`), `--entry`, `--autonomy` and `--handover`; `--measurements` adds the measurement rule. A slot without its flag is printed as a bracketed placeholder that opens with `[TODO` (`[TODO: track title in 2–5 words]`). It is a requirement to the brief's author, not a default: the orchestrator passes the flag, or replaces the placeholder before the brief leaves.
-- **Refusals** (exit 1, empty stdout, no partial brief): no task numbers; a number found neither in a status directory nor in the archive; `--neighbour` not in the form `path=track`. A **folded task** — a journal line in `LOG.md` without a task directory — is refused too, because the brief has no definition to take; its body is read with `show N`. An archived task that is not folded yet still has `task.md` and gets a brief.
+- **Refusals** (exit 1, empty stdout, no partial brief): no task numbers; a number found neither in a status directory nor in the archive; `--neighbour` not in the form `path=track`. A folded task — a journal line in `LOG.md` without a task directory — is refused too, because the brief has no definition to take; its body is read with `show N`. An archived task that is not folded yet still has `task.md` and gets a brief.
 
 ## Mutating commands
 
@@ -351,7 +351,7 @@ These are the commands an orchestrator uses to change the tracker. The behaviour
 
 - **`new <slug> --parent N[.M]`** files a finding `N.k` in `triage/`, with the next free `k` across the current tree, other worktrees and local branches, and a Parent field naming the exact parent. `--minor --evidence "…"` files it in `minor/` instead, with the evidence and Cost (`--cost`; `major` and `critical` only with `--hypothesis`). A minor finding without evidence is refused.
 - **`mv <N…> <status>`** moves one or more tasks between status directories and rewrites links to them. With several numbers, all are resolved and checked before the first move and then moved in argument order. `--top` and `--after M` place one task in the queue; `--restore` returns tasks to their saved queue place and works on a batch.
-- **`archive N`** moves a task into `archive/<id>-<slug>/task.md` with a `result.md` blank and prints the documentation files the task’s work touched: files under `<docs>/` outside `backlog/` and `archive/`, and `CHANGELOG.md`, changed by commits whose subject starts with `<prefix>-N:`, plus the commits of `--range`. **`archive N.k --into M`** closes a minor entry into the closed batch M.
+- **`archive N`** moves a task into `archive/<id>-<slug>/task.md` with a `result.md` blank and prints the documentation files the task's work touched: files under `<docs>/` outside `backlog/` and `archive/`, and `CHANGELOG.md`, changed by commits whose subject starts with `<prefix>-N:`, plus the commits of `--range`. **`archive N.k --into M`** closes a minor entry into the closed batch M.
 - **`fold N`** folds one archived task into a `LOG.md` line and prints the commit message draft on stdout; **`fold`** without a number folds every archived directory, and with nothing to fold it exits 0 with empty stdout.
 - **`show N`** prints the body of a folded task on stdout, and a header "number · date · outcome · revision" on stderr.
 
@@ -375,7 +375,7 @@ These are the commands an orchestrator uses to change the tracker. The behaviour
 
 ## `backslop.json`
 
-The single owner of the field semantics is the [01 config table](01-layout.md#backslopjson). The eleven fields, in the order `init` writes them:
+The single owner of the field semantics is the [01 config table](01-layout.md#backslopjson). The twelve fields, in the order the tool writes them:
 
 | Field | For an orchestrator |
 |---|---|
@@ -384,6 +384,7 @@ The single owner of the field semantics is the [01 config table](01-layout.md#ba
 | `cli` | how to call the tool, with its version pin |
 | `gates` | the gate commands; an entry is a command string or `{ "command": "…", "when": ["<glob>", …] }` |
 | `probe` | the mutation-probe command, or absent |
+| `writer` | extra scope of the `backslop-writer` pass, or absent |
 | `version` | the layout stamp, `X.Y.Z` |
 | `source` | where `upgrade` takes release tags from |
 | `lang` | `ru` or `en`: the language of human text |
