@@ -429,6 +429,7 @@ Stable, within one tagged version and across versions until an ADR changes it:
 - stderr reports of data commands.
 - The wording of a brief slot placeholder after its `[TODO` marker.
 - `lint` message text.
+- The output of `hook`: it is the protocol of the harness that runs it (a returned turn on stderr or in a `followup_message`, a `systemMessage` note), not a channel for an orchestrator.
 
 ### Changing the contract
 

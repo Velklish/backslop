@@ -108,6 +108,10 @@ test('config: a non-string prefix is refused by every command, without a stack',
       assert.match(r.err, /^✖ backslop\.json: prefix “\["BS"\]” — expected 2–6 uppercase/, args.join(' '));
       assert.doesNotMatch(r.err, /\n\s+at /, `${args.join(' ')}: a stack`);
     }
+    // The hook never breaks a session: a refused config is a note and exit 0.
+    const hooked = cli(root, ['hook', 'stop', '--harness', 'claude']);
+    assert.equal(hooked.code, 0, hooked.err);
+    assert.match(JSON.parse(hooked.out).systemMessage, /prefix “\["BS"\]” — expected 2–6 uppercase/);
     // changelog and merge-changelog take only lang from the config and run on.
     let r = cli(root, ['changelog', '--since', 'v99.0.0']);
     assert.equal(r.code, 0, r.err);

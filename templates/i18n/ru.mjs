@@ -173,6 +173,15 @@ export const messages = {
   'no commits yet': 'коммитов ещё нет',
   'clean': 'чисто',
   'dirty': 'нечисто',
+  // lib/hook.js
+  'unknown hook event “{event}”: expected session-start or stop': 'неизвестное событие хука «{event}»: ожидается session-start или stop',
+  'harness “{harness}” is not claude, cursor or codex': 'харнесс «{harness}» — не claude, cursor и не codex',
+  'hook skipped: {cause}': 'хук пропущен: {cause}',
+  'not a git repository': 'не git-репозиторий',
+  'the event on stdin cannot be read': 'событие со stdin не прочитать',
+  'the event on stdin is not a JSON object with a session_id': 'событие на stdin — не JSON-объект с session_id',
+  'lint errors in changed files returned the turn {limit} times in a row; letting it end:': 'ошибки lint в изменённых файлах {limit} раза подряд возвращали ход; ход закончен, ошибки остались:',
+  'fix these errors in the files named above; do not bypass the hook': 'исправь эти ошибки в названных выше файлах; хук не обходи',
   // lib/init.js
   '--dir “{dir}”: expected a relative path inside the project': '--dir «{dir}»: нужен относительный путь внутри проекта',
   '{config} already sets {key} = “{value}”; change it in the config, not with this flag': '{config} уже есть, и там {key} = «{value}»; менять — правкой конфига, не флагом',
@@ -672,6 +681,9 @@ export const help = (version) => `backslop — бэклог для слопа: �
   tracks [--json]                                     worktree и ветки захода: влиты ли, что не влито, что не закоммичено
   links --external [--json]                           запросить http(s)-ссылки документов и классифицировать каждую: ok, dead,
                                                       unverified; код 0 — все ok, 1 — есть dead, 2 — только unverified; не в gates
+  hook <session-start|stop> --harness <claude|cursor|codex>
+                                                      хук агента: событие stop гоняет lint и возвращает ход при ошибках
+                                                      в файлах, которые тронула сессия; JSON события читает из stdin
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       обновить проект: пин в cli, gates и живых файлах, migrate и init новой версией
   migrate [--dry-run]                                 миграция формата файлов, правила ведения и архива из шаблона, штамп версии
   changelog [--since X.Y.Z] [--to X.Y.Z]              выжимка CHANGELOG backslop между версиями

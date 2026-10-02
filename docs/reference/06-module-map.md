@@ -25,7 +25,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 
 ## Modules
 
-`lib/` has 34 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
+`lib/` has 35 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
 
 ### Command modules
 
@@ -45,16 +45,18 @@ The page names code by file and by identifier, not by line: find a line with `gr
 | `lib/gates.js` | `gates`: runs the `gates` list of `backslop.json`, the exit code of each command, the tree snapshot | `run`, `globToRe` |
 | `lib/tracks.js` | `tracks`: worktrees and run branches, merged or not, what is left and what is dirty | `run` |
 | `lib/links.js` | `links`: `links --external`, the http(s) addresses of the gate 1 file set, one request at a time, the class of each answer, the exit code. Also the one parser of every link form that gates 1, 8, 13 and 15 and `seed` read, heading anchors, the gate 1 check of a file, directory links, the rewrite on a move, a fold or an archive (it reads inline links and line-start declarations only) | `run`, `classifyStatus`, `externalUrls`, `linksOf`, `localLinks`, `relativeLinks`, `checkLinks`, `anchorsOf`, `anchorReader`, `slugOf`, `uniqueSlugs`, `hasAnchor`, `directoryLinks`, `mapLinks`, `rebaseTarget`, `rewriteMovedLinks`, `rewriteFoldedLinks`, `blankFences`, `CODE_SPAN` |
+| `lib/hook.js` | `hook`: the agent hook command; the session record in the git directory, the changed set, the errors of `lintProject` in it, the protocol of each harness, the loop ceiling | `run` |
 | `lib/upgrade.js` | `upgrade`: the tag, the trial run, the pins in `cli`, `gates` and live files; then it starts `migrate` and `init` of the new version as child processes and prints the CHANGELOG entries | `run`, `listReleaseTags`, `rewriteCommand`, `rewriteGates`, `livePinText`, `rewriteProsePins` |
 | `lib/migrate.js` | `migrate`: the `MIGRATIONS` list and the redraw of the rules pair; writes the version stamp | `MIGRATIONS`, `run` |
 | `lib/changelog.js` | `changelog`: the tool's CHANGELOG entries between two versions | `run`, `changelogSince` |
 | `lib/merge-changelog.js` | `merge-changelog`: a merge of two `CHANGELOG.md` revisions by entry heading | `run`, `mergeChangelog`, `CONFLICT_MARK` |
 
-**Commands that import commands.** Seven imports cross from one command module to another, all for a function and never for `run`:
+**Commands that import commands.** Eight imports cross from one command module to another, all for a function and never for `run`:
 
 - `lib/init.js` imports `scanAdrs` and `formatAdrNumber` from `lib/adr.js`;
 - `lib/lint.js` imports `scanAdrs` and `ADR_FILE_RE` from `lib/adr.js`, `livePinText` from `lib/upgrade.js`, and the link functions of gate 1 from `lib/links.js`;
 - `lib/migrate.js`, `lib/seed.js` and `lib/fold.js` import link functions from `lib/links.js`.
+- `lib/hook.js` imports `lintProject` from `lib/lint.js`.
 
 `lib/links.js` is a command module that shared modules import too: `lib/adapters.js`, `lib/tasks.js` and `lib/templates.js` read its parser. It imports `config`, `i18n`, `mdwalk` and `util` for its command, none of which reaches `links` back.
 
@@ -229,7 +231,7 @@ A probe is a mutation of a green project. A gate is confirmed by a probe that go
 | Area | File |
 |---|---|
 | A command as a process with `makeProject` and `cli`: `new`, `mv`, `status`, `adr` and the flag, language and refusal rules shared by all commands | `test/commands.test.mjs` |
-| One file for a command with its own cases | `archive`, `brief`, `fold` (with `show`), `gates`, `init`, `links` (`--external`, in `test/links-external.test.mjs`), `merge-changelog`, `seed`, `tracks`, `upgrade` (with `migrate`): `test/<name>.test.mjs` |
+| One file for a command with its own cases | `archive`, `brief`, `fold` (with `show`), `gates`, `hook`, `init`, `links` (`--external`, in `test/links-external.test.mjs`), `merge-changelog`, `seed`, `tracks`, `upgrade` (with `migrate`): `test/<name>.test.mjs` |
 | Lint gates and checks outside the numbered gates | `test/lint.test.mjs` |
 | Templates: parity, slots, rendering | `test/templates.test.mjs`; the gate 12 probe is in `test/lint.test.mjs` |
 | Release script | `test/release.test.mjs` |
