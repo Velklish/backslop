@@ -1,6 +1,6 @@
 # Reference
 
-How backslop works now — by the code, not by the intent. The intent and rationale are in the [ADRs](../README.md); this reference covers only the behaviour of the working version. It is split by subsystem, and each file is edited independently. The Scope field of a task links here.
+How backslop works, as the code shows it. The intent and rationale are in the [ADRs](../README.md); this reference covers only the behaviour of the working version. It is split by subsystem, and each file is edited independently. The Scope field of a task links here.
 
 | Section | Covers |
 |---|---|
