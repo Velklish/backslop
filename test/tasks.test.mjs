@@ -568,3 +568,58 @@ test('a dangling status link leads out only when its target is outside the proje
     cleanup(root);
   }
 });
+
+test('an archive task directory linked out of the project is skipped like a status directory, and read when linked inside', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-outside-'));
+  try {
+    put(outside, 'task.md', '# BS-1 · a\n');
+    put(root, 'docs/shelf/task.md', '# BS-2 · b\n');
+    symlinkSync(outside, path.join(root, 'docs/archive/BS-1-a'));
+    symlinkSync(path.join(root, 'docs/shelf'), path.join(root, 'docs/archive/BS-2-b'));
+    const project = loadProject(root);
+    assert.deepEqual(scanTasks(project).map((t) => t.id), ['BS-2']);
+    assert.deepEqual(linkedOutDirs(project), ['docs/archive/BS-1-a']);
+    let r = cli(root, ['show', '1']);
+    assert.equal(noteIn(r.err, 'docs/archive/BS-1-a'), 1, r.err);
+    r = cli(root, ['new', 'foo']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, ruRe(LEADS_OUT_NUMBER, { rel: 'docs/archive/BS-1-a' }));
+  } finally {
+    cleanup(root);
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('a status link to a directory under a locked project directory names the locked directory', { skip: process.platform === 'win32' || asRoot }, () => {
+  const root = makeProject();
+  const locked = path.join(root, 'docs/locked');
+  try {
+    mkdirSync(path.join(locked, 'tasks'), { recursive: true });
+    rmSync(path.join(root, 'docs/backlog/queue'), { recursive: true });
+    symlinkSync(path.join(locked, 'tasks'), path.join(root, 'docs/backlog/queue'));
+    chmodSync(locked, 0o000);
+    const r = cli(root, ['status']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, ruRe('{rel}: the directory is not readable ({code}) — {what}; restore read access or move it out of the project', { rel: 'docs/locked', code: 'EACCES' }));
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+  }
+});
+
+test('a dangling status link written through a symlinked path prefix is judged by where it really points', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  const alias = mkdtempSync(path.join(os.tmpdir(), 'backslop-alias-'));
+  try {
+    symlinkSync(path.dirname(root), path.join(alias, 'via'));
+    rmSync(path.join(root, 'docs/backlog/queue'), { recursive: true });
+    symlinkSync(path.join(alias, 'via', path.basename(root), 'docs/nowhere'), path.join(root, 'docs/backlog/queue'));
+    const r = cli(root, ['status']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(noteIn(r.err, 'docs/backlog/queue'), 0, 'the target is inside the project');
+  } finally {
+    cleanup(root);
+    rmSync(alias, { recursive: true, force: true });
+  }
+});

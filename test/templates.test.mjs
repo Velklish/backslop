@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { TEMPLATES_DIR, renderProjectTemplate, renderTemplate, templateParity, templateRel, templateSlots } from '../lib/templates.js';
 import { srcFiles } from '../lib/mdwalk.js';
 import { slugOf } from '../lib/links.js';
@@ -11,7 +12,7 @@ import {
   SECTION_CHECKS, SECTION_CONTEXT, SECTION_DEFERRED, SECTION_EVIDENCE, SECTION_OUT, SECTION_WORK,
   fieldName, getField, readTitle, sectionName, sections,
 } from '../lib/tasks.js';
-import { SECTION, cleanup, put, ru, ruTwinLine } from './helpers.mjs';
+import { SECTION, cleanup, put, ru, ruTwinLine, run, toolCli, toolCopy } from './helpers.mjs';
 
 test('template parity: the composition and placeholders match', () => {
   assert.deepEqual(templateParity(), []);
@@ -357,4 +358,43 @@ test('renderTemplate: a call without a language refuses in English, with no Cyri
 test('renderProjectTemplate: an en project sees the refusal for a placeholder without a key in English only', () => {
   assert.throws(() => renderProjectTemplate({ lang: 'en' }, 'adr.md', { number: 1, title: 'x' }),
     (e) => e.message === 'en/adr.md: placeholder {{date}} is given no key date' && !/\p{Script=Cyrillic}/u.test(e.message));
+});
+
+test('the acceptance recipe of the managed block commits the draft with --cleanup=verbatim, in both layers', () => {
+  for (const layer of ['en', '']) {
+    const text = readFileSync(path.join(TEMPLATES_DIR, layer, 'agents-section.md'), 'utf8');
+    assert.ok(text.includes('git commit --cleanup=verbatim -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"'), `layer ${layer || 'ru'}`);
+  }
+});
+
+const JSON_CLI = 'node "C:\\Users\\me\\backslop.js"';
+const FRONT = '---\nname: "fixture"\ndescription: "Run {{cli}} first"\n---\n\nBody `{{cli}}`.\n';
+
+test('renderTemplate escapes a value inside a JSON-quoted frontmatter value and keeps it raw elsewhere', async () => {
+  const tool = toolCopy((dir) => put(dir, 'templates/fixture.md', FRONT));
+  try {
+    const { renderTemplate } = await import(pathToFileURL(path.join(tool, 'lib', 'templates.js')));
+    const text = renderTemplate('fixture.md', { cli: JSON_CLI });
+    const description = text.split('\n')[2];
+    assert.equal(JSON.parse(description.slice('description: '.length)), `Run ${JSON_CLI} first`);
+    assert.ok(text.endsWith(`Body \`${JSON_CLI}\`.\n`), 'the body takes the value as it is');
+    assert.equal(renderTemplate('fixture.md', { cli: 'npx backslop' }), FRONT.replaceAll('{{cli}}', 'npx backslop'), 'a plain value is unchanged');
+  } finally { cleanup(tool); }
+});
+
+test('init lays out a skill whose description holds a cli with a quote and a backslash', () => {
+  const tool = toolCopy((dir) => {
+    const skill = path.join(dir, 'templates/en/skills/backslop-task/SKILL.md');
+    put(dir, 'templates/en/skills/backslop-task/SKILL.md', readFileSync(skill, 'utf8').replace('description: "', 'description: "Run {{cli}} first. '));
+  });
+  const project = mkdtempSync(path.join(os.tmpdir(), 'backslop-json-'));
+  try {
+    run(project, ['init', '-q', '-b', 'main']);
+    const r = toolCli(tool, ['init', '--lang', 'en', '--tools', 'cursor,claude,codex', '--cli', JSON_CLI], { cwd: project });
+    assert.equal(r.code, 0, r.err);
+    for (const rel of ['.claude/skills/backslop-task/SKILL.md', '.agents/skills/backslop-task/SKILL.md', '.cursor/rules/backslop-task.mdc']) {
+      const line = readFileSync(path.join(project, rel), 'utf8').split('\n').find((l) => l.startsWith('description: '));
+      assert.ok(JSON.parse(line.slice('description: '.length)).startsWith(`Run ${JSON_CLI} first. `), rel);
+    }
+  } finally { cleanup(tool); cleanup(project); }
 });

@@ -315,3 +315,15 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.38"></a>`BS-192.38-module-map-v3-future-tense` · 2026-10-02 · batch BS-205 · — · 06 Module map: "will" for a present condition
 - <a id="bs-192.39"></a>`BS-192.39-module-map-v10-once` · 2026-10-02 · batch BS-205 · — · 06 Module map: "once" meaning "after"
 - <a id="bs-192.41"></a>`BS-192.41-changelog-unreleased-curly-quotes` · 2026-10-02 · batch BS-205 · — · CHANGELOG unreleased section: curly quotes beside straight ones
+- <a id="bs-206"></a>`BS-206-minor-batch-links-lint-templates` · 2026-10-02 · completed · — · Minor batch: status links, lint messages, doc facts, template values
+- <a id="bs-86.2"></a>`BS-86.2-fold-templates-lag-show-lookup` · 2026-10-02 · batch BS-206 · — · fold/show: LOG.md header and acceptance recipe lag the section lookup and --cleanup=verbatim
+- <a id="bs-167.2"></a>`BS-167.2-template-value-in-json-frontmatter` · 2026-10-02 · batch BS-206 · — · template-value-in-json-frontmatter
+- <a id="bs-188.1"></a>`BS-188.1-lint-skipped-vendored-skill-outputs` · 2026-10-02 · batch BS-206 · — · lint calls the outputs of a skipped vendored skill missing and says run init
+- <a id="bs-192.42"></a>`BS-192.42-gate-10-quote-error-names-the-fence` · 2026-10-02 · batch BS-206 · — · lint gate 10 names the code fence as the first quoted line
+- <a id="bs-192.43"></a>`BS-192.43-doc-facts-test-lib-count-and-config-fields` · 2026-10-02 · batch BS-206 · — · Reference facts that drift with the code have no test
+- <a id="bs-197.5"></a>`BS-197.5-nested-project-test-cleanup-flake` · 2026-10-02 · batch BS-206 · — · nested-project-test-cleanup-flake
+- <a id="bs-202.1"></a>`BS-202.1-archive-dir-symlink-out-read-anyway` · 2026-10-02 · batch BS-206 · — · An archive task directory symlinked out of the project is a stray file for gate 5 but is read by scanTasks
+- <a id="bs-202.2"></a>`BS-202.2-init-unreadable-backlog-stack` · 2026-10-02 · batch BS-206 · — · init over an unreadable docs/backlog ends in a node:fs stack
+- <a id="bs-202.3"></a>`BS-202.3-gate3-status-dir-link-wording` · 2026-10-02 · batch BS-206 · — · Gate 3 calls a status directory symlinked out of the project a file outside a status directory
+- <a id="bs-202.5"></a>`BS-202.5-gate2-reads-status-link-out` · 2026-10-02 · batch BS-206 · — · Gates 2 and 6 still read a status directory symlinked out of the project, and gate 6 now reddens every mention behind it
+- <a id="bs-202.6"></a>`BS-202.6-status-link-wrong-diagnoses` · 2026-10-02 · batch BS-206 · — · Two narrow wrong diagnoses for a status directory link: a locked project directory and a link through a symlinked path prefix

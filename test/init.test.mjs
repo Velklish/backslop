@@ -2,7 +2,7 @@
 // breaks nothing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -1419,5 +1419,44 @@ test('init --tools claude refuses a symlink on an owned output path before any w
     refusedBeforeWrite((root) => symlinkSync(path.join(root, 'missing-target'), path.join(root, 'CLAUDE.md')), /^✖ adapter path contains a symlink: CLAUDE\.md/);
   } finally {
     cleanup(shared);
+  }
+});
+
+test('init words an unreadable docs/backlog and writes nothing', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+  const root = emptyRepo();
+  const backlog = path.join(root, 'docs/backlog');
+  try {
+    assert.equal(cli(root, ['init', '--lang', 'en']).code, 0);
+    const config = read(root, 'backslop.json');
+    chmodSync(backlog, 0o000);
+    const r = cli(root, ['init']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /docs\/backlog: the directory is not readable \(EACCES\) — init cannot lay out the skeleton in it; restore read access/);
+    assert.doesNotMatch(r.err, /node:fs|\n\s+at /, 'a worded refusal, not a stack');
+    assert.equal(read(root, 'backslop.json'), config, 'the refusal comes before the first write');
+  } finally {
+    chmodSync(backlog, 0o755);
+    cleanup(root);
+  }
+});
+
+test('init words a status link into a locked directory and writes nothing', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+  const root = emptyRepo();
+  const locked = path.join(root, 'docs/locked');
+  try {
+    assert.equal(cli(root, ['init', '--lang', 'en']).code, 0);
+    mkdirSync(path.join(locked, 'tasks'), { recursive: true });
+    rmSync(path.join(root, 'docs/backlog/queue'), { recursive: true });
+    symlinkSync(path.join(locked, 'tasks'), path.join(root, 'docs/backlog/queue'));
+    const config = read(root, 'backslop.json');
+    chmodSync(locked, 0o000);
+    const r = cli(root, ['init']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /docs\/locked: the directory is not readable \(EACCES\) — init cannot lay out the skeleton in it/);
+    assert.doesNotMatch(r.err, /node:fs|\n\s+at /, 'a worded refusal, not a stack');
+    assert.equal(read(root, 'backslop.json'), config, 'the refusal comes before the first write');
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
   }
 });

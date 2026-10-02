@@ -74,7 +74,7 @@ Refusals:
 - A `dir`/`prefix`/`cli` flag that differs from the existing config; an unknown `lang`, `tools` or `hooks` value; a project already initialized above; a stamp newer than the tool.
 - A bad prefix; a `--dir` path outside the project or with a `..` segment, by the rule of the `docs` field (`docs/../x` is refused, not shortened to `x`); a value any later run would refuse (an empty `--cli`). A flag refusal speaks the language of `--lang` or of the existing config, or `EN / RU` when the language is unknown; a `--cli`/`--dir` refusal by the block rule names the flag, not `backslop.json`.
 - `--tools` other than `none` in the tool's own repository (its `templates/` is the running tool's directory): self-host keeps `tools: []`, and a stand with an adapter is set up in a directory of its own.
-- Before the first write: a symlink on the root of a selected adapter or on the path of one of its outputs (unselected roots are not checked), a directory at an output path, a file on a component of that path, `CLAUDE.md` that is a directory or a dangling symlink with `claude` selected; `docs`, a skeleton directory under it, or a selected adapter root that is a file; `AGENTS.md` or `.gitignore` that is a directory; `docs/README.md` that is not a file; `AGENTS.md` or a `.gitignore` that `init` rewrites not in UTF-8; a block marker on its own line twice, or without its pair; the hook file of a selected harness that is not valid JSON, whose top level or `hooks` is not an object, or whose start or stop value is not a list, or that has a symlink on its path.
+- Before the first write: a symlink on the root of a selected adapter or on the path of one of its outputs (unselected roots are not checked), a directory at an output path, a file on a component of that path, `CLAUDE.md` that is a directory or a dangling symlink with `claude` selected; `docs`, a skeleton directory under it, or a selected adapter root that is a file; `docs` or a skeleton directory under it that cannot be read (named with its error code, as the other commands name it); `AGENTS.md` or `.gitignore` that is a directory; `docs/README.md` that is not a file; `AGENTS.md` or a `.gitignore` that `init` rewrites not in UTF-8; a block marker on its own line twice, or without its pair; the hook file of a selected harness that is not valid JSON, whose top level or `hooks` is not an object, or whose start or stop value is not a list, or that has a symlink on its path.
 
 ### new
 
@@ -95,7 +95,7 @@ Refusals:
 
 - A git failure while scanning foreign numbers, other than "no repository" and "git is not installed"; a bad slug; a slug that makes the file name `<prefix>-<N[.k]>-<slug>.md` longer than 255 bytes — before any write and before the queue is renumbered; no such parent; `docs/backlog` or the status directory the file goes into is a file.
 - `--top` without `--queue`; `--minor` without `--parent` or with `--queue`; `--cost`/`--hypothesis`/`--evidence` without `--minor`; `--cost` outside the three levels; `--cost major|critical` without `--hypothesis`; `--minor` without `--evidence` or with empty evidence.
-- A status directory that is a symlink leading out of the project — the numbers behind it are not seen; before any write.
+- A status directory or an archive task directory that is a symlink leading out of the project — the numbers behind it are not seen; before any write.
 
 ### mv
 
@@ -171,7 +171,7 @@ Behaviour of `fold <N>`:
 
 Output of `fold <N>`:
 
-- The draft goes to stdout, the report to stderr as lines without a symbol, paths indented by four spaces: `fold N | git commit -F -` works without cleaning the output.
+- The draft goes to stdout, the report to stderr as lines without a symbol, paths indented by four spaces: `fold N | git commit --cleanup=verbatim -F -` commits the output without cleaning it.
 - Links into the folded directory that go around the rewritten targets have nowhere to point: the report names them — including a link with a broken `%` escape whose path as written leads into the folded directory — as a separate count of links into the folded task left unrewritten, with a `file: target` list; `lint` gate 1 reports them as broken in `docs/**` and root `*.md`.
 - The last report line and the draft's opening say which case this is: with `—` in the field, the commit carrying the draft is required, since the draft is the body's only storage; when the line names a revision, the draft is only a copy — `show N` reads the body until a squash or `reset --soft` drops that revision from history. The last line also names `--cleanup=verbatim`.
 - A `git rm` refusal is one `✖` line with git's cause and the next step.
@@ -261,7 +261,7 @@ Refusals: no mode named, or both; `--json` with `--queue-reference`; no `referen
 
 ### status
 
-- Behaviour: a summary by directory; the `Minor` section goes by Scope — that is how batches are cut — with an empty Scope last. A status directory that is a symlink leading out of the project is skipped, and the command prints a warning naming it ([01 § Symlinks and traversal](01-layout.md#symlinks-and-traversal)).
+- Behaviour: a summary by directory; the `Minor` section goes by Scope — that is how batches are cut — with an empty Scope last. A status directory or an archive task directory that is a symlink leading out of the project is skipped, and the command prints a warning naming it ([01 § Symlinks and traversal](01-layout.md#symlinks-and-traversal)).
 - Output: text, or the JSON of [05 § `status --json`](05-orchestrator-contract.md#status---json).
 - Refusals: none of its own.
 
