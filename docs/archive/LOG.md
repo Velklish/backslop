@@ -342,3 +342,12 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-197.4"></a>`BS-197.4-batch-base-keeps-take-commit` · 2026-10-02 · batch BS-209 · — · batch-base-keeps-take-commit
 - <a id="bs-198.1"></a>`BS-198.1-seed-adr-backfill-ru-mixed-voice` · 2026-10-02 · batch BS-209 · — · seed-adr-backfill-ru-mixed-voice
 - <a id="bs-206.1"></a>`BS-206.1-acceptance-recipe-in-skill-lacks-cleanup` · 2026-10-02 · batch BS-209 · — · acceptance-recipe-in-skill-lacks-cleanup
+- <a id="bs-211"></a>`BS-211-minor-batch-lint-rules` · 2026-10-02 · completed · — · Minor batch: lint rules decided by the owner
+- <a id="bs-43.1"></a>`BS-43.1-link-rewrite-through-symlinked-alias` · 2026-10-02 · batch BS-211 · — · link-rewrite-through-symlinked-alias
+- <a id="bs-151.1"></a>`BS-151.1-gate9-parent-field` · 2026-10-02 · batch BS-211 · — · Gate 9 could read the Parent field
+- <a id="bs-153.1"></a>`BS-153.1-lint-order-outside-queue` · 2026-10-02 · batch BS-211 · — · lint could flag an Order field outside queue/ and a Previous order inside it
+- <a id="bs-167.1"></a>`BS-167.1-adr-todo-gate` · 2026-10-02 · batch BS-211 · — · lint could flag [TODO] left in docs/adr/
+- <a id="bs-186.2"></a>`BS-186.2-run-artifact-flags-untracked-outputs` · 2026-10-02 · batch BS-211 · — · Gate 15 run-artifact class flags documented output and config locations that are untracked by design
+- <a id="bs-201.1"></a>`BS-201.1-tool-repo-tailed-pin-unreported` · 2026-10-02 · batch BS-211 · — · tool-repo-tailed-pin-unreported
+- <a id="bs-205.3"></a>`BS-205.3-changelog-curly-quote-test` · 2026-10-02 · batch BS-211 · — · CHANGELOG Unreleased: no test holds the straight quotes
+- <a id="bs-206.2"></a>`BS-206.2-lint-gates-1-10-read-behind-status-link` · 2026-10-02 · batch BS-211 · — · lint-gates-1-10-read-behind-status-link

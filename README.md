@@ -107,7 +107,7 @@ The project command `<cli> upgrade` runs the code of the pinned version and fini
 After an upgrade:
 
 1. Review and commit the diff: `backslop.json`, the `AGENTS.md` section, the tracking and archive rules, and new files such as `docs/archive/LOG.md`.
-2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word, or a task id, a tracker link or an untracked run file in project documentation: README, `docs/` outside `backlog/` and `archive/`, and the unreleased CHANGELOG section ([gate 15](docs/reference/03-lint.md#documentation-without-the-tracker)). Write what the record says instead: the contract, the rationale, or the measurement with its version and date.
+2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word, or a task id or a tracker link in project documentation: README, `docs/` outside `backlog/` and `archive/`, and the unreleased CHANGELOG section ([gate 15](docs/reference/03-lint.md#documentation-without-the-tracker)). Write what the record says instead: the contract, the rationale, or the measurement with its version and date.
 3. Optionally, run `<cli> fold` to fold archive directories closed before 0.10.
 
 ## How work proceeds

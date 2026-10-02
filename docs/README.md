@@ -25,6 +25,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 | [adr/adr-053-seed.md](adr/adr-053-seed.md) | Seeding: the seed command extracts candidates, the agent and the owner select | Accepted |
 | [adr/adr-054-tracks.md](adr/adr-054-tracks.md) | The tracks command observes a worker run and never removes anything | Accepted |
 | [adr/adr-055-docs-rules-ship-to-projects.md](adr/adr-055-docs-rules-ship-to-projects.md) | Documentation rules ship to projects: lint checks, writing skills, agent hooks and the writer pass | Accepted |
+| [adr/adr-056-adr-placeholder-gate.md](adr/adr-056-adr-placeholder-gate.md) | A placeholder left in an ADR fails lint | Accepted |
 
 ## Cross-cutting principles
 
@@ -129,7 +130,7 @@ The single owner of the field semantics is the [01 config table](01-layout.md#ba
 
 <!-- quote:reference/06-module-map.md -->
 ```text
-| `lib/links.js` | `links`: `links --external`, the http(s) addresses of the gate 1 file set, one request at a time, the class of each answer, the exit code. Also the one parser of every link form that gates 1, 8, 13 and 15 and `seed` read, heading anchors, the gate 1 check of a file, directory links, the rewrite on a move, a fold or an archive (every form gate 1 reads, in the syntax it was written) | `run`, `classifyStatus`, `externalUrls`, `linksOf`, `localLinks`, `relativeLinks`, `checkLinks`, `anchorsOf`, `anchorReader`, `slugOf`, `uniqueSlugs`, `hasAnchor`, `directoryLinks`, `mapLinks`, `rebaseTarget`, `rewriteMovedLinks`, `rewriteFoldedLinks`, `blankFences`, `CODE_SPAN` |
+| `lib/links.js` | `links`: `links --external`, the http(s) addresses of the gate 1 file set, one request at a time, the class of each answer, the exit code. Also the one parser of every link form that gates 1, 8, 13 and 15 and `seed` read, heading anchors, the gate 1 check of a file, directory links, the rewrite on a move, a fold or an archive (every form gate 1 reads, in the syntax it was written) | `run`, `classifyStatus`, `externalUrls`, `linksOf`, `localLinks`, `relativeLinks`, `checkLinks`, `anchorsOf`, `anchorReader`, `slugOf`, `uniqueSlugs`, `hasAnchor`, `directoryLinks`, `mapLinks`, `rebaseTarget`, `rewriteMovedLinks`, `rewriteFoldedLinks`, `blankFences` |
 ```
 <!-- /quote -->
 
@@ -391,6 +392,48 @@ A record has this form:
 <!-- quote:reference/03-lint.md -->
 ```text
 - **Directory links that name a task.** The same gate reports a link to an existing directory whose text names a project task (`<prefix>-N[.k]` anywhere in the link text, in a code span too): inline `[<prefix>-N](../triage)` and reference-style — full `[<prefix>-N][f]`, collapsed `[<prefix>-N][]` and shortcut `[<prefix>-N]` with the declaration `[f]: ../triage` (labels compare case-insensitively). Such a link promises a card and delivers a directory, and it looks whole while broken; gate 6 does not report it, because the number exists. A directory link without a task id is allowed: `[templates/](../../templates/)` shows a directory, and nothing but the directory can show it. A link inside a code span or a fenced code block is an example and is not read.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- Output: on stderr, one `✖` line per error and one `⚠` line per warning; on stdout, a note when gate 15 skips its URL class (no `origin` remote), then the line of what gate 1 read, `gate 1: files N, links N, local N, anchors checked N`. Then the summary with the warning count: `lint: no errors` on stdout, `lint: errors N` on stderr.
+```
+<!-- /quote -->
+
+<!-- quote:../README.md -->
+```text
+2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word, or a task id or a tracker link in project documentation: README, `docs/` outside `backlog/` and `archive/`, and the unreleased CHANGELOG section ([gate 15](docs/reference/03-lint.md#documentation-without-the-tracker)). Write what the record says instead: the contract, the rationale, or the measurement with its version and date.
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+| 9 | Triage review | A finding `N.k` lies in `triage/` while its task `N` is already in `archive/`: `lint` prints a warning for the approver and does not fail. A finding in `queue/`, `active/` or `deferred/` is already triaged and does not count. A `Parent` field in a status directory whose number differs from the number in the file name (`<prefix>-5.1` with `Parent: <prefix>-6`) is a warning too; `<prefix>-5.2` with `Parent: <prefix>-5.1` agrees, and a `Parent` with no task number is not compared | the approver triages the entry: `mv N.k queue`, merge it into another task, or close it with `archive N.k`; fix the `Parent` field or the file name |
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+- an `Order` on a card outside `queue/` and a `Previous order` on a card in `queue/` (gate 4): `mv` removes the first when a card leaves `queue/` and the second when it enters, so delete the line;
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+- **Files.** `docs/**` and root `*.md`, the extension in any case (`NOTE.MD` too). A root symlink is read when it resolves to a regular file inside the project; a link leading outside is not read; a symlink whose target the walk already covers is checked once, by the path without the link. A status or archive directory that is a symlink leading out of the project is not read, as in gates 2, 4 and 6: gate 3 reports the link, and the links and quotes of the files behind it, the journal anchors among them, are not checked.
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+- A directory reached through several symlinks is walked once, under the first path that reaches it. `mv`, `archive` and `fold` resolve the relative links of a file from its real place in the project, so a card listed only through a symlinked alias of its directory has its links to the moved task rewritten.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- Output: the file, and a reminder to add the row to the `docs/README.md` table. `lint` fails until the row is added and the `[TODO]` lines of the template are written (gate 8).
 ```
 <!-- /quote -->
 
