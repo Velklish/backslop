@@ -47,17 +47,9 @@ With an adapter selected, ask an agent to "populate docs using backslop" after t
 
 ## Agent hooks
 
-An agent hook makes the coding agent fix the `lint` errors it introduced before its turn ends. With a harness selected, `init` writes two records into the project hook file of that harness: the start hook records where the session began, and the stop hook runs `lint` at the end of each turn and returns the turn when an error sits in a file the session changed. An error in any other file never returns a turn.
+An agent hook is a record that `init` writes into the project hook file of a selected harness, two per harness: the start record runs `hook session-start`, which records the commit the session began from, and the stop record runs `hook stop`, which runs `lint` and reports the errors that sit in a file changed since that commit. An error in any other file is not reported.
 
-Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hooks none` removes them); a first `init` selects none. The records go into `<project>/.claude/settings.json`, `<project>/.cursor/hooks.json` and `<project>/.codex/hooks.json`, next to the team's own settings and hooks, which `init` keeps; it never touches the user-level files in your home directory. The rules are in [Agent hook records](docs/reference/01-layout.md#agent-hook-records).
-
-As measured on 2026-09-30 with Claude Code 2.1.284, `codex-cli 0.158.0` and `cursor-agent` 2026.09.26-dd393fe, the trust step before a project hook runs differs by harness (the record is the message of commit `43f35f8`; the measurements are in [Agent hook files and protocols](docs/reference/01-layout.md#agent-hook-files-and-protocols)):
-
-| Harness | Trust step |
-|---|---|
-| Claude Code | none in `claude -p` |
-| Codex | `codex exec` ran the hooks only with `--dangerously-bypass-hook-trust`; a linked worktree runs the main checkout's file |
-| Cursor | none in `cursor-agent -p --force`; the interactive `cursor-agent` asks to trust the workspace (`--trust`); `stop` fires only in the interactive terminal |
+Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hooks none` removes them); a first `init` selects none. `init` writes the records into `<project>/.claude/settings.json` for `claude`, `<project>/.cursor/hooks.json` for `cursor` and `<project>/.codex/hooks.json` for `codex`, next to the team's own settings and hooks, which `init` keeps; it never writes the files in your home directory. The rules are in [Agent hook records](docs/reference/01-layout.md#agent-hook-records).
 
 ## Commands
 
@@ -79,7 +71,7 @@ Each command links its reference section: behaviour, output and refusals.
 | [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot |
 | [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty |
 | [`links --external [--json]`](docs/reference/02-cli.md#links) | request the http(s) links of the documents and classify each: ok, dead, unverified; outside `gates` and `lint` |
-| [`hook <session-start\|stop> --harness <claude\|cursor\|codex>`](docs/reference/02-cli.md#hook) | agent hook: record where a session started, return the turn on `lint` errors in the files it changed |
+| [`hook <session-start\|stop> --harness <claude\|cursor\|codex>`](docs/reference/02-cli.md#hook) | agent hook: record where a session started, report the `lint` errors in the files it changed |
 | [`upgrade [--to X.Y.Z] [--dry-run] [--pin-only]`](docs/reference/02-cli.md#upgrade) | update the pins, then migrate and initialize with the new version |
 | [`migrate [--dry-run]`](docs/reference/02-cli.md#migrate) | migrate file formats, redraw the tracking and archive rules, update the version stamp |
 | [`changelog [--since X.Y.Z] [--to X.Y.Z]`](docs/reference/02-cli.md#changelog) | print backslop CHANGELOG entries between versions |

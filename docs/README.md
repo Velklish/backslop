@@ -216,12 +216,6 @@ How backslop works, as the code shows it. The intent and rationale are in the [A
 
 <!-- quote:../README.md -->
 ```text
-As measured on 2026-09-30 with Claude Code 2.1.284, `codex-cli 0.158.0` and `cursor-agent` 2026.09.26-dd393fe, the trust step before a project hook runs differs by harness (the record is the message of commit `43f35f8`; the measurements are in [Agent hook files and protocols](docs/reference/01-layout.md#agent-hook-files-and-protocols)):
-```
-<!-- /quote -->
-
-<!-- quote:../README.md -->
-```text
 ## Update a project
 ```
 <!-- /quote -->
@@ -247,24 +241,6 @@ A backlog for slop: a file-based task tracker and decision log next to the code,
 <!-- quote:../README.md -->
 ```text
 With an adapter selected, ask an agent to "populate docs using backslop" after the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a worker batch closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
-```
-<!-- /quote -->
-
-<!-- quote:reference/01-layout.md -->
-```text
-Measured on 2026-09-30 on macOS with a hand-written project hook file that runs a probe on the start and stop events. Each harness ran headless, and Cursor also ran interactively in `tmux`. Versions: Claude Code 2.1.284, Codex `codex-cli 0.158.0`, Cursor `cursor-agent` 2026.09.26-dd393fe. The record is the message of commit `43f35f8`, which holds the result of the measurement with the evidence of each cell. What is stated below was observed on those versions, one run per cell unless the cell gives a run count; a cell that reads "not measured" was not tried.
-```
-<!-- /quote -->
-
-<!-- quote:reference/01-layout.md -->
-```text
-**The trust step.** As measured above, the harnesses differ: Claude Code in `-p` needs no step; Codex in `codex exec` ran the hooks only with `--dangerously-bypass-hook-trust`, and persisted trust was not measured; Cursor in `-p` with `--force` needs none, and the interactive `cursor-agent` asks to trust the workspace (`--trust`). Cursor's `stop` fires only in the interactive terminal, and a linked Codex worktree runs the main checkout's `<project>/.codex/hooks.json`.
-```
-<!-- /quote -->
-
-<!-- quote:reference/02-cli.md -->
-```text
-Checked live on 2026-10-02 on Claude Code 2.1.284 (the record is the message of commit `74c73a2`), in two `claude -p` sessions of a throwaway project with the records written by hand: a broken anchor in a file the session created returned the turn once, with the error line in the `Stop hook feedback:` message; a broken anchor in a file the session never touched did not return it. Not checked: this command under Codex and Cursor, which follow the protocols measured in [01](01-layout.md#agent-hook-files-and-protocols) (for Cursor, only in the interactive terminal, where `stop` fires), and the note channels — `systemMessage` for `claude` and `codex`, stderr for `cursor` — which no run showed to the user.
 ```
 <!-- /quote -->
 
