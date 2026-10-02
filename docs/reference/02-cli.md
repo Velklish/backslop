@@ -30,7 +30,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 | Command | Purpose |
 |---|---|
 | `init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>] [--hooks <CSV\|none>]` | lay down or refresh the layout |
-| `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]` | file a task or a finding |
+| `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical\|major] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]` | file a task or a finding |
 | `mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]` | move tasks between statuses, or reorder the queue |
 | `archive <N> [--dry-run] [--range <base>..HEAD]` \| `archive <N.k> --into <M> [--dry-run]` | archive a task, or close a minor entry into a batch |
 | `fold <N> [--dry-run]` | fold one archived task into a journal line |
@@ -46,7 +46,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 | `links --external [--json]` | request the external links of the documents and classify each |
 | `hook <session-start\|stop> --harness <claude\|cursor\|codex>` | agent hook: record where a session started, and report the `lint` errors in the files it changed |
 | `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update backslop in the project |
-| `migrate [--dry-run]` | run the layout migrations and redraw the rules pair |
+| `migrate [--dry-run]` | run the layout migrations and redraw the rules pair, `ROLES.md` and the journal header |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | print backslop's CHANGELOG sections |
 | `merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]` | merge two revisions of `CHANGELOG.md` |
 | `version` \| `--version` \| `-v`, `help` \| `--help` \| `-h`, `<command> --help` | print the version or the help |
@@ -55,7 +55,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 
 Behaviour:
 
-- Lays down the skeleton; the rules of a repeated run are in [01 § Re-run init](01-layout.md#re-run-init). An existing `docs/` file is not touched, nor is the rules pair — `migrate` redraws it. The process ADR is `adr-001-process.md`, or the next free number in a project with ADRs of its own.
+- Lays down the skeleton; the rules of a repeated run are in [01 § Re-run init](01-layout.md#re-run-init). An existing `docs/` file is not touched, nor are the rules pair and `ROLES.md` — `migrate` redraws them. An existing `ROLES.md` that is no render and lacks the "This file belongs to backslop" paragraph is kept, and `init` warns, naming the file and asking to rename it and run `init` again, which lays backslop's file; the block and the backlog README point at that path. The process ADR is `adr-001-process.md`, or the next free number in a project with ADRs of its own.
 - The block in `AGENTS.md` and in `.gitignore` is written with the file's own line endings (CRLF stays CRLF); a new file gets LF. Adapter outputs are always LF, even from a CRLF clone of the tool.
 - `--dir` and the configured `docs` are compared normalized: `docs/`, `./docs` and `docs` are one directory.
 - An unselected adapter whose root is not a directory is skipped without a refusal, as is a removal candidate of it that goes through a symlink or is not a file.
@@ -81,6 +81,7 @@ Behaviour:
 
 - Writes a task file from the template into `triage/`; with `--queue`, into the queue at the end, or at the top with `--top`. An empty or blank `--title` makes the slug the title.
 - `--parent N` files a finding `N.k`; `--parent N.M` files a finding under a finding, with the next free `N.k` and a Parent field naming the exact parent.
+- `--cost critical|major` with `--parent` and without `--minor` writes that level into the Cost field of the task card; without `--cost` the card carries a dash (`—`), and so does a card with no `--parent`. `status` shows the level of a card outside `minor/` behind its title, and a dash is shown as nothing.
 - `--minor` files a minor finding into `minor/` from the `minor.md` template, with Parent, Cost (`--cost`: `critical`, `major`, `minor`; default `minor`; `major` and `critical` only with `--hypothesis`, and then marked as a hypothesis) and an empty Scope ([01 § Minor file](01-layout.md#minor-file)). The required `--evidence` gives the evidence.
 - A finding in `triage/` gets the Evidence field as a separate line with a placeholder to fill; a minor entry gets the `--evidence` text instead.
 - Scope gets a link to `reference/README.md` with the depth from the status directory computed (text, in a project without that file); whoever files the task writes the actual section.
@@ -93,7 +94,7 @@ Output:
 Refusals:
 
 - A git failure while scanning foreign numbers, other than "no repository" and "git is not installed"; a bad slug; a slug that makes the file name `<prefix>-<N[.k]>-<slug>.md` longer than 255 bytes — before any write and before the queue is renumbered; no such parent; `docs/backlog` or the status directory the file goes into is a file.
-- `--top` without `--queue`; `--minor` without `--parent` or with `--queue`; `--cost`/`--hypothesis`/`--evidence` without `--minor`; `--cost` outside the three levels; `--cost major|critical` without `--hypothesis`; `--minor` without `--evidence` or with empty evidence.
+- `--top` without `--queue`; `--minor` without `--parent` or with `--queue`; `--hypothesis`/`--evidence` without `--minor`; `--cost` without `--parent` and without `--minor`; `--cost minor` without `--minor`; `--cost` outside the three levels; `--cost major|critical` without `--hypothesis`; `--minor` without `--evidence` or with empty evidence.
 - A status directory or an archive task directory that is a symlink leading out of the project — the numbers behind it are not seen; before any write.
 
 ### mv
@@ -106,7 +107,7 @@ Behaviour:
 - A task already in `queue/` with `--top`/`--after M` is reordered, not moved: its place is computed as the bullet "Queue position" describes, without the task itself among the neighbours; only Order changes, the file stays and no links are rewritten.
 - Into `active`: writes Taken. Into `deferred`: appends the Deferred section only when there is none; when there is one, the file stays as is and a line asks to check the reason and return condition. A Deferred heading inside a fenced example is not a section.
 - Into `minor`: needs evidence — an Evidence section with text and without a placeholder, or `--evidence "…"` (one number only). A `task.md`-shaped card is reshaped: the Context, Work to do, Out of scope and Verification sections made only of placeholders are removed; in every other section but Evidence, a placeholder line by the gate 4 line rule ([03](03-lint.md)) is cut, while a table row with a written cell stays with its placeholder cells emptied. A Context with text and no Evidence becomes Evidence.
-- `--evidence` writes an `Evidence: …` line in place of the first placeholder line of the Evidence section that is not a table row, otherwise at the end of the section, otherwise as a new section. `mv N minor` adds `Cost: minor` when the field is missing, and erases Scope when its value is entirely a `[TODO…]` placeholder by the gate 4 rule (a value that only starts with one stays).
+- `--evidence` writes an `Evidence: …` line in place of the first placeholder line of the Evidence section that is not a table row, otherwise at the end of the section, otherwise as a new section. `mv N minor` adds `Cost: minor` when the field is missing or a dash, and erases Scope when its value is entirely a `[TODO…]` placeholder by the gate 4 rule (a value that only starts with one stays).
 - Links: outgoing links of the file are recomputed from the old directory to the new one, and incoming links are rewritten across the repository's markdown. The rewritten forms are the local forms gate 1 reads: inline links and images, both destinations of a badge, HTML `<a href>`, and reference declarations, including in a blockquote or a list item. The target is read by the [link rule](03-lint.md#link-rule), so a `%`-encoded link (`my%20docs/…`) is rewritten too and stays encoded; a `#…`/`?…` tail is kept; a link whose decoded target does not change is not touched. Rewriting matches the complete written filename, including literal backticks: a link to a distinct unmoved file stays as written. A link with a broken `%` escape is not decoded: an outgoing one is recomputed as written, an incoming one stays. A file's link to itself, relative or root, points to its new place.
 - A file lying flat in `docs/backlog/` (a migrated foreign tracker) moves too, with links recomputed for the deeper path.
 - Queue position (with `--top`, `--after M` and `--restore`) is computed before the move, so a refused `--after` leaves the file untouched, and it is computed afresh for each number when its turn comes:
@@ -119,7 +120,7 @@ Behaviour:
 Output:
 
 - One line per task: `✔ <id>: <from>/ → <to>/ (<path>)`, or `✔ <id>: queue/ “Order” <rank>` for a reorder; then its notes — the saved position restored, taken, or placed ahead of a neighbour from the same call, a discarded saved position, placeholder-only sections removed, Context became Evidence, outgoing links recalculated, task links updated.
-- After the last task: the queue renumbering summary; for `deferred`, a line asking to complete the new Deferred section, or to check an existing one; for `minor`, a line when `Cost: minor` was added, asking to adjust it for a hypothesis of a costlier finding.
+- After the last task: the queue renumbering summary; for `deferred`, a line asking to complete the new Deferred section, or to check an existing one; for `minor`, a line when `Cost: minor` was added (to a card with no Cost field or a dash), asking to adjust it for a hypothesis of a costlier finding.
 
 Refusals:
 
@@ -127,6 +128,7 @@ Refusals:
 - No such task; the task is in the archive; already in that status (in `queue/`, without `--top`/`--after`/`--restore`).
 - `--after` target not in the queue, or the task itself; the `--after` target sits in `queue/` without an integer Order; a number named twice in the call; `--top`/`--after` with several numbers (one number cannot place several tasks; `--restore` is not limited so); two position flags at once.
 - `--restore` for a task of the call without Previous order, or with a non-integer one — a refusal for the whole call, by name, before the first move.
+- A move to `minor` of a card whose Cost is `major` or `critical` without the hypothesis mark — a refusal for the whole call, before the first move, naming each card and its level and pointing to the hand edit `major (hypothesis)` or to `new … --minor --cost <level> --hypothesis`.
 - Into `minor` without evidence for any task of the call — by name, before the first move; `--evidence` not into `minor`, or with several numbers.
 - A destination path taken by a file or a directory, or a destination status directory that is a file — before the first move.
 - A destination status directory that is a symlink leading out of the project — before the first move.
@@ -166,7 +168,8 @@ Behaviour of `fold <N>`:
 - Incoming links move to the line's anchor — together with the old anchor, because the `#context` of a vanished file means nothing on a journal line. Rewritten are links to the directory itself, `task.md`, `result.md` and batch entries, root ones included (`/docs/archive/…` resolves from the repository root, by the [link rule](03-lint.md#link-rule), and stays a root link), and links to the directory with a trailing slash. The forms are the local forms gate 1 reads: inline links and images, both badge destinations, HTML `<a href>` and reference declarations, including in a blockquote or a list item. A `%`-encoded link moves too and stays encoded; a link with a broken `%` escape is never decoded and never rewritten.
 - A batch entry leaves with its batch and gets a line of its own with the outcome `batch M`; entries go in numeric order (`1.2` before `1.10`). Anything but a file in `minor/` — a directory, a broken link — `fold` does not read; `lint` gate 5 names it. A journal with CRLF stays CRLF: appended lines take the file's line ending.
 - The acceptance procedure: the draft lands outside the working tree — `fold N > "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"`, because `git add -A` would otherwise take it into the task commit — and the final acceptance commit carries it as its message: `git add -A`, `git reset --soft <base>`, `git commit --cleanup=verbatim -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"`. `--cleanup=verbatim` stops git from cleaning the message at all. The subject is `<prefix>-N: <what was done>`.
-- **Do not commit between `archive N` and `fold N`.** A directory committed between them gives the line that commit as its revision, and a squash before the push drops it from history. A `fixup` onto the worker's commit discards the draft, and nothing is squashed after the fold. `lint` gate 13 catches a revision that is not in the history of `HEAD` ([03](03-lint.md)), so `lint` runs on the final commit, before the push.
+- **Do not commit between `archive N` and `fold N`** — except in the attachment branch below. A directory committed between them gives the line that commit as its revision, and a squash before the push drops it from history. A `fixup` onto the worker's commit discards the draft, and nothing is squashed after the fold. `lint` gate 13 catches a revision that is not in the history of `HEAD` ([03](03-lint.md)), so `lint` runs on the final commit, before the push.
+- **The attachment branch.** A task directory with an attachment cannot be folded before the attachment is in `HEAD`, so the squash comes first, with the directory in the tree: `git add -A`, `git reset --soft <base>`, `git commit -m "<prefix>-N: <what was done>"`. Then `fold N > "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"` and the commit of its result: `git add -A`, `git commit --cleanup=verbatim -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"`. The journal line names the squash commit, which holds the directory with its attachments, and `show N` lists them by path from it. The task reaches the main branch as those two commits, and nothing is squashed after the fold.
 
 Output of `fold <N>`:
 
@@ -179,7 +182,7 @@ Refusals of `fold <N>`:
 
 - No such task; already folded; not in the archive; a batch entry, which folds together with its batch; no `task.md`.
 - `result.md` missing, empty, or failing a [gate 5](03-lint.md#gates) predicate — a placeholder left, or no outcome word in the first paragraph or heading; the outcome refusal carries gate 5's message. (The bulk fold does not refuse on it; see [01 § Outcome words](01-layout.md#outcome-words).)
-- An attachment not in `HEAD`, or differing from it — the refusal names the files and says to move them out of the directory and link them from `result.md`: a commit between `archive` and `fold` is not part of the acceptance recipe.
+- An attachment not in `HEAD`, or differing from it — the refusal names the files and points to the attachment branch of the acceptance procedure below, or to moving them out of the directory and linking them from `result.md`.
 - `--embed-missing` with a number; more than one number; a git failure while checking whether the task directory is tracked — before any directory is deleted.
 
 Behaviour of the bulk `fold`:
@@ -381,7 +384,7 @@ Refusals:
 Behaviour:
 
 - Runs the tool's migrations whose version is above the stamp, then stamps; a project without a stamp counts as older than every migration.
-- With the stamp below the tool version, or missing, it also redraws the rules pair (`<docs>/backlog/README.md`, `<docs>/archive/README.md`) from this version's template; the rules are in [01 § The rules pair belongs to the tool](01-layout.md#the-rules-pair-belongs-to-the-tool). A leading BOM does not count as a difference; at the tool version, neither does a difference in line endings alone.
+- With the stamp below the tool version, or missing, it also redraws the rules pair (`<docs>/backlog/README.md`, `<docs>/archive/README.md`), `<docs>/ROLES.md` and the header of `<docs>/archive/LOG.md` from this version's template, laying `ROLES.md` when it is missing, and leaves the journal entries as they are; the rules are in [01 § The rules pair belongs to the tool](01-layout.md#the-rules-pair-belongs-to-the-tool). A leading BOM does not count as a difference; at the tool version, neither does a difference in line endings alone.
 - Migrations: below v0.10.0 — the closed-task journal `<docs>/archive/LOG.md` from the template; below v0.12.0 — deleting an untouched copy of `<docs>/ROADMAP.md` together with its two lines in `<docs>/README.md` ([01 § ROADMAP.md is not part of the layout](01-layout.md#roadmapmd-is-not-part-of-the-layout)). The journal migration creates an empty file and deletes no archive directory: folding what has accumulated is a separate `fold`, not a side effect of an upgrade.
 - `init` and `migrate` refuse when the stamp is newer than themselves: a downgrade is not supported.
 
@@ -390,7 +393,8 @@ Output: the paths it rewrote or deleted, the files it kept and why, the stamp ch
 Refusals:
 
 - A stamp newer than the tool.
-- An uncommitted edit of a rules-pair file that would be redrawn — before the first write, with `--dry-run` too, the stamp untouched. The v0.12.0 migration refuses the same way on an uncommitted edit of `<docs>/ROADMAP.md` or `<docs>/README.md` that it would delete or edit — before the first write of the whole run, with `--dry-run` too. A pin move alone is not an edit (CRLF in a checkout under `core.autocrlf` included).
+- An uncommitted edit of a rules-pair file, of `ROLES.md` or of the journal `LOG.md` that would be redrawn — before the first write, with `--dry-run` too, the stamp untouched. The refusal for the journal has its own wording: its entries stay and only an edit of the header would be erased. The v0.12.0 migration refuses the same way on an uncommitted edit of `<docs>/ROADMAP.md` or `<docs>/README.md` that it would delete or edit — before the first write of the whole run, with `--dry-run` too. A pin move alone is not an edit (CRLF in a checkout under `core.autocrlf` included).
+- A `ROLES.md` of the project's own — no render of either language and no "This file belongs to backslop" paragraph — before the first write, with `--dry-run` too, with git or without; the refusal names the file and asks to rename it and fix the links to it.
 - A git failure other than "no repository" and "git is not installed" — before the first write.
 
 ### changelog

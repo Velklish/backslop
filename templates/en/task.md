@@ -3,6 +3,7 @@
 - **Scope:** {{area}}
 - **Created:** {{date}}
 - **Dependencies:** none
+- **Cost:** {{cost}}
 
 ## Context
 

@@ -6,6 +6,7 @@
 |---|---|---|
 | [reference/](reference/README.md) | Справочник по подсистемам: как устроено сейчас, по коду | Живой |
 | [GLOSSARY.md](GLOSSARY.md) | Нормативный словарь терминов: одно понятие — одно имя | Живой |
+| [ROLES.md](ROLES.md) | Кто что решает в трекере: worker, approver, владелец | Живой |
 | [backlog/](backlog/README.md) | Трекер задач: файл на задачу, статус — каталог, сводка — `{{cli}} status` | Живой |
 | [archive/](archive/README.md) | Закрытые задачи: журнал `LOG.md` и каталоги, ещё не свёрнутые в него | Живой |
 | [adr/adr-{{adrNumber}}-process.md](adr/adr-{{adrNumber}}-process.md) | Задачи и решения ведутся по backslop | Accepted |

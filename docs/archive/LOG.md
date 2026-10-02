@@ -366,3 +366,14 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.60"></a>`BS-192.60-contract-hook-channels-unverified` · 2026-10-02 · batch BS-212 · — · 05-orchestrator-contract.md: the channels a harness reads a returned turn and a note from are unverified
 - <a id="bs-192.61"></a>`BS-192.61-readme-hook-turn-return-unverified` · 2026-10-02 · batch BS-212 · — · README.md: that three harnesses return the turn on the stop hook is unverified
 - <a id="bs-205.2"></a>`BS-205.2-layout-position-words-left` · 2026-10-02 · batch BS-212 · — · 01 Layout: five position words are still in place
+- <a id="bs-210"></a>`BS-210-minor-batch-process-templates` · 2026-10-02 · completed · — · Minor batch: process templates, Cost field, attachments, glossary
+- <a id="bs-162.1"></a>`BS-162.1-role-protocol-home` · 2026-10-02 · batch BS-210 · — · Move the worker/approver/owner role protocol out of the backlog README
+- <a id="bs-162.2"></a>`BS-162.2-consumer-log-header` · 2026-10-02 · batch BS-210 · — · migrate could redraw the LOG.md header in consumer projects
+- <a id="bs-162.3"></a>`BS-162.3-agents-step6-triage-criterion` · 2026-10-02 · batch BS-210 · — · agents-step6-triage-criterion
+- <a id="bs-190.1"></a>`BS-190.1-audit-cards-carry-no-cost` · 2026-10-02 · batch BS-210 · — · audit-cards-carry-no-cost
+- <a id="bs-192.17"></a>`BS-192.17-layout-w6-terms-not-in-glossary` · 2026-10-02 · batch BS-210 · — · 01 Layout: terms the glossary does not define
+- <a id="bs-192.25"></a>`BS-192.25-cli-w6-terms-not-in-glossary` · 2026-10-02 · batch BS-210 · — · 02 CLI: terms the glossary does not define
+- <a id="bs-192.30"></a>`BS-192.30-lint-w6-terms-not-in-glossary` · 2026-10-02 · batch BS-210 · — · 03 Lint: a term the glossary does not define
+- <a id="bs-192.35"></a>`BS-192.35-contract-w6-terms-not-in-glossary` · 2026-10-02 · batch BS-210 · — · 05 Orchestrator contract: terms the glossary does not define
+- <a id="bs-192.40"></a>`BS-192.40-module-map-w6-terms-not-in-glossary` · 2026-10-02 · batch BS-210 · — · 06 Module map: terms the glossary does not define
+- <a id="bs-202.4"></a>`BS-202.4-acceptance-recipe-attachment-branch` · 2026-10-02 · batch BS-210 · — · The acceptance recipe has no branch for a task directory that holds attachments

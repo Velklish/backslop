@@ -2,7 +2,7 @@
 // breaks nothing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -34,7 +34,7 @@ const OWNER_RU = {
 };
 
 // Block sentences the Russian skill must not restate: the first sentence of steps 2, 3 and 6.
-const SKILL_RESTATES_RU = new RegExp(['Reverse a previous decision by clean removal', 'An undocumented change is incomplete', 'every entry gets a next step']
+const SKILL_RESTATES_RU = new RegExp(['Reverse a previous decision by clean removal', 'An undocumented change is incomplete', 'has a named next step']
   .map((anchor) => ruTextRe(ruTwinLine('agents-section.md', anchor).replace(/^\d+\. \*\*[^*]+\*\*\s*/, '').split(/(?<=\.)\s+/)[0], { docs: 'docs' }).source)
   .join('|'));
 
@@ -61,10 +61,33 @@ function emptyRepo() {
 
 const EXPECTED = [
   'backslop.json', 'AGENTS.md',
-  'docs/README.md', 'docs/GLOSSARY.md', 'docs/reference/README.md',
+  'docs/README.md', 'docs/GLOSSARY.md', 'docs/ROLES.md', 'docs/reference/README.md',
   'docs/adr/adr-001-process.md', 'docs/backlog/README.md', 'docs/archive/README.md',
   'docs/backlog/triage/.gitkeep', 'docs/backlog/queue/.gitkeep', 'docs/backlog/active/.gitkeep', 'docs/backlog/deferred/.gitkeep', 'docs/backlog/minor/.gitkeep',
 ];
+
+test('init: a ROLES.md of the project\'s own is kept and named in a warning, backslop\'s own is not', () => {
+  const root = emptyRepo();
+  try {
+    writeFileSync(path.join(root, 'package.json'), '{ "name": "demo" }\n');
+    mkdirSync(path.join(root, 'docs'));
+    writeFileSync(path.join(root, 'docs', 'ROLES.md'), '# Our roles\n\nWho signs off a release.\n');
+    let r = cli(root, ['init', '--lang', 'en']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /docs\/ROLES\.md: a file of your own sits where backslop lays its roles document, and the block and the backlog README point to it — rename it, fix the links to it and run .* init/);
+    assert.equal(readFileSync(path.join(root, 'docs', 'ROLES.md'), 'utf8'), '# Our roles\n\nWho signs off a release.\n', 'the file is untouched');
+    renameSync(path.join(root, 'docs', 'ROLES.md'), path.join(root, 'docs', 'OUR-ROLES.md'));
+    r = cli(root, ['init']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /roles document/, 'a file laid by init is backslop\'s own');
+    assert.match(readFileSync(path.join(root, 'docs', 'ROLES.md'), 'utf8'), /^# Roles\n/, 'the rename and init lay backslop\'s file');
+    assert.equal(cli(root, ['migrate']).code, 0);
+    assert.equal(cli(root, ['lint']).code, 0, 'the advice of the warning ends in a green lint');
+    assert.match(readFileSync(path.join(root, 'docs', 'OUR-ROLES.md'), 'utf8'), /Who signs off a release/, 'the renamed file is kept');
+  } finally {
+    cleanup(root);
+  }
+});
 
 test('init: layout, lint green, an end-to-end task cycle, a repeated init is idempotent', () => {
   const root = emptyRepo();

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { FIELD, KILLED, RU_COMMANDS, SECTION, changelogTool, cleanup, cli, escapeRe, fieldRe, gitAll, killedRe, makeProject, put, read, ru, ruCard, ruOutcome, ruRe, ruResult, run, toolCli } from './helpers.mjs';
+import { ANY, FIELD, KILLED, RU_COMMANDS, SECTION, changelogTool, cleanup, cli, escapeRe, fieldRe, gitAll, killedRe, makeProject, put, read, ru, ruCard, ruOutcome, ruRe, ruResult, run, toolCli } from './helpers.mjs';
 import { markGenerated } from '../lib/adapter-ownership.js';
 import { loadProject } from '../lib/config.js';
 import { toPosix } from '../lib/util.js';
@@ -975,7 +975,7 @@ test('status: EN human output, JSON contract unchanged, RU metadata accepted', (
     assert.doesNotMatch(human.out, CYRILLIC);
     const json = JSON.parse(cli(root, ['status', '--json']).out);
     assert.deepEqual(json.active[0], {
-      id: 'BS-1', title: 'Mixed', file: 'docs/backlog/active/BS-1-mixed.md', created: '2026-09-01', taken: '2026-09-02',
+      id: 'BS-1', title: 'Mixed', file: 'docs/backlog/active/BS-1-mixed.md', created: '2026-09-01', taken: '2026-09-02', cost: null,
     });
   } finally { cleanup(root); }
 });
@@ -1675,12 +1675,12 @@ test('new --minor: an N.k file in minor/ with a cost and a parent, an empty area
     r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--queue', '--evidence', 'x']);
     assert.equal(r.code, 1);
     assert.match(r.err, ruRe('--minor and --queue cannot be used together: a minor waits for a batch, not for the queue'));
-    r = cli(root, ['new', 'a', '--parent', '1', '--cost', 'major']);
+    r = cli(root, ['new', 'a', '--parent', '1', '--hypothesis']);
     assert.equal(r.code, 1);
-    assert.match(r.err, ruRe('--cost, --hypothesis, and --evidence are only valid together with --minor'));
+    assert.match(r.err, ruRe('--hypothesis and --evidence are only valid together with --minor'));
     r = cli(root, ['new', 'a', '--parent', '1', '--evidence', 'x']);
     assert.equal(r.code, 1);
-    assert.match(r.err, ruRe('--cost, --hypothesis, and --evidence are only valid together with --minor'));
+    assert.match(r.err, ruRe('--hypothesis and --evidence are only valid together with --minor'));
     r = cli(root, ['new', 'a', '--parent', '1', '--minor', '--cost', 'major', '--evidence', 'x']);
     assert.equal(r.code, 1);
     assert.match(r.err, ruRe('--cost {level} without --hypothesis: critical and major with evidence are fixed now, not queued for a batch; a hypothesis takes --hypothesis', { level: 'major' }));
@@ -1688,6 +1688,82 @@ test('new --minor: an N.k file in minor/ with a cost and a parent, an empty area
     assert.equal(r.code, 1);
     assert.match(r.err, ruRe('--cost {cost}: levels are {levels}', { cost: 'huge', levels: 'critical, major, minor' }));
     assert.ok(!existsSync(path.join(root, 'docs/backlog/minor/BS-1.3-a.md')));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('new --parent --cost: a task card carries the Cost field; status shows it, a card without one shows none', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'base', '--queue', '--title', 'Base']);
+    let r = cli(root, ['new', 'blocking', '--parent', '1', '--cost', 'critical', '--title', 'Blocking']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/triage/BS-1.1-blocking.md'), fieldRe('cost', ' critical\n'));
+    r = cli(root, ['new', 'high', '--parent', '1', '--cost', ' Major ', '--queue', '--title', 'High']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/queue/BS-1.2-high.md'), fieldRe('cost', ' major\n'));
+    cli(root, ['new', 'plain', '--parent', '1', '--title', 'Plain']);
+    cli(root, ['new', 'idea', '--title', 'Idea']);
+    for (const rel of ['docs/backlog/triage/BS-1.3-plain.md', 'docs/backlog/triage/BS-2-idea.md']) {
+      assert.match(read(root, rel), fieldRe('cost', ' —\n'), 'a card without a cost label says so with a dash');
+    }
+
+    const s = JSON.parse(cli(root, ['status', '--json']).out);
+    assert.deepEqual(s.triage.map((row) => [row.id, row.cost]), [['BS-1.1', 'critical'], ['BS-1.3', null], ['BS-2', null]]);
+    assert.deepEqual(s.queue.map((row) => [row.id, row.cost]), [['BS-1', null], ['BS-1.2', 'major']]);
+    const text = cli(root, ['status']).out;
+    assert.match(text, /^ {2}BS-1\.1 · Blocking — critical$/m);
+    assert.match(text, /^ +\d+ {2}BS-1\.2 · High — major$/m);
+    assert.match(text, /^ {2}BS-1\.3 · Plain$/m);
+
+    r = cli(root, ['new', 'a', '--cost', 'major']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, ruRe('--cost is a finding label: --parent N[.M] is required'));
+    r = cli(root, ['new', 'a', '--parent', '1', '--cost', 'minor']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, ruRe('--cost minor needs --minor: a minor finding waits in minor/ for a batch'));
+    r = cli(root, ['new', 'a', '--parent', '1', '--cost', 'huge']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, ruRe('--cost {cost}: levels are {levels}', { cost: 'huge', levels: 'critical, major, minor' }));
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/triage/BS-1.4-a.md')), 'a refusal writes nothing');
+
+    r = cli(root, ['mv', '1.3', 'minor', '--evidence', 'docs/backlog/README.md:15 — presumably']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/minor/BS-1.3-plain.md'), fieldRe('cost', ' minor\n'), 'a dash is replaced when a card moves to minor/');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv N minor: a Cost above minor without the hypothesis mark is refused before any move, naming the level', () => {
+  const root = makeProject();
+  try {
+    cli(root, ['new', 'base', '--queue', '--title', 'Base']);
+    cli(root, ['new', 'blocking', '--parent', '1', '--cost', 'critical', '--title', 'Blocking']);
+    cli(root, ['new', 'high', '--parent', '1', '--cost', 'major', '--title', 'High']);
+    cli(root, ['new', 'plain', '--parent', '1', '--title', 'Plain']);
+    const files = ['docs/backlog/triage/BS-1.1-blocking.md', 'docs/backlog/triage/BS-1.2-high.md', 'docs/backlog/triage/BS-1.3-plain.md'];
+    const before = files.map((rel) => read(root, rel));
+    const evidence = 'docs/backlog/README.md:15 — presumably';
+    let r = cli(root, ['mv', '1.3', '1.2', '1.1', 'minor']);
+    assert.equal(r.code, 1, r.out);
+    r = cli(root, ['mv', '1.3', '1.2', '1.1', 'minor', '--evidence', evidence]);
+    assert.equal(r.code, 1, r.out);
+    r = cli(root, ['mv', '1.2', 'minor', '--evidence', evidence]);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, ruRe('{items}: a Cost above minor needs the hypothesis mark in minor/ — such a finding is fixed now, not queued for a batch. Write the field as “{example}” by hand, or file the finding again with {cli} new <slug> --parent N --minor --cost <level> --hypothesis --evidence "…"', { items: 'BS-1.2 major', example: `major (${ru('hypothesis')})`, cli: ANY }));
+    r = cli(root, ['mv', '1.1', 'minor', '--evidence', evidence]);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /BS-1\.1 critical/);
+    assert.deepEqual(files.map((rel) => read(root, rel)), before, 'a refusal moves and writes nothing');
+    assert.ok(!existsSync(path.join(root, 'docs/backlog/minor/BS-1.2-high.md')));
+
+    put(root, files[1], read(root, files[1]).replace(/(- \*\*[^*]+:\*\* )major\n/, `$1major (${ru('hypothesis')})\n`));
+    r = cli(root, ['mv', '1.2', 'minor', '--evidence', evidence]);
+    assert.equal(r.code, 0, r.err);
+    assert.match(read(root, 'docs/backlog/minor/BS-1.2-high.md'), fieldRe('cost', ` major \\(${ru('hypothesis')}\\)\n`));
+    assert.doesNotMatch(cli(root, ['lint']).err, /✖ docs\/backlog\/minor\/BS-1\.2/);
   } finally {
     cleanup(root);
   }

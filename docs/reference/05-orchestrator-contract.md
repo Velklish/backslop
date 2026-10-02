@@ -62,6 +62,7 @@ A real run on a project with a task in every status and one folded task, each li
       "title": "Beta",
       "file": "docs/backlog/active/<prefix>-N-beta.md",
       "created": "YYYY-MM-DD",
+      "cost": null,
       "taken": "YYYY-MM-DD"
     }
   ],
@@ -71,6 +72,7 @@ A real run on a project with a task in every status and one folded task, each li
       "title": "Alpha",
       "file": "docs/backlog/queue/<prefix>-N-alpha.md",
       "created": "YYYY-MM-DD",
+      "cost": null,
       "order": 10
     }
   ],
@@ -80,6 +82,7 @@ A real run on a project with a task in every status and one folded task, each li
       "title": "Delta",
       "file": "docs/backlog/deferred/<prefix>-N-delta.md",
       "created": "YYYY-MM-DD",
+      "cost": null,
       "deferred": "Waiting for the reviewer"
     }
   ],
@@ -88,7 +91,8 @@ A real run on a project with a task in every status and one folded task, each li
       "id": "<prefix>-N.k",
       "title": "Finding",
       "file": "docs/backlog/triage/<prefix>-N.k-fnd.md",
-      "created": "YYYY-MM-DD"
+      "created": "YYYY-MM-DD",
+      "cost": "major"
     }
   ],
   "minor": [
@@ -109,7 +113,7 @@ A real run on a project with a task in every status and one folded task, each li
 - **Nulls.** An empty or missing `title`, `created`, `taken`, `area` or `cost` is `null`, never an empty string; `order` is `null` for a queued task without an integer Order.
 - **Order.** `active`, `deferred` and `triage` are ordered by `N`, then by `k`: a task `N` comes before its findings `N.k`. `queue` is ordered by Order, then by number, a task without Order last. `minor` is ordered by Scope as a string, entries without Scope last.
 - `deferred` is the text of the Reason line of the Deferred section, without the list marker and the label, as written in the file and in its language; it is `null` when that line is empty or still the `[TODO]` stub, and when the task has no Deferred section. A section without a Reason line gives its first non-empty line that is not a `- **Label:** value` field line, as written, or `null` when every line is a field.
-- `cost` is the Cost field as written (`minor`, `major (hypothesis)`); `area` is the Scope field as written, a markdown link included.
+- `cost` is the Cost field as written (`minor`, `major (hypothesis)`); on a card outside `minor/` it is a level written by `new --parent N --cost critical|major`, and `null` for a card with no Cost field or a dash; `area` is the Scope field as written, a markdown link included.
 - `archive` is the number of closed tasks: archive directories plus `LOG.md` journal lines, without minor entries closed into a batch with `--into`.
 - Paths are from the project root, in posix form.
 
@@ -349,7 +353,7 @@ The two commands report uncommitted work in different shapes, and a caller must 
 
 These are the commands an orchestrator uses to change the tracker. The behaviour of each is in [02. CLI](02-cli.md); here are the parts an orchestrator acts on.
 
-- **`new <slug> --parent N[.M]`** files a finding `N.k` in `triage/`, with the next free `k` across the current tree, other worktrees and local branches, and a Parent field naming the exact parent. `--minor --evidence "…"` files it in `minor/` instead, with the evidence and Cost (`--cost`; `major` and `critical` only with `--hypothesis`). A minor finding without evidence is refused.
+- **`new <slug> --parent N[.M]`** files a finding `N.k` in `triage/`, with the next free `k` across the current tree, other worktrees and local branches, a Parent field naming the exact parent, and with `--cost critical|major` a Cost field with that level. `--minor --evidence "…"` files it in `minor/` instead, with the evidence and Cost (`--cost`; `major` and `critical` only with `--hypothesis`). A minor finding without evidence is refused.
 - **`mv <N…> <status>`** moves one or more tasks between status directories and rewrites links to them. With several numbers, all are resolved and checked before the first move and then moved in argument order. `--top` and `--after M` place one task in the queue; `--restore` returns tasks to their saved queue place and works on a batch.
 - **`archive N`** moves a task into `archive/<id>-<slug>/task.md` with a `result.md` blank and prints the documentation files the task's work touched: files under `<docs>/` outside `backlog/` and `archive/`, and `CHANGELOG.md`, changed by commits whose subject starts with `<prefix>-N:`, plus the commits of `--range`. **`archive N.k --into M`** closes a minor entry into the closed batch M.
 - **`fold N`** folds one archived task into a `LOG.md` line and prints the commit message draft on stdout; **`fold`** without a number folds every archived directory, and with nothing to fold it exits 0 with empty stdout.
@@ -415,7 +419,7 @@ Stable, within one tagged version and across versions until an ADR changes it:
 | `adr` | the file name and the exit code |
 | `lint` | the exit code: 0 without errors, 1 with errors |
 | `merge-changelog` | the exit codes: 0 merged; 1 with the result written and a conflict mark left; 1 with nothing written for a refusal |
-| `upgrade` | the effect on the pin, the rules pair and the live pins, and the exit code |
+| `upgrade` | the effect on the pin, the rules pair, `ROLES.md`, the journal header and the live pins, and the exit code |
 
 - What the table does not name — the ordering of `active`, `deferred` and `triage`, the other null cases, the counts of `gates`, the checks before the first move — is described behaviour, not a guarantee.
 - **The outcome discriminator** for a `--json` mode: exit 1 with JSON on stdout is a result; exit 1 with empty stdout is a refusal.

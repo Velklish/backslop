@@ -14,8 +14,9 @@ const HELP_EN = `backslop — a file-based backlog with an archive, ADRs, and pr
 Commands:
   init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru|en] [--tools <CSV|none>] [--hooks <CSV|none>]
                                                       create docs, adapters, agent hooks, AGENTS.md block, and backslop.json
-  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]
+  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical|major] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]
                                                       create a task (triage/ by default) or a finding for task N / N.M;
+                                                      --parent without --minor is a major finding: --cost critical|major sets its Cost;
                                                       --minor — a minor finding or hypothesis in minor/, with a Cost field;
                                                       --evidence is required with --minor: a path with a line, a command
                                                       with output and exit code, a measurement; unverified is an assumption

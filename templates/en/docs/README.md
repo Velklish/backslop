@@ -6,6 +6,7 @@ The canonical project documentation. For current work, use `{{cli}} status`; for
 |---|---|---|
 | [reference/](reference/README.md) | Subsystem reference: how the current code works | Living |
 | [GLOSSARY.md](GLOSSARY.md) | Normative terminology: one concept, one name | Living |
+| [ROLES.md](ROLES.md) | Who decides what in the tracker: worker, approver, owner | Living |
 | [backlog/](backlog/README.md) | Task tracker: one file per task, status is the directory, summary is `{{cli}} status` | Living |
 | [archive/](archive/README.md) | Closed tasks: the `LOG.md` journal and the directories not yet folded into it | Living |
 | [adr/adr-{{adrNumber}}-process.md](adr/adr-{{adrNumber}}-process.md) | Tasks and decisions are managed with backslop | Accepted |
