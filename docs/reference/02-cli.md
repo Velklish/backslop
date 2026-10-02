@@ -66,7 +66,6 @@ Output:
 - The summary line `✔ init: …`, then adapter outputs, the `AGENTS.md`, `CLAUDE.md` and `.gitignore` states, and warnings.
 - Without `probe` in the config, a line says that neither the block nor the skill carries a probe requirement: declare the command in `probe`, or describe the probe in a section of your own outside the block — such a section survives `init`.
 - `agent hooks: <file> written|removed, …` when a hook file was written or removed.
-- With `cursor` or `codex` in `hooks`, one line says that promptobus participants of those harnesses collide with their hook files until promptobus accepts backslop's records, and that a project running such participants should not select these hooks.
 - The `next:` hint names the `backslop-seed` skill only when an adapter is selected; without one it names `init --tools`; in the tool's own repository, where `--tools` is refused, it names neither.
 
 Refusals:

@@ -209,12 +209,6 @@ As measured on 2026-09-30 with Claude Code 2.1.284, `codex-cli 0.158.0` and `cur
 
 <!-- quote:../README.md -->
 ```text
-At promptobus `v0.21.0` (recorded on 2026-10-02 in the message of commit `8dc5fb0`), Codex participants refuse a foreign `<project>/.codex/hooks.json` and Cursor participants overwrite `<project>/.cursor/hooks.json`, so a project that runs such participants should not select those hooks.
-```
-<!-- /quote -->
-
-<!-- quote:../README.md -->
-```text
 ## Update a project
 ```
 <!-- /quote -->
@@ -252,12 +246,6 @@ Measured on 2026-09-30 on macOS with a hand-written project hook file that runs 
 <!-- quote:reference/01-layout.md -->
 ```text
 **The trust step.** As measured above, the harnesses differ: Claude Code in `-p` needs no step; Codex in `codex exec` ran the hooks only with `--dangerously-bypass-hook-trust`, and persisted trust was not measured; Cursor in `-p` with `--force` needs none, and the interactive `cursor-agent` asks to trust the workspace (`--trust`). Cursor's `stop` fires only in the interactive terminal, and a linked Codex worktree runs the main checkout's `<project>/.codex/hooks.json`.
-```
-<!-- /quote -->
-
-<!-- quote:reference/01-layout.md -->
-```text
-**promptobus participants.** At promptobus `v0.21.0` (recorded on 2026-10-02 in the message of commit `8dc5fb0`, from the functions `refuseForeignProjectLayer` and `prepare` of its source), a Codex participant refuses a foreign `<project>/.codex/hooks.json` in the project, and a Cursor participant overwrites `<project>/.cursor/hooks.json` in its worktree. A project that runs promptobus Codex or Cursor participants should not select those hooks at that version; `init` says so in one line of its output when `cursor` or `codex` is selected.
 ```
 <!-- /quote -->
 

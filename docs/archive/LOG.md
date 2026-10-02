@@ -327,3 +327,8 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-202.3"></a>`BS-202.3-gate3-status-dir-link-wording` · 2026-10-02 · batch BS-206 · — · Gate 3 calls a status directory symlinked out of the project a file outside a status directory
 - <a id="bs-202.5"></a>`BS-202.5-gate2-reads-status-link-out` · 2026-10-02 · batch BS-206 · — · Gates 2 and 6 still read a status directory symlinked out of the project, and gate 6 now reddens every mention behind it
 - <a id="bs-202.6"></a>`BS-202.6-status-link-wrong-diagnoses` · 2026-10-02 · batch BS-206 · — · Two narrow wrong diagnoses for a status directory link: a locked project directory and a link through a symlinked path prefix
+- <a id="bs-208"></a>`BS-208-product-names-no-other-tool` · 2026-10-02 · completed · — · The product names no other tool: remove the promptobus collision warning and its documentation
+- <a id="bs-192.24"></a>`BS-192.24-cli-v7-promptobus-until` · 2026-10-02 · batch BS-208 · — · 02 CLI: the init output is described with a time-bound clause
+- <a id="bs-192.47"></a>`BS-192.47-readme-promptobus-note-unverified` · 2026-10-02 · batch BS-208 · — · README.md promptobus note: the behaviour of promptobus v0.21.0 is unverified
+- <a id="bs-192.49"></a>`BS-192.49-layout-promptobus-participants-unverified` · 2026-10-02 · batch BS-208 · — · 01-layout.md promptobus participants: the behaviour of promptobus v0.21.0 is unverified
+- <a id="bs-192.52"></a>`BS-192.52-cli-init-promptobus-line-unverified` · 2026-10-02 · batch BS-208 · — · 02-cli.md init line on promptobus: the collision with hook files is unverified
