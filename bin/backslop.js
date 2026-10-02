@@ -42,7 +42,7 @@ Commands:
   status [--json]                                     show active work, ordered queue, deferred tasks, triage, and minor entries by scope
   lint                                                fifteen gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
-                                                      versions, template slots, closed task journal, non-printable
+                                                      versions, template placeholders, closed task journal, non-printable
                                                       bytes, documentation without the tracker; adapter outputs,
                                                       template parity, and closed-parent warnings
   gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]

@@ -405,7 +405,7 @@ Refusals:
 
 Behaviour:
 
-- Merges two revisions of `CHANGELOG.md`, read with `git show <ref>:./CHANGELOG.md`: entries of the unreleased section are joined by their `- **…**` titles, and released sections are taken from `--ours` whole.
+- Merges two revisions of `CHANGELOG.md`, read with `git show <ref>:./CHANGELOG.md`: entries of the unreleased section are joined by their `- **…**` titles (a `**` inside a code span does not close a title), and released sections are taken from `--ours` whole.
 - The unreleased section is the first section whose heading does not start with a version number (a `v` or `[` may precede the number: `## v1.2.3 — date`, `## [1.2.3] - date` and `## 1.2.3` are versions, while `## Unreleased (after v1.2.3)` is unreleased); without such a section, it is the top section whose version has no tag `vX.Y.Z` or `X.Y.Z` in the repository — `npm run release -- X.Y.Z --bump` leaves it so before the release, and the report names that section on a line per side, `--base` included.
 - A `--theirs` side without an unreleased section reads as empty, and the report says "theirs has no unreleased section — its entries were not read"; the exit code does not change.
 - Structure: a section is pairs of a `### …` heading and a bold subgroup; a subgroup is a `**…**` line from the first column, while such a line with an indent stays an entry body. A top-level bullet without a bold title is a block of its own, recognized by its text and never removed by `--base`. The parse is reversible, and the `--ours` layout does not change: an additive merge gives only additions against it. The blank lines ending the last section belong to the section: an entry placed after the last entry of a side is separated from it by one blank line.

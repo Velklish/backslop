@@ -1688,3 +1688,60 @@ for (const [kind, refOf] of [
     }
   });
 }
+
+test('lint: 1. a link whose target differs only in Unicode normalization is an error on any filesystem', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"en","tools":[]}\n');
+    put(root, 'docs/café.md', '# Cafe\n');
+    put(root, 'docs/naïve.md', '# Naive\n');
+    put(root, 'docs/note-a.md', '[c](café.md)\n');
+    put(root, 'docs/note-b.md', '[n](naïve.md)\n');
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /docs\/note-a\.md: link target differs in Unicode normalization: docs\/café\.md \(link café\.md, line 1\)/);
+    assert.match(r.err, /docs\/note-b\.md: link target differs in Unicode normalization: docs\/naïve\.md \(link naïve\.md, line 1\)/);
+    assert.match(r.err, /lint: errors 2\b/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 7. an entry title holds a literal ** inside a code span and is compared whole', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    const entry = (name) => `- **\`when\`: \`**/\` ${name}** — text\n`;
+    put(root, 'CHANGELOG.md', `## Unreleased\n\n${entry('one')}${entry('two')}`);
+    assert.deepEqual(problems(root), []);
+    put(root, 'CHANGELOG.md', `## Unreleased\n\n${entry('one')}${entry('one')}`);
+    assert.deepEqual(problems(root), [errLine('CHANGELOG.md', DUP_ENTRY, { line: 4, title: '`when`: `**/` one', section: 'Unreleased', prev: 3 })]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 11. a pin with a tail in README is another pin: the gate reads only the plain pin', () => {
+  let project;
+  try {
+    project = toolProject((dir) => put(dir, 'README.md',
+      'Try `npx github:Velklish/backslop#v0.1.0-rc.1`, `npx github:Velklish/backslop#v0.1.0x` or `npx backslop@0.1.0.1`; install `npx backslop@0.2.0`\n'));
+    assert.equal(project.code, 1, project.out);
+    assert.equal(project.err.match(new RegExp(ruRe(PIN_TOOL).source, 'g')).length, 1, project.err);
+    assert.match(project.err, errRe('README.md', PIN_TOOL, { line: 1, pin: 'backslop@0.2.0', version: TOOL_VERSION }));
+  } finally { if (project) cleanup(project.dir); }
+});
+
+test('lint: 7. a long unclosed entry line with many backticks is read in linear time', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'CHANGELOG.md', `## Unreleased\n\n- **${'`a'.repeat(40)}\n`);
+    const r = spawnSync(process.execPath, [path.join(REPO, 'bin', 'backslop.js'), 'lint'], { cwd: root, encoding: 'utf8', timeout: 10000 });
+    assert.equal(r.error, undefined, 'lint did not finish in 10 s');
+    assert.equal(r.status, 0, r.stderr);
+  } finally {
+    cleanup(root);
+  }
+});
