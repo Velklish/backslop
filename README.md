@@ -59,7 +59,7 @@ Each command links its reference section: behaviour, output and refusals.
 | [`brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]`](docs/reference/02-cli.md#brief) | print a worker brief for these tasks |
 | [`seed --scan [--json] \| --queue-reference`](docs/reference/02-cli.md#seed) | list gate and subsystem candidates with evidence, or queue reference tasks |
 | [`status [--json]`](docs/reference/02-cli.md#status) | active work, the ordered queue, deferred work, triage, and minor entries by scope |
-| [`lint`](docs/reference/02-cli.md#lint) | the tracker gates, adapter outputs and, in the tool's own repository, template parity ([gates](docs/reference/03-lint.md)) |
+| [`lint`](docs/reference/02-cli.md#lint) | the tracker gates, project documentation without task ids and tracker links, adapter outputs and, in the tool's own repository, template parity ([gates](docs/reference/03-lint.md)) |
 | [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot |
 | [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty |
 | [`links --external [--json]`](docs/reference/02-cli.md#links) | request the http(s) links of the documents and classify each: ok, dead, unverified; outside `gates` and `lint` |
@@ -90,7 +90,7 @@ The project command `<cli> upgrade` works too, from any version 0.2.0 or later; 
 After an upgrade:
 
 1. Review and commit the diff: `backslop.json`, the `AGENTS.md` section, the tracking and archive rules, and new files such as `docs/archive/LOG.md`.
-2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word.
+2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word, or a task id, a tracker link or an untracked run file in project documentation: README, `docs/` outside `backlog/` and `archive/`, and the unreleased CHANGELOG section ([gate 15](docs/reference/03-lint.md#documentation-without-the-tracker)). Write what the record says instead: the contract, the rationale, or the measurement with its version and date.
 3. Optionally, run `<cli> fold` to fold archive directories closed before 0.10.
 
 ## How work proceeds

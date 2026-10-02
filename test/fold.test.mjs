@@ -119,30 +119,30 @@ test('fold N: HTML, badge destinations and contained definitions point at the jo
   try {
     put(root, 'docs/reference/README.md', '# Reference\n');
     closed(root);
-    put(root, 'docs/ROADMAP.md', [
+    put(root, 'ROADMAP.md', [
       '# Roadmap',
       '',
-      `<a href="archive/BS-1-alpha/task.md#${ANCHOR}">alpha</a>`,
-      `[![inner](archive/BS-1-alpha/task.md#${ANCHOR})](archive/BS-1-alpha/task.md#${ANCHOR})`,
+      `<a href="docs/archive/BS-1-alpha/task.md#${ANCHOR}">alpha</a>`,
+      `[![inner](docs/archive/BS-1-alpha/task.md#${ANCHOR})](docs/archive/BS-1-alpha/task.md#${ANCHOR})`,
       'See [quoted][q] and [listed][l].',
       '',
-      `> [q]: archive/BS-1-alpha/task.md#${ANCHOR}`,
-      `- [l]: archive/BS-1-alpha/task.md#${ANCHOR}`,
+      `> [q]: docs/archive/BS-1-alpha/task.md#${ANCHOR}`,
+      `- [l]: docs/archive/BS-1-alpha/task.md#${ANCHOR}`,
       '',
     ].join('\n'));
     gitAll(root);
 
     const r = cli(root, ['fold', '1']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'docs/ROADMAP.md'), [
+    assert.equal(read(root, 'ROADMAP.md'), [
       '# Roadmap',
       '',
-      '<a href="archive/LOG.md#bs-1">alpha</a>',
-      '[![inner](archive/LOG.md#bs-1)](archive/LOG.md#bs-1)',
+      '<a href="docs/archive/LOG.md#bs-1">alpha</a>',
+      '[![inner](docs/archive/LOG.md#bs-1)](docs/archive/LOG.md#bs-1)',
       'See [quoted][q] and [listed][l].',
       '',
-      '> [q]: archive/LOG.md#bs-1',
-      '- [l]: archive/LOG.md#bs-1',
+      '> [q]: docs/archive/LOG.md#bs-1',
+      '- [l]: docs/archive/LOG.md#bs-1',
       '',
     ].join('\n'));
     const lint = cli(root, ['lint']);

@@ -262,8 +262,8 @@ Refusals: no mode named, or both; `--json` with `--queue-reference`; no `referen
 
 ### lint
 
-- Behaviour: the tracker gates, the adapter checks and template parity — [03](03-lint.md). A status directory, `docs/backlog`, `archive/`, a batch's `minor/` or `adr/` that is a file is an error of gate 3, 5 or 8 with its path, not a crash.
-- Output: on stderr, one `✖` line per error and one `⚠` line per warning; on stdout, the line of what gate 1 read, `gate 1: files N, links N, local N, anchors checked N`. Then the summary with the warning count: `lint: no errors` on stdout, `lint: errors N` on stderr.
+- Behaviour: the tracker gates, gate 15 on project documentation included, the adapter checks and template parity — [03](03-lint.md). A status directory, `docs/backlog`, `archive/`, a batch's `minor/` or `adr/` that is a file is an error of gate 3, 5 or 8 with its path, not a crash.
+- Output: on stderr, one `✖` line per error and one `⚠` line per warning; on stdout, a note per gate 15 class that was skipped (no `origin` remote, no git index), then the line of what gate 1 read, `gate 1: files N, links N, local N, anchors checked N`. Then the summary with the warning count: `lint: no errors` on stdout, `lint: errors N` on stderr.
 - Refusals: errors found (exit 1); an unknown flag; a directory the walk cannot read (`EACCES`, `EPERM`) — `<path>: the directory is not readable (<code>) — lint cannot walk it; restore read access or move it out of the project`, with the path from the project root instead of a stack. The other commands word an unreadable directory the same way, naming what they cannot do: `tasks cannot be read from it`, `links in it cannot be updated`, `pins cannot be read from it`.
 
 ### gates

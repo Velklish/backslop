@@ -1178,15 +1178,15 @@ test('mv: incoming links to the task are rewritten, as in archive', () => {
   try {
     cli(root, ['new', 'a', '--queue', '--title', 'A']);
     fillArea(root, 'docs/backlog/queue/BS-1-a.md');
-    put(root, 'docs/ROADMAP.md', '# Roadmap\n\nTask [BS-1](backlog/queue/BS-1-a.md).\n');
+    put(root, 'ROADMAP.md', '# Roadmap\n\nTask [BS-1](docs/backlog/queue/BS-1-a.md).\n');
     put(root, 'docs/backlog/triage/BS-2-b.md', `# BS-2 · B\n\nSee [BS-1](../queue/BS-1-a.md#${ANCHOR}).\n`);
-    put(root, 'README.md', 'In progress [BS-1](docs/backlog/queue/BS-1-a.md)\n');
+    put(root, 'STATUS.md', 'In progress [BS-1](docs/backlog/queue/BS-1-a.md)\n');
     gitAll(root);
     const r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, ruRe('task links updated: {relinked}', { relinked: 'README.md, docs/ROADMAP.md, docs/backlog/triage/BS-2-b.md' }));
-    assert.match(read(root, 'README.md'), /\(docs\/backlog\/active\/BS-1-a\.md\)/);
-    assert.match(read(root, 'docs/ROADMAP.md'), /\(backlog\/active\/BS-1-a\.md\)/);
+    assert.match(r.out, ruRe('task links updated: {relinked}', { relinked: 'ROADMAP.md, STATUS.md, docs/backlog/triage/BS-2-b.md' }));
+    assert.match(read(root, 'STATUS.md'), /\(docs\/backlog\/active\/BS-1-a\.md\)/);
+    assert.match(read(root, 'ROADMAP.md'), /\(docs\/backlog\/active\/BS-1-a\.md\)/);
     assert.match(read(root, 'docs/backlog/triage/BS-2-b.md'), new RegExp(`\\(\\.\\./active/BS-1-a\\.md#${ANCHOR}\\)`));
     assert.equal(cli(root, ['lint']).code, 0);
   } finally {
@@ -1217,12 +1217,12 @@ test('mv: a percent-encoded link to the task moves with it and stays encoded', (
   try {
     cli(root, ['new', 'link-probe']);
     fillArea(root, 'my docs/backlog/triage/BS-1-link-probe.md');
-    put(root, 'README.md', '[encoded](my%20docs/backlog/triage/BS-1-link-probe.md) and [angled](<my docs/backlog/triage/BS-1-link-probe.md>)\n');
+    put(root, 'ROADMAP.md', '[encoded](my%20docs/backlog/triage/BS-1-link-probe.md) and [angled](<my docs/backlog/triage/BS-1-link-probe.md>)\n');
     gitAll(root);
     assert.equal(cli(root, ['lint']).code, 0);
     const r = cli(root, ['mv', '1', 'queue']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'README.md'),
+    assert.equal(read(root, 'ROADMAP.md'),
       '[encoded](my%20docs/backlog/queue/BS-1-link-probe.md) and [angled](<my docs/backlog/queue/BS-1-link-probe.md>)\n');
     const lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
@@ -1238,7 +1238,7 @@ test('mv: a file from the flat docs/backlog/ moves into a status directory with 
     cli(root, ['new', 'a', '--queue']);
     fillArea(root, 'docs/backlog/queue/BS-1-a.md');
     put(root, 'docs/backlog/BS-5-flat.md', `${ruCard('BS-5', 'Flat', { area: '[x](../reference/README.md)' })}\nSee [BS-1](queue/BS-1-a.md) and [archive](../archive/README.md).\n`);
-    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](backlog/BS-5-flat.md)\n');
+    put(root, 'ROADMAP.md', '# Roadmap\n\n[BS-5](docs/backlog/BS-5-flat.md)\n');
     gitAll(root);
     assert.equal(cli(root, ['lint']).code, 1, 'a flat file is a layout error');
     const r = cli(root, ['mv', '5', 'queue']);
@@ -1250,7 +1250,7 @@ test('mv: a file from the flat docs/backlog/ moves into a status directory with 
     assert.match(moved, /\[BS-1\]\(BS-1-a\.md\)/);
     assert.match(moved, /\(\.\.\/\.\.\/archive\/README\.md\)/);
     assert.match(moved, fieldRe('order', ' 20\\n'));
-    assert.match(read(root, 'docs/ROADMAP.md'), /\(backlog\/queue\/BS-5-flat\.md\)/);
+    assert.match(read(root, 'ROADMAP.md'), /\(docs\/backlog\/queue\/BS-5-flat\.md\)/);
     assert.equal(cli(root, ['lint']).code, 0);
     // Between status directories the depth is the same: `../../reference/…` does not change, and
     // a link to the neighbour from the former directory gets `../queue/`.

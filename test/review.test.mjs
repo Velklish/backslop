@@ -172,7 +172,7 @@ test('help prints its RU and EN content; the mv help line and the mv usage refus
     assert.equal(r.code, 0);
     assert.match(r.out, /change status with git mv/);
     assert.deepEqual(helpGridFaults(r.out), []);
-    assert.match(r.out, /fourteen gates/);
+    assert.match(r.out, /fifteen gates/);
     assert.match(r.out, flags);
     r = cli(root, ['mv']);
     assert.equal(r.code, 1);

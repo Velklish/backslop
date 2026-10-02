@@ -301,7 +301,7 @@ The user-level hook files were left on and ran beside the probe; their effect is
 
 | | Claude Code | Codex | Cursor |
 |---|---|---|---|
-| Project file | `.claude/settings.json` | `.codex/hooks.json` | `.cursor/hooks.json` |
+| Project file | `<project>/.claude/settings.json` | `<project>/.codex/hooks.json` | `<project>/.cursor/hooks.json` |
 | Shape | `{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": …}]}]}}` | the same shape | `{"version": 1, "hooks": {"stop": [{"command": …}]}}` |
 | Start / stop event names | `SessionStart`, `Stop` | `SessionStart`, `Stop` | `sessionStart`, `stop` |
 | Start event fired | yes, in `-p` | yes | yes, in `-p` and interactively |
@@ -312,6 +312,6 @@ The user-level hook files were left on and ran beside the probe; their effect is
 | Exit 2 returns the turn | yes in two `claude -p` runs: second stop fired, the file the message asked for was written | yes in one `codex exec` run: same | no, in one interactive run |
 | What reaches the model | stderr, as a user message `Stop hook feedback:` + `[<command>]: <stderr>` | stderr, seen only through the model's behaviour; the injected text was not observed | stdout `{"followup_message": "…"}` with exit 0 returned the turn; stderr with exit 2 did not |
 | Trust step headless | none: the trust dialog is skipped in `-p`, and the directory had no `projects` entry in `~/.claude.json` | hooks did not run without `--dangerously-bypass-hook-trust`, also with `-c 'projects."<path>".trust_level="trusted"'` passed (whether the override took effect was not checked); persisted trust in `CODEX_HOME` was not measured | none in `-p` with `--force`, not measured without it; interactive `cursor-agent` shows a "Workspace Trust Required" dialog and needs `--trust` |
-| Linked worktree | not measured | the main checkout's `.codex/hooks.json` ran; the worktree's own copy did not | the worktree's own `.cursor/hooks.json` ran (checked on `sessionStart`) |
+| Linked worktree | not measured | the main checkout's `<project>/.codex/hooks.json` ran; the worktree's own copy did not | the worktree's own `<worktree>/.cursor/hooks.json` ran (checked on `sessionStart`) |
 
 The hook process ran with the project (or worktree) directory as its cwd in all three, and with its command line as configured.

@@ -38,7 +38,7 @@ What an orchestrator, a skill or a script may rely on when it drives backslop: h
 | 1 | a dead external link: `links --external` found an address answered with 404, 410 or another status outside the other two classes | the rows and the summary line, or the JSON result with `--json` |
 | 2 | `links --external` found unverified addresses and no dead one | the rows and the summary line, or the JSON result with `--json` |
 | 1 | a red result: a gate is not green | the JSON result with `gates --json`; in text mode the gates’ own output, the green gate lines and the tree line, while the red gate lines and the summary are on stderr |
-| 1 | `lint` found errors | the gate 1 counts line; the errors and the summary are on stderr |
+| 1 | `lint` found errors | the gate 15 skip notes, if any, and the gate 1 counts line; the errors and the summary are on stderr |
 | 1 | `merge-changelog` left a conflict mark | the merged file, or empty with `--out` (the file is written) |
 | 1 | a crash: an exception that is not a refusal | empty for a `--json` mode; a stack trace on stderr |
 
