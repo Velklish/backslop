@@ -248,3 +248,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-185"></a>`BS-185-links-external-command` · 2026-10-02 · completed · — · Add links --external: classify external URLs outside the gates
 - <a id="bs-180"></a>`BS-180-tests-without-russian` · 2026-10-02 · completed · — · Tests without Russian: English names, comments and messages; Russian expectations from templates
 - <a id="bs-186"></a>`BS-186-lint-docs-without-tracker` · 2026-10-02 · completed · — · Lint gate: project documentation carries no task ids and no tracker links
+- <a id="bs-197.2"></a>`BS-197.2-lint-red-in-fresh-worktree` · 2026-10-02 · completed · — · lint is red in a fresh git worktree: generated adapter outputs are gitignored

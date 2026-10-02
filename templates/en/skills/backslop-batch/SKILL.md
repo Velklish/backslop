@@ -43,6 +43,8 @@ The harness supplies transport; the skill only states its requirements: a dedica
 - **a separate session** — `git worktree add ../<track> -b <track>` and an agent session in that directory; the first message is the brief and the answer or file is the result;
 - **a session bus**, when available in the environment, under its own rules; it also owns reviewer and cleanup.
 
+A fresh worktree has no gitignored adapter outputs, and `{{cli}} lint` there skips them. To lint or gate a base commit, add another `git worktree` for it, not a `git archive` copy: a copy outside any repository has no git and reports the outputs missing.
+
 Choose worker model capability from the complexity of the portion, not a fixed tier: mechanics from a ready recipe use a smaller model with low effort; implementation from a precise brief uses the default; design and contract changes use a stronger model with high effort. When uncertain, take the higher row: another review round costs more than the model difference. Decide once, at launch.
 
 ## Brief
