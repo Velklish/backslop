@@ -86,6 +86,9 @@ const DEFERRED_MISSING = 'deferred task has no “## {section}” section with a
 const DUP_ENTRY = 'line {line}: entry title “{title}” already exists in section “{section}” (line {prev}) — keep one revision';
 const ADR_NAME = 'name does not match adr-NNN-<slug>.md';
 const FINDING_PARENT = 'finding {id} sits in triage/ while task {parentId} is closed — triage it (approver)';
+const ORDER_OUTSIDE = 'card in {status}/ has “{field}” — only a queue/ card has it; delete the line';
+const PREV_IN_QUEUE = 'queue/ card has “{field}” — the place it left queue/ with, dropped on entering; delete the line';
+const PARENT_NUMBER = '“{field}” names {named}, but the file name has the number {number} — fix the field or the file name';
 const LAYOUT_OLDER = 'layout is older than the tool: v{stamp} < v{version} — run {cli} upgrade';
 const UNPINNED = 'an unpinned cli fetches a fresh version on every run — run {cli} upgrade';
 const REACH = 'reachability of journal revisions from HEAD was not checked: {why}';
@@ -542,6 +545,44 @@ test('lint: 8. an ADR row linked from the root, with ?query or with a %-escape c
     cleanup(root);
   }
 });
+test('lint: 8. a [TODO] line left in an ADR is an error; a fence, a sentence and a code span are not', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/adr/adr-001-process.md', [
+      '# ADR-001: Process', '', '**Status:** Accepted', '**Deciders:** [TODO]', '',
+      '## Context', '', '[TODO: what required a decision.]', '', '- [TODO]', '',
+      '```', '[TODO]', '```', '', 'A [TODO] inside a sentence and `[TODO]` in a code span are text.', '',
+    ].join('\n'));
+    assert.deepEqual(problems(root), [
+      errLine('docs/adr/adr-001-process.md', TODO_LINE, { line: 4 }),
+      errLine('docs/adr/adr-001-process.md', TODO_LINE, { line: 8 }),
+      errLine('docs/adr/adr-001-process.md', TODO_LINE, { line: 10 }),
+    ]);
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 8. an ADR made by adr fails until every placeholder line of the template is written', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    assert.equal(cli(root, ['adr', 'fresh', '--title', 'Fresh']).code, 0);
+    put(root, 'docs/README.md', read(root, 'docs/README.md').replace('| process | Accepted |\n', '| process | Accepted |\n| [adr/adr-002-fresh.md](adr/adr-002-fresh.md) | fresh | Proposed |\n'));
+    const text = read(root, 'docs/adr/adr-002-fresh.md');
+    const todoLines = text.split('\n').map((line, i) => (line.includes('[TODO') ? i + 1 : 0)).filter(Boolean);
+    assert.equal(todoLines.length, 5);
+    assert.deepEqual(problems(root), todoLines.map((line) => errLine('docs/adr/adr-002-fresh.md', TODO_LINE, { line })));
+    put(root, 'docs/adr/adr-002-fresh.md', text.split('\n').map((line) => (line.includes('[TODO') ? 'Written.' : line)).join('\n'));
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('lint: a finding under a closed parent stays a warning for the approver', () => {
   const root = makeProject({ git: false });
   try {
@@ -575,6 +616,66 @@ test('lint: gate 9 takes no evidence from Parent — a triage finding under an a
     const r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
     assert.doesNotMatch(r.err, /BS-1\.2/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 9. a Parent field that names another number than the file name is a warning', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/triage/BS-2.1-d.md', `${ruCard('BS-2.1', 'D', { parent: 'BS-3' })}\n${findingLine('BS-2')}\n`);
+    put(root, 'docs/backlog/triage/BS-2.2-e.md', ruCard('BS-2.2', 'E', { parent: 'BS-2.1' }));
+    put(root, 'docs/backlog/triage/BS-2.3-f.md', ruCard('BS-2.3', 'F', { parent: 'BS-002' }));
+    put(root, 'docs/backlog/triage/BS-2.4-g.md', ruCard('BS-2.4', 'G', { parent: 'BS-4.1' }));
+    assert.deepEqual(problems(root), []);
+    const found = warnings(root);
+    assert.ok(found.some((w) => errRe('BS-2.1-d.md', PARENT_NUMBER, { field: FIELD.parent, named: 'BS-3', number: 'BS-2' }).test(w)), found.join(' | '));
+    assert.ok(found.some((w) => errRe('BS-2.4-g.md', PARENT_NUMBER, { field: FIELD.parent, named: 'BS-4.1', number: 'BS-2' }).test(w)), found.join(' | '));
+    assert.equal(found.filter((w) => ruRe(PARENT_NUMBER).test(w)).length, 2, found.join(' | '));
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, ruRe(PARENT_NUMBER));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 4. an Order outside queue/ and a Previous order inside it are warnings', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/active/BS-2-b.md', ruCard('BS-2', 'B', { area: AREA, taken: '2026-09-01', order: 30 }));
+    put(root, 'docs/backlog/deferred/BS-3-c.md', ruCard('BS-3', 'C', { area: AREA, previousOrder: 20 }, [['deferred', DEFERRED_BODY]]));
+    put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'A', { order: 10, previousOrder: 5, area: AREA }));
+    assert.deepEqual(problems(root), []);
+    const found = warnings(root);
+    assert.ok(found.some((w) => errRe('BS-2-b.md', ORDER_OUTSIDE, { status: 'active', field: FIELD.order }).test(w)), found.join(' | '));
+    assert.ok(found.some((w) => errRe('BS-1-a.md', PREV_IN_QUEUE, { field: FIELD.previousOrder }).test(w)), found.join(' | '));
+    assert.equal(found.length, 2, found.join(' | '));
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, ruRe(ORDER_OUTSIDE));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 4. mv leaves no stray Order or Previous order: a round trip out of queue/ and back is silent', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    assert.equal(cli(root, ['mv', '1', 'active']).code, 0);
+    assert.match(read(root, 'docs/backlog/active/BS-1-a.md'), new RegExp(`\\*\\*${FIELD.previousOrder}:\\*\\* 10`));
+    assert.deepEqual(warnings(root), []);
+    assert.equal(cli(root, ['mv', '1', 'triage']).code, 0);
+    assert.deepEqual(warnings(root), []);
+    assert.equal(cli(root, ['mv', '1', 'queue', '--restore']).code, 0);
+    assert.deepEqual(warnings(root), []);
+    assert.equal(cli(root, ['mv', '1', 'deferred']).code, 0);
+    assert.equal(cli(root, ['mv', '1', 'queue']).code, 0);
+    assert.deepEqual(warnings(root), []);
   } finally {
     cleanup(root);
   }
@@ -1492,12 +1593,11 @@ test('lint: 8. an English project names the status errors in English', () => {
   }
 });
 
-// 15. Documentation without the tracker: four classes inside the set, gate 6 outside it.
+// 15. Documentation without the tracker: three classes inside the set, gate 6 outside it.
 const OUTLIVES = 'documentation outlives the task record; write the contract, the rationale, or the measurement itself with its version and date';
 const TASK_ID = `line {line}: task id {token} — ${OUTLIVES}`;
 const TRACKER_LINK = `line {line}: tracker link {token} — ${OUTLIVES}`;
 const TRACKER_URL = `line {line}: tracker URL {token} into this repository — ${OUTLIVES}`;
-const RUN_ARTIFACT = 'line {line}: run artifact {token}, not a tracked file — the reader cannot open it; write the measurement itself with its version and date';
 const gate15 = (file, key, line, token) => `${file}: ${msg('ru', key, { line, token })}`;
 const exactly = (text) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
 
@@ -1536,12 +1636,11 @@ test('lint: 15. at the CHANGELOG boundary each mention is reported once, by its 
   }
 });
 
-// Classes 3 and 4 need a repository: an origin for the URL, an index for the run artifact.
+// Class 3 needs a repository: an origin for the URL.
 function gitGreen(origin) {
   const root = makeProject();
   seedGreen(root);
   if (origin) run(root, ['remote', 'add', 'origin', origin]);
-  put(root, 'docs/data/sample.json', '{}\n');
   gitAll(root, 'green');
   return root;
 }
@@ -1575,33 +1674,15 @@ test('lint: 15. without an origin remote the URL class is skipped with a note on
   }
 });
 
-test('lint: 15. an untracked run artifact in a code span or a link is refused; tracked, home, bare pass', () => {
+test('lint: 15. a documented output or config location is not judged, tracked or not', () => {
   const root = gitGreen('https://github.com/owner/proj.git');
   try {
-    put(root, 'runs/session.log', 'on disk, not in the index\n');
     put(root, 'docs/note.md', [
-      'Captured in `runs/turn.jsonl` and [the log](../runs/session.log).',
-      'Fine: `data/sample.json`, `docs/data/sample.json`, `~/.config/x.json`, `gates.json`, `$HOME/a/b.json`,',
-      '`<run>/gates.json`, `runs/*.txt`, `/etc/x/y.txt`.',
+      'Coverage goes to `coverage/coverage-final.json` and the log to `logs/app.log`;',
+      'see also `dist/stats.json` and `.vscode/settings.json`.',
       '',
     ].join('\n'));
-    assert.deepEqual(problems(root), [
-      gate15('docs/note.md', RUN_ARTIFACT, 1, '../runs/session.log'),
-      gate15('docs/note.md', RUN_ARTIFACT, 1, 'runs/turn.jsonl'),
-    ]);
-  } finally {
-    cleanup(root);
-  }
-});
-
-test('lint: 15. outside git the run artifact class is skipped with a note', () => {
-  const root = makeProject({ git: false });
-  try {
-    seedGreen(root);
-    put(root, 'docs/note.md', '`runs/turn.jsonl`\n');
-    const report = lintProject(loadProject(root));
-    assert.deepEqual(report.errors, []);
-    assert.ok(report.notes.includes(msg('ru', 'gate 15: no git index — run artifact paths were not checked')), report.notes.join(' | '));
+    assert.deepEqual(problems(root), []);
   } finally {
     cleanup(root);
   }
@@ -1734,14 +1815,19 @@ test('lint: 7. an entry title holds a literal ** inside a code span and is compa
   }
 });
 
-test('lint: 11. a pin with a tail in README is another pin: the gate reads only the plain pin', () => {
+test('lint: 11. a pin with a pre-release tail in README is reported whole; other suffixes are not read', () => {
   let project;
   try {
-    project = toolProject((dir) => put(dir, 'README.md',
-      'Try `npx github:Velklish/backslop#v0.1.0-rc.1`, `npx github:Velklish/backslop#v0.1.0x` or `npx backslop@0.1.0.1`; install `npx backslop@0.2.0`\n'));
+    project = toolProject((dir) => put(dir, 'README.md', [
+      'Try `npx github:Velklish/backslop#v0.1.0-rc.1`, `npx github:Velklish/backslop#v0.1.0x` or `npx backslop@0.1.0.1`;',
+      'install `npx backslop@0.2.0`, `npx backslop@0.3.0-beta.2` or `npx backslop@0.3.0-rc-1`.',
+      '',
+    ].join('\n')));
     assert.equal(project.code, 1, project.out);
-    assert.equal(project.err.match(new RegExp(ruRe(PIN_TOOL).source, 'g')).length, 1, project.err);
-    assert.match(project.err, errRe('README.md', PIN_TOOL, { line: 1, pin: 'backslop@0.2.0', version: TOOL_VERSION }));
+    assert.equal(project.err.match(new RegExp(ruRe(PIN_TOOL).source, 'g')).length, 4, project.err);
+    for (const [line, pin] of [[1, 'github:Velklish/backslop#v0.1.0-rc.1'], [2, 'backslop@0.2.0'], [2, 'backslop@0.3.0-beta.2'], [2, 'backslop@0.3.0-rc-1']]) {
+      assert.match(project.err, errRe('README.md', PIN_TOOL, { line, pin, version: TOOL_VERSION }));
+    }
   } finally { if (project) cleanup(project.dir); }
 });
 
@@ -1769,6 +1855,28 @@ test('lint: a status directory leading out of the project is reported by gate 3 
     put(outside, 'queue/BS-7-x.md', `${ruCard('BS-7', 'X')}\n[TODO]\n`);
     symlinkSync(path.join(outside, 'queue'), path.join(root, 'docs/backlog/queue'));
     assert.deepEqual(problems(root), [errLine('docs/backlog/queue', LINK_OUT)]);
+  } finally {
+    cleanup(root);
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('lint: a status directory leading out of the project is not read by gates 1, 10 and 13 either', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-lint-outside-'));
+  try {
+    seedGreen(root);
+    put(root, 'docs/archive/LOG.md', '# Archive log\n');
+    renameSync(path.join(root, 'docs/backlog/queue'), path.join(outside, 'queue'));
+    put(outside, 'queue/notes.md', [
+      '[broken](nope.md)', '[journal](../../archive/LOG.md#bs-99)', '',
+      '<!-- quote:../../reference/README.md -->', '```text', 'stale text', '```', '<!-- /quote -->', '',
+    ].join('\n'));
+    symlinkSync(path.join(outside, 'queue'), path.join(root, 'docs/backlog/queue'));
+    assert.deepEqual(problems(root), [errLine('docs/backlog/queue', LINK_OUT)]);
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 1);
+    assert.doesNotMatch(r.err, /nope\.md|bs-99|stale text/);
   } finally {
     cleanup(root);
     rmSync(outside, { recursive: true, force: true });

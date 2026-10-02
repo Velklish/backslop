@@ -224,7 +224,7 @@ Refusals: no such task; not folded (the body is in the tree, and the path is nam
 ### adr
 
 - Behaviour: writes `docs/adr/adr-NNN-<slug>.md` from the template with the next number ([01 § ADR](01-layout.md#adr)); an empty or blank `--title` makes the slug the title.
-- Output: the file, and a reminder to add the row to the `docs/README.md` table.
+- Output: the file, and a reminder to add the row to the `docs/README.md` table. `lint` fails until the row is added and the `[TODO]` lines of the template are written (gate 8).
 - Refusals: a bad slug; a slug that makes the file name longer than 255 bytes; `docs/adr` is a file, not a directory.
 
 ### brief
@@ -267,7 +267,7 @@ Refusals: no mode named, or both; `--json` with `--queue-reference`; no `referen
 ### lint
 
 - Behaviour: the tracker gates, gate 15 on project documentation included, the adapter checks and template parity — [03](03-lint.md). A status directory, `docs/backlog`, `archive/`, a batch's `minor/` or `adr/` that is a file is an error of gate 3, 5 or 8 with its path, not a crash.
-- Output: on stderr, one `✖` line per error and one `⚠` line per warning; on stdout, a note per gate 15 class that was skipped (no `origin` remote, no git index), then the line of what gate 1 read, `gate 1: files N, links N, local N, anchors checked N`. Then the summary with the warning count: `lint: no errors` on stdout, `lint: errors N` on stderr.
+- Output: on stderr, one `✖` line per error and one `⚠` line per warning; on stdout, a note when gate 15 skips its URL class (no `origin` remote), then the line of what gate 1 read, `gate 1: files N, links N, local N, anchors checked N`. Then the summary with the warning count: `lint: no errors` on stdout, `lint: errors N` on stderr.
 - Refusals: errors found (exit 1); an unknown flag; a directory the walk cannot read (`EACCES`, `EPERM`) — `<path>: the directory is not readable (<code>) — lint cannot walk it; restore read access or move it out of the project`, with the path from the project root instead of a stack. The other commands word an unreadable directory the same way, naming what they cannot do: `tasks cannot be read from it`, `task numbers cannot be read from it` (a status directory of another worktree), `links in it cannot be updated`, `pins cannot be read from it`. A status directory or the archive that cannot be searched is the same refusal, naming the directory that denies it — never an empty backlog. `mv`, `archive` and `fold` run the link walk before the first move or write, so that refusal leaves the tree as it was.
 
 ### gates

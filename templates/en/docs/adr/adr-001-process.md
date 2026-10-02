@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** {{date}}
-**Deciders:** [TODO: project owner]
+**Deciders:** the project owner
 
 ## Context
 

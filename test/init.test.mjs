@@ -858,6 +858,7 @@ test('init --lang en: the CLI and the generated tree are English, mixed metadata
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['adr', 'english-decision']);
     assert.equal(r.code, 0, r.err);
+    put(root, 'docs/adr/adr-002-english-decision.md', read(root, 'docs/adr/adr-002-english-decision.md').replace(/\[TODO[^\]]*\]/g, 'Written.'));
     put(root, 'docs/README.md', read(root, 'docs/README.md').replace(
       '| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |',
       '| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |\n| [adr/adr-002-english-decision.md](adr/adr-002-english-decision.md) | English decision | Proposed |',
