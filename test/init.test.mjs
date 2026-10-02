@@ -43,7 +43,7 @@ const RU_SKILL = ruTemplateLines('skills/backslop-task/SKILL.md').join('\n');
 const PROBE_RU = {
   named: ruTemplate('agents-probe.md', { probe: 'npm run probe' }).trim().split(': ')[1],
   duty: new RegExp(escapeRe(ruTemplate('agents-probe.md', { probe: 'x' }).split(':')[0])),
-  afterBreakage: RU_SKILL.split('{{probeBreakage}} ')[1].split(':')[0],
+  afterBreakage: RU_SKILL.split('{{probeManual}} ')[1].split(':')[0],
   verified: (() => {
     const [, before, after] = RU_SKILL.match(/(\S+ \S+)\{\{probeVerified\}\}(\S* \S+ \S+)/);
     return `${before}${ruTemplate('probe/verified.md').trim()}${after}`;
@@ -350,9 +350,9 @@ test('init: the block carries the owner-talk rule in full and each skill links t
 
 test('init: step 4 names the trimmed probe command, and without the field init names the missing duty', () => {
   for (const [lang, probe, named, duty, missing] of [
-    ['ru', 'npm run probe', PROBE_RU.named, PROBE_RU.duty, ruRe('probe is not declared in {config}: neither the block nor the skill carries a mutation-probe requirement — declare the command in probe or describe the probe in a section of your own outside the block')],
-    ['en', 'npm run probe', 'then run the probe — `npm run probe`.', /mutation probe/, /probe is not declared in backslop\.json/],
-    ['ru', '  npm run probe  ', PROBE_RU.named, PROBE_RU.duty, ruRe('probe is not declared in {config}: neither the block nor the skill carries a mutation-probe requirement — declare the command in probe or describe the probe in a section of your own outside the block')],
+    ['ru', 'npm run probe', PROBE_RU.named, PROBE_RU.duty, ruRe('probe is not declared in {config}: the block carries no mutation-probe requirement and the skill asks for a hand-made check without a command — declare the command in probe or describe the probe in a section of your own outside the block')],
+    ['en', 'npm run probe', 'then run the probe — `npm run probe`.', /mutation probe/, /probe is not declared in backslop\.json: the block carries no mutation-probe requirement and the skill asks for a hand-made check without a command/],
+    ['ru', '  npm run probe  ', PROBE_RU.named, PROBE_RU.duty, ruRe('probe is not declared in {config}: the block carries no mutation-probe requirement and the skill asks for a hand-made check without a command — declare the command in probe or describe the probe in a section of your own outside the block')],
   ]) {
     const root = emptyRepo();
     try {
@@ -655,8 +655,8 @@ test('init: a repeated --dir spelling the stored docs differently is not a confl
   }
 });
 
-// Probe text renders from `agents-probe.md` and `probe/*.md` through the slots of `probeSlots`, and
-// only when `probe` is declared: the block, the skill, the brief and the result stub stay silent.
+// Probe text renders through `probeSlots` only with `probe`; without it the skill carries just the
+// command-free sentence of `probe/manual.md`, and the block, the brief and the result stub nothing.
 test('init: probe text in the block, the skill, the brief and the result stub only with the probe field', () => {
   const NONE_EN = /probe|mutation/i;
   const passage = (lang, file) => {
@@ -678,7 +678,9 @@ test('init: probe text in the block, the skill, the brief and the result stub on
       const skill = () => read(root, '.claude/skills/backslop-task/SKILL.md');
       const bare = skill();
       assert.doesNotMatch(read(root, 'AGENTS.md'), NONE, `${lang}: the block carries no probe text`);
-      assert.doesNotMatch(bare, NONE, `${lang}: the skill carries no probe text`);
+      const manual = passage(lang, 'manual.md');
+      assert.ok(bare.includes(`${manual} ${afterBreakage}`), `${lang}: step 4 of the skill carries the command-free sentence`);
+      assert.doesNotMatch(bare.replace(manual, ''), NONE, `${lang}: the skill carries no other probe text`);
       assert.ok(!bare.includes('{{'), `${lang}: an empty slot leaves no {{…}} to the reader`);
       const brief = cli(root, ['brief', '1', '--track', 'x']);
       assert.equal(brief.code, 0, brief.err);
@@ -688,8 +690,9 @@ test('init: probe text in the block, the skill, the brief and the result stub on
 
       put(root, 'backslop.json', `${JSON.stringify({ ...cfg, probe: 'npm run probe' }, null, 2)}\n`);
       assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
-      assert.ok(skill().includes(named), `${lang}: step 4 of the skill names the probe command`);
       const full = skill();
+      assert.ok(full.includes(named), `${lang}: step 4 of the skill names the probe command`);
+      assert.ok(!full.includes(manual), `${lang}: a declared probe drops the command-free sentence`);
       assert.ok(full.includes(`${named} ${passage(lang, 'breakage.md')} ${afterBreakage}`), `${lang}: breakage stands between the rule and the next sentence of step 4`);
       assert.ok(full.includes(`\n\n   ${passage(lang, 'second.md')}\n\n5. `), `${lang}: the second probe stays inside item 4, before item 5`);
       assert.ok(full.includes(verified), `${lang}: the acceptance step names the probe among the verification`);

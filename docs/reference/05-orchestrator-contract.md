@@ -371,7 +371,7 @@ These are the commands an orchestrator uses to change the tracker. The behaviour
 - A marker counts only on a line of its own. The block is replaced between its markers, or appended at the end of the file when there are none. A marker on its own line twice, or a marker without its pair, is refused before the first write.
 - Text outside the markers is the project's and survives `init`.
 - `agents.stepOverrides` replaces the text of a numbered step (`"1"`…`"7"`) inside the block, escaped, keeping its number, the other steps and the worker boundary.
-- `probe`, when declared, is named by step 4 of the block, the `backslop-task` skill and the brief; without it none of them carries a probe requirement. An override of step 4 replaces the probe sentence too.
+- `probe`, when declared, is named by step 4 of the block, the `backslop-task` skill and the brief; without it the block and the brief carry no probe requirement, and the skill asks for a check by hand without a command. An override of step 4 replaces the probe sentence too.
 
 ## `backslop.json`
 
