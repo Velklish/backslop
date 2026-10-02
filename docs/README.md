@@ -93,7 +93,7 @@ The single owner of the field semantics is the [01 config table](01-layout.md#ba
 
 <!-- quote:reference/06-module-map.md -->
 ```text
-`lib/` has 36 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
+`lib/` has 37 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
 ```
 <!-- /quote -->
 

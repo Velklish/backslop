@@ -507,10 +507,10 @@ test('lint: 7. a CHANGELOG code fence neither resets the section nor adds entrie
     cleanup(root);
   }
 });
-probe('8. an ADR without a row in the table', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Orphan\n'), errRe('adr-002-orphan.md', 'no row in {readme} — the ADR table is maintained manually'));
+probe('8. an ADR without a row in the table', (root) => put(root, 'docs/adr/adr-002-orphan.md', '# ADR-002: Orphan\n'), errRe('adr-002-orphan.md', 'not linked from {readme} — the ADR index is maintained manually'));
 probe('8. an ADR row inside an HTML comment is not a row', (root) => put(root, 'docs/README.md', read(root, 'docs/README.md').replace(
   '| [adr/adr-001-process.md](adr/adr-001-process.md) | process | Accepted |', '<!-- | [adr/adr-001-process.md](adr/adr-001-process.md) | process | Accepted | -->')),
-errRe('adr-001-process.md', 'no row in {readme} — the ADR table is maintained manually', { readme: 'README.md' }));
+errRe('adr-001-process.md', 'not linked from {readme} — the ADR index is maintained manually', { readme: 'README.md' }));
 probe('8. an ADR number is taken twice', (root) => put(root, 'docs/adr/adr-001-again.md', '# ADR-001: Again\n'), ruRe('ADR number {number} is already used by {name}', { number: 1 }));
 probe('8. an ADR file with an upper-case .MD extension is name-checked', (root) => put(root, 'docs/adr/adr-002-x.MD', '# ADR-002: X\n'), errRe('docs/adr/adr-002-x.MD', ADR_NAME));
 test('lint: 8. an ADR file name is checked even when no ADR is named correctly', () => {

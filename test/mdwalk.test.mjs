@@ -207,7 +207,7 @@ test('srcFiles: an unreadable directory is a CliError that names it', { skip: pr
   }
 });
 
-const WALK = '{rel}: the directory is not readable ({code}) — lint cannot walk it; restore read access or move it out of the project';
+const TAIL_EN = 'restore read access or move it out of the project';
 const WHAT = '{rel}: the directory is not readable ({code}) — {what}; restore read access or move it out of the project';
 
 test('lint names an unreadable directory in the project language instead of a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
@@ -218,18 +218,16 @@ test('lint names an unreadable directory in the project language instead of a st
     chmodSync(locked, 0o000);
     let r = cli(root, ['lint']);
     assert.equal(r.code, 1, r.out);
-    assert.equal(r.err, `✖ ${ru(WALK, { rel: 'src/locked', code: 'EACCES' })}\n`);
+    assert.equal(r.err, `✖ ${ru(WHAT, { rel: 'src/locked', code: 'EACCES', what: ru('lint cannot walk it') })}\n`);
     put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
     r = cli(root, ['lint']);
     assert.equal(r.code, 1, r.out);
-    assert.equal(r.err, '✖ src/locked: the directory is not readable (EACCES) — lint cannot walk it; restore read access or move it out of the project\n');
+    assert.equal(r.err, `✖ src/locked: the directory is not readable (EACCES) — lint cannot walk it; ${TAIL_EN}\n`);
   } finally {
     chmodSync(locked, 0o755);
     cleanup(root);
   }
 });
-
-const TAIL_EN = 'restore read access or move it out of the project';
 
 test('status and lint word an unreadable status directory or archive, not a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
   for (const rel of ['docs/backlog/queue', 'docs/archive']) {
@@ -242,7 +240,7 @@ test('status and lint word an unreadable status directory or archive, not a stac
       assert.equal(r.err, `✖ ${ru(WHAT, { rel, code: 'EACCES', what: ru('tasks cannot be read from it') })}\n`);
       r = cli(root, ['lint']);
       assert.equal(r.code, 1, `${rel}: ${r.out}`);
-      assert.equal(r.err, `✖ ${ru(WALK, { rel, code: 'EACCES' })}\n`);
+      assert.equal(r.err, `✖ ${ru(WHAT, { rel, code: 'EACCES', what: ru('lint cannot walk it') })}\n`);
       put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
       r = cli(root, ['status']);
       assert.equal(r.err, `✖ ${rel}: the directory is not readable (EACCES) — tasks cannot be read from it; ${TAIL_EN}\n`);
