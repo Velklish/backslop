@@ -6,7 +6,7 @@
 
 ```
 <project>/
-  backslop.json                    config (fields: see the table below)
+  backslop.json                    config (the fields are in § backslop.json)
   AGENTS.md                        block between <!-- backslop:start --> and <!-- backslop:end -->
   .gitignore                       block between # backslop:start and # backslop:end; only with selected adapters
   .claude/settings.json  .cursor/hooks.json  .codex/hooks.json   agent hook records; only with selected hooks
@@ -235,7 +235,7 @@ The words map onto three journal outcomes. Both language forms are always read; 
 
 These forms are read by the table, not by intent:
 
-- "**Closed by refusal YYYY-MM-DD** by the owner's decision" — `completed`: "refusal" is not a table word, as in "Refusal: moot" above;
+- "**Closed by refusal YYYY-MM-DD** by the owner's decision" — `completed`: "refusal" is not a table word, as in the "Refusal: moot" example of **Name a non-completed outcome with a table word**;
 - "**Closed YYYY-MM-DD. Closed by a boundary, not completed.**" — `completed`: a negation is cut off only before a merge;
 - "**Closed:** YYYY-MM-DD. Outcome — removed together with its subject", in Russian — `completed`: the bare Russian "removed" is read only as the first word, and "Outcome —" with a dash is not the marker;
 - "**Closed.** Duplicate: the same subject is queued as <number>" — `completed`: a duplicate without "merged into" or "by merging into" is not a merge;
@@ -304,32 +304,9 @@ Rules:
 - The names test in `test/templates.test.mjs` renders `task.md` and `minor.md` in both layers and checks the title line, each heading and each field label through the task parser: `readTitle`, `sections`, `sectionName`, `fieldName` and `getField` in [lib/tasks.js](../../lib/tasks.js). The English field and section names are `FIELD_NAMES` and `SECTION_NAMES` there, and the Russian ones `fieldNames` and `sectionNames` in [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs); the outcome words are `OUTCOME_FORMS` in [lib/log.js](../../lib/log.js), built with the Russian `parserWords` of the same module; the step and boundary lines are `STEP_RE` and `WORKER_BOUNDARY_RE` in [lib/init.js](../../lib/init.js).
 - `frontmatterField` ([lib/frontmatter.js](../../lib/frontmatter.js)) strips the quotes, and both readers use it: `splitFrontmatter` for `.mdc` and parity. `cursorOutput` quotes the value again (`JSON.stringify`), and without the stripping the `.mdc` would carry double escaping. `frontmatterField` reads line by line and is blind to the YAML-mapping defect, which is why `npm test` holds that form.
 
-## Agent hook files and protocols
+## Agent hook records
 
-Measured on 2026-09-30 on macOS with a hand-written project hook file that runs a probe on the start and stop events. Each harness ran headless, and Cursor also ran interactively in `tmux`. Versions: Claude Code 2.1.284, Codex `codex-cli 0.158.0`, Cursor `cursor-agent` 2026.09.26-dd393fe. The record is the message of commit `43f35f8`, which holds the result of the measurement with the evidence of each cell. What is stated below was observed on those versions, one run per cell unless the cell gives a run count; a cell that reads "not measured" was not tried.
-
-The user-level hook files were left on and ran beside the probe; their effect is not separated out. `~/.claude/settings.json` has `SessionStart`, `PreToolUse`, `PostToolUse` and `Stop` hooks, `~/.codex/hooks.json` has `PostToolUse`, `SessionStart` and `Stop`, and `~/.cursor/hooks.json` has `preToolUse`, `sessionStart`, `afterFileEdit` and `afterMCPExecution`, and no `stop`.
-
-| | Claude Code | Codex | Cursor |
-|---|---|---|---|
-| Project file | `<project>/.claude/settings.json` | `<project>/.codex/hooks.json` | `<project>/.cursor/hooks.json` |
-| Shape | `{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": …}]}]}}` | the same shape | `{"version": 1, "hooks": {"stop": [{"command": …}]}}` |
-| Start / stop event names | `SessionStart`, `Stop` | `SessionStart`, `Stop` | `sessionStart`, `stop` |
-| Start event fired | yes, in `-p` | yes | yes, in `-p` and interactively |
-| Session id field | `session_id` | `session_id` | `session_id` and `conversation_id`, equal |
-| Stop payload | `session_id`, `transcript_path`, `cwd`, `prompt_id`, `permission_mode`, `effort`, `hook_event_name`, `stop_hook_active`, `last_assistant_message`, `background_tasks`, `session_crons` | `session_id`, `turn_id`, `transcript_path` (null), `cwd`, `hook_event_name`, `model`, `permission_mode`, `stop_hook_active`, `last_assistant_message` | `conversation_id`, `generation_id`, `model`, `status`, `loop_count`, token counts, `session_id`, `hook_event_name`, `cursor_version`, `workspace_roots`, `user_email`, `transcript_path`; no `cwd` |
-| Loop flag | `stop_hook_active`: false, then true | `stop_hook_active`: false, then true | `loop_count`: 0, then 1 |
-| Stop fires headless | yes (`claude -p`) | yes (`codex exec`) | no: three `cursor-agent -p` runs logged `sessionStart` only; `stop` fired in the interactive TUI |
-| Exit 2 returns the turn | yes in two `claude -p` runs: second stop fired, the file the message asked for was written | yes in one `codex exec` run: same | no, in one interactive run |
-| What reaches the model | stderr, as a user message `Stop hook feedback:` + `[<command>]: <stderr>` | stderr, seen only through the model's behaviour; the injected text was not observed | stdout `{"followup_message": "…"}` with exit 0 returned the turn; stderr with exit 2 did not |
-| Trust step headless | none: the trust dialog is skipped in `-p`, and the directory had no `projects` entry in `~/.claude.json` | hooks did not run without `--dangerously-bypass-hook-trust`, also with `-c 'projects."<path>".trust_level="trusted"'` passed (whether the override took effect was not checked); persisted trust in `CODEX_HOME` was not measured | none in `-p` with `--force`, not measured without it; interactive `cursor-agent` shows a "Workspace Trust Required" dialog and needs `--trust` |
-| Linked worktree | not measured | the main checkout's `<project>/.codex/hooks.json` ran; the worktree's own copy did not | the worktree's own `<worktree>/.cursor/hooks.json` ran (checked on `sessionStart`) |
-
-The hook process ran with the project (or worktree) directory as its cwd in all three, and with its command line as configured.
-
-### Agent hook records
-
-For each harness in `hooks`, `init` writes one record per event into the harness's project file, in the shape of the table above:
+For each harness in `hooks`, `init` writes one record per event into its project file:
 
 | Harness | File | Start record | Stop record |
 |---|---|---|---|
@@ -337,16 +314,16 @@ For each harness in `hooks`, `init` writes one record per event into the harness
 | `cursor` | `<project>/.cursor/hooks.json` | `sessionStart` entry running `<cli> hook session-start --harness cursor` | `stop` entry running `<cli> hook stop --harness cursor` |
 | `codex` | `<project>/.codex/hooks.json` | `SessionStart` group running `<cli> hook session-start --harness codex` | `Stop` group running `<cli> hook stop --harness codex` |
 
-The files are shared: they hold the team's own settings and hooks, and other tools write records into them too. So backslop owns its records, not the file, and JSON has no place for the generated marker.
+`init` writes a `claude` or `codex` file in the shape `{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": …}]}]}}` and a `cursor` file in the shape `{"version": 1, "hooks": {"stop": [{"command": …}]}}`.
 
-- **Ownership.** A record is owned when its command ends in `hook session-start --harness <id>` or `hook stop --harness <id>`, where `<id>` is the harness of the file, and the `cli` before it either names backslop or equals the project's `cli`. The first covers a pin that `upgrade` moved; the second covers a `cli` without the name, such as a wrapper script. Known limit: when `cli` changes from one such wrapper to another, neither naming backslop, the old records become foreign, and they are removed by hand. A Claude Code or Codex record is an entry of a group's `hooks` list; a Cursor record is an entry of the event list.
-- **Writing.** A missing file and its missing parent directory are created; a new Cursor file starts with `"version": 1`. An existing file is merged into: every foreign key, group and record stays, in its order. The first owned record of an event is rewritten in place with the project's `cli`, so an `upgrade` that moves the pin rewrites the records instead of adding new ones; a further owned record is removed, and an event without one gets a new record at the end of its list. The file is written whole as JSON in a standard layout, with the indent of its first indented line and its line endings, and with a final newline only if it had one; a new file gets two spaces. A hand-formatted file therefore changes layout on the first write: an array kept on one line is spread over several, and the content stays the same. A file whose content would not change is not written, so a repeated `init` writes no byte.
-- **Removal.** The owned records of a harness that is not in `hooks` are removed. A group, an event list and the `hooks` object that this removal leaves empty go with them; an empty one that was there before stays. The file is removed when nothing else is left in it — for Cursor, a lone `"version": 1` counts as nothing — and so is its directory when it is left empty.
+The files are shared: they may hold the team's own settings and hooks and the records of other tools. So backslop owns its records, not the file, and JSON has no place for the generated marker.
+
+- **Ownership.** A record is owned when its command ends in `hook session-start --harness <id>` or `hook stop --harness <id>`, where `<id>` is the harness of the file, and the `cli` before it either names backslop or equals the project's `cli`. The first covers a pin that `upgrade` moved; the second covers a `cli` without the name, such as a wrapper script. Known limit: when `cli` changes from one such wrapper to another, neither naming backslop, the old records become foreign, and they are removed by hand. A `claude` or `codex` record is an entry of a group's `hooks` list; a `cursor` record is an entry of the event list.
+- **Writing.** A missing file and its missing parent directory are created; a new `cursor` file starts with `"version": 1`. An existing file is merged into: every foreign key, group and record stays, in its order. The first owned record of an event is rewritten in place with the project's `cli`, so an `upgrade` that moves the pin rewrites the records instead of adding new ones; a further owned record is removed, and an event without one gets a new record at the end of its list. The file is written whole as JSON in a standard layout, with the indent of its first indented line and its line endings, and with a final newline only if it had one; a new file gets two spaces. A hand-formatted file therefore changes layout on the first write: an array kept on one line is spread over several, and the content stays the same. A file whose content would not change is not written, so a repeated `init` writes no byte.
+- **Removal.** The owned records of a harness that is not in `hooks` are removed. A group, an event list and the `hooks` object that this removal leaves empty go with them; an empty one that was there before stays. The file is removed when nothing else is left in it — for `cursor`, a lone `"version": 1` counts as nothing — and so is its directory when it is left empty.
 - **Before the first write.** The file of a selected harness is refused, with its name, when it is not valid JSON, its top level is not an object, its `hooks` is not an object, or one of its two event values is not a list; also when it is not a file, when a file sits on its directory path, and when its path has a symlink ([Symlinks and traversal](#symlinks-and-traversal)). The file of an unselected harness in any of these states is skipped.
-- **lint.** For a selected harness, a missing start or stop record and an owned record with another `cli` are errors that say to run `init`. So is any other content that `init` would rewrite, such as a duplicate or a record under the wrong event, and an owned record in the file of a harness that `hooks` does not select. `lint` reads that file through a symlink too, because the harness follows the link and runs the record, and says that `init` does not remove records through a link ([03 § Checks outside the fifteen gates](03-lint.md#checks-outside-the-fifteen-gates)).
-- **User-level files** (`~/.claude`, `~/.cursor`, `~/.codex`) are never written; `lint` reads one only when a project path links to it, and then only reports records — removing them is left to you.
-
-**The trust step.** As measured above, the harnesses differ: Claude Code in `-p` needs no step; Codex in `codex exec` ran the hooks only with `--dangerously-bypass-hook-trust`, and persisted trust was not measured; Cursor in `-p` with `--force` needs none, and the interactive `cursor-agent` asks to trust the workspace (`--trust`). Cursor's `stop` fires only in the interactive terminal, and a linked Codex worktree runs the main checkout's `<project>/.codex/hooks.json`.
+- **lint.** For a selected harness, a missing start or stop record and an owned record with another `cli` are errors that say to run `init`. So is any other content that `init` would rewrite, such as a duplicate or a record under the wrong event, and an owned record in the file of a harness that `hooks` does not select. `lint` reads that file through a symlink too, and says that `init` does not remove records through a link ([03 § Checks outside the fifteen gates](03-lint.md#checks-outside-the-fifteen-gates)).
+- **Files in the home directory** (`~/.claude`, `~/.cursor`, `~/.codex`) are never written; `lint` reads one only when a project path links to it, and then only reports records — removing them is left to you.
 
 ### Session records
 
@@ -364,4 +341,4 @@ A record has this form:
 }
 ```
 
-`start` is the commit the changed set is measured from: `HEAD` at `session-start`, or the empty tree in a repository without a commit. `returns` is written by `hook stop` while it returns the turn: `count` is the number of returns in a row, whatever the errors were; a clean stop sets it to `null`, and a new `session-start` for the session drops it. A record that is not JSON or has no 40- to 64-digit `start` is read as missing, and the start is then `HEAD`. Nothing deletes the records: a session leaves a few hundred bytes. The behaviour is in [02 § hook](02-cli.md#hook).
+`start` is the commit the changed set is measured from: `HEAD` at `session-start`, or the empty tree in a repository without a commit. `returns` is written by `hook stop` while it reports errors: `count` is the number of reports in a row, whatever the errors were; a clean stop sets it to `null`, and a new `session-start` for the session drops it. A record that is not JSON or has no 40- to 64-digit `start` is read as missing, and the start is then `HEAD`. Nothing deletes the records: a session leaves a few hundred bytes. The behaviour is in [02 § hook](02-cli.md#hook).

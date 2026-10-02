@@ -113,7 +113,7 @@ Rules:
 
 ## Markdown walk
 
-- The gates and `archive` share one markdown walker. It skips `.git`, `node_modules` and `.claude/worktrees` (subagent working copies).
+- The gates and `archive` share one markdown walker. It skips `.git`, `node_modules` and `.claude/worktrees`.
 - The walk `mv`, `archive` and `fold` rewrite links by does not follow a link on a harness root either, on any component of `.claude/skills`, `.cursor/rules` or `.agents/skills`. Owned adapter outputs are left out of it: `mv`, `archive` and `fold` do not rewrite derived files.
 - The link gate reads `docs/**` and root `*.md` and does not touch harness directories.
 - `archive` and `mv` leave the outgoing root links (`/…`) of a moved file alone, and rewrite an incoming root link to it, which stays a root link.

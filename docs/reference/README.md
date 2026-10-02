@@ -4,7 +4,7 @@ How backslop works, as the code shows it. The intent and rationale are in the [A
 
 | Section | Covers |
 |---|---|
-| [01. Layout and formats](01-layout.md) | what `init` lays down and how adapters own their outputs, the `backslop.json` fields, the task and minor file formats, the archive and its journal, ADRs, templates as the source, the agent hook files and protocols of Claude Code, Codex and Cursor |
+| [01. Layout and formats](01-layout.md) | what `init` lays down and how adapters own their outputs, the `backslop.json` fields, the task and minor file formats, the archive and its journal, ADRs, templates as the source, the agent hook records and session records |
 | [02. CLI](02-cli.md) | every command with its flags, behaviour, output and refusals |
 | [03. Lint gates](03-lint.md) | the fifteen gates, the checks outside them (adapter outputs, template parity, live pins, agent hook records), warnings, and what each catches and how to fix it |
 | [04. Finding verification](04-verification.md) | the repo-local protocol for verifying bugs, dead code and test deletions, with the evidence each step requires |
