@@ -290,3 +290,42 @@ test('backslop-batch: the end of the run reads total of tracks --json, brief stu
     assert.ok(text.includes('`[TODO`'), `${rel}: the [TODO check of the brief output is not named`);
   }
 });
+
+test('documentation-fix rule: both layers carry the check, the writer pass and the release sentence', () => {
+  const layers = ['', 'en/'];
+  const text = (rel) => layers.map((layer) => [layer, readFileSync(path.join(TEMPLATES_DIR, ...(layer + rel).split('/')), 'utf8')]);
+  for (const [layer, block] of text('agents-section.md')) {
+    const lines = block.split('\n');
+    const release = lines.findIndex((line) => line.includes('`backslop-writer`') && !line.startsWith('**'));
+    assert.ok(release > 0, `${layer}agents-section.md: no release sentence outside the Skills line`);
+    assert.ok(release < lines.findIndex((line) => line.startsWith('1. ')), `${layer}agents-section.md: the release sentence sits inside the numbered steps`);
+    const step3 = lines.find((line) => line.startsWith('3. '));
+    assert.ok(step3.includes('`quote:`'), `${layer}agents-section.md: step 3 does not name the quote: block`);
+    assert.equal(step3.split(/(?<=\.)\s+/).length, 5, `${layer}agents-section.md: step 3 must keep its five sentences, the last one on task citations`);
+    assert.match(lines[release], /adapter/, `${layer}agents-section.md: the release sentence lacks the adapter condition`);
+    const skills = lines.find((line) => line.includes('`backslop-seed`'));
+    for (const name of ['backslop-writer', 'backslop-techdoc', 'backslop-humanizer']) {
+      assert.ok(skills.includes(`\`${name}\``), `${layer}agents-section.md: the Skills line omits ${name}`);
+    }
+  }
+  const en = readFileSync(path.join(TEMPLATES_DIR, 'en', 'agents-section.md'), 'utf8');
+  for (const sentence of [
+    'A documentation fix carries a check that fails on the old text: a `quote:` block, a test or a lint rule.',
+    'Documentation does not cite tasks: state the contract, the rationale or the measurement.',
+    'When an adapter is selected, before a release commit, run the `backslop-writer` pass in release mode over the diff since the previous tag.',
+  ]) assert.ok(en.includes(sentence), `en/agents-section.md lacks: ${sentence}`);
+  for (const rel of ['skills/backslop-task/SKILL.md', 'brief.md', 'docs/backlog/README.md']) {
+    for (const [layer, body] of text(rel)) assert.ok(body.includes('`quote:`'), `${layer}${rel}: the regression-check rule is missing`);
+  }
+  for (const [layer, body] of text('skills/backslop-task/SKILL.md')) {
+    assert.ok(body.split('\n').find((line) => line.startsWith('3. ')).includes('`backslop-writer`'), `${layer}skills/backslop-task/SKILL.md: step 3 does not point to backslop-writer`);
+  }
+  for (const [layer, body] of text('skills/backslop-batch/SKILL.md')) {
+    const heading = body.split('\n').findIndex((line) => line.startsWith('## ') && line.includes('writer'));
+    const section = body.split('\n').slice(heading + 1).join('\n').split('\n## ')[0];
+    assert.ok(heading > 0 && section.includes('`backslop-writer`') && section.includes('..HEAD'), `${layer}skills/backslop-batch/SKILL.md: the closing writer pass is missing`);
+    for (const token of ['`{{cli}} new <slug> --queue', '`result.md`', '`{{prefix}}-N:`', '`--parent N`']) {
+      assert.ok(section.includes(token), `${layer}skills/backslop-batch/SKILL.md: the closing pass lacks ${token}`);
+    }
+  }
+});
