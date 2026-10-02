@@ -25,7 +25,7 @@ const BODY_HEAD = '{id}: the body does not open with “# {id} · …” — the
 const ALREADY_FOLDED = '{id} is already folded into the journal: {rel}';
 const NO_REPO = new RegExp(escapeRe(ru('no git repository — the body of a folded task can only be read from history').split(' — ')[0]));
 const NOT_COMMITTED = '{dirRel}: the directory is not committed ({detail}) — history holds a different revision, and the recorded revision would promise text it does not contain. Commit the directory and retry, or fold this task alone: {cli} fold {id}';
-const UNSAVED = '{dirRel}: attachments are not saved in git history, and folding would delete them with the directory: {unsaved}. Commit the directory first, or remove the files';
+const UNSAVED = '{dirRel}: attachments are not saved in git history, and folding would delete them with the directory: {unsaved}. Move the files out of the directory and link them from result.md, then fold again';
 const unsavedRe = (file) => ruRe(UNSAVED, { unsaved: `${ANY}${file}${ANY}` });
 const KEY_DIFFERS = '{detail}: the file differs from its revision {at} — the recorded revision would promise text it does not contain. {fix}, or fold this task alone: {cli} fold {id}';
 const differsRe = (file) => new RegExp(`${escapeRe(ru(KEY_DIFFERS, { detail: file, at: '\0' }).split('\0')[0])}[0-9a-f]{10}`);
@@ -303,6 +303,7 @@ test('fold N: an unsaved attachment refuses the fold and stays on disk; committe
     const refused = cli(root, ['fold', '1']);
     assert.equal(refused.code, 1, refused.out);
     assert.match(refused.err, ruRe(UNSAVED));
+    assert.doesNotMatch(UNSAVED, /commit/i, 'the acceptance recipe forbids a commit between archive and fold');
     assert.match(refused.err, /docs\/archive\/BS-1-alpha\/measurements\.md/);
     assert.match(refused.err, /docs\/archive\/BS-1-alpha\/img\/diagram\.svg/);
     assert.equal(refused.out, '', 'no draft is printed before the refusal');

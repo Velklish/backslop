@@ -275,3 +275,11 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-179.1"></a>`BS-179.1-internal-errors-russian-in-en` · 2026-10-02 · batch BS-201 · — · Two internal Error texts stay Russian in an en project
 - <a id="bs-184.2"></a>`BS-184.2-named-entities-in-heading-slugs` · 2026-10-02 · batch BS-201 · — · Heading slugs keep the letters of a named entity other than six
 - <a id="bs-193.5"></a>`BS-193.5-gate11-pin-in-prose-no-end-boundary` · 2026-10-02 · batch BS-201 · — · gate11-pin-in-prose-no-end-boundary
+- <a id="bs-202"></a>`BS-202-minor-batch-wording` · 2026-10-02 · completed · — · Minor batch: refusal wording, mv, status walks, fold, glossary
+- <a id="bs-86.1"></a>`BS-86.1-fold-attachments-vs-no-commit-rule` · 2026-10-02 · batch BS-202 · — · fold: the attachment refusal asks for a commit the acceptance recipe forbids
+- <a id="bs-95.2"></a>`BS-95.2-status-dir-symlink-outside-read-anyway` · 2026-10-02 · batch BS-202 · — · A status directory symlinked outside the project is reported by gate 3 but still read by status and scanTasks
+- <a id="bs-145.1"></a>`BS-145.1-block-value-marker-rationale-stale` · 2026-10-02 · batch BS-202 · — · Reference and the refusal text justify the block-value marker ban by a raw-text bound search init no longer does
+- <a id="bs-158.1"></a>`BS-158.1-block-marker-refusal-wording` · 2026-10-02 · batch BS-202 · — · Block-value marker refusal says block bounds are found in raw text
+- <a id="bs-174.1"></a>`BS-174.1-mv-several-numbers-called-batch` · 2026-10-02 · batch BS-202 · — · Multi-number mv is called a batch in ADR-049, 02-cli and lib/mv.js messages
+- <a id="bs-189.2"></a>`BS-189.2-glossary-writer-evidence-labels` · 2026-10-02 · batch BS-202 · — · Glossary Evidence labels of the writer rows break the file's form
+- <a id="bs-193.3"></a>`BS-193.3-unreadable-dir-walks-still-unworded` · 2026-10-02 · batch BS-202 · — · unreadable-dir-walks-still-unworded

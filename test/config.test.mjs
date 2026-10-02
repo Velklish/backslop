@@ -7,7 +7,7 @@ const WHEN_KEY = '{at}.when must be a non-empty array of non-empty glob patterns
 const PROBE_STRING = ruRe("{config}: probe must be a command string that runs the project's mutation probe");
 const SINGLE_LINE = '{label} must be a single-line value without line breaks: a second line becomes a separate paragraph inside the block';
 const NO_BACKTICK = '{label} must not contain a backtick: the template puts it in a code span, and a backtick inside closes it';
-const NO_MARKERS = '{label} must not contain the backslop:start or backslop:end markers: it sits inside the block, and the block bounds are found in raw text';
+const NO_MARKERS = '{label} must not contain the backslop:start or backslop:end markers: it sits inside the block, and a marker there would copy a block boundary into the block text';
 
 test('config: a config without lang or tools is refused by commands that read it, init included', () => {
   const root = makeProject();

@@ -1,13 +1,14 @@
 // Pure task functions: names, numbers, header, queue order.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
   FIELD_CREATED, FIELD_ORDER, FIELD_TAKEN, SECTION_DEFERRED, appendSection, getField, idMentionRe,
-  foreignTaskIds, nextNumber, nextSub, parseId, placeInQueue, readTitle, removeField, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
+  foreignTaskIds, linkedOutDirs, nextNumber, nextSub, parseId, placeInQueue, readTitle, removeField, scanTasks, sectionBody, sectionOccurrences, setField, taskDirRe, taskFileRe,
 } from '../lib/tasks.js';
+import { loadProject } from '../lib/config.js';
 import { formatId } from '../lib/ids.js';
 import { FIELD, SECTION, cleanup, cli, gitAll, makeProject, put, ru, ruCard, ruExpand, ruOutcomeWord, ruRe, ruResultHeading, run } from './helpers.mjs';
 import { appendLogLines, batchOf, brokenLogLines, dateFromResult, formatLogLine, hasNamedOutcome, outcomeFromResult, parseLogLine } from '../lib/log.js';
@@ -439,5 +440,131 @@ test('foreignTaskIds: archive/ that is a file in another worktree is skipped, th
   } finally {
     cleanup(root);
     rmSync(parent, { recursive: true, force: true });
+  }
+});
+
+const LEADS_OUT_WRITE = '{rel}: a symlink leading out of the project — a task cannot be written into it; point the link inside the project or replace it with a directory';
+const LEADS_OUT_NUMBER = '{rel}: a symlink leading out of the project — the tasks in it are not read, so a new task number cannot be chosen; point the link inside the project or replace it with a directory';
+const LEADS_OUT = '{rel}: a symlink leading out of the project — the tasks in it are not read; point the link inside the project or replace it with a directory';
+const asRoot = process.getuid?.() === 0;
+const noteIn = (text, rel) => text.split('\n').filter((line) => ruRe(LEADS_OUT, { rel }).test(line)).length;
+
+// A status directory behind a symlink: inside the project it is a directory, leading out it is not
+// followed (03-lint.md, gate 3).
+function linkedStatusDirs(root) {
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-outside-'));
+  put(outside, 'BS-1-a.md', '# BS-1 · a\n');
+  put(root, 'docs/shelf/BS-2-b.md', '# BS-2 · b\n');
+  rmSync(path.join(root, 'docs/backlog/queue'), { recursive: true });
+  rmSync(path.join(root, 'docs/backlog/active'), { recursive: true });
+  symlinkSync(outside, path.join(root, 'docs/backlog/queue'));
+  symlinkSync(path.join(root, 'docs/shelf'), path.join(root, 'docs/backlog/active'));
+  return outside;
+}
+
+test('scanTasks reads a status directory linked inside the project and not one linked out of it, silently', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  let outside;
+  const warned = [];
+  const warn = console.warn;
+  try {
+    outside = linkedStatusDirs(root);
+    console.warn = (text) => warned.push(text);
+    const project = loadProject(root);
+    assert.deepEqual(scanTasks(project).map((t) => t.id), ['BS-2']);
+    assert.deepEqual(warned, [], 'the scan prints nothing: the commands do');
+    assert.deepEqual(linkedOutDirs(project), ['docs/backlog/queue']);
+  } finally {
+    console.warn = warn;
+    cleanup(root);
+    if (outside) rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('status, show, brief, mv, archive and fold skip a status directory linked out of the project and say so; lint does not repeat it', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  let outside;
+  try {
+    outside = linkedStatusDirs(root);
+    put(root, 'docs/backlog/triage/BS-3-c.md', '# BS-3 · c\n');
+    let r = cli(root, ['status']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.out, /BS-1\b/);
+    assert.match(r.out, /BS-2\b/);
+    assert.equal(noteIn(r.err, 'docs/backlog/queue'), 1, 'status: the note is printed once');
+    r = cli(root, ['mv', '3', 'deferred']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(noteIn(r.err, 'docs/backlog/queue'), 1, 'mv: the note is printed once');
+    r = cli(root, ['archive', '2', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(noteIn(r.err, 'docs/backlog/queue'), 1, 'archive: the note is printed once');
+    for (const args of [['show', '1'], ['brief', '1'], ['fold', '1']]) {
+      r = cli(root, args);
+      assert.equal(r.code, 1, `${args[0]}: ${r.out}`);
+      assert.equal(noteIn(r.err, 'docs/backlog/queue'), 1, `${args[0]}: the note is printed once`);
+    }
+    r = cli(root, ['lint']);
+    assert.equal(noteIn(`${r.out}\n${r.err}`, 'docs/backlog/queue'), 0, 'lint reports gate 3 and nothing besides');
+  } finally {
+    cleanup(root);
+    if (outside) rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('new refuses while a status directory leads out of the project, and mv refuses it as a destination', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  let outside;
+  try {
+    outside = linkedStatusDirs(root);
+    put(root, 'docs/backlog/triage/BS-3-c.md', '# BS-3 · c\n');
+    const noNumber = ruRe(LEADS_OUT_NUMBER, { rel: 'docs/backlog/queue' });
+    for (const args of [['new', 'foo'], ['new', 'foo', '--queue'], ['new', 'foo', '--minor', '--parent', '2', '--evidence', 'x']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+      assert.match(r.err, noNumber, args.join(' '));
+    }
+    const r = cli(root, ['mv', '3', 'queue']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, ruRe(LEADS_OUT_WRITE, { rel: 'docs/backlog/queue' }));
+    assert.deepEqual(readdirSync(outside), ['BS-1-a.md'], 'nothing was written through the link');
+    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/triage')), ['BS-3-c.md'], 'no card was created');
+  } finally {
+    cleanup(root);
+    if (outside) rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('a link into a path under a locked directory is named as the link, not as docs/backlog', { skip: process.platform === 'win32' || asRoot }, () => {
+  const root = makeProject();
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-outside-'));
+  const locked = path.join(outside, 'locked');
+  try {
+    mkdirSync(path.join(locked, 'tasks'), { recursive: true });
+    rmSync(path.join(root, 'docs/backlog/queue'), { recursive: true });
+    symlinkSync(path.join(locked, 'tasks'), path.join(root, 'docs/backlog/queue'));
+    chmodSync(locked, 0o000);
+    const r = cli(root, ['status']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(noteIn(r.err, 'docs/backlog/queue'), 1, r.err);
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('a dangling status link leads out only when its target is outside the project', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  try {
+    rmSync(path.join(root, 'docs/backlog/queue'), { recursive: true });
+    rmSync(path.join(root, 'docs/backlog/active'), { recursive: true });
+    symlinkSync(path.join(root, 'docs/nowhere'), path.join(root, 'docs/backlog/queue'));
+    symlinkSync(path.join(os.tmpdir(), 'backslop-missing-target'), path.join(root, 'docs/backlog/active'));
+    const r = cli(root, ['status']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(noteIn(r.err, 'docs/backlog/queue'), 0, 'a link to a missing path inside the project');
+    assert.equal(noteIn(r.err, 'docs/backlog/active'), 1, 'a link to a missing path outside it');
+  } finally {
+    cleanup(root);
   }
 });

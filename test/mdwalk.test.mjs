@@ -9,7 +9,7 @@ import { parseCli } from '../lib/config.js';
 import { livePinFiles, mdFiles, repoMarkdown, rootMarkdown, stalePins } from '../lib/mdwalk.js';
 import { rewriteProsePins } from '../lib/upgrade.js';
 import { CliError } from '../lib/util.js';
-import { cleanup, cli, makeProject, read, ru } from './helpers.mjs';
+import { cleanup, cli, gitAll, makeProject, read, ru, run } from './helpers.mjs';
 
 function put(root, rel, text = '# x\n') {
   const abs = path.join(root, ...rel.split('/'));
@@ -313,5 +313,49 @@ test('mv with a symlinked alias of a status directory in the link walk moves the
     assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')), 'the card is in queue/');
   } finally {
     cleanup(root);
+  }
+});
+
+test('commands word a status tree whose parent is unreadable, not an empty backlog or a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
+  const root = makeProject();
+  const locked = path.join(root, 'docs', 'backlog');
+  try {
+    put(root, 'docs/backlog/triage/BS-1-a.md', '# BS-1 · a\n');
+    gitAll(root);
+    chmodSync(locked, 0o000);
+    const worded = `✖ ${ru(WHAT, { rel: 'docs/backlog', code: 'EACCES', what: ru('tasks cannot be read from it') })}\n`;
+    for (const args of [['status'], ['status', '--json'], ['show', '1'], ['brief', '1'], ['mv', '1', 'queue'], ['archive', '1'], ['new', 'zzz']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+      assert.equal(r.err, worded, args.join(' '));
+    }
+    // Searchable but not listable: the scan passes, the search for a flat card does not.
+    chmodSync(locked, 0o111);
+    const r = cli(root, ['mv', '2', 'queue']);
+    assert.equal(r.code, 1, r.out);
+    assert.equal(r.err, worded);
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+  }
+});
+
+test('new words an unreadable status directory of another worktree, not a stack trace', { skip: process.platform === 'win32' || asRoot }, () => {
+  const root = makeProject();
+  const other = `${root}-other`;
+  try {
+    put(root, 'docs/backlog/queue/.gitkeep', '');
+    gitAll(root);
+    run(root, ['worktree', 'add', '-q', '-b', 'other', other]);
+    const locked = path.join(other, 'docs', 'backlog', 'queue');
+    chmodSync(locked, 0o111);
+    const r = cli(root, ['new', 'zzz']);
+    chmodSync(locked, 0o755);
+    assert.equal(r.code, 1, r.out);
+    const rel = path.relative(root, locked).split(path.sep).join('/');
+    assert.equal(r.err, `✖ ${ru(WHAT, { rel, code: 'EACCES', what: ru('task numbers cannot be read from it') })}\n`);
+  } finally {
+    cleanup(root);
+    rmSync(other, { recursive: true, force: true });
   }
 });
