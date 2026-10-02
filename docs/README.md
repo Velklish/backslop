@@ -6,6 +6,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 |---|---|---|
 | [reference/](reference/README.md) | Subsystem reference: layout and file formats, the CLI, lint gates, the finding verification protocol, the orchestrator contract (page 05), and the module map with contributor recipes (page 06) | Living |
 | [GLOSSARY.md](GLOSSARY.md) | Normative terminology: one concept, one name | Living |
+| [ROLES.md](ROLES.md) | Who decides what in the tracker: worker, approver, owner | Living |
 | [backlog/](backlog/README.md) | Task tracker: one file per task, status is the directory, summary is `node bin/backslop.js status` | Living |
 | [archive/](archive/README.md) | Closed tasks in two forms: a task directory with `task.md` and `result.md` until it is folded, then a line in `archive/LOG.md` | Living |
 | [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |
@@ -337,7 +338,7 @@ A record has this form:
 
 <!-- quote:reference/01-layout.md -->
 ```text
-- **Safeguards before the first write.** An uncommitted edit of such a file (`git status --porcelain` is not empty) is refused with the file name. A path through a symlink on any component is skipped with a warning, so the write does not go through the link. A pin move alone is not an edit: a file that, after every pin of the `cli` spec is set to the `cli` pin, equals its `HEAD` version up to line endings is redrawn — that is how `upgrade` of earlier versions leaves it.
+- **Safeguards before the first write.** An uncommitted edit of such a file (`git status --porcelain` is not empty) is refused with the file name; for `archive/LOG.md` the refusal says that the entries stay and only an edit of the header would be erased. A `ROLES.md` that is no render of either language and lacks the paragraph "This file belongs to backslop" is the project's own file: `migrate` refuses before the first write, with git or without, names the file and asks to rename it. A render of the other language, or a file that keeps the paragraph, is backslop's own and is redrawn. A path through a symlink on any component is skipped with a warning, so the write does not go through the link. A pin move alone is not an edit: a file that, after every pin of the `cli` spec is set to the `cli` pin, equals its `HEAD` version up to line endings is redrawn — that is how `upgrade` of earlier versions leaves it.
 ```
 <!-- /quote -->
 
@@ -410,6 +411,114 @@ A record has this form:
 <!-- quote:reference/02-cli.md -->
 ```text
 - Output: the file, and a reminder to add the row to the `docs/README.md` table. `lint` fails until the row is added and the `[TODO]` lines of the template are written (gate 8).
+```
+<!-- /quote -->
+
+<!-- quote:ROLES.md -->
+```text
+- Asks the owner **only before rejecting** an entry: a finding discarded without asking will not be rediscovered.
+```
+<!-- /quote -->
+
+<!-- quote:backlog/README.md -->
+```text
+What the agent decides without asking, and what goes to the owner, is in [ROLES.md](../ROLES.md).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **The rest of the skeleton** — `README.md`, `GLOSSARY.md`, `reference/README.md`, the process ADR, `archive/LOG.md` below its header — belongs to the project, and nothing redraws it. `ROLES.md` holds the role protocol the backlog README links to, and a new project gets it from `init`.
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+`<docs>/backlog/README.md`, `<docs>/archive/README.md` and `<docs>/ROLES.md` carry backslop's process text, not the project's; the name of the pair comes from the first two. The header of `<docs>/archive/LOG.md` — the text above its first entry line — is redrawn with them under the same rules: an entry line is data and is never touched, and a journal without an entry line is replaced by the template.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+| `migrate [--dry-run]` | run the layout migrations and redraw the rules pair, `ROLES.md` and the journal header |
+```
+<!-- /quote -->
+
+<!-- quote:../templates/en/agents-section.md -->
+```text
+6. **Triage review** follows closure immediately and is complete when every entry still in `triage/` has a named next step: merged, moved, or closed by the owner’s decision (`{{docs}}/backlog/README.md`, § Triage cadence). A next step is, for example, a merge into another task, a clarified wording, `{{cli}} mv N queue`, or `{{cli}} mv N deferred` with a return condition. Ask the owner only before rejecting an entry.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- **The attachment branch.** A task directory with an attachment cannot be folded before the attachment is in `HEAD`, so the squash comes first, with the directory in the tree: `git add -A`, `git reset --soft <base>`, `git commit -m "<prefix>-N: <what was done>"`. Then `fold N > "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"` and the commit of its result: `git add -A`, `git commit --cleanup=verbatim -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"`. The journal line names the squash commit, which holds the directory with its attachments, and `show N` lists them by path from it. The task reaches the main branch as those two commits, and nothing is squashed after the fold.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- An attachment not in `HEAD`, or differing from it — the refusal names the files and points to the attachment branch of the acceptance procedure below, or to moving them out of the directory and linking them from `result.md`.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- `--cost critical|major` with `--parent` and without `--minor` writes that level into the Cost field of the task card; without `--cost` the card carries a dash (`—`), and so does a card with no `--parent`. `status` shows the level of a card outside `minor/` behind its title, and a dash is shown as nothing.
+```
+<!-- /quote -->
+
+<!-- quote:reference/05-orchestrator-contract.md -->
+```text
+- `cost` is the Cost field as written (`minor`, `major (hypothesis)`); on a card outside `minor/` it is a level written by `new --parent N --cost critical|major`, and `null` for a card with no Cost field or a dash; `area` is the Scope field as written, a markdown link included.
+```
+<!-- /quote -->
+
+<!-- quote:GLOSSARY.md -->
+```text
+| managed block | `BLOCK_MARKERS` | The section of `AGENTS.md` between the `<!-- backslop:start -->` and `<!-- backslop:end -->` markers: `init` writes and replaces it from `agents-section.md`, and the text outside the markers is the project's | [lib/config.js](../lib/config.js), `BLOCK_MARKERS`; [lib/init.js](../lib/init.js), `readManaged` |
+```
+<!-- /quote -->
+
+<!-- quote:GLOSSARY.md -->
+```text
+| rules pair | `RULES_DOCS` | The process text that backslop owns and `migrate` redraws from the template of the project language, so a local edit does not survive an update: the backlog README and the archive README (`<docs>/backlog/README.md`, `<docs>/archive/README.md`), which gave the name, and `<docs>/ROLES.md` beside them | [lib/migrate.js](../lib/migrate.js), `RULES_DOCS`, `planRules`; [01 § The rules pair belongs to the tool](reference/01-layout.md#the-rules-pair-belongs-to-the-tool) |
+```
+<!-- /quote -->
+
+<!-- quote:GLOSSARY.md -->
+```text
+| live pin | `stalePins` | A mention of a backslop version in a live file — `README.md` and `AGENTS.md` among them — that `lint` compares with the current version and `upgrade` moves; a journal entry records a moment and is not live | [lib/mdwalk.js](../lib/mdwalk.js), `livePinFiles`, `stalePins`; [03 § Live-pin files](reference/03-lint.md#live-pin-files) |
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- An uncommitted edit of a rules-pair file, of `ROLES.md` or of the journal `LOG.md` that would be redrawn — before the first write, with `--dry-run` too, the stamp untouched. The refusal for the journal has its own wording: its entries stay and only an edit of the header would be erased. The v0.12.0 migration refuses the same way on an uncommitted edit of `<docs>/ROADMAP.md` or `<docs>/README.md` that it would delete or edit — before the first write of the whole run, with `--dry-run` too. A pin move alone is not an edit (CRLF in a checkout under `core.autocrlf` included).
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- A move to `minor` of a card whose Cost is `major` or `critical` without the hypothesis mark — a refusal for the whole call, before the first move, naming each card and its level and pointing to the hand edit `major (hypothesis)` or to `new … --minor --cost <level> --hypothesis`.
+```
+<!-- /quote -->
+
+<!-- quote:../templates/en/agents-section.md -->
+```text
+7. **Commit.** Start the message with the task number: `{{prefix}}-N: <what was done>`. A task reaches the main branch as one commit, or as two in the attachment branch of step 5: taking it and review fixes are squashed into the acceptance commit of step 5. After it, commit the changes of the triage review of step 6 as a separate commit with the subject `{{prefix}}: triage after {{prefix}}-N`, so task N's commit carries no other task's status moves. Nothing is squashed after the fold — a squash would discard the draft, the only storage of the task body. `{{cli}} lint` is green on the final commit; then push.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- A `ROLES.md` of the project's own — no render of either language and no "This file belongs to backslop" paragraph — before the first write, with `--dry-run` too, with git or without; the refusal names the file and asks to rename it and fix the links to it.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- Lays down the skeleton; the rules of a repeated run are in [01 § Re-run init](01-layout.md#re-run-init). An existing `docs/` file is not touched, nor are the rules pair and `ROLES.md` — `migrate` redraws them. An existing `ROLES.md` that is no render and lacks the "This file belongs to backslop" paragraph is kept, and `init` warns, naming the file and asking to rename it and run `init` again, which lays backslop's file; the block and the backlog README point at that path. The process ADR is `adr-001-process.md`, or the next free number in a project with ADRs of its own.
 ```
 <!-- /quote -->
 

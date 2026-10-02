@@ -58,7 +58,7 @@ Each command links its reference section: behaviour, output and refusals.
 | Command | What it does |
 |---|---|
 | [`init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>] [--hooks <CSV\|none>]`](docs/reference/02-cli.md#init) | create docs, adapters, agent hooks, the AGENTS.md block and backslop.json; on repeat, refresh the adapters and the AGENTS.md block |
-| [`new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]`](docs/reference/02-cli.md#new) | create a task (in `triage/`, or the queue), a finding of task N / N.M, or a minor finding with evidence |
+| [`new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical\|major] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]`](docs/reference/02-cli.md#new) | create a task (in `triage/`, or the queue), a finding of task N / N.M, or a minor finding with evidence |
 | [`mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]`](docs/reference/02-cli.md#mv) | change the status of one or several tasks, or reorder the queue |
 | [`archive <N> [--dry-run] [--range <base>..HEAD]`, `archive <N.k> --into <M> [--dry-run]`](docs/reference/02-cli.md#archive) | close a task into `archive/` and print the documentation it touched; close a minor entry by batch M |
 | [`fold <N> [--dry-run]`, `fold [--older-than <date>] [--embed-missing] [--dry-run]`](docs/reference/02-cli.md#fold) | fold a closed task, or the accumulated archive, into `archive/LOG.md` lines; `fold N` puts the body into the commit message draft, the bulk form names each body's revision (`--embed-missing` carries bodies that are not in history) |
@@ -92,7 +92,7 @@ The project command `<cli> upgrade` runs the code of the pinned version and fini
 
 - **What it does.** `upgrade` takes the latest tag (or `--to X.Y.Z`), test-runs the new version, moves the pin in `cli` and inside the `gates` and `probe` commands, runs the new version's `migrate` and `init`, moves pins in the [live files](docs/reference/03-lint.md#live-pin-files), and prints the tool's CHANGELOG between the two versions.
 - **Preview.** `--dry-run` prints the plan only; it does not include the output of `migrate`. Preview the format migrations and the rules redraw with `npx github:Velklish/backslop#v<new> migrate --dry-run`.
-- **What is lost.** `docs/backlog/README.md` and `docs/archive/README.md` belong to backslop: `migrate` redraws them from the new version's template, and a committed local edit in them is lost (an uncommitted one makes `migrate` refuse). Keep project rules of your own elsewhere, for example in `AGENTS.md` outside the backslop section.
+- **What is lost.** `docs/backlog/README.md`, `docs/archive/README.md` and `docs/ROLES.md` belong to backslop: `migrate` redraws them from the new version's template, and a committed local edit in them is lost (an uncommitted one makes `migrate` refuse). The header of `docs/archive/LOG.md` is redrawn the same way; its journal lines are kept. Keep project rules of your own elsewhere, for example in `AGENTS.md` outside the backslop section.
 - **Options.** `--pin-only` changes only the configuration; after a manual `migrate` and `init`, run the full `upgrade` again to rewrite live pins, even without a newer tag. Downgrades are unsupported: an old version does not know a newer file format. `lint` keeps layout-version warnings advisory, but an old pin in a live file is an error.
 - **A global install** (`cli: "backslop"`) has no source derived from GitHub: set `source` in `backslop.json` to the repository URL with release tags, and update the installed package yourself first — `upgrade` refuses while `cli` still runs the old version.
 
@@ -106,7 +106,7 @@ After an upgrade:
 
 1. An agent takes the first task from `status` and starts it with `mv N active`.
 2. It changes code, updates documentation in the same pass, runs `<cli> gates` (which includes `lint`), and commits to its branch with the `<prefix>-N:` prefix.
-3. The approver accepts: `archive N`, completes `result.md` (`lint` fails while a `[TODO` placeholder stays outside code), runs `fold N` into a draft outside the working tree, and makes one acceptance commit that carries the draft as its message — the [fold section](docs/reference/02-cli.md#fold) gives the exact commands, and nothing is committed between `archive N` and `fold N`.
+3. The approver accepts: `archive N`, completes `result.md` (`lint` fails while a `[TODO` placeholder stays outside code), runs `fold N` into a draft outside the working tree, and makes one acceptance commit that carries the draft as its message (two in the attachment branch) — the [fold section](docs/reference/02-cli.md#fold) gives the exact commands, and nothing is committed between `archive N` and `fold N`, except in the attachment branch for a task directory that holds attachments.
 4. The approver then reviews `triage/` so every entry has a next step, in a separate commit.
 5. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a reviewer for contract diffs, and acceptance squashed by task.
 
@@ -121,7 +121,7 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 - backslop is not published to npm: install and pin it from GitHub tags (`npx github:Velklish/backslop#vX.Y.Z`).
 - Skills appear only for selected `tools`. Without an adapter, a project gets the `AGENTS.md` section and `docs/`, and no `backslop-seed` skill.
 - A project that never selected an adapter gets no `.gitignore`; deselecting every adapter (`--tools none`) leaves an empty backslop block in it.
-- English and Russian template layers are provided. Changing `lang` does not translate existing docs, except the tracking and archive rules: the next `migrate` redraws them in the new language unless they carry local edits.
+- English and Russian template layers are provided. Changing `lang` does not translate existing docs, except the tracking and archive rules, `ROLES.md` and the journal header: the next `migrate` redraws them in the new language unless they carry local edits.
 - A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-mention gate on lines such as `API-2.0`; choose a prefix absent from project text.
 
 ## Work on backslop

@@ -219,11 +219,11 @@ test('renderTemplate: a placeholder without a key is a refusal, not a literal {{
 
 // This pair renders into the repo docs/ 1:1 (AGENTS.md): without the check an edit of one side
 // drifts from the other silently, while card quotes and links look at the working copy.
-test('self-host: the rules pair and the LOG header in docs/ are the render of the template in the project language', () => {
+test('self-host: the rules pair, ROLES.md and the LOG header in docs/ are the render of the template in the project language', () => {
   const repo = path.dirname(TEMPLATES_DIR);
   const cfg = JSON.parse(readFileSync(path.join(repo, 'backslop.json'), 'utf8'));
   const project = JSON.parse(readFileSync(path.join(repo, 'package.json'), 'utf8')).name;
-  for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
+  for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md', 'docs/ROLES.md']) {
     const expected = renderProjectTemplate(cfg, rel, { cli: cfg.cli, prefix: cfg.prefix, project });
     assert.equal(readFileSync(path.join(repo, ...rel.split('/')), 'utf8'), expected, `${rel} differs from its ${cfg.lang} template`);
   }
@@ -244,6 +244,46 @@ test('backlog README: a batch is folded after its entries', () => {
     const into = text.indexOf('`{{cli}} archive N.k --into M`', open);
     const fold = text.indexOf('`{{cli}} fold M`', open);
     assert.ok(archive !== -1 && archive < into && into < fold, `${rel}: the closing order is not archive M, the entries, fold M`);
+  }
+});
+
+// The role protocol has one home: the README and the block link to it and do not restate it.
+test('ROLES.md: the rules the README no longer holds sit in the roles document of both layers', () => {
+  for (const layer of ['', 'en/']) {
+    const read = (rel) => readFileSync(path.join(TEMPLATES_DIR, ...`${layer}${rel}`.split('/')), 'utf8');
+    const roles = read('docs/ROLES.md');
+    const readme = read('docs/backlog/README.md');
+    const decided = roles.split('\n').filter((line) => /^ {2}- /.test(line));
+    assert.equal(decided.length, 3, `${layer}ROLES.md: the three decisions without asking are not found`);
+    for (const line of decided) assert.ok(!readme.includes(line.trim().slice(2)), `${layer}README restates a role rule: ${line.trim()}`);
+    assert.ok(readme.includes('](../ROLES.md)'), `${layer}README does not link ROLES.md`);
+    assert.ok(read('docs/README.md').includes('](ROLES.md)'), `${layer}the docs index does not link ROLES.md`);
+    assert.ok(read('agents-section.md').includes('`{{docs}}/ROLES.md`'), `${layer}agents-section.md does not name ROLES.md`);
+  }
+});
+
+// The README names the criterion of the triage review; step 6 of the block points to it.
+test('block step 6 points to the triage criterion of the backlog README, its commands are examples', () => {
+  for (const layer of ['', 'en/']) {
+    const read = (rel) => readFileSync(path.join(TEMPLATES_DIR, ...`${layer}${rel}`.split('/')), 'utf8');
+    const step = read('agents-section.md').split('\n').find((line) => line.startsWith('6. '));
+    assert.ok(step?.includes('`{{docs}}/backlog/README.md`'), `${layer}step 6 does not point to the backlog README`);
+    assert.ok(step.includes('`triage/`') && step.includes('`{{cli}} mv N queue`'), `${layer}step 6 lost the criterion or its examples`);
+    const criterion = read('docs/backlog/README.md').trimEnd().split('\n').at(-1);
+    assert.ok(criterion.includes('`triage/`'), `${layer}the last line of the backlog README is not the triage criterion`);
+  }
+});
+
+// With an attachment the recipe squashes before the fold: two commits, the squash one first.
+test('block step 5 carries the attachment branch in both layers: squash, fold, commit the draft', () => {
+  for (const layer of ['', 'en/']) {
+    const step = readFileSync(path.join(TEMPLATES_DIR, ...`${layer}agents-section.md`.split('/')), 'utf8').split('\n').find((line) => line.startsWith('5. '));
+    const squash = step.indexOf('git commit -m "{{prefix}}-N: ');
+    const fold = step.indexOf('`{{cli}} fold N >', squash);
+    const draft = step.indexOf('git commit --cleanup=verbatim -F', fold);
+    assert.ok(squash !== -1 && squash < fold && fold < draft, `${layer}step 5 lacks the attachment branch: squash, then fold, then the draft commit`);
+    const seven = readFileSync(path.join(TEMPLATES_DIR, ...`${layer}agents-section.md`.split('/')), 'utf8').split('\n').find((line) => line.startsWith('7. '));
+    if (layer === 'en/') assert.ok(seven.includes('as one commit, or as two in the attachment branch of step 5'), 'step 7 does not name the two-commit exception');
   }
 });
 

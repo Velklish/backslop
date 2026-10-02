@@ -25,7 +25,7 @@ const BODY_HEAD = '{id}: the body does not open with “# {id} · …” — the
 const ALREADY_FOLDED = '{id} is already folded into the journal: {rel}';
 const NO_REPO = new RegExp(escapeRe(ru('no git repository — the body of a folded task can only be read from history').split(' — ')[0]));
 const NOT_COMMITTED = '{dirRel}: the directory is not committed ({detail}) — history holds a different revision, and the recorded revision would promise text it does not contain. Commit the directory and retry, or fold this task alone: {cli} fold {id}';
-const UNSAVED = '{dirRel}: attachments are not saved in git history, and folding would delete them with the directory: {unsaved}. Move the files out of the directory and link them from result.md, then fold again';
+const UNSAVED = '{dirRel}: attachments are not saved in git history, and folding would delete them with the directory: {unsaved}. Save them first as the attachment branch of step 5 in AGENTS.md says, or move the files out of the directory and link them from result.md, then fold again';
 const unsavedRe = (file) => ruRe(UNSAVED, { unsaved: `${ANY}${file}${ANY}` });
 const KEY_DIFFERS = '{detail}: the file differs from its revision {at} — the recorded revision would promise text it does not contain. {fix}, or fold this task alone: {cli} fold {id}';
 const differsRe = (file) => new RegExp(`${escapeRe(ru(KEY_DIFFERS, { detail: file, at: '\0' }).split('\0')[0])}[0-9a-f]{10}`);
@@ -289,6 +289,39 @@ test('fold N: archive N of the same task after the fold refuses, it does not cre
   }
 });
 
+// The attachment branch of the acceptance recipe: squash with the directory, fold, commit.
+test('acceptance recipe, attachment branch: the line names the squash commit that keeps the attachment', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    gitAll(root, 'base');
+    const base = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+    put(root, 'docs/backlog/active/BS-1-alpha.md', activeAlpha());
+    gitAll(root, 'BS-1: work');
+    assert.equal(cli(root, ['archive', '1']).code, 0);
+    put(root, 'docs/archive/BS-1-alpha/result.md', ruResult('BS-1', '2026-09-03', completed('Summary.')));
+    put(root, 'docs/archive/BS-1-alpha/measurements.md', 'p95 = 12 ms\n');
+    run(root, ['add', '-A']);
+    run(root, ['reset', '--soft', base]);
+    run(root, ['commit', '-qm', 'BS-1: alpha']);
+    const squash = run(root, ['rev-parse', 'HEAD']).stdout.trim();
+
+    const folded = cli(root, ['fold', '1']);
+    assert.equal(folded.code, 0, folded.err);
+    assert.match(logLines(root)[0], new RegExp(` · \`${squash.slice(0, 10)}\` · Alpha$`), 'the line names the squash commit');
+    assert.equal(run(root, ['show', `${squash}:docs/archive/BS-1-alpha/measurements.md`]).stdout, 'p95 = 12 ms\n');
+    run(root, ['add', '-A']);
+    run(root, ['commit', '-qm', 'BS-1: fold']);
+    assert.ok(!existsSync(path.join(root, 'docs/archive/BS-1-alpha')), 'the directory left the tree');
+    const shown = cli(root, ['show', '1']);
+    assert.equal(shown.code, 0, shown.err);
+    assert.match(shown.out, /task text/);
+    assert.match(shown.out, /^docs\/archive\/BS-1-alpha\/measurements\.md$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold N: an unsaved attachment refuses the fold and stays on disk; committed, show N lists it by path', () => {
   const root = makeProject();
   try {
@@ -303,7 +336,7 @@ test('fold N: an unsaved attachment refuses the fold and stays on disk; committe
     const refused = cli(root, ['fold', '1']);
     assert.equal(refused.code, 1, refused.out);
     assert.match(refused.err, ruRe(UNSAVED));
-    assert.doesNotMatch(UNSAVED, /commit/i, 'the acceptance recipe forbids a commit between archive and fold');
+    assert.match(UNSAVED, /attachment branch of step 5 in AGENTS\.md/, 'the refusal points to the attachment branch of the recipe');
     assert.match(refused.err, /docs\/archive\/BS-1-alpha\/measurements\.md/);
     assert.match(refused.err, /docs\/archive\/BS-1-alpha\/img\/diagram\.svg/);
     assert.equal(refused.out, '', 'no draft is printed before the refusal');

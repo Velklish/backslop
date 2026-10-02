@@ -133,7 +133,7 @@ export const messages = {
   '{dirRel}: the directory is not committed ({detail}) — history holds a different revision, and the recorded revision would promise text it does not contain. Commit the directory and retry, or fold this task alone: {cli} fold {id}': '{dirRel}: каталог не закоммичен ({detail}) — в истории лежит другая редакция, и записанная ревизия обещала бы текст, которого в ней нет. Закоммить каталог и повтори, либо сверни задачу поодиночке: {cli} fold {id}',
   '{detail}: the directory files cannot be checked against revision {at} — git hash-object: {cause}. Deleting the directory without checking the body against history has no backing: restore the files in the working tree and retry, or fold this task alone: {cli} fold {id}': '{detail}: файлы каталога не сверить с ревизией {at} — git hash-object: {cause}. Удалять каталог, не сверив тело с историей, нечем страховать: верни файлы в рабочее дерево и повтори, либо сверни задачу поодиночке: {cli} fold {id}',
   '{detail}: the file differs from its revision {at} although git status reports the directory clean ({flag}) — the recorded revision would promise text it does not contain. Commit the file and retry, or fold this task alone: {cli} fold {id}': '{detail}: файл расходится со своей редакцией в {at}, хотя git status считает каталог чистым ({flag}) — записанная ревизия обещала бы текст, которого в ней нет. Закоммить файл и повтори, либо сверни задачу поодиночке: {cli} fold {id}',
-  '{dirRel}: attachments are not saved in git history, and folding would delete them with the directory: {unsaved}. Move the files out of the directory and link them from result.md, then fold again': '{dirRel}: вложения не сохранены в истории git, и свёртка удалила бы их вместе с каталогом: {unsaved}. Вынеси файлы из каталога, сошлись на них из result.md и свёртывай снова',
+  '{dirRel}: attachments are not saved in git history, and folding would delete them with the directory: {unsaved}. Save them first as the attachment branch of step 5 in AGENTS.md says, or move the files out of the directory and link them from result.md, then fold again': '{dirRel}: вложения не сохранены в истории git, и свёртка удалила бы их вместе с каталогом: {unsaved}. Сохрани их сначала по ветке про вложения из шага 5 в AGENTS.md либо вынеси файлы из каталога, сошлись на них из result.md и свёртывай снова',
   'Folded into the {anchor} line. The task body is below: it is no longer in the tree, and this message is its only storage.': 'Свёрнута в строку {anchor}. Тело задачи — ниже: в дереве его больше нет, и это сообщение — его единственное хранилище.',
   'Folded into the {anchor} line. The task body is below as a copy: the journal line names revision {rev}, and {cli} show {id} reads it from there.': 'Свёрнута в строку {anchor}. Тело задачи — ниже, копией: строка журнала называет ревизию {rev}, и {cli} show {id} достаёт его оттуда.',
   'fold the archive into the journal: {entries} tasks': 'свёртка архива в журнал: задач {entries}',
@@ -386,6 +386,9 @@ export const messages = {
   '{out}: the path goes through the symlink {link} — file left alone, the write would land behind the link': '{out}: путь идёт через symlink {link} — файл не тронут, запись ушла бы за ссылку',
   '{out}: the file is gone, yet {linkers} still link it — fix or remove those links': '{out}: файла нет, а на него ещё ссылаются {linkers} — поправь или сними эти ссылки',
   '{dirty}: uncommitted edit — migrate would rewrite the file from the template and erase it with no trace in history; commit or revert the edit, then retry': '{dirty}: незакоммиченная правка — migrate перерисовал бы файл из шаблона и стёр её без следа в истории; закоммить или откати правку, затем повтори',
+  '{foreign}: a file of your own sits where backslop lays its roles document, and the block and the backlog README point to it — rename it, fix the links to it and run {cli} init': '{foreign}: на месте документа ролей backslop лежит ваш файл, а блок и README трекера ссылаются на него — переименуйте его, поправьте ссылки на него и запустите {cli} init',
+  '{foreign}: a file of your own sits where backslop lays its roles document — migrate would overwrite it; rename it and fix the links to it, then run migrate again': '{foreign}: на месте документа ролей backslop лежит ваш файл — migrate перезаписал бы его; переименуйте его, поправьте ссылки на него и запустите migrate снова',
+  '{dirty}: uncommitted edit — migrate would redraw the header from the template and erase an edit of the header with no trace in history, the entries stay; commit or revert the edit, then retry': '{dirty}: незакоммиченная правка — migrate перерисовал бы шапку из шаблона и стёр правку шапки без следа в истории, записи останутся; закоммить или откати правку, затем повтори',
   '{out}: matches neither the {lang} nor the {other} render — kept until the next version update': '{out}: не совпадает ни с рендером {lang}, ни с рендером {other} — оставлен до следующего обновления версии',
   '{out}: the path goes through the symlink {link} — rules not rewritten, the write would land behind the link': '{out}: путь идёт через symlink {link} — правила не перерисованы, запись ушла бы за ссылку',
   'migrate: project is on v{version}': 'migrate: проект на v{version}',
@@ -444,11 +447,14 @@ export const messages = {
   'placeholder-only sections removed: {sections}': 'сняты разделы из одних заглушек: {sections}',
   '{flags} cannot be used together: there is one position': '{flags} вместе не сочетаются: место одно',
   // lib/new.js
-  'slug is required: {cli} new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]': 'нужен slug: {cli} new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <уровень>] [--hypothesis]]]',
+  'slug is required: {cli} new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical|major] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]': 'нужен slug: {cli} new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical|major] [--minor --evidence "…" [--cost <уровень>] [--hypothesis]]]',
   '--top is only valid together with --queue': '--top имеет смысл только вместе с --queue',
   '--minor is a finding: --parent N[.M] is required': '--minor — находка: нужен --parent N[.M]',
   '--minor and --queue cannot be used together: a minor waits for a batch, not for the queue': '--minor и --queue вместе не сочетаются: minor ждёт пачки, а не очереди',
-  '--cost, --hypothesis, and --evidence are only valid together with --minor': '--cost, --hypothesis и --evidence имеют смысл только вместе с --minor',
+  '--hypothesis and --evidence are only valid together with --minor': '--hypothesis и --evidence имеют смысл только вместе с --minor',
+  '--cost is a finding label: --parent N[.M] is required': '--cost — метка находки: нужен --parent N[.M]',
+  '--cost minor needs --minor: a minor finding waits in minor/ for a batch': '--cost minor требует --minor: minor-находка ждёт пачки в minor/',
+  '{items}: a Cost above minor needs the hypothesis mark in minor/ — such a finding is fixed now, not queued for a batch. Write the field as “{example}” by hand, or file the finding again with {cli} new <slug> --parent N --minor --cost <level> --hypothesis --evidence "…"': '{items}: Цена выше minor в minor/ требует пометки гипотезы — такая находка чинится сейчас, а не ждёт пачки. Впиши поле как «{example}» руками либо заведи находку заново: {cli} new <slug> --parent N --minor --cost <level> --hypothesis --evidence "…"',
   '--cost {cost}: levels are {levels}': '--cost {cost}: уровни — {levels}',
   '--cost {level} without --hypothesis: critical and major with evidence are fixed now, not queued for a batch; a hypothesis takes --hypothesis': '--cost {level} без --hypothesis: critical и major с уликой чинятся сейчас, а не ждут пачки; гипотеза — с флагом --hypothesis',
   'entry remains in triage/ until review; move it to the queue with {cli} mv <N> queue': 'запись лежит в triage/ до разбора; в очередь — {cli} mv <N> queue',
@@ -669,8 +675,9 @@ export const help = (version) => `backslop — бэклог для слопа: �
 Команды:
   init [--dir docs] [--prefix BS] [--cli <команда>] [--lang ru|en] [--tools <CSV|none>] [--hooks <CSV|none>]
                                                       разложить скелет docs, adapters, хуки агента, блок в AGENTS.md, backslop.json
-  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <уровень>] [--hypothesis]]]
+  new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical|major] [--minor --evidence "…" [--cost <уровень>] [--hypothesis]]]
                                                       завести задачу (по умолчанию в triage/) или находку задачи N / N.M;
+                                                      --parent без --minor — major-находка: --cost critical|major задаёт её «Цену»;
                                                       --minor — minor-находка или гипотеза в minor/, с полем «Цена»;
                                                       --evidence обязателен с --minor: путь со строкой, команда с выводом
                                                       и кодом, замер числом; непроверенное — предположением

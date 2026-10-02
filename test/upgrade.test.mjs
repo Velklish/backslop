@@ -20,6 +20,7 @@ const MISMATCH = '{out}: matches neither the {lang} nor the {other} render — k
 const REWRITTEN = 'rewritten {names}';
 const RULES_RULE = 'tracking and archive rules from the v{version} template: {what}{mark}{noGit}';
 const NOT_COMMITTED = '{dirty}: uncommitted edit — migrate would rewrite the file from the template and erase it with no trace in history; commit or revert the edit, then retry';
+const HEADER_NOT_COMMITTED = '{dirty}: uncommitted edit — migrate would redraw the header from the template and erase an edit of the header with no trace in history, the entries stay; commit or revert the edit, then retry';
 const NO_SOURCE = 'cli “{cli}” is not a release installation and {config} has no source field: there is nothing to update. Update the tool repository itself with git';
 const ALREADY_ON = 'upgrade: project is already on {label}; {source} has nothing newer than v{target}';
 const KEPT = '{out}: kept — {why}; delete it yourself or keep it as project content';
@@ -373,11 +374,11 @@ test('migrate: the tracking and archive rules are redrawn from the template, pro
     const index = read(root, 'docs/README.md');
     let r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, ruRe(RULES_RULE, { what: ru('would rewrite {names}', { names: 'docs/backlog/README.md, docs/archive/README.md' }), mark: ' (--dry-run)' }));
+    assert.match(r.out, ruRe(RULES_RULE, { what: ru('would rewrite {names}', { names: 'docs/backlog/README.md, docs/archive/README.md, docs/ROLES.md' }), mark: ' (--dry-run)' }));
     assert.equal(read(root, rules[0]), staleRules(expected[rules[0]]), '--dry-run writes nothing');
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, ruRe(REWRITTEN, { names: 'docs/backlog/README.md, docs/archive/README.md' }));
+    assert.match(r.out, ruRe(REWRITTEN, { names: 'docs/backlog/README.md, docs/archive/README.md, docs/ROLES.md' }));
     for (const rel of rules) assert.equal(read(root, rel), expected[rel], `${rel} is not equal to the template render`);
     assert.equal(read(root, 'docs/GLOSSARY.md'), '# Own glossary\n', 'a project docs file is not redrawn');
     assert.equal(read(root, 'docs/README.md'), index, 'the docs index is not redrawn');
@@ -388,6 +389,133 @@ test('migrate: the tracking and archive rules are redrawn from the template, pro
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, rules[1]), '# Own archive edit\n');
     assert.doesNotMatch(r.out, ruRe(RULES_RULE));
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Entries of the journal are data: every line below the header must survive byte for byte.
+const JOURNAL = [
+  '- <a id="bs-1"></a>`BS-1-first` · 2026-09-01 · completed · — · The first task',
+  '- <a id="bs-2"></a>`BS-2-second` · 2026-09-02 · rejected · `0123456789` · The second · with a separator',
+].join('\n');
+
+test('migrate: a stale LOG.md header is redrawn from the template, the journal entries stay as they are', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    const header = renderTemplate('docs/archive/LOG.md', { cli: 'node bin/backslop.js', prefix: 'BS' }).trimEnd();
+    const stale = `# Closed task journal\n\nAn older header of the journal.\n\n${JOURNAL}\n`;
+    put(root, 'docs/archive/LOG.md', stale);
+    let r = cli(root, ['migrate', '--dry-run']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, ruRe(RULES_RULE, { what: ru('would rewrite {names}', { names: 'docs/backlog/README.md, docs/archive/README.md, docs/ROLES.md, docs/archive/LOG.md' }), mark: ' (--dry-run)' }));
+    assert.equal(read(root, 'docs/archive/LOG.md'), stale, '--dry-run writes nothing');
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `${header}\n\n${JOURNAL}\n`);
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `${header}\n\n${JOURNAL}\n`, 'a second run changes nothing');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: a LOG.md header redraw keeps CRLF and the BOM, and a journal with no entries is the template', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    const header = renderTemplate('docs/archive/LOG.md', { cli: 'node bin/backslop.js', prefix: 'BS' }).trimEnd();
+    put(root, 'docs/archive/LOG.md', `\ufeff# Own header\r\n\r\n${JOURNAL.replaceAll('\n', '\r\n')}\r\n`);
+    let r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(readFileSync(path.join(root, 'docs/archive/LOG.md'), 'utf8'), `\ufeff${header.replaceAll('\n', '\r\n')}\r\n\r\n${JOURNAL.replaceAll('\n', '\r\n')}\r\n`);
+    put(root, 'docs/archive/LOG.md', '# Own header, no entries\n');
+    setConfig(root, { version: '0.10.0' });
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `${header}\n`);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: at its own version an edited LOG.md header stays and is named, the other language is redrawn', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', lang: 'en' });
+    const vars = { cli: 'node bin/backslop.js', prefix: 'BS' };
+    put(root, 'docs/archive/LOG.md', `# Own header\n\n${JOURNAL}\n`);
+    let r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /docs\/archive\/LOG\.md: matches neither the en nor the ru render — kept until the next version update/);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `# Own header\n\n${JOURNAL}\n`);
+    put(root, 'docs/archive/LOG.md', `${renderTemplate('docs/archive/LOG.md', vars).trimEnd()}\n\n${JOURNAL}\n`);
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `${renderTemplate('en/docs/archive/LOG.md', vars).trimEnd()}\n\n${JOURNAL}\n`);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: a project from before ROLES.md gets the file laid, an edit of that file is redrawn, lint stays green', () => {
+  const root = makeProject();
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.9.0', lang: 'en' });
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    gitAll(root);
+    const vars = { cli: 'node bin/backslop.js', prefix: 'BS', project: path.basename(root) };
+    let r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROLES.md'), renderTemplate('en/docs/ROLES.md', vars));
+    r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    gitAll(root, 'migrated');
+    put(root, 'docs/ROLES.md', `${read(root, 'docs/ROLES.md')}\nAn own rule.\n`);
+    gitAll(root, 'own rule');
+    setConfig(root, { version: '0.11.0' });
+    r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROLES.md'), renderTemplate('en/docs/ROLES.md', vars), 'a committed edit of backslop\'s own file is lost by design');
+  } finally {
+    cleanup(root);
+  }
+});
+
+for (const withGit of [true, false]) {
+  test(`migrate: a ROLES.md of the project's own is refused before the first write, ${withGit ? 'with' : 'without'} git`, () => {
+    const root = makeProject({ git: withGit });
+    try {
+      setConfig(root, { cli: 'node bin/backslop.js', version: '0.11.0', lang: 'en' });
+      put(root, 'docs/ROLES.md', '# Our own roles\n\nWho signs off a release.\n');
+      const rules = read(root, 'docs/backlog/README.md');
+      if (withGit) gitAll(root);
+      for (const args of [['migrate', '--dry-run'], ['migrate']]) {
+        const r = cli(root, args);
+        assert.equal(r.code, 1, `${args.join(' ')}: a refusal was expected`);
+        assert.match(r.err, /docs\/ROLES\.md: a file of your own sits where backslop lays its roles document/);
+      }
+      assert.equal(read(root, 'docs/ROLES.md'), '# Our own roles\n\nWho signs off a release.\n', 'the file is untouched');
+      assert.equal(read(root, 'docs/backlog/README.md'), rules, 'nothing else was written');
+      assert.equal(config(root).version, '0.11.0', 'the stamp did not move');
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
+test('migrate: a ROLES.md rendered in the other language is backslop\'s own and is redrawn in the project language', () => {
+  const root = makeProject();
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.11.0', lang: 'en' });
+    const vars = { cli: 'node bin/backslop.js', prefix: 'BS', project: path.basename(root) };
+    put(root, 'docs/ROLES.md', renderTemplate('docs/ROLES.md', vars));
+    gitAll(root);
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/ROLES.md'), renderTemplate('en/docs/ROLES.md', vars));
   } finally {
     cleanup(root);
   }
@@ -434,8 +562,8 @@ test('migrate: an en project gets the rules from the en template, a missing file
     const vars = { cli: 'node bin/backslop.js', prefix: 'BS', project: path.basename(root) };
     const r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /tracking and archive rules from the v\d+\.\d+\.\d+ template: rewritten docs\/backlog\/README\.md, docs\/archive\/README\.md — no git, uncommitted edits could not be checked/);
-    for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
+    assert.match(r.out, /tracking and archive rules from the v\d+\.\d+\.\d+ template: rewritten docs\/backlog\/README\.md, docs\/archive\/README\.md, docs\/ROLES\.md — no git, uncommitted edits could not be checked/);
+    for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md', 'docs/ROLES.md']) {
       assert.equal(read(root, rel), renderTemplate(`en/${rel}`, vars), `${rel} is not equal to the render of the en template`);
     }
   } finally {
@@ -464,6 +592,31 @@ test('migrate: an uncommitted edit of the rules — a refusal naming the file, t
     assert.equal(r.code, 0, r.err);
     assert.doesNotMatch(r.out, new RegExp(`no git|${ruRe(GIT_MISSING).source}`));
     assert.ok(read(root, 'docs/backlog/README.md').startsWith(`# Backlog\n\n${ruTemplateLines('docs/backlog/README.md')[2].split('{{')[0]}`));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('migrate: an uncommitted line of the journal refuses the redraw with its own wording, the entries stay', () => {
+  const root = makeProject();
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    put(root, 'docs/archive/LOG.md', `# Own header\n\n${JOURNAL}\n`);
+    gitAll(root);
+    const edited = `# Own header\n\n${JOURNAL}\n- <a id="bs-3"></a>\`BS-3-third\` · 2026-09-03 · completed · — · The third task\n`;
+    put(root, 'docs/archive/LOG.md', edited);
+    for (const args of [['migrate', '--dry-run'], ['migrate']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${args.join(' ')}: a refusal was expected`);
+      assert.match(r.err, ruRe(HEADER_NOT_COMMITTED, { dirty: 'docs/archive/LOG.md' }));
+      assert.doesNotMatch(r.err, ruRe(NOT_COMMITTED, { dirty: 'docs/archive/LOG.md' }));
+    }
+    assert.equal(read(root, 'docs/archive/LOG.md'), edited, 'a refusal leaves the journal as it was');
+    assert.equal(config(root).version, '0.10.0', 'the refusal did not move the stamp');
+    gitAll(root, 'third entry');
+    const r = cli(root, ['migrate']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(read(root, 'docs/archive/LOG.md').endsWith(`${JOURNAL}\n- <a id="bs-3"></a>\`BS-3-third\` · 2026-09-03 · completed · — · The third task\n`));
   } finally {
     cleanup(root);
   }
@@ -563,7 +716,7 @@ test('migrate: at its own version a rules file off by a pin is redrawn, off by C
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
     assert.doesNotMatch(r.out, ruRe(MISMATCH));
-    assert.match(r.out, ruRe(REWRITTEN, { names: 'docs/backlog/README.md, docs/archive/README.md' }));
+    assert.match(r.out, ruRe(REWRITTEN, { names: 'docs/backlog/README.md, docs/archive/README.md, docs/ROLES.md' }));
     const vars = { cli: cliNow, prefix: 'BS', project: path.basename(root) };
     for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
       assert.equal(read(root, rel), renderTemplate(rel, vars), `${rel} is not the render with the cli pin`);
@@ -781,7 +934,7 @@ test('upgrade: a pin in docs prose is moved, records of a moment are not', () =>
   }
 });
 
-test('upgrade leaves a pin in a journal entry, rewrites the LOG.md header, then says already on', () => {
+test('upgrade leaves a pin in a journal entry, redraws the LOG.md header, then says already on', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -794,7 +947,8 @@ test('upgrade leaves a pin in a journal entry, rewrites the LOG.md header, then 
     put(root, 'docs/archive/LOG.md', `# Log\n\nBodies: \`${old} show N\`.\n\n${entry}\n`);
     let r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'docs/archive/LOG.md'), `# Log\n\nBodies: \`${now} show N\`.\n\n${entry}\n`);
+    const header = renderTemplate('docs/archive/LOG.md', { cli: now, prefix: 'BS' }).trimEnd();
+    assert.equal(read(root, 'docs/archive/LOG.md'), `${header}\n\n${entry}\n`);
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, ruRe(ALREADY_ON));
@@ -1561,7 +1715,8 @@ test('upgrade leaves a pin in a journal entry on the first line of a LOG.md that
     put(root, 'docs/archive/LOG.md', `﻿${entry}\n`);
     let r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'docs/archive/LOG.md'), `﻿${entry}\n`);
+    const header = renderTemplate('docs/archive/LOG.md', { cli: `npx github:me/proj#v${TOOL_VERSION}`, prefix: 'BS' }).trimEnd();
+    assert.equal(read(root, 'docs/archive/LOG.md'), `﻿${header}\n\n${entry}\n`);
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, ruRe(ALREADY_ON));
