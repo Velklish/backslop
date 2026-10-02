@@ -46,7 +46,7 @@ function seedGreen(root) {
     '<!-- quote:reference/README.md -->', '', '```', ONE, '```', '', '<!-- /quote -->', '',
     // A quote of a piece of documentation: a fence inside it is part of the text, not a wrapper.
     '<!-- quote:reference/README.md -->', '', 'Example:', '', '```', 'no fence', '```', '', '<!-- /quote -->', ''].join('\n'));
-  put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — BS-4\n\n## v0.1.0\n\n- **One** — the earlier revision\n');
+  put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — the new revision\n\n## v0.1.0\n\n- **One** — the earlier revision, BS-4\n');
   put(root, 'README.md', 'See [docs](docs/README.md)\n');
 }
 
@@ -239,6 +239,7 @@ test('lint: 1, 10, 13. a root markdown symlink into the project is read; one lea
     assert.deepEqual(problems(root), [
       errLine('README.md', BROKEN, { href: 'docs/none.md', line: 1 }),
       errLine('README.md', JOURNAL_MISS, { href: 'docs/archive/LOG.md#bs-55', anchor: 'bs-55', line: 1 }),
+      errLine('README.md', TRACKER_LINK, { line: 1, token: 'docs/archive/LOG.md#bs-55' }),
       errLine('README.md', QUOTE_MISSING, { href: 'docs/none.md' }),
     ]);
   } finally {
@@ -253,7 +254,7 @@ probe('1. a link with a task number to a directory in generated adapter output',
   put(root, '.claude/skills/backslop-task/SKILL.md', `${read(root, '.claude/skills/backslop-task/SKILL.md')}\nSee [BS-2](../../../docs/backlog/triage)\n`);
 }, errRe('.claude/skills/backslop-task/SKILL.md', DIR_LINK, { text: 'BS-2', href: '../../../docs/backlog/triage' }));
 probe('1. the number in the text of a directory link — in a code span too', (root) => put(root, 'README.md', 'See [`BS-2.1` · finding](docs/backlog/triage/)\n'), errRe('README.md', DIR_LINK, { text: '`BS-2.1` · finding', href: 'docs/backlog/triage/' }));
-greenProbe('1. an unclosed bracket with a number before a directory link is not link text', (root) => put(root, 'docs/note.md', 'A half-open interval [0, 1) — see BS-2.1. The layout — [backlog/](backlog/triage).\n'));
+greenProbe('1. an unclosed bracket with a number before a directory link is not link text', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\nA half-open interval [0, 1) — see BS-2.1. The layout — [backlog/](../triage).\n`));
 greenProbe('1. a directory without a number in the text and a card with a number are legal targets', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\n[triage/](../triage) and **Finding.** [BS-2.1](../triage/BS-2.1-d.md)\n`));
 probe('1. a broken link in a backslop skill', (root) => {
   assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
@@ -489,9 +490,9 @@ test('lint: 5. a vocabulary outcome word in the first paragraph or heading — a
   }
 });
 probe('5. an archive directory not matching the pattern', (root) => put(root, 'docs/archive/old-stuff/task.md', '# x\n'), errRe('old-stuff', 'name does not match {prefix}-N[.k]-<slug>', { prefix: 'BS' }));
-probe('6. a number mentioned without a file in docs', (root) => put(root, 'docs/ROADMAP.md', 'We will do it in BS-99.\n'), ruRe('mentions {id}, but no task file exists in statuses or archive', { id: 'BS-99' }));
-probe('6. a number mentioned without a file in CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Unreleased\n\n- **Closed** BS-2.7\n'), errRe('CHANGELOG.md', 'mentions {id}, but no task file exists in statuses or archive', { id: 'BS-2.7' }));
-greenProbe('6. a number mentioned inside a code block is an example, not a reference', (root) => put(root, 'docs/note.md', 'Sample output:\n\n```\n  10  BS-77 · Example\n```\n\nAnd in prose `BS-4` is a link.\n'));
+probe('6. a number mentioned without a file in docs', (root) => put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\nWe will do it in BS-99.\n`), ruRe('mentions {id}, but no task file exists in statuses or archive', { id: 'BS-99' }));
+probe('6. a number mentioned without a file in CHANGELOG', (root) => put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — new\n\n## v0.1.0\n\n- **Closed** BS-2.7\n'), errRe('CHANGELOG.md', 'mentions {id}, but no task file exists in statuses or archive', { id: 'BS-2.7' }));
+greenProbe('6. a number mentioned inside a code block is an example, not a reference', (root) => put(root, 'docs/archive/BS-4-e/task.md', `${read(root, 'docs/archive/BS-4-e/task.md')}\n` + 'Sample output:\n\n```\n  10  BS-77 · Example\n```\n\nAnd in prose `BS-4` is a link.\n'));
 
 probe('7. a duplicate entry title in a CHANGELOG section', (root) => put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — once\n- **One** — twice\n'), ruRe(DUP_ENTRY, { title: 'One' }));
 test('lint: 7. a CHANGELOG code fence neither resets the section nor adds entries', () => {
@@ -603,7 +604,7 @@ test('lint: an entry closed as a batch is known to mentions and is not an orphan
   try {
     seedGreen(root);
     put(root, 'docs/archive/BS-4-e/minor/BS-4.2-m.md', ruCard('BS-4.2', 'Closed as a batch', { cost: 'minor' }));
-    put(root, 'docs/note.md', ruExpand('See BS-4.2 — {closed.0} {batch} BS-4.\n'));
+    put(root, 'docs/archive/BS-4-e/task.md', `${read(root, 'docs/archive/BS-4-e/task.md')}\n${ruExpand('See BS-4.2 — {closed.0} {batch} BS-4.\n')}`);
     assert.deepEqual(problems(root), []);
     assert.deepEqual(warnings(root), []);
   } finally {
@@ -660,7 +661,7 @@ test('lint: the CLI prints every error and exits 1', () => {
 greenProbe('a number with leading zeros — the file form is kept, the comparison is numeric', (root) => {
   put(root, 'docs/archive/BS-007-old/task.md', ruCard('BS-007', 'Old'));
   put(root, 'docs/archive/BS-007-old/result.md', closed('BS-007'));
-  put(root, 'docs/ROADMAP.md', 'Done in BS-007, which is also BS-7.\n');
+  put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\nDone in BS-007, which is also BS-7.\n`);
 });
 probe('2. a number is taken twice in different spellings', (root) => put(root, 'docs/backlog/triage/BS-004-e2.md', '# BS-004 · Duplicate\n'), ruRe('number {id} is already used by {rel}', { id: 'BS-004', rel: 'docs/archive/BS-4-e/task.md' }));
 
@@ -1020,7 +1021,7 @@ const LOG_GREEN = [
 
 function seedLog(root) {
   put(root, 'docs/archive/LOG.md', LOG_GREEN);
-  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nClosed [BS-5](archive/LOG.md#bs-5).\n');
+  put(root, 'ROADMAP.md', '# Roadmap\n\nClosed [BS-5](docs/archive/LOG.md#bs-5).\n');
 }
 
 test('lint: the closed-tasks journal next to the archive directory is green', () => {
@@ -1056,7 +1057,7 @@ probe('13. a link from a root file to a missed anchor', (root) => {
 }, errRe('README.md', JOURNAL_MISS, { href: 'docs/archive/LOG.md#bs-55', anchor: 'bs-55' }));
 greenProbe('13. a journal link inside an HTML comment is not read', (root) => {
   seedLog(root);
-  put(root, 'docs/ROADMAP.md', '# Roadmap\n\nClosed [BS-5](archive/LOG.md#bs-5). <!-- [x](archive/LOG.md#bs-99) -->\n');
+  put(root, 'ROADMAP.md', '# Roadmap\n\nClosed [BS-5](docs/archive/LOG.md#bs-5). <!-- [x](docs/archive/LOG.md#bs-99) -->\n');
 });
 test('lint: 1. the adapter pass checks anchors into the journal, which gate 13 does not walk', () => {
   const root = makeProject({ git: false });
@@ -1079,11 +1080,11 @@ test('lint: 13. the journal anchor is checked behind ?query and a %-escape; a ma
   try {
     seedGreen(root);
     seedLog(root);
-    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](archive/LOG.md?plain=1#bs-5) [q](archive/LOG.md?plain=1#bs-99) [e](archive/LOG%2Emd#bs-9) [m](a%E0%A4%A.md#bs-5)\n');
+    put(root, 'ROADMAP.md', '# Roadmap\n\n[BS-5](docs/archive/LOG.md?plain=1#bs-5) [q](docs/archive/LOG.md?plain=1#bs-99) [e](docs/archive/LOG%2Emd#bs-9) [m](a%E0%A4%A.md#bs-5)\n');
     assert.deepEqual(problems(root), [
-      errLine('docs/ROADMAP.md', BROKEN, { href: 'a%E0%A4%A.md#bs-5', line: 3 }),
-      errLine('docs/ROADMAP.md', JOURNAL_MISS, { href: 'archive/LOG.md?plain=1#bs-99', anchor: 'bs-99', line: 3 }),
-      errLine('docs/ROADMAP.md', JOURNAL_MISS, { href: 'archive/LOG%2Emd#bs-9', anchor: 'bs-9', line: 3 }),
+      errLine('ROADMAP.md', BROKEN, { href: 'a%E0%A4%A.md#bs-5', line: 3 }),
+      errLine('ROADMAP.md', JOURNAL_MISS, { href: 'docs/archive/LOG.md?plain=1#bs-99', anchor: 'bs-99', line: 3 }),
+      errLine('ROADMAP.md', JOURNAL_MISS, { href: 'docs/archive/LOG%2Emd#bs-9', anchor: 'bs-9', line: 3 }),
     ]);
   } finally {
     cleanup(root);
@@ -1487,3 +1488,203 @@ test('lint: 8. an English project names the status errors in English', () => {
     cleanup(root);
   }
 });
+
+// 15. Documentation without the tracker: four classes inside the set, gate 6 outside it.
+const OUTLIVES = 'documentation outlives the task record; write the contract, the rationale, or the measurement itself with its version and date';
+const TASK_ID = `line {line}: task id {token} — ${OUTLIVES}`;
+const TRACKER_LINK = `line {line}: tracker link {token} — ${OUTLIVES}`;
+const TRACKER_URL = `line {line}: tracker URL {token} into this repository — ${OUTLIVES}`;
+const RUN_ARTIFACT = 'line {line}: run artifact {token}, not a tracked file — the reader cannot open it; write the measurement itself with its version and date';
+const gate15 = (file, key, line, token) => `${file}: ${msg('ru', key, { line, token })}`;
+const exactly = (text) => new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+
+probe('15. a task id in prose of the reference', (root) => put(root, 'docs/reference/README.md', '# Reference\n\nDecided in BS-2.\n'),
+  exactly(gate15('docs/reference/README.md', TASK_ID, 3, 'BS-2')));
+probe('15. a task id inside a fenced block of an ADR', (root) => put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Process\n\n**Status:** Accepted\n\n```\nBS-1.2\n```\n'),
+  exactly(gate15('docs/adr/adr-001-process.md', TASK_ID, 6, 'BS-1.2')));
+probe('15. a task id in the root README', (root) => put(root, 'README.md', 'See [docs](docs/README.md), from `BS-007`.\n'),
+  exactly(gate15('README.md', TASK_ID, 1, 'BS-007')));
+greenProbe('15. a placeholder <prefix>-N is no task id', (root) => put(root, 'docs/note.md', 'A card is `<prefix>-N` or BS-N; see [docs](README.md).\n'));
+
+probe('15. a link to a journal line is a tracker link', (root) => put(root, 'docs/note.md', '[closed](archive/LOG.md#bs-4)\n'),
+  exactly(gate15('docs/note.md', TRACKER_LINK, 1, 'archive/LOG.md#bs-4')));
+probe('15. a reference declaration into a status directory is a tracker link', (root) => put(root, 'docs/note.md', 'See [the queue][q].\n\n[q]: backlog/queue/BS-1-a.md\n'),
+  exactly(gate15('docs/note.md', TRACKER_LINK, 3, 'backlog/queue/BS-1-a.md')));
+greenProbe('15. the backlog rules file is linkable, with a fragment too', (root) => put(root, 'docs/note.md', '[rules](backlog/README.md) [part](backlog/README.md#backlog)\n'));
+greenProbe('15. the archive rules file is linkable', (root) => {
+  put(root, 'docs/archive/README.md', '# Archive\n');
+  put(root, 'docs/note.md', '[rules](archive/README.md)\n');
+});
+
+probe('15. the unreleased CHANGELOG section is documentation', (root) => put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — BS-1\n\n## v0.1.0\n\n- **One** — BS-4\n'),
+  exactly(gate15('CHANGELOG.md', TASK_ID, 3, 'BS-1')));
+greenProbe('15. a released CHANGELOG section stays with gate 6 and a known task is green there', (root) => put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — new\n\n## v0.1.0\n\n- **One** — BS-1\n'));
+test('lint: 15. at the CHANGELOG boundary each mention is reported once, by its own gate', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'CHANGELOG.md', '## Unreleased\n\n- **One** — BS-98\n\n## v0.1.0\n\n- **One** — BS-99\n');
+    assert.deepEqual(problems(root), [
+      `CHANGELOG.md: ${msg('ru', 'mentions {id}, but no task file exists in statuses or archive', { id: 'BS-99' })}`,
+      gate15('CHANGELOG.md', TASK_ID, 3, 'BS-98'),
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Classes 3 and 4 need a repository: an origin for the URL, an index for the run artifact.
+function gitGreen(origin) {
+  const root = makeProject();
+  seedGreen(root);
+  if (origin) run(root, ['remote', 'add', 'origin', origin]);
+  put(root, 'docs/data/sample.json', '{}\n');
+  gitAll(root, 'green');
+  return root;
+}
+
+for (const [form, origin, url] of [
+  ['GitHub https', 'https://github.com/Owner/Proj.git', 'https://github.com/owner/proj/blob/release/1.0/docs/archive/LOG.md#bs-4'],
+  ['GitLab scp', 'git@gitlab.example.com:group/sub/proj.git', 'https://gitlab.example.com/group/sub/proj/-/tree/main/docs/backlog/queue'],
+]) {
+  test(`lint: 15. a URL into this repository's tracker is refused, origin in the ${form} form`, () => {
+    const root = gitGreen(origin);
+    try {
+      put(root, 'docs/note.md', `Measured [there](${url}); the tool itself: https://github.com/other/proj/blob/main/docs/archive/LOG.md\n`);
+      assert.deepEqual(problems(root), [gate15('docs/note.md', TRACKER_URL, 1, url)]);
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
+test('lint: 15. without an origin remote the URL class is skipped with a note on stdout', () => {
+  const root = gitGreen(null);
+  try {
+    put(root, 'docs/note.md', 'See https://github.com/owner/proj/blob/main/docs/archive/LOG.md\n');
+    assert.deepEqual(problems(root), []);
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+    assert.ok(r.out.includes(msg('ru', 'gate 15: no origin remote — tracker URLs into this repository were not checked')), r.out);
+    assert.equal(r.err, '');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 15. an untracked run artifact in a code span or a link is refused; tracked, home, bare pass', () => {
+  const root = gitGreen('https://github.com/owner/proj.git');
+  try {
+    put(root, 'runs/session.log', 'on disk, not in the index\n');
+    put(root, 'docs/note.md', [
+      'Captured in `runs/turn.jsonl` and [the log](../runs/session.log).',
+      'Fine: `data/sample.json`, `docs/data/sample.json`, `~/.config/x.json`, `gates.json`, `$HOME/a/b.json`,',
+      '`<run>/gates.json`, `runs/*.txt`, `/etc/x/y.txt`.',
+      '',
+    ].join('\n'));
+    assert.deepEqual(problems(root), [
+      gate15('docs/note.md', RUN_ARTIFACT, 1, '../runs/session.log'),
+      gate15('docs/note.md', RUN_ARTIFACT, 1, 'runs/turn.jsonl'),
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 15. outside git the run artifact class is skipped with a note', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/note.md', '`runs/turn.jsonl`\n');
+    const report = lintProject(loadProject(root));
+    assert.deepEqual(report.errors, []);
+    assert.ok(report.notes.includes(msg('ru', 'gate 15: no git index — run artifact paths were not checked')), report.notes.join(' | '));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: 15. an English project names the class and the token in English', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+    put(root, 'docs/note.md', 'From BS-2: [card](backlog/active/BS-2-b.md)\n');
+    assert.deepEqual(problems(root), [
+      `docs/note.md: line 1: task id BS-2 — ${OUTLIVES}`,
+      `docs/note.md: line 1: tracker link backlog/active/BS-2-b.md — ${OUTLIVES}`,
+    ]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+for (const lang of ['en', 'ru']) {
+  test(`lint: 15. a fresh init --lang ${lang} project is green`, () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'backslop-fresh-'));
+    try {
+      run(root, ['init', '-q', '-b', 'main']);
+      assert.equal(cli(root, ['init', '--lang', lang, '--tools', 'none']).code, 0);
+      const r = cli(root, ['lint']);
+      assert.equal(r.code, 0, r.err);
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
+test('lint: 15. an unknown id in prose of the set is reported by gate 15 alone, not by gate 6', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'docs/reference/README.md', `${read(root, 'docs/reference/README.md')}\nDecided in BS-99.\n`);
+    assert.deepEqual(problems(root), [gate15('docs/reference/README.md', TASK_ID, 11, 'BS-99')]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+for (const [state, tag, expected] of [
+  ['with its tag is released and stays with gate 6', true,
+    () => `CHANGELOG.md: ${msg('ru', 'mentions {id}, but no task file exists in statuses or archive', { id: 'BS-99' })}`],
+  ['without its tag is unreleased and goes to gate 15', false, () => gate15('CHANGELOG.md', TASK_ID, 3, 'BS-99')],
+]) {
+  test(`lint: 15. a versioned top CHANGELOG section ${state}`, () => {
+    const root = gitGreen(null);
+    try {
+      put(root, 'CHANGELOG.md', '## v0.2.0 — 2026-10-01\n\n- **One** — BS-99\n');
+      gitAll(root, 'changelog');
+      if (tag) run(root, ['tag', 'v0.2.0']);
+      assert.deepEqual(problems(root), [expected()]);
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
+test('lint: 15. a blob URL path is read after a local ref, so a nested backlog/ is no tracker', () => {
+  const root = gitGreen('https://github.com/owner/proj.git');
+  try {
+    put(root, 'docs/note.md', 'See https://github.com/owner/proj/blob/main/examples/docs/backlog/x.md\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+for (const [kind, refOf] of [
+  ['a commit sha', (root) => run(root, ['rev-parse', 'HEAD']).stdout.trim()],
+  ['a tag', (root) => (run(root, ['tag', 'v1.0']), 'v1.0')],
+  ['a remote branch', (root) => (run(root, ['update-ref', 'refs/remotes/origin/release/2.0', 'HEAD']), 'release/2.0')],
+]) {
+  test(`lint: 15. a blob URL ref that is ${kind} is read before the path, so a nested backlog/ is no tracker`, () => {
+    const root = gitGreen('https://github.com/owner/proj.git');
+    try {
+      const url = `https://github.com/owner/proj/blob/${refOf(root)}/examples/docs/backlog/x.md`;
+      put(root, 'docs/note.md', `See ${url}\n`);
+      assert.deepEqual(problems(root), []);
+    } finally {
+      cleanup(root);
+    }
+  });
+}

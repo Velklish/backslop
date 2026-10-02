@@ -102,7 +102,7 @@ test('archive: a file from the flat docs/backlog/ moves, with outgoing and incom
     cli(root, ['new', 'a', '--queue']);
     put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'a', { order: 10, area: '[x](../../reference/README.md)' }));
     put(root, 'docs/backlog/BS-5-flat.md', `${ruCard('BS-5', 'Flat', { area: '[x](../reference/README.md)' })}\nSee [BS-1](queue/BS-1-a.md) and [the archive](../archive/README.md).\n`);
-    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-5](backlog/BS-5-flat.md)\n');
+    put(root, 'ROADMAP.md', '# Roadmap\n\n[BS-5](docs/backlog/BS-5-flat.md)\n');
     gitAll(root);
 
     const r = cli(root, ['archive', '5']);
@@ -112,7 +112,7 @@ test('archive: a file from the flat docs/backlog/ moves, with outgoing and incom
     assert.match(archived, /\(\.\.\/\.\.\/reference\/README\.md\)/);
     assert.match(archived, /\(\.\.\/\.\.\/backlog\/queue\/BS-1-a\.md\)/);
     assert.match(archived, /\[the archive\]\(\.\.\/README\.md\)/);
-    assert.match(read(root, 'docs/ROADMAP.md'), /\(archive\/BS-5-flat\/task\.md\)/);
+    assert.match(read(root, 'ROADMAP.md'), /\(docs\/archive\/BS-5-flat\/task\.md\)/);
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-5-flat/result.md')));
     put(root, 'docs/archive/BS-5-flat/result.md', ruResult('BS-5', '2026-09-06', `${ruOutcome('completed')}: moved over.`));
     const lint = cli(root, ['lint']);
@@ -245,30 +245,30 @@ test('archive: incoming HTML, badge destinations and contained definitions move 
   try {
     put(root, 'docs/reference/README.md', '# Reference\n');
     put(root, 'docs/backlog/active/BS-1-alpha.md', ruCard('BS-1', 'Alpha', { taken: '2026-09-01' }, [['context', 'text']]));
-    put(root, 'docs/ROADMAP.md', [
+    put(root, 'ROADMAP.md', [
       '# Roadmap',
       '',
-      `<a href='backlog/active/BS-1-alpha.md#${ANCHOR}'>alpha</a>`,
-      `[![inner](backlog/active/BS-1-alpha.md#${ANCHOR})](backlog/active/BS-1-alpha.md#${ANCHOR})`,
+      `<a href='docs/backlog/active/BS-1-alpha.md#${ANCHOR}'>alpha</a>`,
+      `[![inner](docs/backlog/active/BS-1-alpha.md#${ANCHOR})](docs/backlog/active/BS-1-alpha.md#${ANCHOR})`,
       'See [quoted][q] and [listed][l].',
       '',
-      `> [q]: backlog/active/BS-1-alpha.md#${ANCHOR}`,
-      `- [l]: backlog/active/BS-1-alpha.md#${ANCHOR}`,
+      `> [q]: docs/backlog/active/BS-1-alpha.md#${ANCHOR}`,
+      `- [l]: docs/backlog/active/BS-1-alpha.md#${ANCHOR}`,
       '',
     ].join('\n'));
     gitAll(root);
 
     const r = cli(root, ['archive', '1']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'docs/ROADMAP.md'), [
+    assert.equal(read(root, 'ROADMAP.md'), [
       '# Roadmap',
       '',
-      `<a href='archive/BS-1-alpha/task.md#${ANCHOR}'>alpha</a>`,
-      `[![inner](archive/BS-1-alpha/task.md#${ANCHOR})](archive/BS-1-alpha/task.md#${ANCHOR})`,
+      `<a href='docs/archive/BS-1-alpha/task.md#${ANCHOR}'>alpha</a>`,
+      `[![inner](docs/archive/BS-1-alpha/task.md#${ANCHOR})](docs/archive/BS-1-alpha/task.md#${ANCHOR})`,
       'See [quoted][q] and [listed][l].',
       '',
-      `> [q]: archive/BS-1-alpha/task.md#${ANCHOR}`,
-      `- [l]: archive/BS-1-alpha/task.md#${ANCHOR}`,
+      `> [q]: docs/archive/BS-1-alpha/task.md#${ANCHOR}`,
+      `- [l]: docs/archive/BS-1-alpha/task.md#${ANCHOR}`,
       '',
     ].join('\n'));
     put(root, 'docs/archive/BS-1-alpha/result.md', ruResult('BS-1', '2026-09-03', `${ruOutcome('completed')}. Summary.`));

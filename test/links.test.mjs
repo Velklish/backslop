@@ -292,6 +292,7 @@ test('monorepo: gates 1, 8, 13 and seed resolve a root link from the repository 
     assert.deepEqual(errors, [
       `✖ docs/note.md: ${ru('broken link {href} (line {line})', { href: '/docs/README.md', line: 2 })}`,
       `✖ docs/note.md: ${ru('link {href} points at a journal line that does not exist — anchor “{anchor}” belongs to no entry (line {line})', { href: '/pkg/a/docs/archive/LOG.md#bs-9', anchor: 'bs-9', line: 3 })}`,
+      `✖ docs/note.md: ${ru('line {line}: tracker link {token} — documentation outlives the task record; write the contract, the rationale, or the measurement itself with its version and date', { line: 3, token: '/pkg/a/docs/archive/LOG.md#bs-9' })}`,
     ]);
 
     put(root, 'docs/reference/01-x.md', '# X\n');
@@ -333,24 +334,24 @@ test('mv: incoming HTML href and both badge destinations move with the task', ()
     put(root, 'docs/reference/README.md', '# Reference\n');
     put(root, 'docs/backlog/queue/BS-1-alpha.md',
       ruCard('BS-1', 'Alpha', { order: 10, area: '[x](../../reference/README.md)' }, [['context', 'text']]));
-    put(root, 'docs/ROADMAP.md', [
+    put(root, 'ROADMAP.md', [
       '# Roadmap',
       '',
-      `<a href="backlog/queue/BS-1-alpha.md#${ANCHOR}">alpha</a>`,
-      `[![inner](backlog/queue/BS-1-alpha.md#${ANCHOR})](backlog/queue/BS-1-alpha.md#${ANCHOR})`,
-      '[query](<backlog/queue/BS-1-alpha.md?key=`value`>)',
+      `<a href="docs/backlog/queue/BS-1-alpha.md#${ANCHOR}">alpha</a>`,
+      `[![inner](docs/backlog/queue/BS-1-alpha.md#${ANCHOR})](docs/backlog/queue/BS-1-alpha.md#${ANCHOR})`,
+      '[query](<docs/backlog/queue/BS-1-alpha.md?key=`value`>)',
       '',
     ].join('\n'));
     gitAll(root);
 
     const r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'docs/ROADMAP.md'), [
+    assert.equal(read(root, 'ROADMAP.md'), [
       '# Roadmap',
       '',
-      `<a href="backlog/active/BS-1-alpha.md#${ANCHOR}">alpha</a>`,
-      `[![inner](backlog/active/BS-1-alpha.md#${ANCHOR})](backlog/active/BS-1-alpha.md#${ANCHOR})`,
-      '[query](<backlog/active/BS-1-alpha.md?key=`value`>)',
+      `<a href="docs/backlog/active/BS-1-alpha.md#${ANCHOR}">alpha</a>`,
+      `[![inner](docs/backlog/active/BS-1-alpha.md#${ANCHOR})](docs/backlog/active/BS-1-alpha.md#${ANCHOR})`,
+      '[query](<docs/backlog/active/BS-1-alpha.md?key=`value`>)',
       '',
     ].join('\n'));
     const lint = cli(root, ['lint']);
@@ -388,26 +389,26 @@ test('mv: incoming reference declarations behind quote or list markers move with
     put(root, 'docs/reference/README.md', '# Reference\n');
     put(root, 'docs/backlog/queue/BS-1-alpha.md',
       ruCard('BS-1', 'Alpha', { order: 10, area: '[x](../../reference/README.md)' }, [['context', 'text']]));
-    put(root, 'docs/ROADMAP.md', [
+    put(root, 'ROADMAP.md', [
       '# Roadmap',
       '',
       'See [quoted][q] and [listed][l].',
       '',
-      `> [q]: backlog/queue/BS-1-alpha.md#${ANCHOR}`,
-      `- [l]: backlog/queue/BS-1-alpha.md#${ANCHOR}`,
+      `> [q]: docs/backlog/queue/BS-1-alpha.md#${ANCHOR}`,
+      `- [l]: docs/backlog/queue/BS-1-alpha.md#${ANCHOR}`,
       '',
     ].join('\n'));
     gitAll(root);
 
     const r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'docs/ROADMAP.md'), [
+    assert.equal(read(root, 'ROADMAP.md'), [
       '# Roadmap',
       '',
       'See [quoted][q] and [listed][l].',
       '',
-      `> [q]: backlog/active/BS-1-alpha.md#${ANCHOR}`,
-      `- [l]: backlog/active/BS-1-alpha.md#${ANCHOR}`,
+      `> [q]: docs/backlog/active/BS-1-alpha.md#${ANCHOR}`,
+      `- [l]: docs/backlog/active/BS-1-alpha.md#${ANCHOR}`,
       '',
     ].join('\n'));
     const lint = cli(root, ['lint']);

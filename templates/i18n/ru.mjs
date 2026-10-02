@@ -279,6 +279,12 @@ export const messages = {
   'reachability of journal revisions from HEAD was not checked: {why}': 'достижимость ревизий журнала из HEAD не проверена: {why}',
   'line {line}: revision {commit} is not reachable from HEAD — show will not find the body through it; such a revision is left by a commit that a squash or rebase dropped after folding': 'строка {line}: ревизия {commit} не достижима из HEAD — show тела по ней не достанет; такую ревизию оставляет коммит, выброшенный squash или rebase после свёртки',
   'mentions {id}, but no task file exists in statuses or archive': 'упоминает {id}, а файла задачи нет ни в статусах, ни в архиве',
+  'line {line}: task id {token} — documentation outlives the task record; write the contract, the rationale, or the measurement itself with its version and date': 'строка {line}: номер задачи {token} — документация переживает запись задачи; напиши сам контракт, обоснование или замер с версией и датой',
+  'line {line}: tracker link {token} — documentation outlives the task record; write the contract, the rationale, or the measurement itself with its version and date': 'строка {line}: ссылка в трекер {token} — документация переживает запись задачи; напиши сам контракт, обоснование или замер с версией и датой',
+  'line {line}: tracker URL {token} into this repository — documentation outlives the task record; write the contract, the rationale, or the measurement itself with its version and date': 'строка {line}: адрес трекера этого репозитория {token} — документация переживает запись задачи; напиши сам контракт, обоснование или замер с версией и датой',
+  'line {line}: run artifact {token}, not a tracked file — the reader cannot open it; write the measurement itself with its version and date': 'строка {line}: артефакт прогона {token}, которого нет среди файлов в git — читателю его не открыть; напиши сам замер с версией и датой',
+  'gate 15: no origin remote — tracker URLs into this repository were not checked': 'гейт 15: нет remote origin — адреса трекера этого репозитория не проверены',
+  'gate 15: no git index — run artifact paths were not checked': 'гейт 15: нет индекса git — пути артефактов прогона не проверены',
   '(before the first section)': '(до первой секции)',
   'line {line}: entry title “{title}” already exists in section “{section}” (line {prev}) — keep one revision': 'строка {line}: заголовок записи «{title}» уже есть в секции «{section}» (строка {prev}) — оставь одну редакцию',
   'ADR number {number} is already used by {name}': 'номер ADR {number} уже занят: {name}',
@@ -654,10 +660,10 @@ export const help = (version) => `backslop — бэклог для слопа: �
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage, minor по областям
-  lint                                                четырнадцать гейтов: ссылки, номера, раскладка бэклога, поля,
+  lint                                                пятнадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
                                                       цитаты, версии релиза, слоты шаблонов, журнал закрытых,
-                                                      непечатаемые байты;
+                                                      непечатаемые байты, документация без трекера;
                                                       adapter outputs, равенство шаблонов и предупреждения
                                                       о версии и закрытом родителе
   gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]
