@@ -29,7 +29,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 
 | Command | Purpose |
 |---|---|
-| `init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>]` | lay down or refresh the layout |
+| `init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>] [--hooks <CSV\|none>]` | lay down or refresh the layout |
 | `new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]` | file a task or a finding |
 | `mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]` | move tasks between statuses, or reorder the queue |
 | `archive <N> [--dry-run] [--range <base>..HEAD]` \| `archive <N.k> --into <M> [--dry-run]` | archive a task, or close a minor entry into a batch |
@@ -59,19 +59,22 @@ Behaviour:
 - The block in `AGENTS.md` and in `.gitignore` is written with the file's own line endings (CRLF stays CRLF); a new file gets LF. Adapter outputs are always LF, even from a CRLF clone of the tool.
 - `--dir` and the configured `docs` are compared normalized: `docs/`, `./docs` and `docs` are one directory.
 - An unselected adapter whose root is not a directory is skipped without a refusal, as is a removal candidate of it that goes through a symlink or is not a file.
+- `--hooks claude,cursor,codex` (any subset, or `none`) sets the `hooks` field as `--tools` sets `tools`; a repeated `init` without the flag keeps the field, and a first `init` without it selects no hooks and writes no field. `init` writes the start and stop records of each selected harness into its project hook file and removes the records of the others ([01 § Agent hook records](01-layout.md#agent-hook-records)). With hooks selected, the `AGENTS.md` block gains one sentence after the release sentence: the stop hook returns the turn on `lint` errors in the files the session changed, and those errors are fixed, not bypassed. Without hooks the block is the same, byte for byte.
 
 Output:
 
 - The summary line `✔ init: …`, then adapter outputs, the `AGENTS.md`, `CLAUDE.md` and `.gitignore` states, and warnings.
 - Without `probe` in the config, a line says that neither the block nor the skill carries a probe requirement: declare the command in `probe`, or describe the probe in a section of your own outside the block — such a section survives `init`.
+- `agent hooks: <file> written|removed, …` when a hook file was written or removed.
+- With `cursor` or `codex` in `hooks`, one line says that promptobus participants of those harnesses collide with their hook files until promptobus accepts backslop's records, and that a project running such participants should not select these hooks.
 - The `next:` hint names the `backslop-seed` skill only when an adapter is selected; without one it names `init --tools`; in the tool's own repository, where `--tools` is refused, it names neither.
 
 Refusals:
 
-- A `dir`/`prefix`/`cli` flag that differs from the existing config; an unknown `lang` or `tools` value; a project already initialized above; a stamp newer than the tool.
+- A `dir`/`prefix`/`cli` flag that differs from the existing config; an unknown `lang`, `tools` or `hooks` value; a project already initialized above; a stamp newer than the tool.
 - A bad prefix; a `--dir` path outside the project or with a `..` segment, by the rule of the `docs` field (`docs/../x` is refused, not shortened to `x`); a value any later run would refuse (an empty `--cli`). A flag refusal speaks the language of `--lang` or of the existing config, or `EN / RU` when the language is unknown; a `--cli`/`--dir` refusal by the block rule names the flag, not `backslop.json`.
 - `--tools` other than `none` in the tool's own repository (its `templates/` is the running tool's directory): self-host keeps `tools: []`, and a stand with an adapter is set up in a directory of its own.
-- Before the first write: a symlink on the root of a selected adapter (unselected roots are not checked); `docs`, a skeleton directory under it, or a selected adapter root that is a file; `AGENTS.md` or `.gitignore` that is a directory; `docs/README.md` that is not a file; `AGENTS.md` or a `.gitignore` that `init` will rewrite not in UTF-8; a block marker on its own line twice, or without its pair.
+- Before the first write: a symlink on the root of a selected adapter (unselected roots are not checked); `docs`, a skeleton directory under it, or a selected adapter root that is a file; `AGENTS.md` or `.gitignore` that is a directory; `docs/README.md` that is not a file; `AGENTS.md` or a `.gitignore` that `init` will rewrite not in UTF-8; a block marker on its own line twice, or without its pair; the hook file of a selected harness that is not valid JSON, whose top level or `hooks` is not an object, or whose start or stop value is not a list, or that has a symlink on its path.
 - On write: a directory at an adapter output path, or a file on a component of that path.
 
 ### new

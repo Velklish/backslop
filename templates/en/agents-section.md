@@ -5,7 +5,7 @@ The task tracker and decision log live in `{{docs}}/` and are managed with `{{cl
 
 **Skills (when an adapter is selected):** `backslop-task` — the lifecycle of one task; `backslop-batch` — a worker run by tracks; `backslop-seed` — populate documentation after installation; `backslop-writer`, `backslop-techdoc` and `backslop-humanizer` — the documentation currency and style pass, and the writing rules it applies.
 
-When an adapter is selected, before a release commit, run the `backslop-writer` pass in release mode over the diff since the previous tag.
+When an adapter is selected, before a release commit, run the `backslop-writer` pass in release mode over the diff since the previous tag.{{hooksRule}}
 
 **Change procedure.** There are two roles: the worker implements and verifies (steps 1–4), the approver accepts and closes (5–7); a single agent performs both roles in order.
 

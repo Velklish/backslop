@@ -12,8 +12,8 @@ const COMMANDS = ['init', 'new', 'mv', 'archive', 'fold', 'show', 'adr', 'brief'
 const HELP_EN = `backslop — a file-based backlog with an archive, ADRs, and process skills
 
 Commands:
-  init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru|en] [--tools <CSV|none>]
-                                                      create docs, adapters, AGENTS.md block, and backslop.json
+  init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru|en] [--tools <CSV|none>] [--hooks <CSV|none>]
+                                                      create docs, adapters, agent hooks, AGENTS.md block, and backslop.json
   new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]
                                                       create a task (triage/ by default) or a finding for task N / N.M;
                                                       --minor — a minor finding or hypothesis in minor/, with a Cost field;

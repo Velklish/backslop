@@ -22,7 +22,7 @@ Agents produce a lot of work, and it needs a tracker that lives in the repositor
 ## What appears in a project
 
 ```
-backslop.json                    config: prefix, docs, cli (with the version pin), gates, probe, writer, version, source, lang, tools, agents
+backslop.json                    config: prefix, docs, cli (with the version pin), gates, probe, writer, version, source, lang, tools, hooks, agents
 AGENTS.md                        procedure section between <!-- backslop:start --> and <!-- backslop:end -->
 docs/…                           documentation skeleton, backlog, archive and its journal, first ADR
 ```
@@ -43,13 +43,29 @@ Each adapter lays out the process skills, the `backslop-writer` release and batc
 
 With an adapter selected, ask an agent to "populate docs using backslop" once the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a worker batch closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
 
+## Agent hooks
+
+An agent hook makes the coding agent fix the `lint` errors it introduced before its turn ends. With a harness selected, `init` writes two records into the project hook file of that harness: the start hook records where the session began, and the stop hook runs `lint` at the end of each turn and returns the turn when an error sits in a file the session changed. An error in any other file never returns a turn.
+
+Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hooks none` removes them); a first `init` selects none. The records go into `<project>/.claude/settings.json`, `<project>/.cursor/hooks.json` and `<project>/.codex/hooks.json`, next to the team's own settings and hooks, which `init` keeps; it never touches the user-level files in your home directory. The rules are in [Agent hook records](docs/reference/01-layout.md#agent-hook-records).
+
+Each harness runs a project hook only after its own trust step:
+
+| Harness | Trust step |
+|---|---|
+| Claude Code | none in `claude -p` |
+| Codex | `codex exec` ran the hooks only with `--dangerously-bypass-hook-trust`; a linked worktree runs the main checkout's file |
+| Cursor | none in `cursor-agent -p --force`; the interactive `cursor-agent` asks to trust the workspace (`--trust`); `stop` fires only in the interactive terminal |
+
+A project that runs promptobus Codex or Cursor participants should not select those hooks yet: those participants collide with the hook file until promptobus accepts backslop's records.
+
 ## Commands
 
 Each command links its reference section: behaviour, output and refusals.
 
 | Command | What it does |
 |---|---|
-| [`init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>]`](docs/reference/02-cli.md#init) | create docs, adapters, the AGENTS.md block and backslop.json; on repeat, refresh the adapters and the AGENTS.md block |
+| [`init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>] [--hooks <CSV\|none>]`](docs/reference/02-cli.md#init) | create docs, adapters, agent hooks, the AGENTS.md block and backslop.json; on repeat, refresh the adapters and the AGENTS.md block |
 | [`new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]`](docs/reference/02-cli.md#new) | create a task (in `triage/`, or the queue), a finding of task N / N.M, or a minor finding with evidence |
 | [`mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]`](docs/reference/02-cli.md#mv) | change the status of one or several tasks, or reorder the queue |
 | [`archive <N> [--dry-run] [--range <base>..HEAD]`, `archive <N.k> --into <M> [--dry-run]`](docs/reference/02-cli.md#archive) | close a task into `archive/` and print the documentation it touched; close a minor entry by batch M |
