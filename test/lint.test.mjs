@@ -68,6 +68,7 @@ const NO_LABEL = 'link [{text}] uses the label “{label}”, and there is no de
 const DIR_LINK = 'link [{text}]({href}) points to a directory while its text names a task — point it at the task file or its journal line (line {line})';
 const JOURNAL_MISS = 'link {href} points at a journal line that does not exist — anchor “{anchor}” belongs to no entry (line {line})';
 const QUOTE_MISSING = 'quote points at a missing file {href}';
+const LINK_OUT = 'a symlink leading out of the project — the tasks in it are not read; point the link inside the project or replace it with a directory';
 const QUOTE_DIFF = 'quote no longer matches {href}: “{first}”';
 const QUOTE_OPEN = 'quote block “quote:{href}” is not closed by “/quote”';
 const QUOTE_CLOSER = 'line {line}: “/quote” closes no quote block';
@@ -379,7 +380,8 @@ test('lint: 3. a status directory symlinked inside the project is a status; one 
     unlinkSync(path.join(root, 'docs/backlog/queue'));
     renameSync(path.join(root, 'store-queue'), path.join(outside, 'queue'));
     symlinkSync(path.join(outside, 'queue'), path.join(root, 'docs/backlog/queue'));
-    assert.ok(problems(root).some((p) => new RegExp(`^${errSrc('docs/backlog/queue', 'file is outside a status directory: tasks belong in one of {dirs}')}`).test(p)), problems(root).join(' | '));
+    assert.ok(problems(root).some((p) => exactRe('docs/backlog/queue', LINK_OUT).test(p)), problems(root).join(' | '));
+    assert.ok(!problems(root).some((p) => errRe('docs/backlog/queue', 'file is outside a status directory: tasks belong in one of {dirs}').test(p)), 'a link is no file');
   } finally {
     cleanup(root);
     rmSync(outside, { recursive: true, force: true });
@@ -954,6 +956,7 @@ probe('10. a second marker closes an unclosed block with an error', (root) => pu
 probe('10. the quote diverged from the file', (root) => put(root, 'docs/reference/README.md', `# ${SECTION.context}\n\nOne concept, two names.\n`), errRe('quoting.md', QUOTE_DIFF, { href: 'reference/README.md' }));
 probe('10. a quote points at a missing file', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\ntext\n\n<!-- /quote -->\n'), errRe('quoting.md', QUOTE_MISSING, { href: 'reference/none.md' }));
 probe('10. a quote block is not closed', (root) => put(root, 'docs/quoting.md', `<!-- quote:reference/README.md -->\n\n${ONE}\n`), errRe('quoting.md', QUOTE_OPEN));
+probe('10. the message of a diverged fenced quote names its first text line, not the fence', (root) => put(root, 'docs/reference/README.md', `# ${SECTION.context}\n\nOne concept, two names.\n`), exactRe('docs/quoting.md', QUOTE_DIFF, { href: 'reference/README.md', first: ONE }));
 probe('10. a spaced opener is a quote block', (root) => put(root, 'docs/quoting.md', '<!-- quote: reference/README.md -->\n\nnot the text\n\n<!-- /quote -->\n'), errRe('quoting.md', QUOTE_DIFF, { href: 'reference/README.md', first: 'not the text' }));
 probe('10. a spaced quote:before opener still checks the target', (root) => put(root, 'docs/quoting.md', '<!-- quote: before: reference/none.md -->\n\ntext\n\n<!-- /quote -->\n'), errRe('quoting.md', QUOTE_MISSING, { href: 'reference/none.md' }));
 probe('10. a closer with no open block', (root) => put(root, 'docs/quoting.md', `${read(root, 'docs/quoting.md')}\n<!-- /quote -->\n`), errRe('quoting.md', QUOTE_CLOSER, { line: 21 }));
@@ -1741,6 +1744,37 @@ test('lint: 7. a long unclosed entry line with many backticks is read in linear 
     const r = spawnSync(process.execPath, [path.join(REPO, 'bin', 'backslop.js'), 'lint'], { cwd: root, encoding: 'utf8', timeout: 10000 });
     assert.equal(r.error, undefined, 'lint did not finish in 10 s');
     assert.equal(r.status, 0, r.stderr);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: a status directory leading out of the project is reported by gate 3 alone: gates 2, 4 and 6 do not read behind it', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject({ git: false });
+  const outside = mkdtempSync(path.join(os.tmpdir(), 'backslop-lint-outside-'));
+  try {
+    seedGreen(root);
+    put(root, 'docs/backlog/active/BS-2-b.md', `${read(root, 'docs/backlog/active/BS-2-b.md')}\nDepends on BS-1.\n`);
+    renameSync(path.join(root, 'docs/backlog/queue'), path.join(outside, 'queue'));
+    put(outside, 'queue/notes.md', '# notes\n');
+    put(outside, 'queue/BS-7-x.md', `${ruCard('BS-7', 'X')}\n[TODO]\n`);
+    symlinkSync(path.join(outside, 'queue'), path.join(root, 'docs/backlog/queue'));
+    assert.deepEqual(problems(root), [errLine('docs/backlog/queue', LINK_OUT)]);
+  } finally {
+    cleanup(root);
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('lint: the outputs of a vendored skill that init skipped for a foreign LICENSE are not called missing', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, '.cursor/rules/backslop-techdoc/LICENSE', 'mine\n');
+    assert.equal(cli(root, ['init', '--tools', 'cursor']).code, 0);
+    const found = problems(root);
+    assert.equal(found.length, 1, found.join(' | '));
+    assert.match(found[0], errRe('LICENSE', 'a foreign file without the {marker} marker sits at the {tool} adapter output path — init does not overwrite it: remove or rename the file and run {cli} init, or deselect the adapter'));
   } finally {
     cleanup(root);
   }

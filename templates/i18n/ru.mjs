@@ -199,6 +199,7 @@ export const messages = {
   'the agent hook records of {harness} differ from what init writes: a duplicate or a record under another event — run {cli} init': 'записи хуков агента для {harness} расходятся с тем, что пишет init: дубль или запись под другим событием — запусти {cli} init',
   'the {key} agent hook record of {harness} is missing: expected “{command}” — run {cli} init': 'нет записи хука агента {key} для {harness}: ожидается «{command}» — запусти {cli} init',
   // lib/init.js
+  'init cannot lay out the skeleton in it': 'init не разложит в нём скелет',
   '--dir “{dir}”: expected a relative path inside the project': '--dir «{dir}»: нужен относительный путь внутри проекта',
   '{config} already sets {key} = “{value}”; change it in the config, not with this flag': '{config} уже есть, и там {key} = «{value}»; менять — правкой конфига, не флагом',
   '--prefix “{prefix}”: expected 2–6 uppercase Latin letters or digits, starting with a letter': '--prefix «{prefix}»: нужны 2–6 заглавных латинских букв или цифр, первая буква',
@@ -339,6 +340,7 @@ export const messages = {
   'lint: errors {errors}{tail}': 'lint: ошибок {errors}{tail}',
   'lint: no errors{tail}': 'lint: ошибок нет{tail}',
   'field “{field}” occurs more than once on lines {lines}': 'поле «{field}» повторяется в строках {lines}',
+  'a symlink leading out of the project — the tasks in it are not read; point the link inside the project or replace it with a directory': 'симлинк, ведущий за пределы проекта: задачи в нём не читаются; направь ссылку внутрь проекта или замени её каталогом',
   // lib/log.js
   'merged into {target}': 'слита в {target}',
   'rejected': 'отклонена',

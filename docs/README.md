@@ -281,7 +281,7 @@ Checked live on 2026-10-02 on Claude Code 2.1.284 (the record is the message of 
 
 <!-- quote:reference/02-cli.md -->
 ```text
-- Before the first write: a symlink on the root of a selected adapter or on the path of one of its outputs (unselected roots are not checked), a directory at an output path, a file on a component of that path, `CLAUDE.md` that is a directory or a dangling symlink with `claude` selected; `docs`, a skeleton directory under it, or a selected adapter root that is a file; `AGENTS.md` or `.gitignore` that is a directory; `docs/README.md` that is not a file; `AGENTS.md` or a `.gitignore` that `init` rewrites not in UTF-8; a block marker on its own line twice, or without its pair; the hook file of a selected harness that is not valid JSON, whose top level or `hooks` is not an object, or whose start or stop value is not a list, or that has a symlink on its path.
+- Before the first write: a symlink on the root of a selected adapter or on the path of one of its outputs (unselected roots are not checked), a directory at an output path, a file on a component of that path, `CLAUDE.md` that is a directory or a dangling symlink with `claude` selected; `docs`, a skeleton directory under it, or a selected adapter root that is a file; `docs` or a skeleton directory under it that cannot be read (named with its error code, as the other commands name it); `AGENTS.md` or `.gitignore` that is a directory; `docs/README.md` that is not a file; `AGENTS.md` or a `.gitignore` that `init` rewrites not in UTF-8; a block marker on its own line twice, or without its pair; the hook file of a selected harness that is not valid JSON, whose top level or `hooks` is not an object, or whose start or stop value is not a list, or that has a symlink on its path.
 ```
 <!-- /quote -->
 
@@ -378,7 +378,7 @@ A record has this form:
 
 <!-- quote:reference/03-lint.md -->
 ```text
-| 3 | Backlog layout | Any file directly in `docs/backlog/` other than `README.md` (dot files are ignored); a directory that is not a status; a missing status directory; a missing `docs/backlog/`; `docs/backlog/` or a status directory that is a regular file — `<path>: a file, expected a directory`. A symlink to a directory inside the project is a directory; a symlink leading out of the project is not followed and counts as a file | `mv N <status>` — it finds the flat file and recomputes its links; create the directory with a `.gitkeep`, or run `init` for a missing `docs/backlog/`; a file in place of a directory — remove or rename it and create the directory |
+| 3 | Backlog layout | Any file directly in `docs/backlog/` other than `README.md` (dot files are ignored); a directory that is not a status; a missing status directory; a missing `docs/backlog/`; `docs/backlog/` or a status directory that is a regular file — `<path>: a file, expected a directory`. A symlink to a directory inside the project is a directory; a symlink leading out of the project is not followed: under a status name the error says it is a symlink leading out, under any other name it counts as a file | `mv N <status>` — it finds the flat file and recomputes its links; create the directory with a `.gitkeep`, or run `init` for a missing `docs/backlog/`; a file in place of a directory — remove or rename it and create the directory |
 ```
 <!-- /quote -->
 

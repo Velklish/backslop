@@ -10,6 +10,13 @@ import { RU, msg } from '../lib/i18n.js';
 import { renderOutcome } from '../lib/log.js';
 import { TEMPLATES_DIR, renderTemplate, templateRel } from '../lib/templates.js';
 
+// `git commit` forks `git maintenance run --auto --detach`; the child can still run in `.git`
+// while `cleanup` removes the directory. Every git that a test starts inherits the switch.
+const gitConfigs = Number(process.env.GIT_CONFIG_COUNT ?? 0);
+process.env[`GIT_CONFIG_KEY_${gitConfigs}`] = 'maintenance.auto';
+process.env[`GIT_CONFIG_VALUE_${gitConfigs}`] = 'false';
+process.env.GIT_CONFIG_COUNT = String(gitConfigs + 1);
+
 export const BIN = fileURLToPath(new URL('../bin/backslop.js', import.meta.url));
 export const REPO = fileURLToPath(new URL('..', import.meta.url));
 
