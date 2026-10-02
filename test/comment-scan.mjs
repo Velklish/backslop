@@ -1,5 +1,5 @@
-// Где комментарий начинается и кончается — лексером с состоянием между строками, а не
-// догадкой по одной строке. Что гейт над ним ловит, а что нет — ADR-046.
+// Where a comment starts and ends — by a lexer that keeps state between lines, not by guessing
+// from one line. What the gate over it catches and what it does not — ADR-046.
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { lsFiles } from '../lib/util.js';
@@ -13,11 +13,11 @@ const REGEX_KEYWORDS = new Set([
   'case', 'do', 'else', 'yield', 'await',
 ]);
 
-// Токены, после которых `/` — деление. `!` в их число не входит: `!/\s/.test(v)` — префиксное
-// отрицание, и дерево его пишет; постфиксного `x!` в нём нет.
+// Tokens after which `/` is a division. `!` is not among them: `!/\s/.test(v)` is a prefix
+// negation, and the tree writes it; there is no postfix `x!` in it.
 const ENDS_A_VALUE = new Set([')', ']', '}', '++', '--']);
 
-// `/` открывает регэксп, если предыдущий токен не закончил значение.
+// `/` opens a regexp when the previous token did not end a value.
 function regexAllowed(prev) {
   if (prev === null) return true;
   if (prev === 'value') return false;
@@ -25,7 +25,7 @@ function regexAllowed(prev) {
   return !ENDS_A_VALUE.has(prev);
 }
 
-// Строка в кавычках; перевод строки её закрывает, поэтому висячая кавычка не съест файл.
+// A quoted string; a newline closes it, so a dangling quote does not swallow the file.
 function skipString(text, i, quote) {
   for (let j = i + 1; j < text.length; j += 1) {
     const c = text[j];
@@ -36,7 +36,7 @@ function skipString(text, i, quote) {
   return text.length;
 }
 
-// Литерал регэкспа с классами символов и флагами; перевод строки его закрывает.
+// A regexp literal with character classes and flags; a newline closes it.
 function skipRegex(text, i) {
   let klass = false;
   for (let j = i + 1; j < text.length; j += 1) {
@@ -54,7 +54,7 @@ function skipRegex(text, i) {
   return text.length;
 }
 
-// Каждый комментарий как `{ from, to, kind }` в смещениях символов, состояние — между строками.
+// Every comment as `{ from, to, kind }` in character offsets, with state kept between lines.
 function commentSpans(text) {
   const out = [];
   const frames = [{ template: false, depth: 0 }];
@@ -66,7 +66,7 @@ function commentSpans(text) {
     if (frame.template) {
       if (c === '\\') { i += 2; continue; }
       if (c === '`') { frames.pop(); prev = 'value'; i += 1; continue; }
-      // `${` открывает свой кадр кода, поэтому шаблон внутри него вкладывается, а не закрывает.
+      // `${` opens its own code frame, so a template inside it nests rather than closes.
       if (c === '$' && text[i + 1] === '{') { frames.push({ template: false, depth: 0 }); prev = null; i += 2; continue; }
       i += 1;
       continue;
@@ -90,7 +90,7 @@ function commentSpans(text) {
     if (c === '/' && regexAllowed(prev)) { i = skipRegex(text, i); prev = 'value'; continue; }
     if (c === '{') { frame.depth += 1; prev = '{'; i += 1; continue; }
     if (c === '}') {
-      // Глубина 0 во вложенном кадре закрывает `${…}`; в базовом кадре это просто скобка.
+      // Depth 0 in a nested frame closes `${…}`; in the base frame it is just a bracket.
       if (frame.depth === 0 && frames.length > 1) { frames.pop(); i += 1; continue; }
       if (frame.depth > 0) frame.depth -= 1;
       prev = '}';
@@ -105,7 +105,7 @@ function commentSpans(text) {
       i = k;
       continue;
     }
-    // `++` и `--` — один токен: после них `/` это деление, после одиночного `+` — нет.
+    // `++` and `--` are one token: `/` after them is a division, after a single `+` it is not.
     if ((c === '+' || c === '-') && text[i + 1] === c) { prev = c + c; i += 2; continue; }
     prev = c;
     i += 1;
@@ -129,7 +129,7 @@ function lineOf(starts, idx) {
   return lo;
 }
 
-// По строке: колонки комментария на ней и стоит ли код до или после них.
+// Per line: the columns of a comment on it, and whether code stands before or after them.
 function lineFacts(text) {
   const lines = text.split('\n');
   const starts = lineStartsOf(text);
@@ -157,7 +157,7 @@ function lineFacts(text) {
   return facts;
 }
 
-// Каждая строка, где всё вне комментария затёрто, с сохранением колонок.
+// Every line with all that lies outside a comment blanked out, columns kept.
 export function maskedLines(text) {
   return lineFacts(text).map((fact) => {
     if (!fact.spans.length) return '';
@@ -167,14 +167,14 @@ export function maskedLines(text) {
   });
 }
 
-// Блоки комментария как `{ start, end, lines }`, с единицы и включительно.
+// Comment blocks as `{ start, end, lines }`, one-based and inclusive.
 function commentBlocks(text) {
   const blocks = [];
   let current = null;
   const facts = lineFacts(text);
   for (let n = 0; n < facts.length; n += 1) {
     const fact = facts[n];
-    // Код перед комментарием делает строку строкой кода; код после него обрывает блок здесь.
+    // Code before a comment makes the line a code line; code after it ends the block here.
     if (!fact.spans.length || fact.codeBefore || fact.codeAfter) { current = null; continue; }
     if (current) { current.lines.push(fact.text); current.end = n + 1; continue; }
     current = { start: n + 1, end: n + 1, lines: [fact.text] };
@@ -183,26 +183,28 @@ function commentBlocks(text) {
   return blocks;
 }
 
-// Код деревьев, который git не игнорирует: индекс и ещё не он. Гейт идёт раньше `git add`.
+// The tree code git does not ignore: the index, and what is not in it yet.
+// The gate runs before `git add`.
 export function scannedCode(root, trees) {
   // A deleted file is not judged: the index still lists it until `git add`.
   const ls = (flags) => lsFiles(root, trees, flags).filter((f) => /\.(js|mjs)$/.test(f) && existsSync(path.join(root, f)));
-  // Новый файл судится с рождения: `--others` без `--exclude-standard` тащил бы игнорируемое.
+  // A new file is judged from birth; `--others` without `--exclude-standard` pulls in ignored ones.
   const files = [...new Set([...ls([]), ...ls(['--others', '--exclude-standard'])])].sort();
-  // Дерево, разрешающееся в пустоту, — тихая дыра: обход по нему читает ноль файлов молча
-  // и даёт ту же зелень, что обход по всему.
+  // A tree that resolves to nothing is a quiet hole: a walk over it reads zero files silently
+  // and gives the same green as a walk over everything.
   const empty = trees.filter((t) => !files.some((f) => f === t || f.startsWith(`${t}/`)));
   return { files, empty };
 }
 
-// Блоки длиннее `limit` строк — то, что судит гейт.
+// Blocks longer than `limit` lines — what the gate judges.
 export function longBlocks(text, limit = LIMIT) {
   return commentBlocks(text)
     .filter((r) => r.end - r.start + 1 > limit)
     .map((r) => ({ line: r.start, length: r.end - r.start + 1, lines: r.lines }));
 }
 
-// Строки блоков шире `limit` знаков: кодпоинты всей строки с отступом, без `\r` (ADR-046).
+// Lines of blocks wider than `limit` characters: code points of the whole line with its indent,
+// without `\r` (ADR-046).
 export function wideLines(text, limit = WIDTH) {
   const out = [];
   for (const block of commentBlocks(text)) {

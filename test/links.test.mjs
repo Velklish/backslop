@@ -1,5 +1,5 @@
-// Разбор и перепись ссылок markdown: все формы, что ломались при ручном переезде файла, плюс те,
-// что трогать нельзя.
+// Parsing and rewriting markdown links: every form that broke on a manual file move, plus those
+// that must not be touched.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -10,7 +10,11 @@ import {
   EXTERNAL, anchorReader, anchorsOf, checkLinks, directoryLinks, hasAnchor, linksOf, normalizeHrefTarget, relativeLinks,
   rewriteFoldedLinks, repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, slugOf, splitHref, uniqueSlugs,
 } from '../lib/links.js';
-import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
+import { SECTION, cleanup, cli, escapeRe, gitAll, makeProject, put, read, ru, ruCard, ruOutcome, ruRe, ruResult, run } from './helpers.mjs';
+
+// The slug of the context heading, as an incoming link with a fragment spells it.
+const ANCHOR = SECTION.context.toLowerCase();
+const FOLD_SUMMARY = 'folded tasks {entries}, lines appended to {log} {lines}, files with updated links {changed}, links into the folded left unrewritten {missed}';
 
 const FROM = 'docs/backlog/active';
 const TO = 'docs/archive/BS-42-move-breaks-links';
@@ -27,15 +31,15 @@ test('moved file: link targets are recomputed from the new directory or left as 
     ['same depth outside docs', '[lint.js](../../../lib/lint.js)', '[lint.js](../../../lib/lint.js)'],
     ['file next to the old place', '[BS-41](BS-41-x.md)', '[BS-41](../../backlog/active/BS-41-x.md)'],
     ['neighbouring status directory', '[BS-40](../queue/BS-40-y.md)', '[BS-40](../../backlog/queue/BS-40-y.md)'],
-    ['anchor kept', '[р](../queue/BS-40-y.md#итог)', '[р](../../backlog/queue/BS-40-y.md#итог)'],
-    ['title kept', '[р](../queue/BS-40-y.md "Заголовок")', '[р](../../backlog/queue/BS-40-y.md "Заголовок")'],
-    ['angle brackets kept', '[р](<../queue/BS-40-y.md>)', '[р](<../../backlog/queue/BS-40-y.md>)'],
+    ['anchor kept', '[r](../queue/BS-40-y.md#summary)', '[r](../../backlog/queue/BS-40-y.md#summary)'],
+    ['title kept', '[r](../queue/BS-40-y.md "Title")', '[r](../../backlog/queue/BS-40-y.md "Title")'],
+    ['angle brackets kept', '[r](<../queue/BS-40-y.md>)', '[r](<../../backlog/queue/BS-40-y.md>)'],
     ['reference-style definition',
-      'Смотри [очередь][q].\n\n[q]: ../queue/BS-40-y.md\n', 'Смотри [очередь][q].\n\n[q]: ../../backlog/queue/BS-40-y.md\n'],
+      'See [queue][q].\n\n[q]: ../queue/BS-40-y.md\n', 'See [queue][q].\n\n[q]: ../../backlog/queue/BS-40-y.md\n'],
     ['external addresses and anchors untouched',
-      '[gh](https://github.com/x), [почта](mailto:a@b) и [раздел](#итог)', '[gh](https://github.com/x), [почта](mailto:a@b) и [раздел](#итог)'],
-    ['root path untouched', '[к](/docs/README.md)', '[к](/docs/README.md)'],
-    ['query kept', '[з](../queue/BS-40-y.md?plain=1)', '[з](../../backlog/queue/BS-40-y.md?plain=1)'],
+      '[gh](https://github.com/x), [mail](mailto:a@b) and [section](#summary)', '[gh](https://github.com/x), [mail](mailto:a@b) and [section](#summary)'],
+    ['root path untouched', '[k](/docs/README.md)', '[k](/docs/README.md)'],
+    ['query kept', '[q](../queue/BS-40-y.md?plain=1)', '[q](../../backlog/queue/BS-40-y.md?plain=1)'],
     ['encoding alone never triggers a rewrite', ENCODED, ENCODED, FROM],
   ]) {
     assert.equal(rewriteMovedLinks(before, FROM, to), after, label);
@@ -51,55 +55,55 @@ test('incoming links: only the link to the moved file is rewritten; anchor and r
     ['[BS-42](../backlog/active/BS-42-x.md)', 'docs/reference', '[BS-42](../archive/BS-42-x/task.md)'],
     ['[BS-42](../../backlog/active/BS-42-x.md)', 'docs/archive/BS-30-y', '[BS-42](../BS-42-x/task.md)'],
     ['[BS-42](docs/backlog/active/BS-42-x.md)', '', '[BS-42](docs/archive/BS-42-x/task.md)'],
-    ['[BS-42](BS-42-x.md#итог) и [BS-41](BS-41-y.md)', 'docs/backlog/active',
-      '[BS-42](../../archive/BS-42-x/task.md#итог) и [BS-41](BS-41-y.md)'],
-    ['[BS-42](/docs/backlog/active/BS-42-x.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)', 'docs',
-      '[BS-42](/docs/archive/BS-42-x/task.md#итог) и [BS-41](/docs/backlog/active/BS-41-y.md)'],
-    ['Смотри [задачу][t].\n\n[t]: </docs/backlog/active/BS-42-x.md>\n', '',
-      'Смотри [задачу][t].\n\n[t]: </docs/archive/BS-42-x/task.md>\n'],
+    ['[BS-42](BS-42-x.md#summary) and [BS-41](BS-41-y.md)', 'docs/backlog/active',
+      '[BS-42](../../archive/BS-42-x/task.md#summary) and [BS-41](BS-41-y.md)'],
+    ['[BS-42](/docs/backlog/active/BS-42-x.md#summary) and [BS-41](/docs/backlog/active/BS-41-y.md)', 'docs',
+      '[BS-42](/docs/archive/BS-42-x/task.md#summary) and [BS-41](/docs/backlog/active/BS-41-y.md)'],
+    ['See [the task][t].\n\n[t]: </docs/backlog/active/BS-42-x.md>\n', '',
+      'See [the task][t].\n\n[t]: </docs/archive/BS-42-x/task.md>\n'],
   ]) {
     assert.equal(rewriteIncomingLinks(text, fileDir, OLD, NEW), expected);
   }
 });
 
-test('разбор: блоки кода, спаны и внешние адреса не дают ссылок', () => {
+test('parsing: code blocks, spans and external addresses give no links', () => {
   const text = [
-    'Живая [а](a.md) и внешняя [gh](https://x.y).',
+    'A live [a](a.md) and an external [gh](https://x.y).',
     '',
     '```',
-    '[пример](example.md)',
+    '[example](example.md)',
     '```',
     '',
     '````md',
     '```',
-    '[вложенный](nested.md)',
+    '[nested](nested.md)',
     '```',
     '````',
     '',
-    '1. Пункт:',
+    '1. Item:',
     '',
     '   ```json',
-    '   [в отступе](indented.md)',
+    '   [indented](indented.md)',
     '   ```',
     '',
-    'Спан `[в кавычках](span.md)` и якорь [я](#top).',
-    'Заголовок [б](b.md "title") и скобки [в](<c d.md>).',
+    'A span `[quoted](span.md)` and an anchor [i](#top).',
+    'A heading [b](b.md "title") and brackets [c](<c d.md>).',
   ].join('\n');
   assert.deepEqual(relativeLinks(text), ['a.md', 'b.md', 'c d.md']);
 });
 
-test('разбор: фенс с большим отступом во вложенном списке — всё ещё код; незакрытый фенс гасит до конца', () => {
-  assert.deepEqual(relativeLinks('- пункт\n  - подпункт:\n\n      ```\n      [а](a.md)\n      ```\n\n[б](b.md)\n'), ['b.md']);
-  assert.deepEqual(relativeLinks('```\n[а](a.md)\n\nтекст [б](b.md)\n'), []);
-  assert.deepEqual(relativeLinks('~~~\n```\n[а](a.md)\n~~~\n[б](b.md)\n'), ['b.md']);
+test('parsing: a fence with a deep indent in a nested list is still code; an unclosed fence blanks to the end', () => {
+  assert.deepEqual(relativeLinks('- item\n  - subitem:\n\n      ```\n      [a](a.md)\n      ```\n\n[b](b.md)\n'), ['b.md']);
+  assert.deepEqual(relativeLinks('```\n[a](a.md)\n\ntext [b](b.md)\n'), []);
+  assert.deepEqual(relativeLinks('~~~\n```\n[a](a.md)\n~~~\n[b](b.md)\n'), ['b.md']);
 });
 
-test('разбор: сноска — не объявление ссылки; объявление после заголовка — объявление', () => {
-  assert.deepEqual(relativeLinks('Текст[^1].\n\n[^1]: Пояснение сноски.\n'), []);
-  assert.deepEqual(relativeLinks('# Заголовок\n[a]: a.md\n'), ['a.md']);
+test('parsing: a footnote is not a link definition; a definition after a heading is a definition', () => {
+  assert.deepEqual(relativeLinks('Text[^1].\n\n[^1]: The footnote.\n'), []);
+  assert.deepEqual(relativeLinks('# Heading\n[a]: a.md\n'), ['a.md']);
 });
 
-test('свёртка: корневая цель и каталог со слэшем доходят до resolve путём от корня, форма ссылки сохраняется', () => {
+test('folding: a root target and a directory with a slash reach resolve as a root-based path, the link form is kept', () => {
   const seen = [];
   const resolve = (target, href) => {
     seen.push([target, href]);
@@ -108,38 +112,38 @@ test('свёртка: корневая цель и каталог со слэш�
       : null;
   };
   const text = [
-    '[к](/docs/archive/BS-1-x/task.md#контекст) [д](../archive/BS-1-x/) [у](<../archive/BS-1-x/> "каталог")',
-    '[о](../archive/BS-1-x/notes.md) [gh](https://x.y/docs/archive/BS-1-x/task.md) [я](#итог)',
+    '[k](/docs/archive/BS-1-x/task.md#context) [d](../archive/BS-1-x/) [u](<../archive/BS-1-x/> "directory")',
+    '[o](../archive/BS-1-x/notes.md) [gh](https://x.y/docs/archive/BS-1-x/task.md) [i](#summary)',
     '',
     '[r]: /docs/archive/BS-1-x/',
   ].join('\n');
   assert.equal(rewriteFoldedLinks(text, 'docs/backlog', resolve), [
-    '[к](/docs/archive/LOG.md#bs-1) [д](../archive/LOG.md#bs-1) [у](<../archive/LOG.md#bs-1> "каталог")',
-    '[о](../archive/BS-1-x/notes.md) [gh](https://x.y/docs/archive/BS-1-x/task.md) [я](#итог)',
+    '[k](/docs/archive/LOG.md#bs-1) [d](../archive/LOG.md#bs-1) [u](<../archive/LOG.md#bs-1> "directory")',
+    '[o](../archive/BS-1-x/notes.md) [gh](https://x.y/docs/archive/BS-1-x/task.md) [i](#summary)',
     '',
     '[r]: /docs/archive/LOG.md#bs-1',
   ].join('\n'));
-  // Нераспознанная цель приходит в resolve как написана — по ней свёртка называет ссылку в итоге.
+  // An unrecognised target reaches resolve as written: the fold's summary names the link by it.
   assert.deepEqual(seen.find(([, href]) => href.endsWith('notes.md')), ['docs/archive/BS-1-x/notes.md', '../archive/BS-1-x/notes.md']);
-  assert.ok(!seen.some(([, href]) => /^(https?:|#)/.test(href)), 'внешний адрес и якорь в resolve не попадают');
+  assert.ok(!seen.some(([, href]) => /^(https?:|#)/.test(href)), 'an external address and an anchor do not reach resolve');
 });
 
-test('разбор: reference-style объявление только в начале абзаца', () => {
-  assert.deepEqual(relativeLinks('[a]: a.md\n[a2]: a2.md\n\nтекст\n[b]: b.md\n[c]: c.md\n'), ['a.md', 'a2.md']);
-  assert.deepEqual(relativeLinks('Первая строка абзаца,\n[Заметка]: пояснение\n'), []);
+test('parsing: a reference-style definition only at the start of a paragraph', () => {
+  assert.deepEqual(relativeLinks('[a]: a.md\n[a2]: a2.md\n\ntext\n[b]: b.md\n[c]: c.md\n'), ['a.md', 'a2.md']);
+  assert.deepEqual(relativeLinks('First line of a paragraph,\n[Note]: an explanation\n'), []);
 });
 
 test('broken links of a file: the target resolves from its directory, the anchor against its headings', () => {
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
   try {
     mkdirSync(path.join(sb, 'docs', 'reference'), { recursive: true });
-    writeFileSync(path.join(sb, 'docs', 'reference', 'README.md'), '# Справочник\n');
+    writeFileSync(path.join(sb, 'docs', 'reference', 'README.md'), `# ${ru('Reference')}\n`);
     const file = path.join(sb, 'docs', 'note.md');
-    writeFileSync(file, '[ж](reference/README.md#верх) [м](reference/missing.md) [в](https://x.y) [к](/docs/reference/README.md?plain=1#справочник) [н](/nope.md)\n');
+    writeFileSync(file, `[j](reference/README.md#${ANCHOR}) [m](reference/missing.md) [v](https://x.y) [k](/docs/reference/README.md?plain=1#${ru('Reference').toLowerCase()}) [n](/nope.md)\n`);
     assert.deepEqual(checkLinks(file, sb), {
       counts: { links: 5, local: 4, anchors: 2 },
       problems: [
-        { kind: 'anchor', line: 1, href: 'reference/README.md#верх', fragment: 'верх', target: 'docs/reference/README.md' },
+        { kind: 'anchor', line: 1, href: `reference/README.md#${ANCHOR}`, fragment: ANCHOR, target: 'docs/reference/README.md' },
         { kind: 'missing', line: 1, href: 'reference/missing.md' },
         { kind: 'missing', line: 1, href: '/nope.md' },
       ],
@@ -153,39 +157,39 @@ test('directory links: only an existing directory counts; text from the source; 
   const sb = mkdtempSync(path.join(os.tmpdir(), 'backslop-links-'));
   try {
     mkdirSync(path.join(sb, 'docs', 'triage'), { recursive: true });
-    writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · Х\n');
+    writeFileSync(path.join(sb, 'docs', 'triage', 'BS-5-x.md'), '# BS-5 · X\n');
     const file = path.join(sb, 'docs', 'note.md');
     for (const [label, note, expected] of [
-      ['inline links, spans and fences', '[a](triage) [ф](triage/BS-5-x.md) [н](none) [`BS-5`](triage/#x) [в](https://x.y) [к](/docs/triage) `[s](triage)`\n\n```\n[f](triage)\n```\n', [
+      ['inline links, spans and fences', '[a](triage) [f](triage/BS-5-x.md) [n](none) [`BS-5`](triage/#x) [v](https://x.y) [k](/docs/triage) `[s](triage)`\n\n```\n[f](triage)\n```\n', [
         { text: 'a', href: 'triage', line: 1 },
         { text: '`BS-5`', href: 'triage/#x', line: 1 },
-        { text: 'к', href: '/docs/triage', line: 1 },
+        { text: 'k', href: '/docs/triage', line: 1 },
       ]],
       ['reference-style: full, collapsed and shortcut forms, label case-insensitive', [
-        'Полная [BS-5][f], регистр [`BS-6`][F], свёрнутая [BS-7][] и краткая [BS-8].',
-        'Файл [BS-9][card], инлайн [a](triage/BS-5-x.md), спан `[BS-10][f]`, чекбокс [x] без объявления.',
+        'Full [BS-5][f], case [`BS-6`][F], collapsed [BS-7][] and shortcut [BS-8].',
+        'File [BS-9][card], inline [a](triage/BS-5-x.md), span `[BS-10][f]`, checkbox [x] without a definition.',
         '',
         '[f]: triage',
         '[bs-7]: <triage/>',
         '[BS-8]: /docs/triage#x',
         '[card]: triage/BS-5-x.md',
         '',
-        'Абзац',
+        'Paragraph',
         '[late]: triage',
         '',
         '```',
         '[code]: triage',
         '```',
-        '[Late] и [code].',
+        '[Late] and [code].',
       ].join('\n'), [
         { text: 'BS-5', href: 'triage', line: 1 },
         { text: '`BS-6`', href: 'triage', line: 1 },
         { text: 'BS-7', href: 'triage/', line: 1 },
         { text: 'BS-8', href: '/docs/triage#x', line: 1 },
       ]],
-      ['text from the nearest bracket; a path through a file is neither a directory nor a refusal', 'Полуинтервал [0, 1) — см. BS-5. Шаблоны — [templates/](triage).\nЕщё [полуинтервал — BS-5,\nи [каталог](triage/).\n[BS-5](triage/BS-5-x.md/x)\n', [
+      ['text from the nearest bracket; a path through a file is neither a directory nor a refusal', 'A half-interval [0, 1) — see BS-5. Templates — [templates/](triage).\nAlso [half-interval — BS-5,\nand [directory](triage/).\n[BS-5](triage/BS-5-x.md/x)\n', [
         { text: 'templates/', href: 'triage', line: 1 },
-        { text: 'каталог', href: 'triage/', line: 3 },
+        { text: 'directory', href: 'triage/', line: 3 },
       ]],
     ]) {
       writeFileSync(file, note);
@@ -227,15 +231,15 @@ test('rewrites: a percent-encoded link moves and stays encoded; a malformed esca
 test('fold names a link with a malformed escape into the folded directory and leaves it as written', () => {
   const root = makeProject();
   try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
-    put(root, 'docs/archive/BS-1-alpha/task.md', '# BS-1 · Альфа\n\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
-    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n');
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    put(root, 'docs/archive/BS-1-alpha/task.md', ruCard('BS-1', 'Alpha', { area: '[x](../../reference/README.md)' }, [['context', 'text']]));
+    put(root, 'docs/archive/BS-1-alpha/result.md', ruResult('BS-1', '2026-09-03', `${ruOutcome('completed')}. Summary.`));
     put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[t](archive/BS-1-alpha/task%.md) [ok](archive/BS-1-alpha/task.md)\n');
     gitAll(root);
     const r = cli(root, ['fold', '1']);
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, 'docs/ROADMAP.md'), '# Roadmap\n\n[t](archive/BS-1-alpha/task%.md) [ok](archive/LOG.md#bs-1)\n');
-    assert.match(r.err, /ссылок в свёрнутое без переписи 1\n/);
+    assert.match(r.err, new RegExp(`${ruRe(FOLD_SUMMARY, { missed: 1 }).source}\\n`));
     assert.match(r.err, / {2}docs\/ROADMAP\.md: archive\/BS-1-alpha\/task%\.md\n/);
   } finally {
     cleanup(root);
@@ -286,15 +290,15 @@ test('monorepo: gates 1, 8, 13 and seed resolve a root link from the repository 
     assert.equal(r.code, 1, r.out);
     const errors = r.err.split('\n').filter((l) => l.startsWith('✖ docs/'));
     assert.deepEqual(errors, [
-      '✖ docs/note.md: битая ссылка /docs/README.md (строка 2)',
-      '✖ docs/note.md: ссылка /pkg/a/docs/archive/LOG.md#bs-9 ведёт на строку журнала, которой нет — якорь «bs-9» ни за одной записью (строка 3)',
+      `✖ docs/note.md: ${ru('broken link {href} (line {line})', { href: '/docs/README.md', line: 2 })}`,
+      `✖ docs/note.md: ${ru('link {href} points at a journal line that does not exist — anchor “{anchor}” belongs to no entry (line {line})', { href: '/pkg/a/docs/archive/LOG.md#bs-9', anchor: 'bs-9', line: 3 })}`,
     ]);
 
     put(root, 'docs/reference/01-x.md', '# X\n');
-    put(root, 'docs/reference/README.md', '# Справочник\n\n| Раздел | О чём |\n|---|---|\n| [X](/pkg/a/docs/reference/01-x.md) | x |\n');
+    put(root, 'docs/reference/README.md', '# Reference\n\n| Section | About |\n|---|---|\n| [X](/pkg/a/docs/reference/01-x.md) | x |\n');
     const seed = cli(root, ['seed', '--queue-reference']);
     assert.equal(seed.code, 0, seed.err);
-    assert.match(seed.out, /заведено задач 0, пропущено как уже посеянные 0/, 'seed reads the row by the same rule');
+    assert.match(seed.out, ruRe('seed --queue-reference: tasks created {created}, skipped as already seeded {skipped}', { created: 0, skipped: 0 }), 'seed reads the row by the same rule');
   } finally {
     cleanup(top);
   }
@@ -303,17 +307,17 @@ test('monorepo: gates 1, 8, 13 and seed resolve a root link from the repository 
 test('monorepo: mv, archive and fold keep a root link rooted at the repository root', () => {
   const { top, root } = makeMonorepo();
   try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
-    assert.equal(cli(root, ['new', 'alpha', '--queue', '--title', 'Альфа']).code, 0);
-    put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[BS-1](/pkg/a/docs/backlog/queue/BS-1-alpha.md#контекст)\n');
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    assert.equal(cli(root, ['new', 'alpha', '--queue', '--title', 'Alpha']).code, 0);
+    put(root, 'docs/ROADMAP.md', `# Roadmap\n\n[BS-1](/pkg/a/docs/backlog/queue/BS-1-alpha.md#${ANCHOR})\n`);
     gitAll(top);
     let r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
-    assert.match(read(root, 'docs/ROADMAP.md'), /\(\/pkg\/a\/docs\/backlog\/active\/BS-1-alpha\.md#контекст\)/);
+    assert.match(read(root, 'docs/ROADMAP.md'), new RegExp(`\\(/pkg/a/docs/backlog/active/BS-1-alpha\\.md#${ANCHOR}\\)`));
     r = cli(root, ['archive', '1']);
     assert.equal(r.code, 0, r.err);
-    assert.match(read(root, 'docs/ROADMAP.md'), /\(\/pkg\/a\/docs\/archive\/BS-1-alpha\/task\.md#контекст\)/);
-    put(root, 'docs/archive/BS-1-alpha/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог одной строкой.\n');
+    assert.match(read(root, 'docs/ROADMAP.md'), new RegExp(`\\(/pkg/a/docs/archive/BS-1-alpha/task\\.md#${ANCHOR}\\)`));
+    put(root, 'docs/archive/BS-1-alpha/result.md', ruResult('BS-1', '2026-09-03', `${ruOutcome('completed')}. A one-line summary.`));
     gitAll(top);
     r = cli(root, ['fold', '1']);
     assert.equal(r.code, 0, r.err);
@@ -326,14 +330,14 @@ test('monorepo: mv, archive and fold keep a root link rooted at the repository r
 test('mv: incoming HTML href and both badge destinations move with the task', () => {
   const root = makeProject();
   try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/reference/README.md', '# Reference\n');
     put(root, 'docs/backlog/queue/BS-1-alpha.md',
-      '# BS-1 · Альфа\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
+      ruCard('BS-1', 'Alpha', { order: 10, area: '[x](../../reference/README.md)' }, [['context', 'text']]));
     put(root, 'docs/ROADMAP.md', [
       '# Roadmap',
       '',
-      '<a href="backlog/queue/BS-1-alpha.md#контекст">alpha</a>',
-      '[![inner](backlog/queue/BS-1-alpha.md#контекст)](backlog/queue/BS-1-alpha.md#контекст)',
+      `<a href="backlog/queue/BS-1-alpha.md#${ANCHOR}">alpha</a>`,
+      `[![inner](backlog/queue/BS-1-alpha.md#${ANCHOR})](backlog/queue/BS-1-alpha.md#${ANCHOR})`,
       '[query](<backlog/queue/BS-1-alpha.md?key=`value`>)',
       '',
     ].join('\n'));
@@ -344,8 +348,8 @@ test('mv: incoming HTML href and both badge destinations move with the task', ()
     assert.equal(read(root, 'docs/ROADMAP.md'), [
       '# Roadmap',
       '',
-      '<a href="backlog/active/BS-1-alpha.md#контекст">alpha</a>',
-      '[![inner](backlog/active/BS-1-alpha.md#контекст)](backlog/active/BS-1-alpha.md#контекст)',
+      `<a href="backlog/active/BS-1-alpha.md#${ANCHOR}">alpha</a>`,
+      `[![inner](backlog/active/BS-1-alpha.md#${ANCHOR})](backlog/active/BS-1-alpha.md#${ANCHOR})`,
       '[query](<backlog/active/BS-1-alpha.md?key=`value`>)',
       '',
     ].join('\n'));
@@ -360,9 +364,9 @@ test('mv: a bare destination with a backtick suffix keeps its distinct unmoved f
   const root = makeProject();
   const backup = 'docs/backlog/queue/BS-1-alpha.md`backup`';
   try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/reference/README.md', '# Reference\n');
     put(root, 'docs/backlog/queue/BS-1-alpha.md',
-      '# BS-1 · Альфа\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
+      ruCard('BS-1', 'Alpha', { order: 10, area: '[x](../../reference/README.md)' }, [['context', 'text']]));
     put(root, backup, 'backup\n');
     put(root, 'docs/ROADMAP.md',
       '[task](backlog/queue/BS-1-alpha.md) [backup](backlog/queue/BS-1-alpha.md`backup`)\n');
@@ -381,16 +385,16 @@ test('mv: a bare destination with a backtick suffix keeps its distinct unmoved f
 test('mv: incoming reference declarations behind quote or list markers move with the task', () => {
   const root = makeProject();
   try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
+    put(root, 'docs/reference/README.md', '# Reference\n');
     put(root, 'docs/backlog/queue/BS-1-alpha.md',
-      '# BS-1 · Альфа\n\n- **Порядок:** 10\n- **Область:** [x](../../reference/README.md)\n\n## Контекст\n\nтекст\n');
+      ruCard('BS-1', 'Alpha', { order: 10, area: '[x](../../reference/README.md)' }, [['context', 'text']]));
     put(root, 'docs/ROADMAP.md', [
       '# Roadmap',
       '',
       'See [quoted][q] and [listed][l].',
       '',
-      '> [q]: backlog/queue/BS-1-alpha.md#контекст',
-      '- [l]: backlog/queue/BS-1-alpha.md#контекст',
+      `> [q]: backlog/queue/BS-1-alpha.md#${ANCHOR}`,
+      `- [l]: backlog/queue/BS-1-alpha.md#${ANCHOR}`,
       '',
     ].join('\n'));
     gitAll(root);
@@ -402,8 +406,8 @@ test('mv: incoming reference declarations behind quote or list markers move with
       '',
       'See [quoted][q] and [listed][l].',
       '',
-      '> [q]: backlog/active/BS-1-alpha.md#контекст',
-      '- [l]: backlog/active/BS-1-alpha.md#контекст',
+      `> [q]: backlog/active/BS-1-alpha.md#${ANCHOR}`,
+      `- [l]: backlog/active/BS-1-alpha.md#${ANCHOR}`,
       '',
     ].join('\n'));
     const lint = cli(root, ['lint']);
@@ -417,10 +421,10 @@ test('mv, archive and fold refuse before any write when git fails to name the re
   const root = makeProject();
   const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
   try {
-    put(root, 'docs/reference/README.md', '# Справочник\n');
-    assert.equal(cli(root, ['new', 'alpha', '--queue', '--title', 'Альфа']).code, 0);
-    put(root, 'docs/archive/BS-2-beta/task.md', '# BS-2 · Бета\n\n- **Область:** [x](../../reference/README.md)\n');
-    put(root, 'docs/archive/BS-2-beta/result.md', '# BS-2 · Результат\n\n**Закрыта 2026-09-03.** Выполнена. Итог.\n');
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    assert.equal(cli(root, ['new', 'alpha', '--queue', '--title', 'Alpha']).code, 0);
+    put(root, 'docs/archive/BS-2-beta/task.md', ruCard('BS-2', 'Beta', { area: '[x](../../reference/README.md)' }));
+    put(root, 'docs/archive/BS-2-beta/result.md', ruResult('BS-2', '2026-09-03', `${ruOutcome('completed')}. Summary.`));
     put(root, 'docs/ROADMAP.md', '# Roadmap\n\n[a](backlog/queue/BS-1-alpha.md) [b](archive/BS-2-beta/task.md)\n');
     gitAll(root);
     const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
@@ -429,7 +433,7 @@ test('mv, archive and fold refuse before any write when git fails to name the re
     for (const args of [['mv', '1', 'active'], ['archive', '1'], ['fold', '2']]) {
       const r = cli(root, args, { env });
       assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
-      assert.match(r.err, /git rev-parse --show-prefix: оборван сигналом SIGKILL/);
+      assert.match(r.err, new RegExp(escapeRe(`git rev-parse --show-prefix: ${ru('killed by {signal}', { signal: 'SIGKILL' })}`)));
       assert.equal(run(root, ['status', '--porcelain']).stdout, '', `${args.join(' ')} left the tree unchanged`);
     }
   } finally {
@@ -574,12 +578,14 @@ test('anchors: GitHub slugs as gitlab.ati.st renders them, duplicate suffixes, e
   assert.deepEqual([...anchorsOf(nested)], ['line-one-line-two', 'text', 'foo', 'bar', 'quoted', 'numbered-h', 'deep']);
   assert.deepEqual([...anchorsOf('> ```\n> # Setup\n> ```\n\n- ```\n  # Build\n  ```\n')], []);
   assert.deepEqual(uniqueSlugs(['x', 'x', 'x-1', 'x']), ['x', 'x-1', 'x-1-1', 'x-2']);
+  // A non-ASCII (Cyrillic) heading word: its slug lowercases the capital next to the Latin ü.
+  const ELKA = String.fromCodePoint(0x401, 0x43b, 0x43a, 0x430);
   const text = [
-    '# Ёлка Ü `code` [link](x.md)', '## Title ##', '## Title', '### ![logo](l.png) <b>Bold</b> `<a>` tag',
+    `# ${ELKA} Ü \`code\` [link](x.md)`, '## Title ##', '## Title', '### ![logo](l.png) <b>Bold</b> `<a>` tag',
     '```', '# In a fence', '```', '<!--', '# In a comment', '-->',
     '<a name="named"></a> <span id="spanned"></span> `<b id="coded">`', '#no-space',
   ].join('\n');
-  assert.deepEqual([...anchorsOf(text)], ['ёлка-ü-code-link', 'title', 'title-1', 'logo-bold-a-tag', 'spanned', 'named']);
+  assert.deepEqual([...anchorsOf(text)], [`${ELKA.toLowerCase()}-ü-code-link`, 'title', 'title-1', 'logo-bold-a-tag', 'spanned', 'named']);
   const anchors = anchorsOf('# Über uns\n');
   assert.ok(hasAnchor(anchors, 'über-uns') && hasAnchor(anchors, '%C3%BCber-uns') && hasAnchor(anchors, 'Über-Uns'));
   assert.ok(!hasAnchor(anchors, 'uber-uns') && !hasAnchor(anchors, '%E0%A4%A'));

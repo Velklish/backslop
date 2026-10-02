@@ -2,17 +2,17 @@
 // probe reads it itself. The blocks below break the rule on purpose.
 export const probe = 1;
 
-// Первый длинный блок: три строки
-// комментария подряд
-// без кода между ними.
+// The first long block: three comment lines
+// in a row
+// with no code between them.
 export function first() {}
 
 /*
- * Второй — блок со звёздочками,
- * четыре строки.
+ * The second is a block with asterisks,
+ * four lines.
  */
 export function second() {}
 
-// Третий — в две строки, в пределе по длине; вторая его строка шире 100 знаков, и судит
-// его только ширина: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+// The third is two lines, at the length limit; its second line is wider than 100 characters,
+// and only the width judges it: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 export function third() {}

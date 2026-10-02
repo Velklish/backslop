@@ -6,13 +6,28 @@ import os from 'node:os';
 import path from 'node:path';
 import { loadConfig } from '../lib/config.js';
 import { TEMPLATES_DIR, templateParity } from '../lib/templates.js';
-import { cleanup, cli, makeProject, put, read } from './helpers.mjs';
+import { cleanup, cli, escapeRe, makeProject, put, read, ruRe, ruTwinLine } from './helpers.mjs';
 
 const TOOLS = ['claude', 'cursor', 'codex'];
 const SKILL = 'backslop-writer';
 const HEADING_RE = /^## .+$/gm;
 const AUDIT_HEADINGS = ['## Audit Mode', '## Audit Report', '## Filing Findings', '## Regression Check', '## Release Hold'];
 const AUDIT_AT = 6;
+const RU_SKILL = 'skills/backslop-writer/SKILL.md';
+const WRITER_REFUSALS = [
+  '{config}: writer must be an object with optional style and currency arrays',
+  '{config}: writer.{field} is unknown; expected style or currency',
+  '{config}: writer.{field} must be an array of glob strings',
+  '{config}: writer.{field}[{i}] must be a non-empty glob string',
+];
+
+// The Russian paragraph that is the twin of the English one holding `en`: the same code spans.
+function twinParagraph(enText, en) {
+  const enLine = enText.split('\n').find((line) => line.includes(en));
+  const ruLine = ruTwinLine(RU_SKILL, en);
+  assert.deepEqual(ruLine.match(/`[^`]+`/g), enLine.match(/`[^`]+`/g), `the twin of “${en}” keeps the code spans`);
+  return ruLine;
+}
 
 function headings(rel) {
   return readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8').match(HEADING_RE) ?? [];
@@ -36,9 +51,9 @@ test('writer templates: parity and stable headings', () => {
   assert.doesNotMatch(en, /superseding ADR/);
   assert.doesNotMatch(ru, /superseding ADR/);
   assert.match(en, /every documentation or configured currency surface[\s\S]*not touched by the diff/);
-  assert.match(ru, /каждый документ и каждое настроенное место проверки актуальности[\s\S]*diff этого места не коснулся/);
+  assert.match(twinParagraph(en, 'every documentation or configured currency surface'), /diff/);
   assert.match(en, /A fact the original states and the translation lacks is not added by the pass: record it in the currency ledger row and file a task with evidence\./);
-  assert.match(ru, /Факт, который есть в оригинале, но отсутствует в переводе, этот проход не добавляет: запиши его в строку currency ledger и заведи задачу с уликой\./);
+  assert.match(twinParagraph(en, 'A fact the original states and the translation lacks'), /currency ledger/);
   const enHeadings = headings('en/skills/backslop-writer/SKILL.md');
   assert.deepEqual(enHeadings, [
     '## Precedence',
@@ -55,12 +70,7 @@ test('writer templates: parity and stable headings', () => {
   const ruHeadings = headings('skills/backslop-writer/SKILL.md');
   assert.equal(ruHeadings.length, enHeadings.length);
   assert.deepEqual([...ruHeadings.slice(0, AUDIT_AT), ...ruHeadings.slice(AUDIT_AT + AUDIT_HEADINGS.length)], [
-    '## Приоритет',
-    '## Область',
-    '## Локальные правила',
-    '## Язык',
-    '## Режим release',
-    '## Режим batch close',
+    ...enHeadings.slice(0, AUDIT_AT).map((heading) => ruTwinLine(RU_SKILL, heading)),
     '## Currency ledger',
     '## Style ledger',
     '## Output',
@@ -115,10 +125,10 @@ test('init lays out backslop-writer in both languages and writes no writer confi
           .replace('<!-- backslop:generated -->\n', '');
         assert.equal(actual, source, `${lang}: ${adapter} differs from the writer template`);
       }
-      assert.match(read(root, `.agents/skills/${SKILL}/SKILL.md`), /## (Release Mode|Режим release)\n/);
+      assert.match(read(root, `.agents/skills/${SKILL}/SKILL.md`), new RegExp(`(${['## Release Mode', ruTwinLine(RU_SKILL, '## Release Mode')].map(escapeRe).join('|')})\\n`));
       const description = lang === 'en'
         ? /^---\ndescription: "Run the backslop technical-writer pass/m
-        : /^---\ndescription: "Технический проход writer в backslop/m;
+        : new RegExp(`^---\\ndescription: ${escapeRe(source.match(/^description: (".*")$/m)[1])}`, 'm');
       assert.match(read(root, `.cursor/rules/${SKILL}.mdc`), description);
       r = cli(root, ['lint']);
       assert.equal(r.code, 0, r.err + r.out);
@@ -148,7 +158,7 @@ test('config: writer refusals name each field in English and Russian', () => {
         const r = cli(root, ['status']);
         assert.equal(r.code, 1, `${lang}: accepted ${JSON.stringify(writer)}`);
         assert.ok(r.err.includes(field), `${lang}: missing ${field} in ${r.err}`);
-        assert.match(r.err, lang === 'en' ? /must be|is unknown/ : / — |неизвестен/);
+        assert.match(r.err, lang === 'en' ? /must be|is unknown/ : new RegExp(WRITER_REFUSALS.map((en) => ruRe(en).source).join('|')));
       }
     }
   } finally {

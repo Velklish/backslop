@@ -1,15 +1,55 @@
-// init и сквозной цикл: раскладка → lint → new → mv → archive → lint; повтор init ничего не ломает.
+// init and the end-to-end cycle: layout → lint → new → mv → archive → lint; a repeated init
+// breaks nothing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { REPO, cleanup, cli, put, read, toolCli, toolCopy } from './helpers.mjs';
+import { PROBE_WORDS, REPO, cleanup, cli, escapeRe, put, read, ru, ruCard, ruLineRe, ruOutcome, ruRe, ruResult, ruTemplate, ruTemplateLines, ruTextRe, ruTwinLine, toolCli, toolCopy, FIELD } from './helpers.mjs';
+import { RU } from '../lib/i18n.js';
 import { isOwnedAdapterFile } from '../lib/adapter-ownership.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { srcFiles } from '../lib/mdwalk.js';
 import { frontmatterField } from '../lib/frontmatter.js';
+
+const CYRILLIC = /\p{Script=Cyrillic}/u;
+const MARKERS = '{label} must not contain the backslop:start or backslop:end markers: it sits inside the block, and the block bounds are found in raw text';
+const BACKTICK = '{label} must not contain a backtick: the template puts it in a code span, and a backtick inside closes it';
+const FOREIGN_LINK = '{message} — backslop neither writes nor removes files through a foreign link. Replace the harness root with a plain directory or deselect the {tool} adapter: --tools without it, or --tools none if no other adapters are selected';
+const NOT_OVERWRITTEN = 'files without the {marker} marker sit at adapter output paths and were not overwritten: {foreign}; the backslop skill is not installed there — remove or rename the file and rerun init, or deselect the adapter';
+const LEFT_AS_IS = 'files without the {marker} marker sit at adapter output paths and were left as is: {foreign}';
+const MEASUREMENTS = '.claude/skills/backslop-batch/references/measurements.md';
+
+// The Russian side of the owner-talk checks, read from the Russian templates: the item label, its
+// sentences, and the phrase the skills use to point at it.
+const OWNER_TWIN = ruTwinLine('agents-section.md', 'Talking to the owner.');
+const OWNER_LABEL = OWNER_TWIN.match(/^\*\*([^*]+?)\.?\*\*/)[1];
+const OWNER_BATCH_LINE = ruTemplateLines('skills/backslop-batch/SKILL.md').find((line) => line.includes(`«${OWNER_LABEL}»`));
+const OWNER_AT = OWNER_BATCH_LINE.indexOf(`«${OWNER_LABEL}»`);
+const OWNER_RU = {
+  item: OWNER_TWIN.match(/^\*\*[^*]+\*\*/)[0],
+  rule: OWNER_TWIN.replace(/^\*\*[^*]+\*\*\s*/, '').split(/(?<=\.)\s+/).map((sentence) => ruTextRe(sentence, { prefix: 'BS' })),
+  link: OWNER_BATCH_LINE.slice(OWNER_BATCH_LINE.lastIndexOf(' ', OWNER_AT - 2) + 1, OWNER_BATCH_LINE.indexOf('AGENTS.md', OWNER_AT) + 'AGENTS.md'.length),
+};
+
+// Block sentences the Russian skill must not restate: the first sentence of steps 2, 3 and 6.
+const SKILL_RESTATES_RU = new RegExp(['Reverse a previous decision by clean removal', 'An undocumented change is incomplete', 'every entry gets a next step']
+  .map((anchor) => ruTextRe(ruTwinLine('agents-section.md', anchor).replace(/^\d+\. \*\*[^*]+\*\*\s*/, '').split(/(?<=\.)\s+/)[0], { docs: 'docs' }).source)
+  .join('|'));
+
+// The Russian probe text, read from the Russian templates.
+const RU_SKILL = ruTemplateLines('skills/backslop-task/SKILL.md').join('\n');
+const PROBE_RU = {
+  named: ruTemplate('agents-probe.md', { probe: 'npm run probe' }).trim().split(': ')[1],
+  duty: new RegExp(escapeRe(ruTemplate('agents-probe.md', { probe: 'x' }).split(':')[0])),
+  afterBreakage: RU_SKILL.split('{{probeBreakage}} ')[1].split(':')[0],
+  verified: (() => {
+    const [, before, after] = RU_SKILL.match(/(\S+ \S+)\{\{probeVerified\}\}(\S* \S+ \S+)/);
+    return `${before}${ruTemplate('probe/verified.md').trim()}${after}`;
+  })(),
+  none: PROBE_WORDS,
+};
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
@@ -26,13 +66,13 @@ const EXPECTED = [
   'docs/backlog/triage/.gitkeep', 'docs/backlog/queue/.gitkeep', 'docs/backlog/active/.gitkeep', 'docs/backlog/deferred/.gitkeep', 'docs/backlog/minor/.gitkeep',
 ];
 
-test('init: раскладка, lint зелёный, сквозной цикл задачи, повтор init идемпотентен', () => {
+test('init: layout, lint green, an end-to-end task cycle, a repeated init is idempotent', () => {
   const root = emptyRepo();
   try {
     writeFileSync(path.join(root, 'package.json'), '{ "name": "@me/demo-app" }\n');
     let r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    for (const rel of EXPECTED) assert.ok(existsSync(path.join(root, rel)), `нет ${rel}`);
+    for (const rel of EXPECTED) assert.ok(existsSync(path.join(root, rel)), `no ${rel}`);
     assert.ok(!existsSync(path.join(root, 'docs/ROADMAP.md')), 'init laid down docs/ROADMAP.md');
     const cfg = JSON.parse(read(root, 'backslop.json'));
     assert.deepEqual(cfg, {
@@ -40,7 +80,7 @@ test('init: раскладка, lint зелёный, сквозной цикл �
       gates: [`npx github:Velklish/backslop#v${TOOL_VERSION} lint`], version: TOOL_VERSION,
       lang: 'ru', tools: [],
     });
-    assert.match(read(root, 'docs/README.md'), /^# Документация demo-app\n/);
+    assert.match(read(root, 'docs/README.md'), new RegExp(`^${ruLineRe('docs/README.md', 'documentation', { project: 'demo-app' }).source}\\n`));
     assert.match(read(root, 'docs/adr/adr-001-process.md'), /\*\*Date:\*\* \d{4}-\d{2}-\d{2}\n/);
     assert.doesNotMatch(read(root, 'docs/backlog/README.md'), /\{\{/);
     assert.ok(!existsSync(path.join(root, 'CLAUDE.md')));
@@ -48,41 +88,41 @@ test('init: раскладка, lint зелёный, сквозной цикл �
     const agents = read(root, 'AGENTS.md');
     assert.equal((agents.match(/<!-- backslop:start -->/g) ?? []).length, 1);
     assert.match(agents, /npx github:Velklish\/backslop#v\d+\.\d+\.\d+ status/);
-    assert.match(agents, /Скиллы \(если выбран adapter\)/);
+    assert.match(agents, ruLineRe('agents-section.md', 'Skills (when an adapter is selected)'));
 
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err + r.out);
 
     r = cli(root, ['status']);
-    assert.match(r.out, /Очередь \(0\)/);
-    r = cli(root, ['new', 'first-task', '--queue', '--title', 'Первая задача']);
+    assert.match(r.out, new RegExp(`${ru('Queue')} \\(0\\)`));
+    r = cli(root, ['new', 'first-task', '--queue', '--title', 'First task']);
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
     spawnSync('git', ['-C', root, 'add', '-A']);
-    spawnSync('git', ['-C', root, 'commit', '-qm', 'посев']);
+    spawnSync('git', ['-C', root, 'commit', '-qm', 'seed']);
     r = cli(root, ['archive', '1']);
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['lint']);
-    assert.equal(r.code, 1, 'result.md с [TODO] держит lint красным');
-    assert.match(r.err, /результат не дописан/);
-    put(root, 'docs/archive/BS-1-first-task/result.md', '# BS-1 · Результат\n\n**Закрыта 2026-09-03.** Выполнена.\n');
+    assert.equal(r.code, 1, 'a result.md with [TODO] keeps lint red');
+    assert.match(r.err, ruRe('result is incomplete: [TODO] remains'));
+    put(root, 'docs/archive/BS-1-first-task/result.md', ruResult('BS-1', '2026-09-03', `${ruOutcome('completed')}.`));
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
 
-    // Повтор: docs не тронуты, конфиг тот же, блок заменён на тот же текст.
+    // A repeat: docs untouched, the config the same, the block replaced with the same text.
     const agentsBefore = read(root, 'AGENTS.md');
-    put(root, 'docs/GLOSSARY.md', '# Мой глоссарий\n');
-    put(root, 'docs/backlog/README.md', '# Мои правила ведения\n');
-    put(root, 'AGENTS.md', `# Шапка проекта\n\n${agentsBefore.replace('Трекер задач', 'ИСПОРЧЕНО')}`);
+    put(root, 'docs/GLOSSARY.md', '# My glossary\n');
+    put(root, 'docs/backlog/README.md', '# My tracking rules\n');
+    put(root, 'AGENTS.md', `# Project header\n\n${agentsBefore.replace('<!-- backslop:start -->', '<!-- backslop:start -->\nSPOILED')}`);
     r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, 'docs/GLOSSARY.md'), '# Мой глоссарий\n', 'docs не перезаписываются');
-    assert.equal(read(root, 'docs/backlog/README.md'), '# Мои правила ведения\n', 'правила ведения перерисовывает migrate, а не init');
+    assert.equal(read(root, 'docs/GLOSSARY.md'), '# My glossary\n', 'docs are not overwritten');
+    assert.equal(read(root, 'docs/backlog/README.md'), '# My tracking rules\n', 'the tracking rules are redrawn by migrate, not by init');
     const agentsAfter = read(root, 'AGENTS.md');
-    assert.equal(agentsAfter, `# Шапка проекта\n\n${agentsBefore}`, 'блок заменён между маркерами, шапка сохранена');
+    assert.equal(agentsAfter, `# Project header\n\n${agentsBefore}`, 'the block is replaced between the markers, the header is kept');
     assert.equal((agentsAfter.match(/<!-- backslop:end -->/g) ?? []).length, 1);
-    assert.match(r.out, /оставлено как есть/);
+    assert.match(r.out, ruRe('init: {docs}/ (prefix {prefix}), files created {created}, left unchanged {skipped}'));
   } finally {
     cleanup(root);
   }
@@ -100,21 +140,21 @@ test('init: a BOM-prefixed package.json gives its name to docs/README.md', () =>
   }
 });
 
-// Первый init loadConfig не зовёт, и метку из `--cli` или `--dir` ловит его своя проверка — до
-// первой записи, каталог остаётся пустым. Проверка общая: закрыт класс полей, а не одно.
-test('init: --cli с меткой блока — отказ до первой записи', () => {
+// The first init does not call loadConfig, and a marker in `--cli` or `--dir` is caught by its
+// own check — before the first write. The check is shared: a class of fields, not one.
+test('init: --cli with a block marker — a refusal before the first write', () => {
   for (const [flag, value, why] of [
-    ['--cli', 'node bin/backslop.js <!-- backslop:end -->', /^✖ --cli must not contain the backslop:start or backslop:end markers: .* \/ --cli — значение без меток backslop/m],
-    ['--dir', 'docs <!-- backslop:end -->', /^✖ --dir must not contain the backslop:start or backslop:end markers: .* \/ --dir — значение без меток backslop/m],
-    ['--dir', 'docs`', /^✖ --dir must not contain a backtick: .* \/ --dir — значение без обратной кавычки/m],
+    ['--cli', 'node bin/backslop.js <!-- backslop:end -->', new RegExp(`^✖ --cli must not contain the backslop:start or backslop:end markers: .* \\/ ${ruRe(MARKERS, { label: '--cli' }).source}`, 'm')],
+    ['--dir', 'docs <!-- backslop:end -->', new RegExp(`^✖ --dir must not contain the backslop:start or backslop:end markers: .* \\/ ${ruRe(MARKERS, { label: '--dir' }).source}`, 'm')],
+    ['--dir', 'docs`', new RegExp(`^✖ --dir must not contain a backtick: .* \\/ ${ruRe(BACKTICK, { label: '--dir' }).source}`, 'm')],
   ]) {
     const root = emptyRepo();
     try {
       const r = cli(root, ['init', flag, value]);
-      assert.equal(r.code, 1, `${flag} «${value}»: ожидался отказ`);
+      assert.equal(r.code, 1, `${flag} “${value}”: a refusal was expected`);
       assert.match(r.err, why);
-      assert.equal(existsSync(path.join(root, 'backslop.json')), false, 'конфиг не записан');
-      assert.equal(existsSync(path.join(root, 'AGENTS.md')), false, 'блок не записан');
+      assert.equal(existsSync(path.join(root, 'backslop.json')), false, 'the config is not written');
+      assert.equal(existsSync(path.join(root, 'AGENTS.md')), false, 'the block is not written');
     } finally {
       cleanup(root);
     }
@@ -154,9 +194,9 @@ test('init --dir with ".." inside a name passes init and every later command', (
   }
 });
 
-test('init: agents.stepOverrides заменяет шаг в RU и EN блоке и сохраняется при повторе', () => {
+test('init: agents.stepOverrides replaces a step in the RU and EN block and survives a repeat', () => {
   for (const [lang, override, escaped, oldStep] of [
-    ['ru', 'Проверяй гейты командой `npm run probe` и сохраняй снимок дерева.', 'Проверяй гейты командой \\`npm run probe\\` и сохраняй снимок дерева\\.', /4\. \*\*Гейты до отчёта\./],
+    ['ru', 'Run gates with `npm run probe` and keep the tree snapshot.', 'Run gates with \\`npm run probe\\` and keep the tree snapshot\\.', ruTextRe(ruTemplateLines('agents-section.md').find((line) => line.startsWith('4. **')).match(/^4\. \*\*[^*]*?\./)[0])],
     ['en', 'Run gates with `npm run probe` and keep the tree snapshot.', 'Run gates with \\`npm run probe\\` and keep the tree snapshot\\.', /4\. \*\*Gates before reporting\./],
   ]) {
     const root = emptyRepo();
@@ -169,12 +209,12 @@ test('init: agents.stepOverrides заменяет шаг в RU и EN блоке 
       r = cli(root, ['init']);
       assert.equal(r.code, 0, r.err);
       const generated = read(root, 'AGENTS.md');
-      assert.ok(generated.includes(`4. ${escaped}`), `${lang}: значение подставлено экранированным текстом`);
+      assert.ok(generated.includes(`4. ${escaped}`), `${lang}: the value is substituted as escaped text`);
       assert.doesNotMatch(generated, oldStep);
 
       r = cli(root, ['init']);
       assert.equal(r.code, 0, r.err);
-      assert.equal(read(root, 'AGENTS.md'), generated, `${lang}: повторный init не теряет переопределение`);
+      assert.equal(read(root, 'AGENTS.md'), generated, `${lang}: a repeated init does not lose the override`);
     } finally {
       cleanup(root);
     }
@@ -187,23 +227,23 @@ test('init: an override value stays text — no link definition opens, and brack
     let r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     const cfg = JSON.parse(read(root, 'backslop.json'));
-    // Цель ссылки за пределами блока: переопределение внутри блока не должно её сдвинуть.
-    put(root, 'AGENTS.md', `# Проект\n\nПолитика описана в [policy].\n\n[policy]: /original\n\n${read(root, 'AGENTS.md')}`);
-    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': '[policy]: /changed', '5': '[policy]', '6': 'см. таблицу [гейтов] и поле gates' } } }, null, 2)}\n`);
+    // The link target outside the block: an override inside the block must not shift it.
+    put(root, 'AGENTS.md', `# Project\n\nThe policy is described in [policy].\n\n[policy]: /original\n\n${read(root, 'AGENTS.md')}`);
+    put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': '[policy]: /changed', '5': '[policy]', '6': 'see the [gates] table and the gates field' } } }, null, 2)}\n`);
 
     r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     const agents = read(root, 'AGENTS.md');
     const block = agents.slice(agents.indexOf('<!-- backslop:start -->'), agents.indexOf('<!-- backslop:end -->'));
-    assert.match(block, /^4\. \\\[policy\\\]\\: \\\/changed$/m, 'текст шага остался видимым текстом');
-    assert.match(block, /^5\. \\\[policy\\\]$/m, 'соседний шаг не стал ссылкой');
-    assert.match(block, /^6\. см\\\. таблицу \\\[гейтов\\\] и поле gates$/m, 'brackets without a definition stay escaped text');
-    // Маркер пункта списка блоком не является, поэтому снимается перед сверкой: без этого
-    // проверка смотрела бы на строки, которые с «[» не начинаются никогда (ADR-052).
+    assert.match(block, /^4\. \\\[policy\\\]\\: \\\/changed$/m, 'the step text stayed visible text');
+    assert.match(block, /^5\. \\\[policy\\\]$/m, 'the neighbouring step did not become a link');
+    assert.match(block, /^6\. see the \\\[gates\\\] table and the gates field$/m, 'brackets without a definition stay escaped text');
+    // A list item marker is not part of the block, so it is stripped before the check: otherwise
+    // the check would look at lines that never start with "[".
     const defs = agents.split('\n')
       .map((l) => l.replace(/^ {0,3}(?:[-*+]|\d{1,9}[.)]) +/, ''))
       .filter((l) => /^ {0,3}\[[^\]\\]*\]:/.test(l));
-    assert.deepEqual(defs, ['[policy]: /original'], 'в блоке определения ссылки не появилось, внешнее не изменилось');
+    assert.deepEqual(defs, ['[policy]: /original'], 'no link definition appeared in the block, the outer one did not change');
   } finally {
     cleanup(root);
   }
@@ -217,8 +257,8 @@ test('init refuses a stepOverrides value with a line break or a block marker and
     const cfg = JSON.parse(read(root, 'backslop.json'));
     const before = read(root, 'AGENTS.md');
     for (const [override, why] of [
-      ['свой текст\n5. ложный шаг', /однострочное значение/],
-      ['свой текст <!-- backslop:end -->', /inline-текст/],
+      ['own text\n5. false step', ruRe('{label} must be a single-line value without line breaks: a second line becomes a separate paragraph inside the block')],
+      ['own text <!-- backslop:end -->', ruRe('{config}: agents.stepOverrides[{step}] — inline text without markup: the “<” character is not allowed')],
     ]) {
       put(root, 'backslop.json', `${JSON.stringify({ ...cfg, agents: { stepOverrides: { '4': override } } }, null, 2)}\n`);
       r = cli(root, ['init']);
@@ -234,9 +274,9 @@ test('init refuses a stepOverrides value with a line break or a block marker and
 
 test('init: the block tells a worker to commit, names the triage commit and the boundary bans, and has one commit subject', () => {
   for (const [lang, step4, step7, boundary, oldSubject] of [
-    ['ru', /^4\. .*Закоммить в свою ветку с префиксом `BS-N:` до отчёта; незакоммиченного не остаётся\./m,
-      /^7\. .*отдельным коммитом с subject `BS: triage after BS-N`.*зелёный на итоговом коммите; затем пуш\.$/m,
-      /^Границы worker'а: .*командой `[^`]+ new`; существующие файлы задач не правит, не переносит и не архивирует \(ни `mv`, ни `archive`\); `docs\/archive\/` не трогает;/m, /закрыта —/],
+    ['ru', ruLineRe('agents-section.md', 'nothing stays uncommitted.', { prefix: 'BS' }),
+      ruLineRe('agents-section.md', 'a separate commit with the subject', { prefix: 'BS' }),
+      ruLineRe('agents-section.md', 'Worker boundaries:', { prefix: 'BS' }), new RegExp(`${RU.parserWords.closed} —`)],
     ['en', /^4\. .*Commit to your branch with the `BS-N:` prefix before reporting; nothing stays uncommitted\./m,
       /^7\. .*a separate commit with the subject `BS: triage after BS-N`.*`[^`]+ lint` is green on the final commit; then push\.$/m,
       /^Worker boundaries: .*only with `[^`]+ new`; never edit, move or archive an existing task file \(no `mv`, no `archive`\); do not touch `docs\/archive\/`;/m, /closed —/],
@@ -259,8 +299,8 @@ test('init: the block tells a worker to commit, names the triage commit and the 
 
 test('init: the block names gates --base and the Windows shell, and the skill points to the block instead of restating it', () => {
   for (const [lang, base, windows, gone, keepGoing, skillWindows] of [
-    ['ru', /^4\. .*`[^`]+ gates --require-clean --base <база>`, где `<база>` — коммит до взятия задачи/m, /^5\. .*На Windows выполняй эту последовательность команд в Git Bash\.$/m,
-      /Живые промахи|просто называется|три задачи/, /`--keep-going`/, /На Windows выполняй эту последовательность команд в Git Bash\./],
+    ['ru', ruLineRe('agents-section.md', '--require-clean --base <base>'), ruLineRe('agents-section.md', 'On Windows, run this recipe in Git Bash.'),
+      SKILL_RESTATES_RU, /`--keep-going`/, ruLineRe('skills/backslop-task/SKILL.md', 'On Windows, run this recipe in Git Bash.')],
     ['en', /^4\. .*`[^`]+ gates --require-clean --base <base>`, where `<base>` is the commit before the task was taken/m, /^5\. .*On Windows, run this recipe in Git Bash\.$/m,
       /Real failures|simply called|three tasks/, /`--keep-going`/, /On Windows, run this recipe in Git Bash\./],
   ]) {
@@ -285,8 +325,7 @@ test('init: the block names gates --base and the Windows shell, and the skill po
 
 test('init: the block carries the owner-talk rule in full and each skill links to it without restating it', () => {
   for (const [lang, item, rule, link] of [
-    ['ru', '**Разговор с владельцем.**', [/что спрашивается, зачем и что меняет каждый ответ/, /не используй термины и сокращения, которые ты ввёл сам/i, /после его подтверждения/, /номером и заголовком, `BS-N — <заголовок>`, не одним номером: заголовок стоит при первом упоминании в сообщении, в каждом заголовке раздела и в каждой строке таблицы; дальше в том же абзаце можно называть одним номером/, /каждый пункт списка — отдельный абзац\./],
-      'пункту «Разговор с владельцем» секции backslop в AGENTS.md'],
+    ['ru', OWNER_RU.item, OWNER_RU.rule, OWNER_RU.link],
     ['en', '**Talking to the owner.**', [/what is asked, why, and what each answer changes/, /no term or abbreviation you coined yourself/i, /only after they confirm it/, /number and its title, `BS-N — <title>`, never by the number alone: the title goes at the first mention in a message, in every heading and in every table row; later mentions in the same paragraph may use the number alone/, /each list item counts as a paragraph\./],
       '*Talking to the owner* in the backslop section of AGENTS.md'],
   ]) {
@@ -311,9 +350,9 @@ test('init: the block carries the owner-talk rule in full and each skill links t
 
 test('init: step 4 names the trimmed probe command, and without the field init names the missing duty', () => {
   for (const [lang, probe, named, duty, missing] of [
-    ['ru', 'npm run probe', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
+    ['ru', 'npm run probe', PROBE_RU.named, PROBE_RU.duty, ruRe('probe is not declared in {config}: neither the block nor the skill carries a mutation-probe requirement — declare the command in probe or describe the probe in a section of your own outside the block')],
     ['en', 'npm run probe', 'then run the probe — `npm run probe`.', /mutation probe/, /probe is not declared in backslop\.json/],
-    ['ru', '  npm run probe  ', 'потом проба — `npm run probe`.', /мутационной пробой/, /probe в backslop\.json не объявлен/],
+    ['ru', '  npm run probe  ', PROBE_RU.named, PROBE_RU.duty, ruRe('probe is not declared in {config}: neither the block nor the skill carries a mutation-probe requirement — declare the command in probe or describe the probe in a section of your own outside the block')],
   ]) {
     const root = emptyRepo();
     try {
@@ -347,12 +386,12 @@ test('init: a custom --prefix and --dir lay out the tree, and new and lint work 
     let r = cli(root, ['init', '--prefix', 'DFL', '--dir', 'doc']);
     assert.equal(r.code, 0, r.err);
     assert.ok(existsSync(path.join(root, 'doc/backlog/README.md')));
-    assert.match(read(root, 'doc/archive/README.md'), /DFL-<номер>-<slug>/);
-    assert.match(read(root, 'AGENTS.md'), /префикс задач — `DFL`/);
+    assert.match(read(root, 'doc/archive/README.md'), ruLineRe('docs/archive/README.md', 'directory with two files', { prefix: 'DFL' }));
+    assert.match(read(root, 'AGENTS.md'), ruLineRe('agents-section.md', 'task prefix:', { prefix: 'DFL' }));
 
     r = cli(root, ['new', 'x', '--queue']);
     assert.ok(existsSync(path.join(root, 'doc/backlog/queue/DFL-1-x.md')));
-    put(root, 'doc/backlog/queue/DFL-1-x.md', read(root, 'doc/backlog/queue/DFL-1-x.md').replace(/\*\*Область:\*\* .*/, '**Область:** [x](../../reference/README.md)').replace(/\[TODO[^\]]*\]/g, 'готово'));
+    put(root, 'doc/backlog/queue/DFL-1-x.md', read(root, 'doc/backlog/queue/DFL-1-x.md').replace(new RegExp(`\\*\\*${FIELD.area}:\\*\\* .*`), `**${FIELD.area}:** [x](../../reference/README.md)`).replace(/\[TODO[^\]]*\]/g, 'done'));
     r = cli(root, ['lint']);
     assert.equal(r.code, 0, r.err);
   } finally {
@@ -445,12 +484,12 @@ test('init: the en glossary defines EN as the code identifier and the seed refer
 test('init keeps the header of an existing AGENTS.md and a user CLAUDE.md', () => {
   const root = emptyRepo();
   try {
-    put(root, 'AGENTS.md', '# Мой проект\n\nПравила проекта.\n');
-    put(root, 'CLAUDE.md', 'Что-то своё\n');
+    put(root, 'AGENTS.md', '# My project\n\nProject rules.\n');
+    put(root, 'CLAUDE.md', 'Something of my own\n');
     const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    assert.match(read(root, 'AGENTS.md'), /^# Мой проект\n\nПравила проекта\.\n\n<!-- backslop:start -->/);
-    assert.equal(read(root, 'CLAUDE.md'), 'Что-то своё\n');
+    assert.match(read(root, 'AGENTS.md'), /^# My project\n\nProject rules\.\n\n<!-- backslop:start -->/);
+    assert.equal(read(root, 'CLAUDE.md'), 'Something of my own\n');
   } finally {
     cleanup(root);
   }
@@ -469,13 +508,14 @@ test('init refuses a --prefix that differs from the prefix in the config', () =>
   }
 });
 
-// Windows-1251 bytes of a Cyrillic text: А–я sit at 0xC0–0xFF, ASCII passes as is.
-const cp1251 = (text) => Buffer.from([...text].map((ch) => (/[А-я]/.test(ch) ? 0xC0 + ch.codePointAt(0) - 0x410 : ch.codePointAt(0))));
+// Windows-1251 bytes: U+0410–U+044F sit at 0xC0–0xFF (the code point minus 0x350), ASCII as is. The
+// texts are built from code points: the test needs bytes that are not UTF-8, not Cyrillic words.
+const cp1251 = (...codePoints) => Buffer.from(codePoints.map((cp) => (cp >= 0x410 ? cp - 0x350 : cp)));
 
 test('init refuses a non-UTF-8 AGENTS.md or rewritten .gitignore before any write', () => {
   const root = emptyRepo();
   try {
-    const bytes = cp1251('# Проект\n\nПравила команды: не трогать prod.\n');
+    const bytes = cp1251(0x23, 0x20, 0x41F, 0x440, 0x43E, 0x435, 0x43A, 0x442, 0x0A);
     writeFileSync(path.join(root, 'AGENTS.md'), bytes);
     let r = cli(root, ['init', '--lang', 'en', '--tools', 'none']);
     assert.equal(r.code, 1, r.out);
@@ -485,7 +525,7 @@ test('init refuses a non-UTF-8 AGENTS.md or rewritten .gitignore before any writ
     assert.ok(!existsSync(path.join(root, 'docs')), 'the refusal came after the first write');
 
     rmSync(path.join(root, 'AGENTS.md'));
-    const ignore = cp1251('# кэш\nnode_modules/\n');
+    const ignore = cp1251(0x23, 0x20, 0x43A, 0x44D, 0x448, 0x0A, ...Buffer.from('node_modules/\n'));
     writeFileSync(path.join(root, '.gitignore'), ignore);
     r = cli(root, ['init', '--lang', 'en', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
@@ -547,7 +587,7 @@ test('init: markers quoted in prose are not the block; a marker line twice is re
   }
 });
 
-test('init: внутри уже инициализированного проекта — отказ с путём корня', () => {
+test('init: inside an already initialized project — a refusal with the root path', () => {
   const root = emptyRepo();
   try {
     let r = cli(root, ['init']);
@@ -556,7 +596,7 @@ test('init: внутри уже инициализированного прое�
     put(root, 'src/keep.txt', '');
     r = cli(root, ['init'], { cwd: sub });
     assert.equal(r.code, 1);
-    assert.match(r.err, /уже инициализирован выше/);
+    assert.match(r.err, ruRe('project is already initialized above at {existingRoot}; run init there or create a separate {config}'));
     assert.ok(!existsSync(path.join(sub, 'backslop.json')));
   } finally {
     cleanup(root);
@@ -578,11 +618,11 @@ test('init normalises --dir docs/ to docs', () => {
 test('init with tools=[] keeps a user CLAUDE.md symlink to AGENTS.md', { skip: process.platform === 'win32' }, () => {
   const root = emptyRepo();
   try {
-    put(root, 'AGENTS.md', '# Проект\n');
+    put(root, 'AGENTS.md', '# Project\n');
     symlinkSync('AGENTS.md', path.join(root, 'CLAUDE.md'));
     const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /CLAUDE\.md: не выбран/);
+    assert.match(r.out, new RegExp(`CLAUDE\\.md: ${ru('not selected')}`));
     assert.ok(lstatSync(path.join(root, 'CLAUDE.md')).isSymbolicLink(), 'CLAUDE.md is no longer a symlink');
     assert.equal(readlinkSync(path.join(root, 'CLAUDE.md')), 'AGENTS.md');
   } finally {
@@ -603,7 +643,7 @@ test('init: a repeated --dir spelling the stored docs differently is not a confl
     assert.match(r.err, /docs = «docs»/);
     r = cli(root, ['init', '--dir', 'docs/../docs']);
     assert.equal(r.code, 1, 'a .. segment passed because it normalises to the stored docs');
-    assert.match(r.err, /^✖ --dir «docs\/\.\.\/docs»: нужен относительный путь внутри проекта/, 'a ru project answers in Russian');
+    assert.match(r.err, new RegExp(`^✖ ${ruRe('--dir “{dir}”: expected a relative path inside the project', { dir: 'docs/../docs' }).source}`), 'a ru project answers in Russian');
     put(root, 'backslop.json', read(root, 'backslop.json').replace('"docs": "docs"', '"docs": "./docs"'));
     for (const dir of ['./docs', 'docs', 'docs/']) {
       r = cli(root, ['init', '--dir', dir, '--tools', 'none']);
@@ -618,17 +658,18 @@ test('init: a repeated --dir spelling the stored docs differently is not a confl
 // Probe text renders from `agents-probe.md` and `probe/*.md` through the slots of `probeSlots`, and
 // only when `probe` is declared: the block, the skill, the brief and the result stub stay silent.
 test('init: probe text in the block, the skill, the brief and the result stub only with the probe field', () => {
-  const NONE = /probe|проб(?:а|ы|у|ой|е)(?![а-яё])|мутацион|mutation/i;
+  const NONE_EN = /probe|mutation/i;
   const passage = (lang, file) => {
     const text = readFileSync(path.join(REPO, 'templates', ...(lang === 'en' ? ['en'] : []), 'probe', file), 'utf8').trim();
     assert.ok(text.length > 10, `${lang}: probe/${file} is not empty`);
     return text;
   };
   for (const [lang, named, rule, afterBreakage, verified] of [
-    ['ru', 'сначала коммит, потом проба — `npm run probe`.', /после коммита|сначала коммит/g, 'Гейты гони на неподвижном дереве', 'гейты числом, мутационная проба, живой прогон'],
+    ['ru', PROBE_RU.named, new RegExp(escapeRe(PROBE_RU.named.split(',')[0]), 'g'), PROBE_RU.afterBreakage, PROBE_RU.verified],
     ['en', 'commit first, then run the probe — `npm run probe`.', /after the commit|commit first/g, 'Run gates on an unchanged tree', 'numerical gates, mutation probe and live run'],
   ]) {
     const root = emptyRepo();
+    const NONE = lang === 'ru' ? PROBE_RU.none : NONE_EN;
     try {
       const cfg = { prefix: 'BS', docs: 'docs', gates: [], lang, tools: [] };
       put(root, 'backslop.json', `${JSON.stringify(cfg, null, 2)}\n`);
@@ -669,25 +710,25 @@ test('init: probe text in the block, the skill, the brief and the result stub on
   }
 });
 
-// Фронтматтер adapter output читает гейт потребителя: значение с «: » уезжает закавыченным, а
-// снятие кавычек в `splitFrontmatter` держит `.mdc` от второго слоя: его даёт cursorOutput.
+// The frontmatter of an adapter output is read by the consumer's gate: a value with “: ” goes out
+// quoted, and `splitFrontmatter` unquoting keeps `.mdc` from a second layer: cursorOutput gives it.
 function frontmatterValue(text, key) {
   const line = text.split('\n').find((l) => l.startsWith(`${key}: `));
-  assert.ok(line !== undefined, `строки «${key}: » во фронтматтере нет`);
+  assert.ok(line !== undefined, `no “${key}: ” line in the frontmatter`);
   return line.slice(key.length + 2);
 }
 
-test('init: значение description в adapter outputs закавычено, а Cursor не кавычит его дважды', () => {
+test('init: the description value in adapter outputs is quoted, and Cursor does not quote it twice', () => {
   const root = emptyRepo();
   try {
     const r = cli(root, ['init', '--tools', 'claude,cursor,codex']);
     assert.equal(r.code, 0, r.err);
     const claude = frontmatterValue(read(root, '.claude/skills/backslop-task/SKILL.md'), 'description');
-    assert.ok(claude.startsWith('"'), 'плоский скаляр с «: » внутри YAML-мэппингом не разбирается');
-    assert.ok(JSON.parse(claude).includes(': '), 'кавычки стоят ровно из-за «: » в тексте');
+    assert.ok(claude.startsWith('"'), 'a flat scalar with “: ” inside does not parse as a YAML mapping');
+    assert.ok(JSON.parse(claude).includes(': '), 'the quotes stand exactly because of “: ” in the text');
     assert.equal(frontmatterValue(read(root, '.agents/skills/backslop-task/SKILL.md'), 'description'), claude);
     const cursor = frontmatterValue(read(root, '.cursor/rules/backslop-task.mdc'), 'description');
-    assert.equal(JSON.parse(cursor), JSON.parse(claude), 'в .mdc уезжает текст, а не экранированные кавычки');
+    assert.equal(JSON.parse(cursor), JSON.parse(claude), 'the .mdc carries the text, not escaped quotes');
   } finally {
     cleanup(root);
   }
@@ -702,14 +743,14 @@ test('init --tools cursor: a malformed quoted description in a skill template is
   try {
     const r = toolCli(tool, ['init', '--tools', 'cursor'], { cwd: root });
     assert.equal(r.code, 1, r.out);
-    assert.equal(r.err, '✖ шаблон templates/skills/backslop-task/SKILL.md: description во фронтматтере — не JSON-строка\n');
+    assert.equal(r.err, `✖ ${ru('template {template}: the frontmatter description is not a valid JSON string', { template: 'templates/skills/backslop-task/SKILL.md' })}\n`);
   } finally {
     cleanup(tool);
     cleanup(root);
   }
 });
 
-test('init: adapters имеют canonical layout; deselect удаляет только owned outputs', () => {
+test('init: adapters have the canonical layout; deselect removes only owned outputs', () => {
   const root = emptyRepo();
   try {
     let r = cli(root, ['init', '--tools', 'codex,cursor,claude']);
@@ -729,7 +770,7 @@ test('init: adapters имеют canonical layout; deselect удаляет тол
 
     r = cli(root, ['init', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
-    assert.ok(!existsSync(path.join(root, 'CLAUDE.md')), 'точный generated stub удаляется');
+    assert.ok(!existsSync(path.join(root, 'CLAUDE.md')), 'the exact generated stub is removed');
     r = cli(root, ['init', '--tools', 'claude,cursor,codex']);
     assert.equal(r.code, 0, r.err);
 
@@ -752,7 +793,7 @@ test('init: adapters имеют canonical layout; deselect удаляет тол
 });
 
 for (const tool of ['claude', 'cursor', 'codex']) {
-  test(`init: adapter ${tool} материализуется без outputs соседей`, () => {
+  test(`init: adapter ${tool} materialises without the neighbours’ outputs`, () => {
     const root = emptyRepo();
     try {
       const r = cli(root, ['init', '--tools', tool]);
@@ -766,7 +807,7 @@ for (const tool of ['claude', 'cursor', 'codex']) {
   });
 }
 
-test('init: неизвестные, пустые и повторные adapter ids отклоняются', () => {
+test('init: unknown, empty and repeated adapter ids are rejected', () => {
   for (const tools of ['vscode', '', 'claude,claude']) {
     const root = emptyRepo();
     try {
@@ -790,9 +831,9 @@ test('init: a rerun with --tools and --lang rewrites both fields of an existing 
   }
 });
 
-test('init --lang en: CLI и generated tree английские, mixed metadata читаются', () => {
+test('init --lang en: the CLI and the generated tree are English, mixed metadata is read', () => {
   const root = emptyRepo();
-  const cyrillic = /[А-Яа-яЁё]/;
+  const cyrillic = CYRILLIC;
   try {
     let r = cli(root, ['init', '--lang', 'en', '--tools', 'cursor']);
     assert.equal(r.code, 0, r.err);
@@ -818,7 +859,7 @@ test('init --lang en: CLI и generated tree английские, mixed metadata
       '| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |',
       '| [adr/adr-001-process.md](adr/adr-001-process.md) | Tasks and decisions are managed with backslop | Accepted |\n| [adr/adr-002-english-decision.md](adr/adr-002-english-decision.md) | English decision | Proposed |',
     ));
-    put(root, 'docs/backlog/triage/BS-2-russian.md', '# BS-2 · Русская задача\n\n- **Создана:** 2026-09-03\n');
+    put(root, 'docs/backlog/triage/BS-2-russian.md', ruCard('BS-2', 'Russian task', { created: '2026-09-03' }));
     const json = JSON.parse(cli(root, ['status', '--json']).out);
     assert.equal(json.triage[0].created, '2026-09-03');
     assert.match(cli(root, ['status']).out, /^Active/m);
@@ -834,7 +875,7 @@ test('init --lang en: CLI и generated tree английские, mixed metadata
   }
 });
 
-test('init повторно: штамп версии переставляется, расхождение с пином в cli называется', () => {
+test('init again: the version stamp is moved, a mismatch with the cli pin is named', () => {
   const root = emptyRepo();
   try {
     let r = cli(root, ['init']);
@@ -843,39 +884,39 @@ test('init повторно: штамп версии переставляетс�
     put(root, 'backslop.json', `${JSON.stringify({ ...cfg, version: '0.0.1', cli: 'npx github:Velklish/backslop#v0.0.1' }, null, 2)}\n`);
     r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /штамп версии: v0\.0\.1 → v\d+\.\d+\.\d+/);
-    assert.match(r.err, /пин в cli — v0\.0\.1, а раскладку сделала v/);
+    assert.match(r.out, ruRe('version stamp: v{from} → v{version}', { from: '0.0.1' }));
+    assert.match(r.err, ruRe('cli is pinned to v{pin}, but layout was generated by v{version}: run {cli} upgrade or update cli in {config}', { pin: '0.0.1' }));
     const after = JSON.parse(read(root, 'backslop.json'));
     assert.equal(after.version, TOOL_VERSION);
-    assert.equal(after.cli, 'npx github:Velklish/backslop#v0.0.1', 'пин init не трогает — это ход upgrade');
+    assert.equal(after.cli, 'npx github:Velklish/backslop#v0.0.1', 'init does not touch the pin — that is the upgrade’s move');
   } finally {
     cleanup(root);
   }
 });
 
-test('init на проекте со своим docs/README.md: ADR-001 создан, строка в таблицу — подсказкой', () => {
+test('init on a project with its own docs/README.md: ADR-001 is created, the table row is a hint', () => {
   const root = emptyRepo();
   try {
-    put(root, 'docs/README.md', '# Мои доки\n');
+    put(root, 'docs/README.md', '# My docs\n');
     const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /docs\/README\.md уже был: добавь в таблицу строку со ссылкой на adr\/adr-001-process\.md, иначе lint красный/);
-    assert.equal(read(root, 'docs/README.md'), '# Мои доки\n');
+    assert.match(r.out, ruRe('{docs}/README.md already existed: add a row linking {adrRel} to its table, otherwise lint fails', { docs: 'docs', adrRel: 'adr/adr-001-process.md' }));
+    assert.equal(read(root, 'docs/README.md'), '# My docs\n');
   } finally {
     cleanup(root);
   }
 });
 
-test('init в проекте со своими ADR: ADR процесса получает следующий номер, повтор не дублирует', () => {
+test('init in a project with its own ADRs: the process ADR gets the next number, a repeat does not duplicate', () => {
   const root = emptyRepo();
   try {
-    put(root, 'docs/adr/adr-001-architecture.md', '# ADR-001: Архитектура\n\n**Status:** Accepted\n');
-    put(root, 'docs/adr/adr-002-storage.md', '# ADR-002: Хранилище\n\n**Status:** Accepted\n');
-    put(root, 'docs/README.md', '# Документация\n\n| Документ | Тема | Статус |\n|---|---|---|\n');
+    put(root, 'docs/adr/adr-001-architecture.md', '# ADR-001: Architecture\n\n**Status:** Accepted\n');
+    put(root, 'docs/adr/adr-002-storage.md', '# ADR-002: Storage\n\n**Status:** Accepted\n');
+    put(root, 'docs/README.md', '# Documentation\n\n| Document | Topic | Status |\n|---|---|---|\n');
     let r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
     assert.ok(!existsSync(path.join(root, 'docs/adr/adr-001-process.md')));
-    assert.match(read(root, 'docs/adr/adr-003-process.md'), /^# ADR-003: Задачи и решения ведутся по backslop\n/);
+    assert.match(read(root, 'docs/adr/adr-003-process.md'), new RegExp(`^${ruLineRe('docs/adr/adr-001-process.md', 'Tasks and decisions are managed with backslop', { adrNumber: '003' }).source}\\n`));
     assert.match(r.out, /adr\/adr-003-process\.md/);
     r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
@@ -886,17 +927,17 @@ test('init в проекте со своими ADR: ADR процесса пол�
   }
 });
 
-test('init --tools none: файл без маркера на пути текущего шаблона остаётся и назван предупреждением', () => {
+test('init --tools none: an unmarked file at the current template path stays and is named by a warning', () => {
   const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
   const root = emptyRepo();
   try {
     assert.equal(toolCli(tool, ['init', '--tools', 'none'], { cwd: root }).code, 0);
-    put(root, '.claude/skills/backslop-task/references/extra.md', 'чужой файл\n');
-    put(root, '.claude/skills/backslop-task/mine.md', 'чужой файл\n');
+    put(root, '.claude/skills/backslop-task/references/extra.md', 'a foreign file\n');
+    put(root, '.claude/skills/backslop-task/mine.md', 'a foreign file\n');
     const r = toolCli(tool, ['init', '--tools', 'none'], { cwd: root });
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, '.claude/skills/backslop-task/references/extra.md'), 'чужой файл\n');
-    assert.equal(read(root, '.claude/skills/backslop-task/mine.md'), 'чужой файл\n');
+    assert.equal(read(root, '.claude/skills/backslop-task/references/extra.md'), 'a foreign file\n');
+    assert.equal(read(root, '.claude/skills/backslop-task/mine.md'), 'a foreign file\n');
     assert.match(r.err, /\.claude\/skills\/backslop-task\/references\/extra\.md/);
   } finally {
     cleanup(tool);
@@ -913,46 +954,48 @@ test('init --tools none: an unmarked file at a shipped skill path is left byte f
     const r = cli(root, ['init', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, rel), 'my own file, no marker\n');
-    assert.match(r.err, /оставлены как есть: \.claude\/skills\/backslop-batch\/references\/measurements\.md/);
+    assert.match(r.err, ruRe(LEFT_AS_IS, { foreign: MEASUREMENTS }));
   } finally {
     cleanup(root);
   }
 });
 
-// ADR-040: на symlink проверяются только корни выбранных adapter'ов, и ссылка там — отказ, куда
-// бы ни вела; корни невыбранных не проверяются.
-test('init: symlink на корне harness — отказ только для выбранного adapter\'а, до первой записи', () => {
+// Only the roots of the selected adapters are checked for a symlink, and a link there is a refusal
+// wherever it leads; the roots of unselected ones are not checked.
+test('init: a symlink at a harness root — a refusal only for the selected adapter, before the first write', () => {
   const root = emptyRepo();
   const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
   try {
     symlinkSync(shared, path.join(root, '.claude'));
-    put(shared, 'skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n# за ссылкой\n');
+    put(shared, 'skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n# behind the link\n');
     const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /adapter path содержит symlink: \.claude/);
-    assert.match(r.err, /сними adapter claude/, 'отказ называет лечение — снять adapter');
-    assert.ok(!existsSync(path.join(root, 'backslop.json')), 'конфиг не записан');
-    assert.ok(!existsSync(path.join(root, 'docs')), 'скелет docs не разложен');
+    assert.match(r.err, ruRe('adapter path contains a symlink: {link}', { link: '.claude' }));
+    assert.match(r.err, ruRe(FOREIGN_LINK, { tool: 'claude' }), 'the refusal names the remedy — deselect the adapter');
+    assert.ok(!existsSync(path.join(root, 'backslop.json')), 'the config is not written');
+    assert.ok(!existsSync(path.join(root, 'docs')), 'the docs skeleton is not laid out');
 
-    // Невыбранный adapter за ссылкой: init проходит, файл за ссылкой не снимается.
+    // An unselected adapter behind a link: init passes, the file behind the link is not removed.
     for (const args of [['init'], ['init', '--tools', 'none'], ['init', '--tools', 'cursor']]) {
       const ok = cli(root, args);
       assert.equal(ok.code, 0, `${args.join(' ')}: ${ok.err}`);
     }
-    assert.equal(read(shared, 'skills/backslop-task/SKILL.md'), '<!-- backslop:generated -->\n# за ссылкой\n', 'сквозь ссылку backslop не снимает');
+    assert.equal(read(shared, 'skills/backslop-task/SKILL.md'), '<!-- backslop:generated -->\n# behind the link\n', 'backslop does not remove through a link');
     assert.ok(existsSync(path.join(root, '.cursor/rules/backslop-task.mdc')));
 
-    // Ссылка внутрь проекта на выбранном корне — тот же отказ: цель ссылки не различается.
+    // A link into the project at a selected root — the same refusal: the link target is not
+    // told apart.
     unlinkSync(path.join(root, '.claude'));
     mkdirSync(path.join(root, 'inner'));
     symlinkSync(path.join(root, 'inner'), path.join(root, '.claude'));
     const inner = cli(root, ['init', '--tools', 'claude']);
     assert.equal(inner.code, 1, inner.out);
-    assert.match(inner.err, /adapter path содержит symlink: \.claude/);
-    assert.deepEqual(JSON.parse(read(root, 'backslop.json')).tools, ['cursor'], 'отказ до записи конфига');
+    assert.match(inner.err, ruRe('adapter path contains a symlink: {link}', { link: '.claude' }));
+    assert.deepEqual(JSON.parse(read(root, 'backslop.json')).tools, ['cursor'], 'a refusal before the config is written');
     assert.ok(!existsSync(path.join(root, 'inner', 'skills')), 'something was written behind the link');
 
-    // Существующий конфиг с claude в tools: голый init состав не меняет и не лечит — лечит --tools.
+    // An existing config with claude in tools: a bare init neither changes the set nor heals it —
+    // --tools does.
     const root2 = emptyRepo();
     const shared2 = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
     try {
@@ -961,7 +1004,7 @@ test('init: symlink на корне harness — отказ только для �
       symlinkSync(shared2, path.join(root2, '.claude'));
       const bare = cli(root2, ['init']);
       assert.equal(bare.code, 1, bare.out);
-      assert.match(bare.err, /--tools без него/);
+      assert.match(bare.err, ruRe(FOREIGN_LINK, { tool: 'claude' }));
       assert.equal(cli(root2, ['init', '--tools', 'none']).code, 0);
     } finally {
       cleanup(shared2);
@@ -1031,12 +1074,12 @@ test('init refuses a file where it needs a directory and a directory where it ne
   }
 });
 
-test('init: блок .gitignore по выбранным adapters; tools none снимает состав, self-host файла не заводит', () => {
+test('init: the .gitignore block follows the selected adapters; tools none removes the set, self-host creates no file', () => {
   const root = emptyRepo();
   try {
     let r = cli(root, ['init', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
-    assert.ok(!existsSync(path.join(root, '.gitignore')), 'без adapters .gitignore не заводится');
+    assert.ok(!existsSync(path.join(root, '.gitignore')), 'without adapters .gitignore is not created');
 
     r = cli(root, ['init', '--tools', 'claude,cursor']);
     assert.equal(r.code, 0, r.err);
@@ -1047,9 +1090,9 @@ test('init: блок .gitignore по выбранным adapters; tools none с�
     assert.doesNotMatch(block, /^\.agents\/skills\/backslop-\*$/m);
     assert.match(block, /^\/CLAUDE\.md$/m);
     assert.match(block, /^# backslop:end$/m);
-    assert.equal(block.startsWith('# backslop:start'), true, 'в пустом .gitignore блок и есть весь файл');
+    assert.equal(block.startsWith('# backslop:start'), true, 'in an empty .gitignore the block is the whole file');
 
-    // Чужие строки сохраняются, блок заменяется на месте.
+    // Foreign lines are kept, the block is replaced in place.
     put(root, '.gitignore', `node_modules/\n\n${block}`);
     r = cli(root, ['init', '--tools', 'codex']);
     assert.equal(r.code, 0, r.err);
@@ -1057,27 +1100,27 @@ test('init: блок .gitignore по выбранным adapters; tools none с�
     assert.match(next, /^node_modules\/$/m);
     assert.match(next, /^\.agents\/skills\/backslop-\*$/m);
     assert.doesNotMatch(next, /^\.claude\/skills\/backslop-\*$/m);
-    assert.doesNotMatch(next, /^\/CLAUDE\.md$/m, 'stub снят вместе с adapter claude');
+    assert.doesNotMatch(next, /^\/CLAUDE\.md$/m, 'the stub is removed together with the claude adapter');
     assert.equal((next.match(/# backslop:start/g) ?? []).length, 1);
 
     r = cli(root, ['init', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(read(root, '.gitignore'), /backslop-\*/, 'снятые adapters уходят и из блока');
+    assert.doesNotMatch(read(root, '.gitignore'), /backslop-\*/, 'the removed adapters leave the block too');
     assert.match(read(root, '.gitignore'), /^node_modules\/$/m);
   } finally {
     cleanup(root);
   }
 });
 
-test('init: пользовательский CLAUDE.md не попадает в .gitignore', () => {
+test('init: a user CLAUDE.md does not get into .gitignore', () => {
   const root = emptyRepo();
   try {
-    put(root, 'CLAUDE.md', 'Свои инструкции\n');
+    put(root, 'CLAUDE.md', 'My instructions\n');
     const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 0, r.err);
     assert.match(read(root, '.gitignore'), /^\.claude\/skills\/backslop-\*$/m);
     assert.doesNotMatch(read(root, '.gitignore'), /^\/CLAUDE\.md$/m);
-    assert.equal(read(root, 'CLAUDE.md'), 'Свои инструкции\n');
+    assert.equal(read(root, 'CLAUDE.md'), 'My instructions\n');
   } finally {
     cleanup(root);
   }
@@ -1091,13 +1134,13 @@ test('init removes a marked file outside backslop-* under the harness root and l
     assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
     const marked = '.claude/skills/other/note.md';
     const plain = '.claude/skills/other/mine.md';
-    put(root, marked, '<!-- backslop:generated -->\n# чужим путём, наш маркер\n');
-    put(root, plain, '# без маркера\n');
+    put(root, marked, '<!-- backslop:generated -->\n# a foreign path, our marker\n');
+    put(root, plain, '# without a marker\n');
     assert.equal(isOwnedAdapterFile(plain, path.join(root, plain)), false);
     const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(existsSync(path.join(root, marked)), false, 'owned по маркеру — снят');
-    assert.equal(read(root, plain), '# без маркера\n', 'без маркера и вне путей шаблонов — не кандидат, остаётся молча');
+    assert.equal(existsSync(path.join(root, marked)), false, 'owned by the marker — removed');
+    assert.equal(read(root, plain), '# without a marker\n', 'without a marker and outside the template paths — not a candidate, stays silently');
     assert.doesNotMatch(r.err, /other\/mine\.md/);
   } finally {
     cleanup(root);
@@ -1105,20 +1148,20 @@ test('init removes a marked file outside backslop-* under the harness root and l
 });
 
 // ADR-040: only the marker makes a file ours, so an unmarked one at a shipped path is foreign.
-test('init --tools claude: чужой файл без маркера на пути owned output не переписывается и назван предупреждением', () => {
+test('init --tools claude: a foreign file without a marker at an owned output path is not overwritten and is named by a warning', () => {
   const root = emptyRepo();
   try {
     assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
     const rel = '.claude/skills/backslop-batch/references/measurements.md';
     assert.match(read(root, rel), /<!-- backslop:generated -->/);
-    put(root, rel, '# мой файл на этом пути\n');
+    put(root, rel, '# my file at this path\n');
     const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, rel), '# мой файл на этом пути\n', 'файл без маркера — не owned, не переписан');
-    assert.match(r.err, /не переписаны: \.claude\/skills\/backslop-batch\/references\/measurements\.md/);
+    assert.equal(read(root, rel), '# my file at this path\n', 'a file without a marker is not owned, not overwritten');
+    assert.match(r.err, ruRe(NOT_OVERWRITTEN, { foreign: MEASUREMENTS }));
     const lint = cli(root, ['lint']);
     assert.equal(lint.code, 1);
-    assert.match(lint.err, /measurements\.md: на пути adapter output claude чужой файл без маркера/);
+    assert.match(lint.err, new RegExp(`measurements\\.md: ${ruRe('a foreign file without the {marker} marker sits at the {tool} adapter output path — init does not overwrite it: remove or rename the file and run {cli} init, or deselect the adapter', { tool: 'claude' }).source}`));
   } finally {
     cleanup(root);
   }
@@ -1133,56 +1176,57 @@ test('init --tools cursor: a user rule without the marker at a skill path is kep
     const r = cli(root, ['init', '--tools', 'cursor']);
     assert.equal(r.code, 0, r.err);
     assert.equal(read(root, rel), 'my own cursor rule, no marker\n');
-    assert.equal(r.err, '⚠ на путях adapter outputs лежат файлы без маркера <!-- backslop:generated --> — не переписаны: '
-      + '.cursor/rules/backslop-task.mdc; скилл backslop на этом пути не установлен — убери или переименуй файл и повтори init, либо сними adapter\n');
+    assert.equal(r.err, `⚠ ${ru(NOT_OVERWRITTEN, { marker: '<!-- backslop:generated -->', foreign: '.cursor/rules/backslop-task.mdc' })}\n`);
   } finally {
     cleanup(root);
   }
 });
 
-// Каталог на owned-пути: запись в него — отказ словами, как у снятия, а не стек EISDIR.
-test('init --tools claude: каталог на пути owned output — отказ без стека', () => {
+// A directory at an owned path: a write into it is a refusal in words, like removal, not an
+// EISDIR stack.
+test('init --tools claude: a directory at an owned output path — a refusal without a stack', () => {
   const root = emptyRepo();
   try {
     mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'), { recursive: true });
     const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /owned adapter output не является файлом: \.claude\/skills\/backslop-task\/SKILL\.md/);
+    assert.match(r.err, ruRe('owned adapter output is not a file: {outRel}', { outRel: '.claude/skills/backslop-task/SKILL.md' }));
     assert.doesNotMatch(r.err, /EISDIR|node:fs/);
   } finally {
     cleanup(root);
   }
 });
 
-// Файл на компоненте пути owned output — отказ словами, а не стек ENOTDIR из mkdirSync.
-test('init --tools claude: файл на компоненте пути owned output — отказ без стека', () => {
+// A file at a component of an owned output path — a refusal in words, not an ENOTDIR stack
+// from mkdirSync.
+test('init --tools claude: a file at a component of an owned output path — a refusal without a stack', () => {
   const root = emptyRepo();
   try {
-    put(root, '.claude/skills/backslop-task', 'файл вместо каталога\n');
+    put(root, '.claude/skills/backslop-task', 'a file instead of a directory\n');
     const r = cli(root, ['init', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /на пути adapter output файл вместо каталога: \.claude\/skills\/backslop-task\//);
+    assert.match(r.err, ruRe('a file sits where the adapter output path needs a directory: {rel}', { rel: '.claude/skills/backslop-task/' }));
     assert.doesNotMatch(r.err, /ENOTDIR|EISDIR|node:fs/);
   } finally {
     cleanup(root);
   }
 });
 
-test('init --tools в корне самого backslop — отказ до записи; --tools none и чужой каталог — как прежде', () => {
+test('init --tools in the root of backslop itself — a refusal before any write; --tools none and a foreign directory — as before', () => {
   const tool = toolCopy();
   const root = emptyRepo();
   try {
     const r = toolCli(tool, ['init', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /--tools claude: .* — репозиторий самого backslop \(templates\/ — каталог запущенного инструмента\), adapter outputs здесь не раскладываются/);
+    assert.match(r.err, ruRe('--tools {tools}: {root} is the backslop repository itself (templates/ is the running tool\'s directory), adapter outputs are not laid out here; set up a stand in a directory of its own and run init --tools {tools} there', { tools: 'claude' }));
     for (const rel of ['backslop.json', 'CLAUDE.md', '.claude', 'docs', 'AGENTS.md']) {
-      assert.ok(!existsSync(path.join(tool, rel)), `отказ до записи: ${rel} не создан`);
+      assert.ok(!existsSync(path.join(tool, rel)), `a refusal before the write: ${rel} is not created`);
     }
-    assert.equal(toolCli(tool, ['init', '--tools', 'none']).code, 0, 'self-host без adapter\'ов раскладывается');
+    assert.equal(toolCli(tool, ['init', '--tools', 'none']).code, 0, 'self-host without adapters is laid out');
     const again = toolCli(tool, ['init', '--tools', 'cursor,codex']);
     assert.equal(again.code, 1, again.out);
-    assert.deepEqual(JSON.parse(read(tool, 'backslop.json')).tools, [], 'отказ не трогает конфиг');
-    assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0, 'стенд в своём каталоге');
+    assert.deepEqual(JSON.parse(read(tool, 'backslop.json')).tools, [], 'a refusal does not touch the config');
+    assert.equal(toolCli(tool, ['init', '--tools', 'claude'], { cwd: root }).code, 0, 'a stand in its own directory');
     assert.ok(existsSync(path.join(root, 'CLAUDE.md')));
   } finally {
     cleanup(tool);
@@ -1267,7 +1311,7 @@ test('init suggests the backslop-seed skill only when an adapter is selected', (
 });
 
 test('init flag errors follow --lang and stay bilingual only when the language is unknown', () => {
-  const cyrillic = /[А-Яа-яЁё]/;
+  const cyrillic = CYRILLIC;
   for (const [args, line] of [
     [['--lang', 'en', '--tools', 'bogus'], '✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none'],
     [['--lang', 'en', '--prefix', 'x'], '✖ --prefix “x”: expected 2–6 uppercase Latin letters or digits, starting with a letter'],
@@ -1288,7 +1332,7 @@ test('init flag errors follow --lang and stay bilingual only when the language i
   try {
     const r = cli(root, ['init', '--tools', 'bogus']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /^✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none \/ --tools «bogus»: claude, cursor, codex через запятую или none$/m);
+    assert.match(r.err, new RegExp(`^✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none \\/ ${ruRe('--tools “{raw}”: a comma-separated list of claude, cursor, codex, or none', { raw: 'bogus' }).source}$`, 'm'));
   } finally {
     cleanup(root);
   }
@@ -1320,13 +1364,13 @@ test('an en project with an invalid tools field fails in English only', () => {
   }
 });
 
-test('init in a ru project: an empty adapter list is “нет”, and the success line starts with init:', () => {
+test('init in a ru project: an empty adapter list prints the Russian none, and the success line starts with init:', () => {
   const root = emptyRepo();
   try {
     const r = cli(root, ['init', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /^✔ init: docs\/ /m);
-    assert.match(r.out, /^ {2}adapter outputs: нет$/m);
+    assert.match(r.out, new RegExp(`^ {2}${escapeRe(ru('adapter outputs: none'))}$`, 'm'));
   } finally {
     cleanup(root);
   }

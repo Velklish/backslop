@@ -246,3 +246,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-187"></a>`BS-187-adr-current-decisions-only` · 2026-10-02 · completed · — · ADRs hold current decisions only: gate 8 refuses a replaced status, templates state the rule
 - <a id="bs-154.1"></a>`BS-154.1-adr-status-column` · 2026-10-02 · batch BS-187 · — · Gate or drop the Status column of the docs/README.md ADR table
 - <a id="bs-185"></a>`BS-185-links-external-command` · 2026-10-02 · completed · — · Add links --external: classify external URLs outside the gates
+- <a id="bs-180"></a>`BS-180-tests-without-russian` · 2026-10-02 · completed · — · Tests without Russian: English names, comments and messages; Russian expectations from templates

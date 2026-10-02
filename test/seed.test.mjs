@@ -1,12 +1,12 @@
-// Механические шаги посева настоящим процессом: что команда находит с уликой и что она
-// отказывается решать за агента.
+// The mechanical steps of seeding as a real process: what the command finds with evidence and
+// what it refuses to decide for the agent.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
-import { cleanup, cli, gitAll, makeProject, put, read, run } from './helpers.mjs';
+import { FIELD, cleanup, cli, gitAll, makeProject, put, read, ru, ruRe, run } from './helpers.mjs';
 
-test('seed --scan: кандидаты из package.json, Makefile и CI — каждый с путём-уликой', () => {
+test('seed --scan: candidates from package.json, Makefile and CI — each with an evidence path', () => {
   const root = makeProject();
   try {
     put(root, 'package.json', `${JSON.stringify({
@@ -21,7 +21,7 @@ test('seed --scan: кандидаты из package.json, Makefile и CI — ка
     put(root, '.gitlab-ci.yml', 'gates:\n  script:\n    - dotnet test\n');
     put(root, 'src/Orders/Orders.csproj', '<Project />\n');
     put(root, 'pyproject.toml', '[tool.ruff]\nline-length = 120\n');
-    // Выход сборки и окружения в инвентаризацию не идут.
+    // Build output and environments do not go into the inventory.
     put(root, '.venv/lib/app/main.py', 'print(1)\n');
     put(root, 'dist/index.js', '// bundle\n');
     put(root, 'src/Orders/obj/Debug/Orders.csproj', '<Project />\n');
@@ -34,15 +34,15 @@ test('seed --scan: кандидаты из package.json, Makefile и CI — ка
     assert.equal(total, subsystems.length, 'total counts the subsystem candidates');
     const has = (list, command, evidence) => assert.ok(
       list.some((c) => c.command === command && c.evidence === evidence),
-      `ожидался «${command}» с уликой «${evidence}», найдено: ${list.map((c) => `${c.command} @ ${c.evidence}`).join(' | ')}`,
+      `expected “${command}” with evidence “${evidence}”, found: ${list.map((c) => `${c.command} @ ${c.evidence}`).join(' | ')}`,
     );
 
     has(gates, 'npm run test', 'package.json → scripts.test');
     has(gates, 'npm run lint', 'package.json → scripts.lint');
-    assert.ok(!gates.some((c) => c.command === 'npm run start'), 'start не проверка, в кандидаты не идёт');
+    assert.ok(!gates.some((c) => c.command === 'npm run start'), 'start is not a check, not a candidate');
     has(gates, 'make check', 'Makefile:3');
-    assert.ok(!gates.some((c) => c.command === 'make deploy'), 'deploy не проверка');
-    // Однострочный шаг CI и блок `run: |` — оба с номером своей строки.
+    assert.ok(!gates.some((c) => c.command === 'make deploy'), 'deploy is not a check');
+    // A one-line CI step and a `run: |` block — both with the number of their own line.
     has(gates, 'npm ci', '.github/workflows/ci.yml:4');
     has(gates, 'npm test', '.github/workflows/ci.yml:7');
     has(gates, 'npm run lint', '.github/workflows/ci.yml:8');
@@ -52,9 +52,9 @@ test('seed --scan: кандидаты из package.json, Makefile и CI — ка
 
     assert.ok(subsystems.some((s) => s.name === 'Orders' && s.evidence === 'src/Orders'), JSON.stringify(subsystems));
     assert.ok(subsystems.some((s) => s.evidence === 'src/Orders/Orders.csproj'), JSON.stringify(subsystems));
-    assert.ok(subsystems.some((s) => s.evidence === 'bin/cli'), 'скрипт в bin/ — точка входа');
+    assert.ok(subsystems.some((s) => s.evidence === 'bin/cli'), 'a script in bin/ is an entry point');
     for (const skipped of ['.venv', 'dist/', 'obj/', 'bin/Release']) {
-      assert.ok(!JSON.stringify({ gates, subsystems }).includes(skipped), `${skipped} в инвентаризацию не идёт`);
+      assert.ok(!JSON.stringify({ gates, subsystems }).includes(skipped), `${skipped} does not go into the inventory`);
     }
   } finally {
     cleanup(root);
@@ -135,7 +135,7 @@ test('seed --scan: a .NET path with spaces is double-quoted, one with $ or a quo
     assert.ok(commands.includes('dotnet build "My Service/My Service.csproj"'), commands.join(' | '));
     assert.ok(commands.includes('dotnet test "A&B/Lib.csproj"'), commands.join(' | '));
     assert.ok(!commands.some((c) => c.includes('Bob')), commands.join(' | '));
-    assert.match(r.err, /Bob's\$Lib\/Lib\.csproj: в пути есть ", \$, `, \\ или % — команду dotnet не предлагаю/);
+    assert.match(r.err, ruRe('{rel}: the path holds ", $, `, \\ or % — no dotnet command offered, quote the path by hand', { rel: "Bob's$Lib/Lib.csproj" }));
   } finally {
     cleanup(root);
   }
@@ -153,52 +153,52 @@ test('seed --scan: an unreadable extensionless file in bin/ is skipped, not a cr
   }
 });
 
-test('seed --scan: человеческий вывод называет улику каждого пункта', () => {
+test('seed --scan: the human output names the evidence of every item', () => {
   const root = makeProject();
   try {
     put(root, 'package.json', '{"name":"shop","scripts":{"test":"node --test"}}\n');
     const r = cli(root, ['seed', '--scan']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /кандидатов в gates 1/);
+    assert.match(r.out, ruRe('gate candidates {gates}, subsystem candidates {subsystems}', { gates: 1 }));
     assert.match(r.out, /npm run test — package\.json → scripts\.test/);
   } finally {
     cleanup(root);
   }
 });
 
-test('seed --queue-reference: задача на строку без раздела, повтор дублей не плодит', () => {
+test('seed --queue-reference: a task per row without a section, a repeat creates no duplicates', () => {
   const root = makeProject();
   try {
     put(root, 'docs/reference/README.md', [
-      '# Справочник', '',
-      '| Раздел | О чём |', '|---|---|',
-      '| [01. Раскладка и форматы](01-layout.md) | что кладёт init |',
-      '| [Приём заказов](orders-api.md) | HTTP-контур |',
-      '| [Внешняя ссылка](https://example.com/x.md) | не раздел |', '',
+      '# Reference', '',
+      '| Section | About |', '|---|---|',
+      '| [01. Layout and formats](01-layout.md) | what init lays down |',
+      '| [Order intake](orders-api.md) | the HTTP contour |',
+      '| [External link](https://example.com/x.md) | not a section |', '',
     ].join('\n'));
-    put(root, 'docs/reference/01-layout.md', '# 01. Раскладка\n');
+    put(root, 'docs/reference/01-layout.md', '# 01. Layout\n');
 
     const first = cli(root, ['seed', '--queue-reference']);
     assert.equal(first.code, 0, first.err);
-    assert.match(first.out, /заведено задач 1/);
+    assert.match(first.out, ruRe('seed --queue-reference: tasks created {created}, skipped as already seeded {skipped}', { created: 1 }));
     const queue = readdirSync(path.join(root, 'docs/backlog/queue'));
-    assert.deepEqual(queue, ['BS-1-describe-orders-api.md'], 'готовый раздел и внешняя ссылка пропущены');
-    assert.match(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md'), /^# BS-1 · Справочник: Приём заказов\n/);
+    assert.deepEqual(queue, ['BS-1-describe-orders-api.md'], 'the ready section and the external link are skipped');
+    assert.match(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md'), new RegExp(`^# BS-1 · ${ru('Reference')}: Order intake\\n`));
 
-    // Область заводимой задачи известна, но оставшиеся поля пока ждут автора
-    // и красны по lint.
-    assert.match(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md'), /- \*\*Область:\*\* \[Приём заказов\]\(\.\.\/\.\.\/reference\/README\.md\) — раздел `orders-api\.md` ещё не написан\n/);
+    // The area of the created task is known, but the remaining fields still wait for the author
+    // and are red by lint.
+    assert.ok(read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md').includes(`- **${FIELD.area}:** ${ru('[{label}](../../reference/README.md) — section `{href}` is not written yet', { label: 'Order intake', href: 'orders-api.md' })}\n`));
     const lint = cli(root, ['lint']);
-    assert.match(lint.err, /BS-1-describe-orders-api/, 'общий гейт видит незаполненные поля посеянной задачи');
-    // Одна из ошибок — ссылка самой таблицы на ещё не написанный раздел: она и есть
-    // причина задачи, и гасит её тот, кто раздел напишет.
-    assert.match(lint.err, /docs\/reference\/README\.md: битая ссылка orders-api\.md/);
-    assert.match(lint.err, /lint: ошибок 5/);
+    assert.match(lint.err, /BS-1-describe-orders-api/, 'the shared gate sees the unfilled fields of the seeded task');
+    // One of the errors is the link of the table itself to a section not written yet: it is
+    // the reason for the task, and whoever writes the section clears it.
+    assert.match(lint.err, new RegExp(`docs/reference/README\\.md: ${ruRe('broken link {href} (line {line})', { href: 'orders-api.md' }).source}`));
+    assert.match(lint.err, ruRe('lint: errors {errors}{tail}', { errors: 5 }));
 
     const again = cli(root, ['seed', '--queue-reference']);
     assert.equal(again.code, 0, again.err);
-    assert.match(again.out, /заведено задач 0, пропущено как уже посеянные 1/);
-    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/queue')), queue, 'повторный посев второго файла не создаёт');
+    assert.match(again.out, ruRe('seed --queue-reference: tasks created {created}, skipped as already seeded {skipped}', { created: 0, skipped: 1 }));
+    assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/queue')), queue, 'a repeated seed creates no second file');
   } finally {
     cleanup(root);
   }
@@ -221,7 +221,7 @@ test('seed --queue-reference: an English project gets an English Scope', () => {
     assert.equal(r.code, 0, r.err);
     const scope = read(root, 'docs/backlog/queue/BS-1-describe-orders-api.md').split('\n').find((l) => l.startsWith('- **Scope:**'));
     assert.equal(scope, '- **Scope:** [Orders API](../../reference/README.md) — section `orders-api.md` is not written yet');
-    assert.doesNotMatch(scope, /[\u0400-\u04FF]/);
+    assert.doesNotMatch(scope, /\p{Script=Cyrillic}/u);
   } finally {
     cleanup(root);
   }
@@ -342,7 +342,7 @@ test('seed --queue-reference: a folded task titled in the other language counts 
   const root = makeEnProject();
   try {
     put(root, 'docs/reference/README.md', '# Reference\n\n| Section | About |\n|---|---|\n| [X ](x.md) | x |\n');
-    put(root, 'docs/archive/LOG.md', '# Log\n\n- <a id="bs-1"></a>`BS-1-describe-x` · 2026-09-01 · completed · — · Справочник: X\n');
+    put(root, 'docs/archive/LOG.md', `# Log\n\n- <a id="bs-1"></a>\`BS-1-describe-x\` · 2026-09-01 · completed · — · ${ru('Reference')}: X\n`);
     const r = cli(root, ['seed', '--queue-reference']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /tasks created 0, skipped as already seeded 1/);
@@ -365,7 +365,7 @@ test('seed --queue-reference: a row linking an existing section with ?query or a
     put(root, 'docs/reference/03-lint.md', '# Lint\n');
     const r = cli(root, ['seed', '--queue-reference']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /заведено задач 0, пропущено как уже посеянные 0/);
+    assert.match(r.out, ruRe('seed --queue-reference: tasks created {created}, skipped as already seeded {skipped}', { created: 0, skipped: 0 }));
     assert.equal(r.err, '', 'no row is taken for an unwritten section');
     assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/queue')).filter((n) => n !== '.gitkeep'), []);
   } finally {
@@ -373,16 +373,16 @@ test('seed --queue-reference: a row linking an existing section with ?query or a
   }
 });
 
-test('seed: без reference/README.md и без режима — отказ, а не тихая работа', () => {
+test('seed: without reference/README.md and without a mode — a refusal, not quiet work', () => {
   const root = makeProject();
   try {
     const none = cli(root, ['seed']);
     assert.equal(none.code, 1);
-    assert.match(none.err, /ровно один режим/);
-    assert.equal(cli(root, ['seed', '--scan', '--queue-reference']).code, 1, 'два режима сразу — тоже отказ');
+    assert.match(none.err, ruRe('exactly one mode is required: {cli} seed --scan [--json] | --queue-reference'));
+    assert.equal(cli(root, ['seed', '--scan', '--queue-reference']).code, 1, 'two modes at once is a refusal too');
     const json = cli(root, ['seed', '--queue-reference', '--json']);
-    assert.equal(json.code, 1, '--json есть только у --scan');
-    assert.match(json.err, /--json есть только у --scan/);
+    assert.equal(json.code, 1, '--json belongs to --scan only');
+    assert.match(json.err, ruRe('--json belongs to --scan only: --queue-reference creates files rather than printing a list'));
 
     const missing = cli(root, ['seed', '--queue-reference']);
     assert.equal(missing.code, 1);

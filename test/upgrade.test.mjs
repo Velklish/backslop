@@ -13,7 +13,19 @@ import { CliError } from '../lib/util.js';
 import { renderTemplate } from '../lib/templates.js';
 import { LEGACY_README_LINES, LEGACY_ROADMAP } from '../lib/legacy-roadmap.js';
 import { TOOL_VERSION } from '../lib/version.js';
-import { BIN, changelogTool, cleanup, cli, gitAll, makeProject, put, read, run, toolCli } from './helpers.mjs';
+import { RU } from '../lib/i18n.js';
+import { BIN, changelogTool, cleanup, cli, escapeRe, gitAll, makeProject, put, read, ru, ruCard, ruRe, ruTemplateLines, run, toolCli } from './helpers.mjs';
+
+const MISMATCH = '{out}: matches neither the {lang} nor the {other} render — kept until the next version update';
+const REWRITTEN = 'rewritten {names}';
+const RULES_RULE = 'tracking and archive rules from the v{version} template: {what}{mark}{noGit}';
+const NOT_COMMITTED = '{dirty}: uncommitted edit — migrate would rewrite the file from the template and erase it with no trace in history; commit or revert the edit, then retry';
+const NO_SOURCE = 'cli “{cli}” is not a release installation and {config} has no source field: there is nothing to update. Update the tool repository itself with git';
+const ALREADY_ON = 'upgrade: project is already on {label}; {source} has nothing newer than v{target}';
+const KEPT = '{out}: kept — {why}; delete it yourself or keep it as project content';
+const GIT_MISSING = ' — no git, uncommitted edits could not be checked';
+// A non-ASCII (Cyrillic) docs directory: git quotes such paths; the refusal must print it as is.
+const DOCS_DIR = String.fromCodePoint(0x434, 0x43e, 0x43a, 0x438);
 
 function releasesRepo(tags) {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-src-')));
@@ -37,10 +49,10 @@ function setConfig(root, patch) {
 
 const config = (root) => JSON.parse(read(root, 'backslop.json'));
 
-// Копия правил ведения у проекта на прежней версии: одна строка расходится с шаблоном этой.
-const staleRules = (text) => text.replace(/^Операционный трекер .*$/m, 'Операционный трекер прежней версии.');
+// A copy of the rules of a project on the previous version: one line differs from this template.
+const staleRules = (text) => text.replace(/^(?!#)\S.*$/m, 'The tracker of the previous version.');
 
-test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; другие формы пина не несут', () => {
+test('parseCli: the GitHub and exact npm pins keep the npx flags; other pin forms carry none', () => {
   const pinned = parseCli('npx github:me/proj#v0.1.0');
   assert.equal(pinned.pin, '0.1.0');
   assert.equal(pinned.repoUrl, 'https://github.com/me/proj.git');
@@ -51,7 +63,7 @@ test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; др�
   assert.equal(parseCli('node bin/backslop.js'), null);
   const npm = parseCli('npx --yes -q backslop@01.2.3');
   assert.equal(npm.pin, '1.2.3');
-  assert.equal(npm.repoUrl, null, 'npm-форма не выдумывает источник тегов');
+  assert.equal(npm.repoUrl, null, 'the npm form does not invent a tag source');
   assert.equal(npm.withPin('v2.0.0'), 'npx --yes -q backslop@2.0.0');
   assert.equal(parseCli('npx backslop').pin, null);
   assert.equal(parseCli('npx backslop').repoUrl, null);
@@ -59,8 +71,8 @@ test('parseCli: GitHub и exact npm pin сохраняют npx-флаги; др�
   assert.equal(parseCli('npx --yes backslop@latest').pin, null);
   assert.equal(parseCli('npx --yes backslop@latest').withPin('2.0.0'), 'npx --yes backslop@2.0.0');
   const flagged = parseCli('npx --yes -q github:me/proj#v01.2.3');
-  assert.equal(flagged.pin, '1.2.3', 'пин нормализуется');
-  assert.equal(flagged.withPin('v0.2.0'), 'npx --yes -q github:me/proj#v0.2.0', 'флаги npx сохраняются');
+  assert.equal(flagged.pin, '1.2.3', 'the pin is normalised');
+  assert.equal(flagged.withPin('v0.2.0'), 'npx --yes -q github:me/proj#v0.2.0', 'the npx flags are kept');
 });
 
 test('upgrade: pins with a .git suffix or without v move and take the canonical #vX.Y.Z form', () => {
@@ -77,7 +89,7 @@ test('upgrade: pins with a .git suffix or without v move and take the canonical 
   }
 });
 
-test('upgrade npm-пина: теги только из explicit source, флаги и gates сохраняются', () => {
+test('upgrade of an npm pin: tags only from an explicit source, flags and gates are kept', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.2.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -86,13 +98,13 @@ test('upgrade npm-пина: теги только из explicit source, флаг
     setConfig(root, { cli: 'npx --yes -q backslop@0.2.0', gates: ['npx --yes -q backslop@0.2.0 lint', 'npm test'], version: '0.2.0' });
     let r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 1);
-    assert.match(r.err, /источник релизов .*source/);
+    assert.match(r.err, ruRe(NO_SOURCE));
     assert.equal(config(root).cli, 'npx --yes -q backslop@0.2.0');
 
     setConfig(root, { source: src });
     r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.ok(r.out.includes(`→ npx --yes -q backslop@${TOOL_VERSION} version`), 'проба новой версии идёт и при --pin-only');
+    assert.ok(r.out.includes(`→ npx --yes -q backslop@${TOOL_VERSION} version`), 'the probe of the new version runs with --pin-only too');
     assert.equal(config(root).cli, `npx --yes -q backslop@${TOOL_VERSION}`);
     assert.deepEqual(config(root).gates, [`npx --yes -q backslop@${TOOL_VERSION} lint`, 'npm test']);
   } finally {
@@ -115,12 +127,12 @@ test('rewriteGates: every pin of the cli spec in a command moves, a scoped entry
   assert.equal(rewriteCommand('npx --yes backslop@0.1.0 lint', 'npx --yes backslop@0.1.0', parseCli('npx --yes backslop@0.1.0'), '0.2.0'), 'npx --yes backslop@0.2.0 lint');
   assert.deepEqual(rewriteGates(['npx github:me/proj#v0.1.0x lint', 'npx github:me/proj#v0.1.0-rc.1 lint'], old, form, '0.2.0'),
     ['npx github:me/proj#v0.1.0x lint', 'npx github:me/proj#v0.1.0-rc.1 lint'], 'a suffixed pin is left as written');
-  // Запись с областью правится внутрь и сохраняет `when`, нетронутая возвращается той же ссылкой —
-  // иначе число заменённых было бы числом записей с областью.
+  // An entry with a scope is edited inside and keeps `when`; an untouched one comes back as the
+  // same reference — else the number replaced would be the number of entries with a scope.
   const gates = [{ command: 'npx github:me/proj#v0.1.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }];
   const next = rewriteGates(gates, old, form, '0.2.0');
   assert.deepEqual(next, [{ command: 'npx github:me/proj#v0.2.0 lint', when: ['docs/**'] }, { command: 'npm test', when: ['lib/**'] }]);
-  assert.equal(next[1], gates[1], 'нетронутая запись — та же ссылка');
+  assert.equal(next[1], gates[1], 'an untouched entry is the same reference');
 });
 
 test('rewriteGates: a floating cli inside a quoted command is pinned like an unquoted one', () => {
@@ -131,11 +143,11 @@ test('rewriteGates: a floating cli inside a quoted command is pinned like an unq
   );
 });
 
-test('changelogSince: секции строго после since и не позже to, без «Не выпущено»', () => {
-  const text = '# Changelog\n\n## Не выпущено\n\n- **x**\n\n## v0.3.0 — 2026-10-01\n\n- **три**\n\n## v0.2.0 — 2026-09-03\n\n- **два**\n\n## v0.1.0 — 2026-09-03\n\n- **один**\n';
-  assert.equal(changelogSince(text, '0.1.0', '0.2.0'), '## v0.2.0 — 2026-09-03\n- **два**');
-  assert.match(changelogSince(text, '0.1.0', '9.9.9'), /три[\s\S]*два/);
-  assert.doesNotMatch(changelogSince(text, '0.1.0', '9.9.9'), /один|Не выпущено/);
+test('changelogSince: sections strictly after since and not later than to, without “Unreleased”', () => {
+  const text = '# Changelog\n\n## Unreleased\n\n- **x**\n\n## v0.3.0 — 2026-10-01\n\n- **three**\n\n## v0.2.0 — 2026-09-03\n\n- **two**\n\n## v0.1.0 — 2026-09-03\n\n- **one**\n';
+  assert.equal(changelogSince(text, '0.1.0', '0.2.0'), '## v0.2.0 — 2026-09-03\n- **two**');
+  assert.match(changelogSince(text, '0.1.0', '9.9.9'), /three[\s\S]*two/);
+  assert.doesNotMatch(changelogSince(text, '0.1.0', '9.9.9'), /one|Unreleased/);
   assert.equal(changelogSince(text, '0.3.0', '9.9.9'), '');
 });
 
@@ -144,7 +156,7 @@ test('changelogSince: a section whose heading does not start with a version is n
   assert.equal(changelogSince(text, null, '9.9.9'), '## [0.2.0] - 2026-09-03\n- **two**\n\n## v0.1.0 — 2026-09-01\n- **one**');
 });
 
-test('listReleaseTags: теги локального репозитория как у GitHub', () => {
+test('listReleaseTags: tags of a local repository as GitHub gives them', () => {
   const src = releasesRepo(['v0.1.0', 'v0.2.0', 'not-a-release']);
   try {
     assert.deepEqual(listReleaseTags(src).sort(), ['0.1.0', '0.2.0']);
@@ -193,7 +205,7 @@ test('upgrade --to is checked for form before the release source is read', () =>
   }
 });
 
-test('upgrade: git ls-remote, оборванный сигналом, — отказ называет сигнал, а не «код null»', { skip: process.platform === 'win32' }, () => {
+test('upgrade: git ls-remote killed by a signal — the refusal names the signal, not “code null”', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.2.0', 'v0.3.0']);
   const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
@@ -204,8 +216,8 @@ test('upgrade: git ls-remote, оборванный сигналом, — отк�
 
     const r = cli(root, ['upgrade', '--dry-run'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
     assert.equal(r.code, 1, r.out);
-    assert.ok(r.err.includes(`git ls-remote --tags ${src}: оборван сигналом SIGKILL`), r.err);
-    assert.doesNotMatch(r.err, /код null/);
+    assert.ok(r.err.includes(`git ls-remote --tags ${src}: ${ru('killed by {signal}', { signal: 'SIGKILL' })}`), r.err);
+    assert.doesNotMatch(r.err, new RegExp(escapeRe(ru('exit code {status}', { status: null }))));
     assert.equal(config(root).cli, 'npx --yes -q backslop@0.2.0');
   } finally {
     cleanup(root);
@@ -271,19 +283,19 @@ test('upgrade --dry-run shows the plan and writes nothing; --pin-only moves the 
     const cfg = config(root);
     assert.equal(cfg.cli, `npx github:me/proj#v${V}`);
     assert.deepEqual(cfg.gates, [`npx github:me/proj#v${V} lint`, 'npm test']);
-    assert.equal(cfg.version, '0.1.0', 'штамп ставит только новая версия через migrate/init');
+    assert.equal(cfg.version, '0.1.0', 'the stamp is set only by the new version through migrate/init');
 
     setConfig(root, { version: V });
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.ok(r.out.includes(`уже на v${V}`), r.out);
+    assert.match(r.out, ruRe(ALREADY_ON, { label: `v${V}` }), r.out);
     r = cli(root, ['upgrade', '--to', 'v9.9.9'], { env });
     assert.equal(r.code, 1);
-    assert.match(r.err, /тега v9\.9\.9/);
+    assert.match(r.err, new RegExp(`${ruRe('tag v{target} does not exist in {source}; available: {tags}', { target: '9.9.9' }).source}|${ruRe('tag v{target} does not exist in {source}; available: none', { target: '9.9.9' }).source}`));
     r = cli(root, ['upgrade', '--to', 'v0.1.0'], { env });
     assert.equal(r.code, 1);
-    assert.ok(r.err.includes(`понижение v${V} → v0.1.0 не поддерживается`), r.err);
-    assert.equal(config(root).cli, `npx github:me/proj#v${V}`, 'отказ ничего не переставил');
+    assert.ok(r.err.includes(ru('downgrade v{current} → v{target} is not supported: the older version does not understand the newer file format', { current: V, target: '0.1.0' })), r.err);
+    assert.equal(config(root).cli, `npx github:me/proj#v${V}`, 'the refusal moved nothing');
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
@@ -291,7 +303,7 @@ test('upgrade --dry-run shows the plan and writes nothing; --pin-only moves the 
   }
 });
 
-test('upgrade целиком: migrate и init новой версией, штамп и скиллы, выжимка CHANGELOG', () => {
+test('upgrade as a whole: migrate and init by the new version, the stamp and skills, the CHANGELOG summary', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const tool = changelogTool();
@@ -301,7 +313,7 @@ test('upgrade целиком: migrate и init новой версией, шта�
     rmSync(path.join(root, 'docs', 'README.md'));
     const r = toolCli(tool, ['upgrade'], { cwd: root });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.err, /пин не меняется/);
+    assert.match(r.err, ruRe('cli “{cli}” is not an npx github:… or npx backslop@X.Y.Z pin: its pin is unchanged; update the installation yourself'));
     assert.match(r.out, /→ node .*backslop\.js" migrate/);
     assert.match(r.out, /→ node .*backslop\.js" init/);
     assert.match(r.out, new RegExp(`## v${TOOL_VERSION.replace(/\./g, '\\.')} `));
@@ -310,7 +322,7 @@ test('upgrade целиком: migrate и init новой версией, шта�
     assert.ok(existsSync(path.join(root, '.claude/skills/backslop-task/SKILL.md')));
     const lint = cli(root, ['lint']);
     assert.equal(lint.code, 0, lint.err);
-    assert.doesNotMatch(lint.err, /штамп/);
+    assert.doesNotMatch(lint.err, new RegExp(Object.keys(RU.messages).filter((key) => /stamp/i.test(key)).map((key) => ruRe(key).source).join('|')));
   } finally {
     cleanup(root);
     cleanup(tool);
@@ -324,7 +336,7 @@ test('upgrade without a release source refuses', () => {
     setConfig(root, { cli: 'node bin/backslop.js' });
     const r = cli(root, ['upgrade']);
     assert.equal(r.code, 1);
-    assert.match(r.err, /обновлять нечего/);
+    assert.match(r.err, ruRe(NO_SOURCE));
   } finally {
     cleanup(root);
   }
@@ -336,20 +348,20 @@ test('migrate without a stamp: every migration is due, the stamp goes from none 
     setConfig(root, { cli: 'node bin/backslop.js' });
     let r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /миграция до v0\.10\.0: журнал закрытых docs\/archive\/LOG\.md \(--dry-run\)/, 'без штампа проект считается старше любой миграции');
+    assert.match(r.out, ruRe('migration through v{since}: {title}{mark}', { since: '0.10.0', title: ru('closed task journal docs/archive/LOG.md'), mark: ' (--dry-run)' }), 'without a stamp the project counts as older than any migration');
     assert.equal(config(root).version, undefined);
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
     assert.equal(config(root).version, TOOL_VERSION);
-    assert.match(r.out, /штамп версии: не было → v/);
+    assert.match(r.out, ruRe('version stamp: missing → v{version}'));
   } finally {
     cleanup(root);
   }
 });
 
-// Правила ведения и архива принадлежат инструменту (ADR-048): migrate перерисовывает их, пока
-// штамп ниже его версии, а проектный скелет docs не трогает.
-test('migrate: правила ведения и архива перерисовываются из шаблона, проектные файлы docs — нет', () => {
+// The tracking and archive rules belong to the tool (ADR-048): migrate redraws them while the stamp
+// is below its version, and leaves the project docs skeleton alone.
+test('migrate: the tracking and archive rules are redrawn from the template, project docs files are not', () => {
   const root = makeProject({ git: false });
   try {
     setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
@@ -357,25 +369,25 @@ test('migrate: правила ведения и архива перерисов�
     const rules = ['docs/backlog/README.md', 'docs/archive/README.md'];
     const expected = Object.fromEntries(rules.map((rel) => [rel, renderTemplate(rel, vars)]));
     put(root, rules[0], staleRules(expected[rules[0]]));
-    put(root, 'docs/GLOSSARY.md', '# Свой глоссарий\n');
+    put(root, 'docs/GLOSSARY.md', '# Own glossary\n');
     const index = read(root, 'docs/README.md');
     let r = cli(root, ['migrate', '--dry-run']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /правила ведения и архива из шаблона v\d+\.\d+\.\d+: перерисовать docs\/backlog\/README\.md, docs\/archive\/README\.md \(--dry-run\)/);
-    assert.equal(read(root, rules[0]), staleRules(expected[rules[0]]), '--dry-run ничего не пишет');
+    assert.match(r.out, ruRe(RULES_RULE, { what: ru('would rewrite {names}', { names: 'docs/backlog/README.md, docs/archive/README.md' }), mark: ' (--dry-run)' }));
+    assert.equal(read(root, rules[0]), staleRules(expected[rules[0]]), '--dry-run writes nothing');
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /перерисованы docs\/backlog\/README\.md, docs\/archive\/README\.md/);
-    for (const rel of rules) assert.equal(read(root, rel), expected[rel], `${rel} не равен рендеру шаблона`);
-    assert.equal(read(root, 'docs/GLOSSARY.md'), '# Свой глоссарий\n', 'проектный файл docs не перерисовывается');
-    assert.equal(read(root, 'docs/README.md'), index, 'индекс docs не перерисовывается');
+    assert.match(r.out, ruRe(REWRITTEN, { names: 'docs/backlog/README.md, docs/archive/README.md' }));
+    for (const rel of rules) assert.equal(read(root, rel), expected[rel], `${rel} is not equal to the template render`);
+    assert.equal(read(root, 'docs/GLOSSARY.md'), '# Own glossary\n', 'a project docs file is not redrawn');
+    assert.equal(read(root, 'docs/README.md'), index, 'the docs index is not redrawn');
 
-    // На своей версии правила не трогаются: перерисовку несёт только обновление.
-    put(root, rules[1], '# Своя правка архива\n');
+    // On its own version the rules are not touched: only an update brings the redraw.
+    put(root, rules[1], '# Own archive edit\n');
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.equal(read(root, rules[1]), '# Своя правка архива\n');
-    assert.doesNotMatch(r.out, /правила ведения/);
+    assert.equal(read(root, rules[1]), '# Own archive edit\n');
+    assert.doesNotMatch(r.out, ruRe(RULES_RULE));
   } finally {
     cleanup(root);
   }
@@ -390,7 +402,7 @@ test('migrate: a rewritten rules file keeps its UTF-8 BOM', () => {
     put(root, rel, `﻿${staleRules(expected)}`);
     const r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /перерисованы docs\/backlog\/README\.md/);
+    assert.match(r.out, ruRe(REWRITTEN, { names: 'docs/backlog/README.md' }));
     assert.equal(read(root, rel), `﻿${expected}`, 'the rewrite is the template render behind the kept BOM');
   } finally {
     cleanup(root);
@@ -407,14 +419,14 @@ test('migrate: at the same version a BOM-carrying rules file equal to the render
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(r.out, /не совпадает/, 'BOM + the exact render is the render');
+    assert.doesNotMatch(r.out, ruRe(MISMATCH), 'BOM + the exact render is the render');
     assert.ok(read(root, rel).startsWith('﻿'), 'the BOM stays');
   } finally {
     cleanup(root);
   }
 });
 
-test('migrate: en-проект получает правила из en-шаблона, недостающий файл пары создаётся', () => {
+test('migrate: an en project gets the rules from the en template, a missing file of the pair is created', () => {
   const root = makeProject({ git: false });
   try {
     setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0', lang: 'en' });
@@ -424,66 +436,67 @@ test('migrate: en-проект получает правила из en-шабл�
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /tracking and archive rules from the v\d+\.\d+\.\d+ template: rewritten docs\/backlog\/README\.md, docs\/archive\/README\.md — no git, uncommitted edits could not be checked/);
     for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
-      assert.equal(read(root, rel), renderTemplate(`en/${rel}`, vars), `${rel} не равен рендеру en-шаблона`);
+      assert.equal(read(root, rel), renderTemplate(`en/${rel}`, vars), `${rel} is not equal to the render of the en template`);
     }
   } finally {
     cleanup(root);
   }
 });
 
-// Незакоммиченную правку перерисовка стёрла бы без следа в истории: отказ до первой записи.
-test('migrate: незакоммиченная правка правил — отказ с именем файла, штамп и файлы не тронуты', () => {
+// An uncommitted edit would be erased by the redraw with no trace in history: a refusal comes
+// before the first write.
+test('migrate: an uncommitted edit of the rules — a refusal naming the file, the stamp and files untouched', () => {
   const root = makeProject();
   try {
     setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
     gitAll(root);
-    put(root, 'docs/backlog/README.md', '# Свои правила, не закоммичены\n');
+    put(root, 'docs/backlog/README.md', '# Own rules, not committed\n');
     for (const args of [['migrate', '--dry-run'], ['migrate']]) {
       const r = cli(root, args);
-      assert.equal(r.code, 1, `${args.join(' ')}: ожидался отказ`);
-      assert.match(r.err, /docs\/backlog\/README\.md.*закоммить или откати правку, затем повтори/);
+      assert.equal(r.code, 1, `${args.join(' ')}: a refusal was expected`);
+      assert.match(r.err, ruRe(NOT_COMMITTED, { dirty: 'docs/backlog/README.md' }));
     }
-    assert.equal(read(root, 'docs/backlog/README.md'), '# Свои правила, не закоммичены\n');
-    assert.equal(config(root).version, '0.10.0', 'отказ не переставил штамп');
+    assert.equal(read(root, 'docs/backlog/README.md'), '# Own rules, not committed\n');
+    assert.equal(config(root).version, '0.10.0', 'the refusal did not move the stamp');
 
-    gitAll(root, 'свои правила');
+    gitAll(root, 'own rules');
     const r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(r.out, /no git|git нет/);
-    assert.match(read(root, 'docs/backlog/README.md'), /^# Backlog\n\nОперационный трекер /);
+    assert.doesNotMatch(r.out, new RegExp(`no git|${ruRe(GIT_MISSING).source}`));
+    assert.ok(read(root, 'docs/backlog/README.md').startsWith(`# Backlog\n\n${ruTemplateLines('docs/backlog/README.md')[2].split('{{')[0]}`));
   } finally {
     cleanup(root);
   }
 });
 
 test('migrate: the uncommitted-edit refusal names a non-ASCII path as it is, not C-quoted', () => {
-  const root = makeProject({ docs: 'доки' });
+  const root = makeProject({ docs: DOCS_DIR });
   try {
     setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
     gitAll(root);
-    put(root, 'доки/backlog/README.md', '# Свои правила, не закоммичены\n');
+    put(root, `${DOCS_DIR}/backlog/README.md`, '# Own rules, not committed\n');
     const r = cli(root, ['migrate']);
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /доки\/backlog\/README\.md: незакоммиченная правка/);
+    assert.match(r.err, ruRe(NOT_COMMITTED, { dirty: `${DOCS_DIR}/backlog/README.md` }));
     assert.doesNotMatch(r.err, /\\3\d\d/, 'no octal escapes');
   } finally {
     cleanup(root);
   }
 });
 
-test('migrate: файл пары за symlink не перерисовывается — предупреждение, общий файл цел', { skip: process.platform === 'win32' }, () => {
+test('migrate: a file of the pair behind a symlink is not redrawn — a warning, the shared file stays intact', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
   try {
     setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
-    writeFileSync(path.join(shared, 'README.md'), '# Общий архив\n');
+    writeFileSync(path.join(shared, 'README.md'), '# Shared archive\n');
     rmSync(path.join(root, 'docs/archive/README.md'));
     symlinkSync(path.join(shared, 'README.md'), path.join(root, 'docs/archive/README.md'));
     const r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.err, /docs\/archive\/README\.md: путь идёт через symlink docs\/archive\/README\.md/);
-    assert.equal(read(shared, 'README.md'), '# Общий архив\n', 'запись ушла за ссылку');
-    assert.match(r.out, /перерисованы docs\/backlog\/README\.md(?!, docs\/archive)/);
+    assert.match(r.err, ruRe('{out}: the path goes through the symlink {link} — rules not rewritten, the write would land behind the link', { out: 'docs/archive/README.md', link: 'docs/archive/README.md' }));
+    assert.equal(read(shared, 'README.md'), '# Shared archive\n', 'the write went behind the link');
+    assert.match(r.out, new RegExp(`${ruRe(REWRITTEN, { names: 'docs/backlog/README.md' }).source}(?!, docs/archive)`));
   } finally {
     cleanup(root);
     rmSync(shared, { recursive: true, force: true });
@@ -521,7 +534,7 @@ test('migrate: a ru project switched to en redraws the untouched rules pair', ()
 });
 
 test('migrate: an edited rules file keeps its local edits on a lang switch, with a note', () => {
-  const root = switchedToEn((dir) => put(dir, 'docs/backlog/README.md', `${read(dir, 'docs/backlog/README.md')}\nСвоё правило.\n`));
+  const root = switchedToEn((dir) => put(dir, 'docs/backlog/README.md', `${read(dir, 'docs/backlog/README.md')}\nAn own rule.\n`));
   try {
     const edited = read(root, 'docs/backlog/README.md');
     const vars = { cli: config(root).cli, prefix: 'BS', project: path.basename(root) };
@@ -542,15 +555,15 @@ test('migrate: at its own version a rules file off by a pin is redrawn, off by C
     const archive = read(root, 'docs/archive/README.md');
     let r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(r.out, /не совпадает|перерисованы/);
+    assert.doesNotMatch(r.out, new RegExp(`${ruRe(MISMATCH).source}|${ruRe(REWRITTEN).source}`));
     assert.equal(read(root, 'docs/archive/README.md'), archive, 'a CRLF-only difference is not rewritten');
 
     const cliNow = 'npx github:Velklish/backslop#v0.10.0';
     setConfig(root, { cli: cliNow });
     r = cli(root, ['migrate']);
     assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(r.out, /не совпадает/);
-    assert.match(r.out, /перерисованы docs\/backlog\/README\.md, docs\/archive\/README\.md/);
+    assert.doesNotMatch(r.out, ruRe(MISMATCH));
+    assert.match(r.out, ruRe(REWRITTEN, { names: 'docs/backlog/README.md, docs/archive/README.md' }));
     const vars = { cli: cliNow, prefix: 'BS', project: path.basename(root) };
     for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md']) {
       assert.equal(read(root, rel), renderTemplate(rel, vars), `${rel} is not the render with the cli pin`);
@@ -584,14 +597,14 @@ test('upgrade pins a floating cli inside an init-rendered rules pair, with no no
   }
 });
 
-// Полный путь пользователя: форма npx, перепись пина, запуск новой версии тем самым cli.
-// Сеть подменяет шим `npx` в PATH: он отбрасывает спеку и запускает локальный bin.
+// The full user path: the npx form, the pin rewrite, a run of the new version with that same cli.
+// The network is replaced by an `npx` shim in PATH: it drops the spec and runs the local bin.
 function npxShim(before = '', bin = BIN) {
   // `before` is script code that runs first: it may exit or print on its own.
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-npx-')));
   const script = path.join(dir, 'npx.mjs');
-  // Снимает флаги npx и спеку пакета, сколько бы их ни было: `npx --yes -q backslop@X version`
-  // и `npx github:me/proj#vX version` оба должны дойти до локального bin как `version`.
+  // Strips the npx flags and the package spec, however many: `npx --yes -q backslop@X version`
+  // and `npx github:me/proj#vX version` must both reach the local bin as `version`.
   writeFileSync(script, `import { spawnSync } from 'node:child_process';
 ${before}const args = process.argv.slice(2);
 while (args.length && args[0].startsWith('-')) args.shift();
@@ -604,7 +617,7 @@ process.exit(spawnSync(process.execPath, [${JSON.stringify(bin)}, ...args], { st
   return dir;
 }
 
-test('upgrade по форме npx: пробный запуск до пина, пин и гейты, скиллы новой версией', () => {
+test('upgrade by the npx form: a probe run before the pin, the pin and gates, the skills of the new version', () => {
   const root = makeProject({ git: false, stamp: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -615,7 +628,7 @@ test('upgrade по форме npx: пробный запуск до пина, п
     let r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
     const lines = r.out.split('\n').filter((l) => l.startsWith('  → '));
-    assert.match(lines[0], /version$/, 'первым идёт пробный запуск новой версии');
+    assert.match(lines[0], /version$/, 'the probe run of the new version comes first');
     assert.match(lines[1], /migrate$/);
     assert.match(lines[2], /init$/);
     const cfg = config(root);
@@ -627,12 +640,12 @@ test('upgrade по форме npx: пробный запуск до пина, п
     assert.equal(r.code, 0, r.err);
     assert.doesNotMatch(r.err, /⚠/);
 
-    // Сбой после пина: init отказывает на маркере без пары — upgrade говорит, как довести.
+    // A failure after the pin: init refuses a marker without its pair — upgrade says how to finish.
     setConfig(root, { cli: 'npx github:me/proj#v0.1.0', version: '0.1.0' });
-    put(root, 'AGENTS.md', '<!-- backslop:start -->\nбез пары\n');
+    put(root, 'AGENTS.md', '<!-- backslop:start -->\nno pair\n');
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 1);
-    assert.match(r.err, /Пин уже v\d+\.\d+\.\d+: доведи руками/);
+    assert.match(r.err, ruRe('Pin is already v{target}: finish manually with {finish}'));
     assert.equal(config(root).cli, `npx github:me/proj#v${TOOL_VERSION}`);
   } finally {
     cleanup(root);
@@ -641,8 +654,8 @@ test('upgrade по форме npx: пробный запуск до пина, п
   }
 });
 
-// Пин пишется только после пробного запуска новой версии, и `--pin-only` пробу не сокращает:
-// иначе проект остался бы с пином на команду, которая не поднимается.
+// The pin is written only after a probe run of the new version, and `--pin-only` does not shorten
+// the probe: else the project would keep a pin on a command that does not start.
 test('upgrade: a failed probe run writes neither pin, gates nor stamp', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
@@ -654,8 +667,8 @@ test('upgrade: a failed probe run writes neither pin, gates nor stamp', () => {
       setConfig(root, { ...old, source: src });
       const r = cli(root, argv, { env: { PATH: `${broken}${path.delimiter}${process.env.PATH}` } });
       assert.equal(r.code, 1, `${label}: ${r.out}`);
-      assert.match(r.err, / — код 3\. /, label);
-      assert.match(r.err, /Пин и штамп не тронуты/, label);
+      assert.match(r.err, new RegExp(` — ${escapeRe(ru('exit code {status}', { status: 3 }))}\\. `), label);
+      assert.match(r.err, ruRe('Pin and version stamp were not changed — fix the problem, then retry {cli} upgrade{to}'), label);
       const cfg = config(root);
       assert.deepEqual({ cli: cfg.cli, gates: cfg.gates, version: cfg.version }, old, label);
     }
@@ -668,15 +681,15 @@ test('upgrade: a failed probe run writes neither pin, gates nor stamp', () => {
 
 test('init and migrate refuse a stamp newer than the tool', () => {
   const root = makeProject({ git: false });
-  const head = `✖ штамп v9.9.9 новее инструмента v${TOOL_VERSION}: обнови установку или пин в cli`;
+  const head = ru('version stamp v{version} is newer than tool v{tool}: update the installation or cli pin', { version: '9.9.9', tool: TOOL_VERSION });
   try {
     setConfig(root, { version: '9.9.9' });
-    for (const [command, tail] of [['init', 'старой версией раскладку не делаю'], ['migrate', 'назад формат не переводится']]) {
+    for (const [command, key] of [['init', '{head}; an older tool cannot generate this layout'], ['migrate', '{head}; file formats cannot be migrated backwards']]) {
       const r = cli(root, [command]);
       assert.equal(r.code, 1, `${command}: ${r.out}`);
-      assert.equal(r.err, `${head}, ${tail}\n`);
+      assert.equal(r.err, `✖ ${ru(key, { head })}\n`);
     }
-    assert.equal(config(root).version, '9.9.9', 'штамп новее себя не затирается');
+    assert.equal(config(root).version, '9.9.9', 'a stamp newer than the tool is not overwritten');
   } finally {
     cleanup(root);
   }
@@ -687,10 +700,10 @@ test('changelog CLI: --since and --to bounds, an empty summary', () => {
   const tool = changelogTool();
   const rows = [
     { argv: ['--since', 'v0.0.1'], code: 0, match: /## v0\.1\.0/ },
-    { argv: ['--since', 'v99.0.0'], code: 0, match: /^записей после v99\.0\.0 и до v\d+\.\d+\.\d+ нет\n$/ },
-    { argv: ['--since', 'latest'], code: 1, match: /^✖ --since «latest»: нужна форма X\.Y\.Z\n$/ },
+    { argv: ['--since', 'v99.0.0'], code: 0, match: new RegExp(`^${ruRe('no entries after v{since} and through v{to}', { since: '99.0.0' }).source}\\n$`) },
+    { argv: ['--since', 'latest'], code: 1, match: new RegExp(`^✖ ${ruRe('--since “{since}”: expected X.Y.Z', { since: 'latest' }).source}\\n$`) },
     { argv: ['--to', 'v0.1.0'], code: 0, match: /## v0\.1\.0/, doesNotMatch: /## v0\.2\.0/ },
-    { argv: ['--to', 'v0.0.1'], code: 0, match: /^записей до v0\.0\.1 нет\n$/ },
+    { argv: ['--to', 'v0.0.1'], code: 0, match: new RegExp(`^${ruRe('no entries through v{to}', { to: '0.0.1' }).source}\\n$`) },
   ];
   try {
     for (const row of rows) {
@@ -707,8 +720,8 @@ test('changelog CLI: --since and --to bounds, an empty summary', () => {
   }
 });
 
-// Пин живёт не только в конфиге: живая инструкция в docs зовёт его текстом команды.
-test('upgrade: пин в прозе docs переставляется, записи о моменте — нет', () => {
+// The pin lives not only in the config: a live instruction in docs calls it as a command text.
+test('upgrade: a pin in docs prose is moved, records of a moment are not', () => {
   const root = makeProject({ git: false });
   const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
   const shim = npxShim();
@@ -716,28 +729,28 @@ test('upgrade: пин в прозе docs переставляется, запи�
   const now = `npx github:me/proj#v${TOOL_VERSION}`;
   const seed = () => {
     setConfig(root, { cli: old, gates: [`${old} lint`], version: '0.1.0', source: src });
-    put(root, 'docs/reference/README.md', `# Справочник\n\nПереезд делает \`${old} archive N\`.\n`);
-    put(root, 'docs/GLOSSARY.md', `# Глоссарий\n\nСводку печатает \`${old} status\`.\n`);
-    put(root, 'README.md', `Установка: \`${old} init\`.\n`);
+    put(root, 'docs/reference/README.md', `# Reference\n\nThe move is done by \`${old} archive N\`.\n`);
+    put(root, 'docs/GLOSSARY.md', `# Glossary\n\nThe summary is printed by \`${old} status\`.\n`);
+    put(root, 'README.md', `Install: \`${old} init\`.\n`);
     put(root, 'package.json', '{"scripts":{"lint:backslop":"' + old + ' lint"}}\n');
     put(root, 'fixture-package.json', '{"scripts":{"lint:backslop":"' + old + ' lint"}}\n');
     put(root, '.github/workflows/ci.yml', 'steps:\n  - run: ' + old + ' init\n');
-    put(root, 'CHANGELOG.md', `## Не выпущено\n\n- **Было** — \`${old}\`\n`);
-    put(root, 'docs/adr/adr-001-x.md', `# ADR-001: Х\n\nРешение принято при \`${old}\`.\n`);
-    put(root, 'docs/archive/BS-1-x/task.md', `# BS-1 · Х\n\nГнали \`${old} lint\`.\n`);
-    put(root, 'docs/backlog/queue/BS-2-card.md', `# BS-2 · Карточка\n\n- **Порядок:** 10\n\nПроверено на \`${old}\`.\n`);
-    put(root, 'docs/ROADMAP.md', '# Roadmap\n\nОпечатка в пине: `npx github:me/proj#v0.1.09`.\n');
+    put(root, 'CHANGELOG.md', `## Unreleased\n\n- **Was** — \`${old}\`\n`);
+    put(root, 'docs/adr/adr-001-x.md', `# ADR-001: X\n\nThe decision was taken at \`${old}\`.\n`);
+    put(root, 'docs/archive/BS-1-x/task.md', `# BS-1 · X\n\nRan \`${old} lint\`.\n`);
+    put(root, 'docs/backlog/queue/BS-2-card.md', `${ruCard('BS-2', 'Card', { order: 10 })}\nChecked on \`${old}\`.\n`);
+    put(root, 'docs/ROADMAP.md', '# Roadmap\n\nA typo in the pin: `npx github:me/proj#v0.1.09`.\n');
   };
   try {
     const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
     seed();
     let r = cli(root, ['upgrade', '--pin-only'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /затем .* upgrade для живых пинов/);
-    assert.ok(read(root, 'docs/reference/README.md').includes(old), '--pin-only прозу не трогает');
+    assert.match(r.out, ruRe('{newCli} migrate && {newCli} init, then {newCli} upgrade for live pins'));
+    assert.ok(read(root, 'docs/reference/README.md').includes(old), '--pin-only does not touch prose');
 
-    // Прозу чинит следующий полный upgrade: поиск идёт по спеке, а не по литералу прежнего cli,
-    // иначе отставшая на две версии проза не починилась бы никогда.
+    // Prose is fixed by the next full upgrade: the search goes by the spec, not by the literal of
+    // the previous cli, else prose two versions behind would never be fixed.
     r = cli(root, ['migrate'], { env });
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['init'], { env });
@@ -745,22 +758,22 @@ test('upgrade: пин в прозе docs переставляется, запи�
     assert.equal(config(root).version, TOOL_VERSION);
     r = cli(root, ['lint'], { env });
     assert.equal(r.code, 1, r.err);
-    assert.match(r.err, /пин .*расходится с cli/);
+    assert.match(r.err, new RegExp(`${ruRe('line {lineNo}: pin {pin} differs from cli — expected {expected}; {fix}').source}|${ruRe('{at}: pin {pin} differs from cli — expected {expected}; {cli} upgrade rewrites it').source}`));
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /пин в прозе: 6 файлов/);
+    assert.match(r.out, ruRe('pin in prose: {rewritten} files', { rewritten: 6 }));
     for (const rel of ['docs/reference/README.md', 'docs/GLOSSARY.md', 'README.md', 'package.json', '.github/workflows/ci.yml']) {
-      assert.ok(read(root, rel).includes(now), `${rel}: пин не переставлен`);
-      assert.ok(!read(root, rel).includes(old), `${rel}: остался старый пин`);
+      assert.ok(read(root, rel).includes(now), `${rel}: the pin was not moved`);
+      assert.ok(!read(root, rel).includes(old), `${rel}: the old pin stayed`);
     }
-    assert.ok(read(root, 'fixture-package.json').includes(old), 'fixture-package.json не является живым манифестом');
+    assert.ok(read(root, 'fixture-package.json').includes(old), 'fixture-package.json is not a live manifest');
     for (const rel of ['CHANGELOG.md', 'docs/adr/adr-001-x.md', 'docs/archive/BS-1-x/task.md', 'docs/backlog/queue/BS-2-card.md']) {
-      assert.ok(read(root, rel).includes(old), `${rel}: запись о моменте переписана, а не должна`);
+      assert.ok(read(root, rel).includes(old), `${rel}: the record of a moment was rewritten, and must not be`);
     }
-    // Номер захватывается целиком: из старого и нового не собирается мусорная версия.
+    // The number is captured whole: no junk version is assembled from the old and the new.
     const roadmap = read(root, 'docs/ROADMAP.md');
     assert.ok(roadmap.includes(`npx github:me/proj#v${TOOL_VERSION}`), roadmap);
-    assert.ok(!/#v\d+\.\d+\.\d+\d/.test(roadmap), `собрана мусорная версия: ${roadmap}`);
+    assert.ok(!/#v\d+\.\d+\.\d+\d/.test(roadmap), `a junk version was assembled: ${roadmap}`);
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
@@ -784,7 +797,7 @@ test('upgrade leaves a pin in a journal entry, rewrites the LOG.md header, then 
     assert.equal(read(root, 'docs/archive/LOG.md'), `# Log\n\nBodies: \`${now} show N\`.\n\n${entry}\n`);
     r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /уже на/);
+    assert.match(r.out, ruRe(ALREADY_ON));
   } finally {
     cleanup(root);
     rmSync(src, { recursive: true, force: true });
@@ -997,7 +1010,7 @@ test('upgrade on the latest version does not say already on while a suffixed pin
     put(root, 'docs/README.md', `${read(root, 'docs/README.md')}\n${suffixed}`);
     const r = cli(root, ['upgrade'], { env });
     assert.equal(r.code, 0, r.err);
-    assert.doesNotMatch(r.out, /уже на/);
+    assert.doesNotMatch(r.out, ruRe(ALREADY_ON));
     assert.ok(read(root, 'docs/README.md').endsWith(`\n${suffixed}`), 'a suffixed pin in prose is not rewritten');
     assert.deepEqual(config(root).gates, [`${now} lint`, 'npx github:me/proj#v0.1.0x gates'], 'a suffixed pin in a gate is not rewritten');
   } finally {
@@ -1171,7 +1184,7 @@ test('migrate: a failing git status is a refusal, not "no git"', () => {
 // lines and the old backlog README sentence, committed at stamp 0.11.0.
 const OLD_PIN = 'npx github:me/proj#v0.11.0';
 const OLD_BACKLOG = {
-  ru: [' Закрытые задачи — [архив](../archive/README.md).', ' Куда движется проект в целом — [ROADMAP.md](../ROADMAP.md); закрытые задачи — [архив](../archive/README.md).'],
+  ru: [` ${ruTemplateLines('docs/backlog/README.md')[2].split(/(?<=\.) /).at(-1)}`, ' For overall project direction, see [ROADMAP.md](../ROADMAP.md); for closed tasks, see the [archive](../archive/README.md).'],
   en: [' For closed tasks, see the [archive](../archive/README.md).', ' For overall project direction, see [ROADMAP.md](../ROADMAP.md); for closed tasks, see the [archive](../archive/README.md).'],
 };
 
@@ -1204,13 +1217,13 @@ function roadmapConsumer(lang, cliSpec = OLD_PIN, patch = {}) {
 
 const ROADMAP_SAYS = {
   ru: {
-    deleted: /^ {2}удалён docs\/ROADMAP\.md: совпадает с шаблоном прежних версий, ссылок на него не осталось$/m,
-    edited: /^ {2}поправлен docs\/README\.md: сняты строки со ссылкой на ROADMAP\.md$/m,
-    dry: /^ {2}удалить docs\/ROADMAP\.md: .* \(--dry-run\)\n {2}поправить docs\/README\.md: .* \(--dry-run\)$/m,
-    differs: /docs\/ROADMAP\.md: оставлен — отличается от шаблона прежних версий и на него ссылаются docs\/README\.md; удали его сам или держи как проектный документ/,
-    linked: /docs\/ROADMAP\.md: оставлен — на него ссылаются docs\/GLOSSARY\.md, docs\/README\.md; удали его сам/,
-    dirty: /docs\/README\.md: незакоммиченная правка — migrate удалил бы или поправил файл/,
-    symlink: /docs\/ROADMAP\.md: путь идёт через symlink docs\/ROADMAP\.md — файл не тронут/,
+    deleted: new RegExp(`^ {2}${ruRe('deleted {out}: equals the template of earlier versions and nothing links it{mark}{noGit}', { out: 'docs/ROADMAP.md', mark: '', noGit: '' }).source}$`, 'm'),
+    edited: new RegExp(`^ {2}${ruRe('edited {out}: the ROADMAP.md link lines removed{mark}{noGit}', { out: 'docs/README.md', mark: '', noGit: '' }).source}$`, 'm'),
+    dry: new RegExp(`^ {2}${ruRe('would delete {out}: equals the template of earlier versions and nothing links it{mark}{noGit}', { out: 'docs/ROADMAP.md' }).source}\\n {2}${ruRe('would edit {out}: the ROADMAP.md link lines removed{mark}{noGit}', { out: 'docs/README.md' }).source}$`, 'm'),
+    differs: ruRe(KEPT, { out: 'docs/ROADMAP.md', why: `${ru('differs from the template of earlier versions')}${ru(' and ')}${ru('is still linked from {linkers}', { linkers: 'docs/README.md' })}` }),
+    linked: ruRe(KEPT, { out: 'docs/ROADMAP.md', why: ru('is still linked from {linkers}', { linkers: 'docs/GLOSSARY.md, docs/README.md' }) }),
+    dirty: ruRe('{dirty}: uncommitted edit — migrate would delete or edit the file and erase it with no trace in history; commit or revert the edit, then retry', { dirty: 'docs/README.md' }),
+    symlink: ruRe('{out}: the path goes through the symlink {link} — file left alone, the write would land behind the link', { out: 'docs/ROADMAP.md', link: 'docs/ROADMAP.md' }),
   },
   en: {
     deleted: /^ {2}deleted docs\/ROADMAP\.md: equals the template of earlier versions and nothing links it$/m,
@@ -1356,7 +1369,7 @@ for (const lang of ['ru', 'en']) {
       const r = cli(root, ['upgrade'], { env });
       assert.equal(r.code, 0, r.err);
       assert.match(r.out, says.deleted);
-      assert.ok(r.out.indexOf('ROADMAP.md') < r.out.search(/pin in prose|пин в прозе/), r.out);
+      assert.ok(r.out.indexOf('ROADMAP.md') < r.out.search(new RegExp(`pin in prose|${ruRe('pin in prose: {rewritten} files').source}`)), r.out);
       assert.ok(!hasRoadmap(root));
       assert.doesNotMatch(read(root, 'docs/README.md'), /ROADMAP/);
       const lint = cli(root, ['lint'], { env });
