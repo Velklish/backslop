@@ -250,3 +250,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-186"></a>`BS-186-lint-docs-without-tracker` · 2026-10-02 · completed · — · Lint gate: project documentation carries no task ids and no tracker links
 - <a id="bs-197.2"></a>`BS-197.2-lint-red-in-fresh-worktree` · 2026-10-02 · completed · — · lint is red in a fresh git worktree: generated adapter outputs are gitignored
 - <a id="bs-181"></a>`BS-181-english-comments-and-scripts` · 2026-10-02 · completed · — · English comments and maintainer messages in lib/, bin/, scripts/ and .gitignore
+- <a id="bs-195"></a>`BS-195-hook-command` · 2026-10-02 · completed · — · Agent hooks: a hook command that returns the turn on lint errors in the files the session changed

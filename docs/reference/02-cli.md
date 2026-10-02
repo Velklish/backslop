@@ -10,7 +10,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 
 **Flag parsing** is strict:
 
-- A command takes at most its number of positional arguments: none for `status`, `gates`, `tracks`, `links`, `seed`, `changelog`, `merge-changelog`, `upgrade`, `init`, `migrate` and `lint`; one for `new`, `adr`, `show`, `archive` and `fold`; any number for `mv` and `brief`. An extra argument is a refusal naming the first extra one: `new ee --title My Title` refuses on `Title` — quote a value with spaces. `fold` has its own refusal, because the bulk fold is the same command without a number. `--` does not lift the limit.
+- A command takes at most its number of positional arguments: none for `status`, `gates`, `tracks`, `links`, `seed`, `changelog`, `merge-changelog`, `upgrade`, `init`, `migrate` and `lint`; one for `new`, `adr`, `show`, `archive`, `fold` and `hook`; any number for `mv` and `brief`. An extra argument is a refusal naming the first extra one: `new ee --title My Title` refuses on `Title` — quote a value with spaces. `fold` has its own refusal, because the bulk fold is the same command without a number. `--` does not lift the limit.
 - A string flag value that starts with a dash is accepted after a space too (`--title "--strategy …"`): the pair is joined into `--title=…` unless the value equals a flag name of this command. `--title --queue` is a refusal that suggests the form `--title=…`; the form with `=` is safe for any value. The help text states this rule.
 - `-h`/`--help` is a flag of every command: help with exit code 0, inside a project or outside. In the place of a string flag's value (`--title -h`, `--evidence --help`) it is the value, not a help request. An unknown flag and an extra argument beat help: `new --bogus --help` is the refusal `unknown flag “--bogus”` with exit code 1.
 - A refusal to parse argv names the flag.
@@ -44,6 +44,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 | `gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]` | run the project's gate commands |
 | `tracks [--json]` | list worktrees and run branches |
 | `links --external [--json]` | request the external links of the documents and classify each |
+| `hook <session-start\|stop> --harness <claude\|cursor\|codex>` | agent hook: record where a session started, and return the turn on `lint` errors in the files it changed |
 | `upgrade [--to X.Y.Z] [--dry-run] [--pin-only]` | update backslop in the project |
 | `migrate [--dry-run]` | run the layout migrations and redraw the rules pair |
 | `changelog [--since X.Y.Z] [--to X.Y.Z]` | print backslop's CHANGELOG sections |
@@ -327,6 +328,30 @@ Behaviour:
 Output: one row per address, `<class> <status or error> <url>`, where the second word is the HTTP status or, without an answer, the error code (`ECONNREFUSED`) or name (`TimeoutError`); then `links: N urls, D dead, U unverified`. With `--json` one document replaces both: [05 § `links --external --json`](05-orchestrator-contract.md#links---external---json).
 
 Exit codes: 0 when every address is `ok`, or there is none; 1 when any is `dead`; 2 when some are `unverified` and none is `dead`. A refusal (no `--external`, a bad flag, a malformed config) is exit 1 with an empty stdout.
+
+### hook
+
+Behaviour:
+
+- The command is what the agent hook records run; it reads the event JSON of the harness on stdin. The event needs a non-empty string `session_id`, the field all three harnesses name that way ([01 § Agent hook files and protocols](01-layout.md#agent-hook-files-and-protocols)). The loop flags of the payloads, `stop_hook_active` and `loop_count`, are not read: the ceiling below counts on its own.
+- `session-start` writes the session record: the id, the harness, the start commit (`git rev-parse HEAD`; in a repository without a commit, the empty tree) and the time. The record is a file under `backslop/hooks/` in the git directory of the working tree ([01 § Session records](01-layout.md#session-records)). It prints nothing and exits 0. A second `session-start` for the same session replaces the record, the count of returned turns included.
+- `stop` builds the changed set of the session: every path that differs between the start commit and the working tree — committed since the start, staged or not — plus the untracked files that git does not ignore. Without a record, the start is `HEAD`.
+- An empty changed set exits 0 without running `lint`. Otherwise the command runs the `lint` gates in the same process, keeps the errors whose file is in the changed set, and ignores every warning and every error that names no file. The changed paths are repository-relative and `lint` prints project-relative ones, so a project below the repository root maps one to the other.
+- No kept error exits 0. Kept errors return the turn: the lines `<file>: <message>`, one per distinct error, then one line that tells the agent to fix them in the files named and not to bypass the hook. The protocol is the harness's:
+
+| Harness | The turn is returned by | A note for the user |
+|---|---|---|
+| `claude`, `codex` | the text on stderr, exit 2 | `{"systemMessage": "…"}` on stdout, exit 0 |
+| `cursor` | `{"followup_message": "…"}` on stdout, exit 0 | the text on stderr, exit 0 |
+
+- **The ceiling.** The session record keeps how many times in a row the stop returned the turn, whatever the errors were: an edit that moves a line or changes the error does not restart the count. After three returns the next stop lets the turn end and gives the user a note that names the current errors; the following stops with kept errors do the same. Only a stop with no kept error resets the count. A stop without a record writes one, with `HEAD` as the start, when it returns the turn for the first time.
+- **The hook never breaks a session.** Outside a git repository, without a readable `backslop.json`, with a stdin that is not a JSON object with a `session_id`, with a `harness` outside `claude`, `cursor`, `codex`, and on any error of its own — an unreadable directory that `lint` cannot walk, a record that cannot be written — it exits 0 and prints one note, `hook skipped: <cause>`, on the note channel of the harness (stderr for an unknown harness). It never returns the turn in those cases.
+
+Output: nothing, the text that returns the turn, or one note, as above.
+
+Exit codes: 0 in every case but a returned turn on `claude` and `codex`, which is 2. A usage refusal — an event other than `session-start` and `stop`, an extra argument, an unknown flag — is exit 1 and is a mistake of the hook record, not of the session.
+
+Checked live on 2026-10-02 on Claude Code 2.1.284, in two `claude -p` sessions of a throwaway project with the records written by hand: a broken anchor in a file the session created returned the turn once, with the error line in the `Stop hook feedback:` message; a broken anchor in a file the session never touched did not return it. Not checked: this command under Codex and Cursor, which follow the protocols measured in [01](01-layout.md#agent-hook-files-and-protocols) (for Cursor, only in the interactive terminal, where `stop` fires), and the note channels — `systemMessage` for `claude` and `codex`, stderr for `cursor` — which no run showed to the user.
 
 ### upgrade
 

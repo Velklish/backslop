@@ -316,3 +316,19 @@ The user-level hook files were left on and ran beside the probe; their effect is
 | Linked worktree | not measured | the main checkout's `<project>/.codex/hooks.json` ran; the worktree's own copy did not | the worktree's own `<worktree>/.cursor/hooks.json` ran (checked on `sessionStart`) |
 
 The hook process ran with the project (or worktree) directory as its cwd in all three, and with its command line as configured.
+
+### Session records
+
+`hook session-start` writes one file per harness and session, `<harness>-<session id>.json`, in `backslop/hooks/` under the git directory of the working tree (`git rev-parse --git-dir`): `.git/backslop/hooks/` in a checkout, `.git/worktrees/<name>/backslop/hooks/` in a linked worktree. In the name, every character of the id outside ASCII letters, digits, `.`, `_` and `-` becomes `_`, and the id is cut at 128 characters; two ids that differ only in such characters, or after the 128th, share one record. Git never tracks the git directory, so the record is neither tracked nor untracked, and each worktree has its own.
+
+```json
+{
+  "harness": "claude",
+  "session": "17d92a35-7a8c-4f4a-bfea-07150a742ad5",
+  "start": "189fc44…",
+  "time": "2026-10-02T08:44:09.000Z",
+  "returns": { "count": 1 }
+}
+```
+
+`start` is the commit the changed set is measured from: `HEAD` at `session-start`, or the empty tree in a repository without a commit. `returns` is written by `hook stop` while it returns the turn: `count` is the number of returns in a row, whatever the errors were; a clean stop sets it to `null`, and a new `session-start` for the session drops it. A record that is not JSON or has no 40- to 64-digit `start` is read as missing, and the start is then `HEAD`. Nothing deletes the records: a session leaves a few hundred bytes. The behaviour is in [02 § hook](02-cli.md#hook).
