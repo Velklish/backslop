@@ -1647,15 +1647,24 @@ test('lint: 15. an unknown id in prose of the set is reported by gate 15 alone, 
   }
 });
 
-for (const [state, tag, expected] of [
-  ['with its tag is released and stays with gate 6', true,
-    () => `CHANGELOG.md: ${msg('ru', 'mentions {id}, but no task file exists in statuses or archive', { id: 'BS-99' })}`],
-  ['without its tag is unreleased and goes to gate 15', false, () => gate15('CHANGELOG.md', TASK_ID, 3, 'BS-99')],
+const gate6Changelog = () => `CHANGELOG.md: ${msg('ru', 'mentions {id}, but no task file exists in statuses or archive', { id: 'BS-99' })}`;
+for (const [name, text, tag, expected] of [
+  ['a versioned top CHANGELOG section with its tag is released and stays with gate 6',
+    '## v0.2.0 — 2026-10-01\n\n- **One** — BS-99\n', true, () => gate6Changelog()],
+  ['a versioned top CHANGELOG section is released in a clone without its tag, and stays with gate 6',
+    '## v0.2.0 — 2026-10-01\n\n- **One** — BS-99\n', false, () => gate6Changelog()],
+  ['the same top CHANGELOG section titled Unreleased goes to gate 15 in a clone without tags',
+    '## Unreleased\n\n- **One** — BS-99\n', false, () => gate15('CHANGELOG.md', TASK_ID, 3, 'BS-99')],
+  ['a CHANGELOG section titled Unreleased with a version later in its title is the unreleased one',
+    '## Unreleased (after v0.1.0)\n\n- **One** — BS-99\n', false, () => gate15('CHANGELOG.md', TASK_ID, 3, 'BS-99')],
+  ['the unversioned CHANGELOG section below a versioned one is the unreleased one',
+    '## v0.2.0 — 2026-10-01\n\n- **One** — BS-1\n\n## Unreleased\n\n- **Two** — BS-99\n', false,
+    () => gate15('CHANGELOG.md', TASK_ID, 7, 'BS-99')],
 ]) {
-  test(`lint: 15. a versioned top CHANGELOG section ${state}`, () => {
+  test(`lint: 15. ${name}`, () => {
     const root = gitGreen(null);
     try {
-      put(root, 'CHANGELOG.md', '## v0.2.0 — 2026-10-01\n\n- **One** — BS-99\n');
+      put(root, 'CHANGELOG.md', text);
       gitAll(root, 'changelog');
       if (tag) run(root, ['tag', 'v0.2.0']);
       assert.deepEqual(problems(root), [expected()]);
