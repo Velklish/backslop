@@ -1,0 +1,1 @@
+No probe command is declared, so check a test change by hand: commit first, then break the code the test covers and confirm that the new test fails. The commit comes first because `git checkout <file>` removes all uncommitted work, not just the breakage. A test that stays green does not check the change.

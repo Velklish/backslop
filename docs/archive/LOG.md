@@ -334,3 +334,11 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.52"></a>`BS-192.52-cli-init-promptobus-line-unverified` · 2026-10-02 · batch BS-208 · — · 02-cli.md init line on promptobus: the collision with hook files is unverified
 - <a id="bs-207"></a>`BS-207-status-deferred-shows-date-line` · 2026-10-02 · completed · — · status prints the Deferred date line where a reader expects the reason
 - <a id="bs-186.3"></a>`BS-186.3-unreleased-section-without-tags` · 2026-10-02 · completed · — · Gate 15 reads a released versioned top CHANGELOG section as unreleased when the clone has no matching tag
+- <a id="bs-197.1"></a>`BS-197.1-no-probe-no-mutation-check` · 2026-10-02 · completed · — · Without a declared probe, backslop-task leads to no mutation check at all
+- <a id="bs-209"></a>`BS-209-minor-batch-process-skills` · 2026-10-02 · completed · — · Minor batch: process skills
+- <a id="bs-165.1"></a>`BS-165.1-batch-skill-brief-probe-order` · 2026-10-02 · batch BS-209 · — · batch-skill-brief-probe-order
+- <a id="bs-191.1"></a>`BS-191.1-task-skill-style-pointer-not-followed` · 2026-10-02 · batch BS-209 · — · task-skill-style-pointer-not-followed
+- <a id="bs-191.2"></a>`BS-191.2-gates-report-without-exit-code` · 2026-10-02 · batch BS-209 · — · gates-report-without-exit-code
+- <a id="bs-197.4"></a>`BS-197.4-batch-base-keeps-take-commit` · 2026-10-02 · batch BS-209 · — · batch-base-keeps-take-commit
+- <a id="bs-198.1"></a>`BS-198.1-seed-adr-backfill-ru-mixed-voice` · 2026-10-02 · batch BS-209 · — · seed-adr-backfill-ru-mixed-voice
+- <a id="bs-206.1"></a>`BS-206.1-acceptance-recipe-in-skill-lacks-cleanup` · 2026-10-02 · batch BS-209 · — · acceptance-recipe-in-skill-lacks-cleanup

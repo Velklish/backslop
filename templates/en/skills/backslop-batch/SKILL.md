@@ -49,7 +49,7 @@ Choose worker model capability from the complexity of the portion, not a fixed t
 
 ## Brief
 
-The brief text is assembled by a command: `{{cli}} brief <N…> --track "<title>" [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]`. It takes task definitions from their files, `gates`, `prefix`, and `cli` from `backslop.json`, and the rest is fixed sections: definition of done, the request to commit with the prefix, the ban on status directories and `archive/` with its reason, findings as files, the mutation-probe order, and result contents. It prints to stdout; where the brief goes — a subagent prompt, a session’s first message, a bus — is yours to decide.
+The brief text is assembled by a command: `{{cli}} brief <N…> --track "<title>" [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]`. It takes task definitions from their files, `gates`, `prefix`, and `cli` from `backslop.json`, and the rest is fixed sections: definition of done, the request to commit with the prefix, the ban on status directories and `archive/` with its reason, findings as files, and result contents; with `probe` declared, also the probe bullet and its result item. It prints to stdout; where the brief goes — a subagent prompt, a session’s first message, a bus — is yours to decide.
 
 Five decisions in the brief are yours, and the command does not invent them:
 
@@ -95,7 +95,7 @@ After findings are addressed, **you verify the diff** in your context: the findi
 |---|---|
 | Change stays strictly within a finding: replace text, restore a check, move a function | Change exceeds findings — touches neighbouring code or changes logic |
 | Finding is mechanically verified: a test fails, `lint` is green, grep finds it | The change itself changes a contract — flags, format, or config schema |
-| Worker supplied a mutation probe and result | Diff cannot verify closure: a run is needed in an environment you lack |
+| Worker supplied what they broke by hand and what turned red | Diff cannot verify closure: a run is needed in an environment you lack |
 | Documentation and text; any minor finding | The finding was critical to a contract |
 
 The signal in the right column is not finding severity but whether the correction can produce a new failure of the same class. Limit: two reviewer launches for one result or three review rounds without progress — stop the loop and go to the owner with the findings as they stand, worded as *Talking to the owner* in the backslop section of AGENTS.md says. A round closing all preceding findings is progress: fixes create a new surface and the next reviewer sees it.
