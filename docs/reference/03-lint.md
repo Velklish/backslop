@@ -50,10 +50,10 @@ Gate 15 holds project documentation to stand on its own: a task record leaves th
 
 Gate 8 reads the status of every `adr-NNN-<slug>.md` in both languages:
 
-- The status line is the first line outside a code fence that starts with `**Status:**` or `**Статус:**`, also as a list item (`- **Status:** Accepted`). Both template layers write `**Status:**`.
+- The status line is the first line outside a code fence that starts with `**Status:**` or its Russian label (the `Status` entry of `templates/i18n/ru.mjs`), also as a list item (`- **Status:** Accepted`). Both template layers write `**Status:**`.
 - The status word is the first word after the label, and it is `Proposed` or `Accepted`; text after it is allowed (`Accepted (2026-09-01)`). The ADR directory holds current decisions only, so a replaced decision has no status of its own: it is folded into the ADR that governs the question now, and its file is deleted.
 - A status line that names another ADR — an `ADR-NNN` token or a link to `adr-NNN-…`, in any case, with a number other than the file's own — marks a chain and is an error even after `Accepted`.
-- In the index, a row is a table line of `docs/README.md` that links the ADR; a link in prose is not a row. One ADR has at most one row. When the table header has a `Status` or `Статус` cell, that column of the row equals the status word of the file; a table without that column is not compared. Two row forms are not seen: a table line without a leading `|`, and a row whose ADR link is reference-style (`[ADR-001][p]`); such a row is neither counted nor compared, while the link itself still satisfies the index check.
+- In the index, a row is a table line of `docs/README.md` that links the ADR; a link in prose is not a row. One ADR has at most one row. When the table header has a `Status` cell or one with its Russian label, that column of the row equals the status word of the file; a table without that column is not compared. Two row forms are not seen: a table line without a leading `|`, and a row whose ADR link is reference-style (`[ADR-001][p]`); such a row is neither counted nor compared, while the link itself still satisfies the index check.
 
 ## Checks outside the fifteen gates
 

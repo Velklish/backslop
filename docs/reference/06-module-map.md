@@ -238,6 +238,7 @@ A probe is a mutation of a green project. A gate is confirmed by a probe that go
 | Help, versions and review regressions | `test/review.test.mjs` |
 | Shared modules | `test/config.test.mjs`, `test/tasks.test.mjs`, `test/links.test.mjs`, `test/mdwalk.test.mjs`, `test/util.test.mjs`, `test/version.test.mjs`, `test/adapter-ownership.test.mjs` |
 | The comment limit | `test/comment-length.test.mjs` |
+| The language rule: Cyrillic only in templates/, docs/backlog/ and docs/archive/ | `test/english-only.test.mjs` |
 | The Russian localization: key parity of `lib/` and `bin/` with `templates/i18n/ru.mjs`, and the lookup | `test/i18n.test.mjs` |
 
 ### Windows

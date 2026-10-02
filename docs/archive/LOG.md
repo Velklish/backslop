@@ -252,3 +252,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-181"></a>`BS-181-english-comments-and-scripts` · 2026-10-02 · completed · — · English comments and maintainer messages in lib/, bin/, scripts/ and .gitignore
 - <a id="bs-195"></a>`BS-195-hook-command` · 2026-10-02 · completed · — · Agent hooks: a hook command that returns the turn on lint errors in the files the session changed
 - <a id="bs-191"></a>`BS-191-process-docs-hooks` · 2026-10-02 · completed · — · Process: a documentation fix carries a check red on the old text; the writer pass at release and at batch close
+- <a id="bs-182"></a>`BS-182-cyrillic-only-in-templates-gate` · 2026-10-02 · completed · — · Gate: Cyrillic only in templates/, docs/backlog/ and docs/archive/

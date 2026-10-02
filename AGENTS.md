@@ -16,6 +16,10 @@
 - Every other file in `docs/` is project content and diverges from its template on purpose.
 - `backslop.json` has `tools: []`: `init` writes no adapter outputs here.
 
+## Language
+
+Everything in this repository is English. Russian lives only in three places: `templates/` (the Russian template layer and `templates/i18n/ru.mjs`), `docs/backlog/` (tracker cards, which may quote Russian messages) and `docs/archive/` (the history of closed tasks). `test/english-only.test.mjs` fails on a tracked file elsewhere that holds a character of U+0400–U+04FF and names each hit as file:line; a document that needs a Russian token names its source in `templates/` instead.
+
 ## Contributor invariants
 
 - Node >= 20, standard library only: no dependencies.
