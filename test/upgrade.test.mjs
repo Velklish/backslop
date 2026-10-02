@@ -1548,3 +1548,26 @@ test('roadmap migration: a link from the archive keeps the copy, as lint gate 1 
     cleanup(root);
   }
 });
+
+test('upgrade leaves a pin in a journal entry on the first line of a LOG.md that starts with a BOM', () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  const old = 'npx github:me/proj#v0.1.0';
+  const entry = `- <a id="bs-6"></a>\`BS-6-y\` · 2026-09-01 · completed · — · Measured with \`${old} lint\``;
+  try {
+    const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
+    setConfig(root, { cli: old, version: '0.1.0', source: src });
+    put(root, 'docs/archive/LOG.md', `﻿${entry}\n`);
+    let r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(read(root, 'docs/archive/LOG.md'), `﻿${entry}\n`);
+    r = cli(root, ['upgrade'], { env });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, ruRe(ALREADY_ON));
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});

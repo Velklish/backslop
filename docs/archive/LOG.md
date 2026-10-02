@@ -265,3 +265,13 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192"></a>`BS-192-self-host-writer-pass-release` · 2026-10-02 · completed · — · First technical-writer pass over backslop's own documentation
 - <a id="bs-185.1"></a>`BS-185.1-reference-readme-lists-links-external-json` · 2026-10-02 · batch BS-192 · — · reference-readme-lists-links-external-json
 - <a id="bs-192.45"></a>`BS-192.45-claude-code-agents-import-behaviour` · 2026-10-02 · batch BS-192 · — · Claude Code reading CLAUDE.md with an @AGENTS.md import has no record in the tree
+- <a id="bs-201"></a>`BS-201-minor-batch-code` · 2026-10-02 · completed · — · Minor batch: links, lint gates, upgrade, init, help
+- <a id="bs-89.1"></a>`BS-89.1-link-target-unicode-normalization` · 2026-10-02 · batch BS-201 · — · Gate 1 accepts a link whose target differs from the file only in Unicode normalization
+- <a id="bs-92.1"></a>`BS-92.1-changelog-title-stops-at-double-star` · 2026-10-02 · batch BS-201 · — · CHANGELOG entry title stops at a literal ** inside a code span
+- <a id="bs-107.1"></a>`BS-107.1-removefile-not-a-file-unreachable` · 2026-10-02 · batch BS-201 · — · removeFile refuses a non-file that marker-only ownership never passes to it
+- <a id="bs-120.2"></a>`BS-120.2-bom-first-journal-line-rewritten-by-upgrade` · 2026-10-02 · batch BS-201 · — · upgrade rewrites a pin in a LOG.md journal entry that follows a leading BOM
+- <a id="bs-158.2"></a>`BS-158.2-init-pre-write-comment-overclaim` · 2026-10-02 · batch BS-201 · — · init pre-write comment claims every refusal precedes the first write
+- <a id="bs-174.4"></a>`BS-174.4-help-template-slots-name` · 2026-10-02 · batch BS-201 · — · backslop help names lint gate 12 by its old name template slots
+- <a id="bs-179.1"></a>`BS-179.1-internal-errors-russian-in-en` · 2026-10-02 · batch BS-201 · — · Two internal Error texts stay Russian in an en project
+- <a id="bs-184.2"></a>`BS-184.2-named-entities-in-heading-slugs` · 2026-10-02 · batch BS-201 · — · Heading slugs keep the letters of a named entity other than six
+- <a id="bs-193.5"></a>`BS-193.5-gate11-pin-in-prose-no-end-boundary` · 2026-10-02 · batch BS-201 · — · gate11-pin-in-prose-no-end-boundary

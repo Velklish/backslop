@@ -609,3 +609,9 @@ test('checkLinks: a non-Markdown target, a target outside the project and a skip
     rmSync(top, { recursive: true, force: true });
   }
 });
+
+test('anchors: a named entity that stands for punctuation or a symbol drops out of the slug', () => {
+  // Ids as the gitlab.ati.st Markdown API rendered these headings.
+  const rendered = [['A &mdash; B', 'a--b'], ['Copy &copy; x &hellip; y', 'copy--x--y']];
+  assert.deepEqual([...anchorsOf(rendered.map(([h]) => `## ${h}`).join('\n'))], rendered.map(([, id]) => id));
+});

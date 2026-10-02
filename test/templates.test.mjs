@@ -11,7 +11,7 @@ import {
   SECTION_CHECKS, SECTION_CONTEXT, SECTION_DEFERRED, SECTION_EVIDENCE, SECTION_OUT, SECTION_WORK,
   fieldName, getField, readTitle, sectionName, sections,
 } from '../lib/tasks.js';
-import { SECTION, cleanup, put, ru, ruRe, ruTwinLine } from './helpers.mjs';
+import { SECTION, cleanup, put, ru, ruTwinLine } from './helpers.mjs';
 
 test('template parity: the composition and placeholders match', () => {
   assert.deepEqual(templateParity(), []);
@@ -209,7 +209,7 @@ test('template slots: a declared key that found no place in a template', () => {
 
 test('renderTemplate: a placeholder without a key is a refusal, not a literal {{…}} to the reader', () => {
   assert.throws(() => renderTemplate('adr.md', { number: 1, title: 'x' }),
-    ruRe('{rel}: placeholder {m} is given no key {key}', { rel: 'adr.md', m: '{{date}}', key: 'date' }));
+    /adr\.md: placeholder \{\{date\}\} is given no key date/);
 });
 
 // This pair renders into the repo docs/ 1:1 (AGENTS.md): without the check an edit of one side
@@ -343,4 +343,14 @@ test('backslop-task: the report step says an absent not-run or out-of-scope part
   const zeros = (line, last) => line.slice(line.indexOf(last) + last.length).match(/\b0\b/g)?.length ?? 0;
   assert.equal(zeros(enLine, outOfScope(true)), 2, 'en: the clause says what an absent part is and what the report says');
   assert.equal(zeros(ruLine, outOfScope(false)), 2, 'ru: the clause says what an absent part is and what the report says');
+});
+
+test('renderTemplate: a call without a language refuses in English, with no Cyrillic', () => {
+  assert.throws(() => renderTemplate('adr.md', { number: 1, title: 'x' }),
+    (e) => e.message === 'adr.md: placeholder {{date}} is given no key date');
+});
+
+test('renderProjectTemplate: an en project sees the refusal for a placeholder without a key in English only', () => {
+  assert.throws(() => renderProjectTemplate({ lang: 'en' }, 'adr.md', { number: 1, title: 'x' }),
+    (e) => e.message === 'en/adr.md: placeholder {{date}} is given no key date' && !/\p{Script=Cyrillic}/u.test(e.message));
 });

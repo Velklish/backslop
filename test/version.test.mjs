@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { TOOL_VERSION, compareVersions, latestVersion, normalizeVersion } from '../lib/version.js';
 import { MIGRATIONS } from '../lib/migrate.js';
-import { ruRe } from './helpers.mjs';
+import { ru } from './helpers.mjs';
 
 test('parsing and normalisation: with and without v, junk is null', () => {
   assert.equal(normalizeVersion('1.2'), null);
@@ -17,7 +17,7 @@ test('comparison by numbers, not by strings; the newest of a list', () => {
   assert.equal(compareVersions('0.10.0', '0.9.0'), 1);
   assert.equal(compareVersions('v1.0.0', '1.0.0'), 0);
   assert.equal(compareVersions('0.1.0', '0.1.1'), -1);
-  assert.throws(() => compareVersions('x', '1.0.0'), ruRe('version does not parse: “{raw}”', { raw: 'x' }));
+  assert.throws(() => compareVersions('x', '1.0.0'), /^Error: version does not parse: “x”$/m);
   assert.equal(latestVersion(['v0.1.0', 'v0.10.0', 'v0.9.0', 'v0.2.0']), '0.10.0');
   assert.equal(latestVersion([]), null);
 });
@@ -29,4 +29,13 @@ test('every migration has a since not above the tool version', () => {
     assert.ok(compareVersions(m.since, TOOL_VERSION) <= 0,
       `migration “${m.title('ru')}”: since ${m.since} is above the tool ${TOOL_VERSION} — raise the version before the commit`);
   }
+});
+
+test('compareVersions: a call without a language refuses in English, with no Cyrillic', () => {
+  assert.throws(() => compareVersions('x', '1.0.0'), (e) => e.message === 'version does not parse: “x”');
+});
+
+test('compareVersions: with the project language the refusal is in that language only', () => {
+  assert.throws(() => compareVersions('x', '1.0.0', 'en'), (e) => e.message === 'version does not parse: “x”' && !/\p{Script=Cyrillic}/u.test(e.message));
+  assert.throws(() => compareVersions('x', '1.0.0', 'ru'), (e) => e.message === ru('version does not parse: “{raw}”', { raw: 'x' }));
 });

@@ -261,6 +261,7 @@ export const messages = {
   'link [{text}]({href}) points to a directory while its text names a task — point it at the task file or its journal line (line {line})': 'ссылка [{text}]({href}) ведёт на каталог, а её текст называет задачу — веди на файл задачи или строку журнала (строка {line})',
   'link [{text}] uses the label “{label}”, and there is no declaration “[{label}]: …” (line {line})': 'ссылка [{text}] ссылается на метку «{label}», а объявления «[{label}]: …» нет (строка {line})',
   'link target differs in case: {real} (link {href}, line {line})': 'цель ссылки отличается регистром букв: {real} (ссылка {href}, строка {line})',
+  'link target differs in Unicode normalization: {real} (link {href}, line {line})': 'цель ссылки отличается нормализацией Unicode: {real} (ссылка {href}, строка {line})',
   'link {href}: {where} has no anchor “{fragment}” — no heading or id by that name (line {line})': 'ссылка {href}: в {where} нет якоря «{fragment}» — ни заголовка, ни id с таким именем (строка {line})',
   'broken link {href} (line {line})': 'битая ссылка {href} (строка {line})',
   'generated output for adapter {tool} is missing — run {cli} init': 'нет generated output для adapter {tool} — запусти {cli} init',
@@ -690,7 +691,7 @@ export const help = (version) => `backslop — бэклог для слопа: �
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage, minor по областям
   lint                                                пятнадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
-                                                      цитаты, версии релиза, слоты шаблонов, журнал закрытых,
+                                                      цитаты, версии релиза, плейсхолдеры шаблонов, журнал закрытых,
                                                       непечатаемые байты, документация без трекера;
                                                       adapter outputs, равенство шаблонов и предупреждения
                                                       о версии и закрытом родителе

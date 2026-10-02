@@ -948,3 +948,9 @@ test('merge-changelog: an empty heading container after the last entry leaves on
   assert.equal(mergeChangelog(ours, theirs, base, 'en').text,
     '# Changelog\n\n## Unreleased\n\n### Added\n\n- **Alpha** — body\n\n- **Beta** — body\n\n### Removed\n\n');
 });
+
+test('mergeChangelog: a ** inside a code span does not end the entry title', () => {
+  const entry = (name) => `- **\`when\`: \`**/\` ${name}** — body ${name}\n`;
+  const { report } = mergeChangelog(`# Changelog\n\n## Unreleased\n\n${entry('ours')}`, `# Changelog\n\n## Unreleased\n\n${entry('theirs')}`);
+  assert.deepEqual([report.onlyOurs, report.onlyTheirs, report.conflicts], [['`when`: `**/` ours'], ['`when`: `**/` theirs'], []]);
+});
