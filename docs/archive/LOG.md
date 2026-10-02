@@ -254,3 +254,11 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-191"></a>`BS-191-process-docs-hooks` · 2026-10-02 · completed · — · Process: a documentation fix carries a check red on the old text; the writer pass at release and at batch close
 - <a id="bs-182"></a>`BS-182-cyrillic-only-in-templates-gate` · 2026-10-02 · completed · — · Gate: Cyrillic only in templates/, docs/backlog/ and docs/archive/
 - <a id="bs-196"></a>`BS-196-hooks-install` · 2026-10-02 · completed · — · Agent hooks: the hooks field and owned hook records in the Claude Code, Cursor and Codex project files
+- <a id="bs-199"></a>`BS-199-minor-batch-tooling` · 2026-10-02 · completed · — · Minor batch: test helpers, merge-changelog, tracks, gates summary, release hint, mv
+- <a id="bs-140.1"></a>`BS-140.1-comment-gate-test-helper-exports` · 2026-10-02 · batch BS-199 · — · comment-length.test.mjs: blocksOf, wideOf and surveyTree are exported and nothing imports them; blocksOf and wideOf are now bare aliases
+- <a id="bs-140.2"></a>`BS-140.2-lexer-string-rows-cannot-fail` · 2026-10-02 · batch BS-199 · — · comment gate: the string and template lexer rows cannot turn red, and nothing in comment-length guards template literals
+- <a id="bs-170.1"></a>`BS-170.1-merge-changelog-double-blank` · 2026-10-02 · batch BS-199 · — · merge-changelog-double-blank
+- <a id="bs-173.2"></a>`BS-173.2-release-dry-run-next-omits-tag-delete` · 2026-10-02 · batch BS-199 · — · The push --dry-run refusal offers a rerun without deleting the local tag
+- <a id="bs-176.1"></a>`BS-176.1-tracks-dirty-trimmed-porcelain` · 2026-10-02 · batch BS-199 · — · tracks --json dirty trims porcelain lines, dropping the status column layout
+- <a id="bs-193.1"></a>`BS-193.1-mv-moves-card-before-link-walk-fails` · 2026-10-02 · batch BS-199 · — · mv-moves-card-before-link-walk-fails
+- <a id="bs-197.3"></a>`BS-197.3-gates-summary-omits-zero-counts` · 2026-10-02 · batch BS-199 · — · gates-summary-omits-zero-counts

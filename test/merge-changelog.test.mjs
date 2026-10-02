@@ -892,3 +892,59 @@ test('merge-changelog: a relative --out resolves against the cwd, and written: n
     cleanup(root);
   }
 });
+
+// With no released section below, the file ends in the unreleased section, and the blank line at
+// its end belongs to the last block: it must not travel into the middle of the result.
+const ENDING_BLANK = (names) => `# Changelog
+
+## Unreleased
+
+${names.map((n) => `- **${n}** — body`).join('\n\n')}
+
+`;
+
+test('merge-changelog: a blank line ending the last section stays one gap when an entry lands after it', () => {
+  const base = ENDING_BLANK(['Alpha']);
+  const { text } = mergeChangelog(ENDING_BLANK(['Alpha', 'Gamma']), ENDING_BLANK(['Alpha', 'Beta']), base, 'en');
+  assert.equal(text, ENDING_BLANK(['Alpha', 'Beta', 'Gamma']));
+});
+
+test('merge-changelog: a blank line ending the section of ours is kept when theirs adds nothing', () => {
+  const ours = ENDING_BLANK(['Alpha', 'Gamma']);
+  assert.equal(mergeChangelog(ours, ENDING_BLANK(['Alpha']), ENDING_BLANK(['Alpha']), 'en').text, ours);
+});
+
+// The same gap with sub-headings: the entry that carries the file's trailing blank line sits before
+// another container, and one blank line is what separates it from the next heading.
+const ENDING_GROUPS = (groups) => `# Changelog
+
+## Unreleased
+
+${groups.map(([heading, names]) => `${heading ? `### ${heading}\n\n` : ''}${names.map((n) => `- **${n}** — body`).join('\n\n')}\n\n`).join('')}`;
+
+test('merge-changelog: the trailing blank line of ours stays one gap before a heading container of theirs', () => {
+  const ours = ENDING_GROUPS([[null, ['Alpha']]]);
+  const theirs = ENDING_GROUPS([[null, ['Alpha']], ['Fixed', ['Beta']]]);
+  assert.equal(mergeChangelog(ours, theirs, ours, 'en').text, theirs);
+});
+
+test('merge-changelog: the trailing blank line of theirs stays one gap when its entry lands before a container of ours', () => {
+  const ours = ENDING_GROUPS([['Added', ['Alpha']], ['Fixed', ['Gamma']]]);
+  const theirs = ENDING_GROUPS([['Added', ['Alpha', 'Beta']]]);
+  const base = ENDING_GROUPS([['Added', ['Alpha']]]);
+  assert.equal(mergeChangelog(ours, theirs, base, 'en').text, ENDING_GROUPS([['Added', ['Alpha', 'Beta']], ['Fixed', ['Gamma']]]));
+});
+
+test('merge-changelog: the last entry of ours followed by an entry of theirs in one container keeps one gap', () => {
+  const ours = ENDING_GROUPS([['Added', ['Alpha', 'Beta']]]);
+  const theirs = ENDING_GROUPS([['Added', ['Beta', 'Gamma']]]);
+  assert.equal(mergeChangelog(ours, theirs, ENDING_GROUPS([['Added', ['Beta']]]), 'en').text, ENDING_GROUPS([['Added', ['Alpha', 'Beta', 'Gamma']]]));
+});
+
+test('merge-changelog: an empty heading container after the last entry leaves one gap before its heading', () => {
+  const ours = '# Changelog\n\n## Unreleased\n\n### Added\n\n- **Alpha** — body\n\n### Removed\n\n';
+  const theirs = '# Changelog\n\n## Unreleased\n\n### Added\n\n- **Alpha** — body\n\n- **Beta** — body\n\n';
+  const base = '# Changelog\n\n## Unreleased\n\n### Added\n\n- **Alpha** — body\n\n';
+  assert.equal(mergeChangelog(ours, theirs, base, 'en').text,
+    '# Changelog\n\n## Unreleased\n\n### Added\n\n- **Alpha** — body\n\n- **Beta** — body\n\n### Removed\n\n');
+});

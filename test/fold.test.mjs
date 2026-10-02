@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ANY, KILLED, SECTION, cleanup, cli, escapeRe, gitAll, makeProject, put, read, resultTemplateParagraphs, ru, ruCard, ruExpand, ruHeadRe, ruOutcome, ruOutcomeWord, ruRe, ruResult, ruResultHeading, run } from './helpers.mjs';
@@ -1353,5 +1353,44 @@ test('fold N: a failed git rm prints one error line that carries the cause and t
   } finally {
     cleanup(root);
     rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('fold N: an unreadable directory of the link walk refuses before the directory goes and the journal grows', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, () => {
+  const root = makeProject();
+  const locked = path.join(root, 'src', 'locked');
+  try {
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    closed(root);
+    gitAll(root);
+    mkdirSync(locked, { recursive: true });
+    chmodSync(locked, 0o000);
+    let r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /src\/locked/);
+    assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/task.md')), 'the task directory is still there');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'no journal was written');
+    chmodSync(locked, 0o755);
+    r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(logLines(root).length, 1);
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+  }
+});
+
+test('fold N: a symlinked alias of the archive in the link walk does not read a removed file', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/reference/README.md', '# Reference\n');
+    closed(root);
+    symlinkSync(path.join(root, 'docs', 'archive'), path.join(root, 'aa-alias'));
+    gitAll(root);
+    const r = cli(root, ['fold', '1']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(logLines(root).length, 1);
+  } finally {
+    cleanup(root);
   }
 });

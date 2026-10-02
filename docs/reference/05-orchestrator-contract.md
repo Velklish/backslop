@@ -227,7 +227,7 @@ A real run with a worktree on branch `track-a` carrying one task commit, a modif
         "e880797 <prefix>-N: work on alpha"
       ],
       "dirty": [
-        "M a.txt",
+        " M a.txt",
         "?? d.txt"
       ],
       "prunable": false,
@@ -336,7 +336,7 @@ A real run in a repository with `package.json` scripts `test`, `lint` and `start
 The two commands report uncommitted work in different shapes, and a caller must not read one as the other:
 
 - `gates --json` `tree.dirty` is **one string**: the lines of `git status --porcelain -- .` joined by line breaks, leading space included, `""` on a clean tree. Untracked directories are collapsed (`?? src/`), and in a monorepo paths are from the project root. The paths `gates` actually compares with `when` patterns are in `scope.paths`, one file per item (`src/api/a.js`).
-- `tracks --json` `dirty` is **an array**: one item per `git status --porcelain` line of that worktree, trimmed at both ends, so the leading space of an unstaged change is gone (`M a.txt`).
+- `tracks --json` `dirty` is **an array**: one item per `git status --porcelain` line of that worktree, as git prints it, leading space included (` M a.txt`).
 
 ## `brief`
 
