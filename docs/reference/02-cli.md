@@ -96,13 +96,14 @@ Refusals:
 
 - A git failure while scanning foreign numbers, other than "no repository" and "git is not installed"; a bad slug; a slug that makes the file name `<prefix>-<N[.k]>-<slug>.md` longer than 255 bytes — before any write and before the queue is renumbered; no such parent; `docs/backlog` or the status directory the file goes into is a file.
 - `--top` without `--queue`; `--minor` without `--parent` or with `--queue`; `--cost`/`--hypothesis`/`--evidence` without `--minor`; `--cost` outside the three levels; `--cost major|critical` without `--hypothesis`; `--minor` without `--evidence` or with empty evidence.
+- A status directory that is a symlink leading out of the project — the numbers behind it are not seen; before any write.
 
 ### mv
 
 Behaviour:
 
 - `git mv` between status directories. A file outside the git index (or with no repository) is moved by a plain rename, with a warning.
-- Several numbers per call: all are resolved and checked before the first move, then moved one by one in argument order, with one `ok` line each and one summary of the queue renumbering (a file renumbered twice by batch neighbours counts once). Every refusal visible before a move happens before the first move; a file-system failure in the middle of a batch is not undone — the check is atomic, the move is not.
+- Several numbers per call: all are resolved and checked before the first move, then moved one by one in argument order, with one `ok` line each and one summary of the queue renumbering (a file renumbered twice by neighbours from the same call counts once). Every refusal visible before a move happens before the first move; a file-system failure in the middle of a call is not undone — the check is atomic, the move is not.
 - Into `queue`: sets Order and removes Previous order. Out of `queue`: removes Order and keeps its number in Previous order, where `--restore` reads it. A return to `queue` without `--restore` discards the saved number, with one line per task that had one.
 - A task already in `queue/` with `--top`/`--after M` is reordered, not moved: its place is computed as below, without the task itself among the neighbours; only Order changes, the file stays and no links are rewritten.
 - Into `active`: writes Taken. Into `deferred`: appends the Deferred section only when there is none; when there is one, the file stays as is and a line asks to check the reason and return condition. A Deferred heading inside a fenced example is not a section.
@@ -114,22 +115,23 @@ Behaviour:
   - to the end: the maximum plus 10; `--top`: the middle between zero and the first; `--after M`: the middle between M and the next;
   - `--restore`: the saved number when it is free, otherwise the place right before whoever holds it;
   - with no integer place left, the whole queue is renumbered in steps of 10, order kept, and the command says so.
-- `--restore` returns a place, it does not guarantee a number: rank is absolute, and the queue may have been renumbered. A line says whether the task took its saved number, the nearest free one, or the place before a batch neighbour.
-- `--restore` on a batch: each number comes from its own header, and the restored tasks end up in ascending order of their saved numbers, equal numbers by task number, whatever the argument order. The batch is processed in descending saved numbers; each next task is placed no later than the batch neighbour placed before it — a free number behind that neighbour, or one held by a task behind it, gives way to the place right before the neighbour, with the middle of the gap or a renumbering, as for a held number.
+- `--restore` returns a place, it does not guarantee a number: rank is absolute, and the queue may have been renumbered. A line says whether the task took its saved number, the nearest free one, or the place before a neighbour from the same call.
+- `--restore` with several numbers: each number comes from its own header, and the restored tasks end up in ascending order of their saved numbers, equal numbers by task number, whatever the argument order. The tasks are processed in descending saved numbers; each next task is placed no later than the neighbour placed before it — a free number behind that neighbour, or one held by a task behind it, gives way to the place right before the neighbour, with the middle of the gap or a renumbering, as for a held number.
 
 Output:
 
-- One line per task: `✔ <id>: <from>/ → <to>/ (<path>)`, or `✔ <id>: queue/ “Order” <rank>` for a reorder; then its notes — the saved position restored, taken, or placed ahead of a batch neighbour, a discarded saved position, placeholder-only sections removed, Context became Evidence, outgoing links recalculated, task links updated.
-- After the batch: the queue renumbering summary; for `deferred`, a line asking to complete the new Deferred section, or to check an existing one; for `minor`, a line when `Cost: minor` was added, asking to adjust it for a hypothesis of a costlier finding.
+- One line per task: `✔ <id>: <from>/ → <to>/ (<path>)`, or `✔ <id>: queue/ “Order” <rank>` for a reorder; then its notes — the saved position restored, taken, or placed ahead of a neighbour from the same call, a discarded saved position, placeholder-only sections removed, Context became Evidence, outgoing links recalculated, task links updated.
+- After the last task: the queue renumbering summary; for `deferred`, a line asking to complete the new Deferred section, or to check an existing one; for `minor`, a line when `Cost: minor` was added, asking to adjust it for a hypothesis of a costlier finding.
 
 Refusals:
 
 - No task numbers or no status named; an unknown status (tasks are closed with `archive`); `--top`/`--after`/`--restore` with a target other than `queue`.
 - No such task; the task is in the archive; already in that status (in `queue/`, without `--top`/`--after`/`--restore`).
-- `--after` target not in the queue, or the task itself; the `--after` target sits in `queue/` without an integer Order; a number named twice in the batch; `--top`/`--after` with several numbers (one number cannot place a batch; `--restore` is not limited so); two position flags at once.
+- `--after` target not in the queue, or the task itself; the `--after` target sits in `queue/` without an integer Order; a number named twice in the call; `--top`/`--after` with several numbers (one number cannot place several tasks; `--restore` is not limited so); two position flags at once.
 - `--restore` for a task of the call without Previous order, or with a non-integer one — a refusal for the whole call, by name, before the first move.
-- Into `minor` without evidence for any task of the batch — by name, before the first move; `--evidence` not into `minor`, or with several numbers.
+- Into `minor` without evidence for any task of the call — by name, before the first move; `--evidence` not into `minor`, or with several numbers.
 - A destination path taken by a file or a directory, or a destination status directory that is a file — before the first move.
+- A destination status directory that is a symlink leading out of the project — before the first move.
 - A failure of `git ls-files` other than "not in the index" (a signal, a launch error, an unexpected code) — before the move.
 
 ### archive
@@ -179,7 +181,7 @@ Refusals of `fold <N>`:
 
 - No such task; already folded; not in the archive; a batch entry, which folds together with its batch; no `task.md`.
 - `result.md` missing, empty, or failing a [gate 5](03-lint.md#gates) predicate — a placeholder left, or no outcome word in the first paragraph or heading; the outcome refusal carries gate 5's message. (The bulk fold does not refuse on it; see [01 § Outcome words](01-layout.md#outcome-words).)
-- An attachment not in `HEAD`, or differing from it — the refusal names the files: commit the directory first or remove these files.
+- An attachment not in `HEAD`, or differing from it — the refusal names the files and says to move them out of the directory and link them from `result.md`: a commit between `archive` and `fold` is not part of the acceptance recipe.
 - `--embed-missing` with a number; more than one number; a git failure while checking whether the task directory is tracked — before any directory is deleted.
 
 Behaviour of the bulk `fold`:
@@ -260,7 +262,7 @@ Refusals: no mode named, or both; `--json` with `--queue-reference`; no `referen
 
 ### status
 
-- Behaviour: a summary by directory; the `Minor` section goes by Scope — that is how batches are cut — with an empty Scope last.
+- Behaviour: a summary by directory; the `Minor` section goes by Scope — that is how batches are cut — with an empty Scope last. A status directory that is a symlink leading out of the project is skipped, and the command prints a warning naming it ([01 § Symlinks and traversal](01-layout.md#symlinks-and-traversal)).
 - Output: text, or the JSON of [05 § `status --json`](05-orchestrator-contract.md#status---json).
 - Refusals: none of its own.
 
@@ -268,7 +270,7 @@ Refusals: no mode named, or both; `--json` with `--queue-reference`; no `referen
 
 - Behaviour: the tracker gates, gate 15 on project documentation included, the adapter checks and template parity — [03](03-lint.md). A status directory, `docs/backlog`, `archive/`, a batch's `minor/` or `adr/` that is a file is an error of gate 3, 5 or 8 with its path, not a crash.
 - Output: on stderr, one `✖` line per error and one `⚠` line per warning; on stdout, a note per gate 15 class that was skipped (no `origin` remote, no git index), then the line of what gate 1 read, `gate 1: files N, links N, local N, anchors checked N`. Then the summary with the warning count: `lint: no errors` on stdout, `lint: errors N` on stderr.
-- Refusals: errors found (exit 1); an unknown flag; a directory the walk cannot read (`EACCES`, `EPERM`) — `<path>: the directory is not readable (<code>) — lint cannot walk it; restore read access or move it out of the project`, with the path from the project root instead of a stack. The other commands word an unreadable directory the same way, naming what they cannot do: `tasks cannot be read from it`, `links in it cannot be updated`, `pins cannot be read from it`. `mv`, `archive` and `fold` run the link walk before the first move or write, so that refusal leaves the tree as it was.
+- Refusals: errors found (exit 1); an unknown flag; a directory the walk cannot read (`EACCES`, `EPERM`) — `<path>: the directory is not readable (<code>) — lint cannot walk it; restore read access or move it out of the project`, with the path from the project root instead of a stack. The other commands word an unreadable directory the same way, naming what they cannot do: `tasks cannot be read from it`, `task numbers cannot be read from it` (a status directory of another worktree), `links in it cannot be updated`, `pins cannot be read from it`. A status directory or the archive that cannot be searched is the same refusal, naming the directory that denies it — never an empty backlog. `mv`, `archive` and `fold` run the link walk before the first move or write, so that refusal leaves the tree as it was.
 
 ### gates
 

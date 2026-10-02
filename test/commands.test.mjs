@@ -721,7 +721,7 @@ test('mv --restore: outside queue, with another flag and on a batch — refusals
     assert.match(r.err, ruRe('{flags} cannot be used together: there is one position', { flags: `--top${ru(' and ')}--restore` }));
     r = cli(root, ['mv', '1', '2', 'queue', '--top']);
     assert.equal(r.code, 1);
-    assert.match(r.err, ruRe('a batch has no single position: --top and --after take one number; --restore reads the number from each task header'));
+    assert.match(r.err, ruRe('several numbers have no single position: --top and --after take one number; --restore reads the number from each task header'));
     // A --restore batch is allowed, but without saved numbers it refuses whole, naming each task.
     r = cli(root, ['mv', '1', '2', 'queue', '--restore']);
     assert.equal(r.code, 1);
@@ -780,7 +780,7 @@ test('mv --restore: a wide gap before a taken number does not lead a task ahead 
     const batch = ['3-c', '2-b', '1-a', '4-d'];
     assert.deepEqual(batch.map(rank), [...batch.map(rank)].sort((a, b) => a - b), 'the batch stands in ascending order of the saved numbers 8, 10, 13, 13');
     assert.deepEqual(['3-c', '2-b', '5-e', '6-f', '1-a', '4-d'].map(rank), [2, 5, 10, 20, 30, 40]);
-    assert.match(r.out, ruRe('saved position {saved} falls behind {id} from the same batch — “{field}” {rank}, ahead of it', { saved: 8, id: 'BS-2', field: FIELD.order, rank: 2 }));
+    assert.match(r.out, ruRe('saved position {saved} falls behind {id} from the same call — “{field}” {rank}, ahead of it', { saved: 8, id: 'BS-2', field: FIELD.order, rank: 2 }));
     assert.match(r.out, ruRe('saved position {saved} is taken — “{field}” {rank}', { saved: 10, field: FIELD.order, rank: 5 }));
     assert.equal(cli(root, ['lint']).code, 0);
   } finally {
@@ -1346,7 +1346,7 @@ test('mv: a batch of numbers in one call; a refusal on any of them — all or no
     // The same number twice in a batch — a refusal before the move.
     r = cli(root, ['mv', '1', '1', 'active']);
     assert.equal(r.code, 1);
-    assert.match(r.err, ruRe('{id} is named twice in the batch'));
+    assert.match(r.err, ruRe('{id} is named twice in the call'));
     assert.ok(existsSync(path.join(root, 'docs/backlog/queue/BS-1-a.md')));
   } finally {
     cleanup(root);
@@ -2075,6 +2075,31 @@ test('mv in an en project quotes the Order field with English quotes', () => {
     const r = cli(root, ['mv', '2', 'queue', '--top']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /^✔ BS-2: queue\/ “Order” \d+$/m);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv with several numbers: refusals and the reference never call the numbers of one call a batch', () => {
+  const root = makeProject();
+  try {
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' }, null, 2)}\n`);
+    cli(root, ['new', 'a', '--queue']);
+    cli(root, ['new', 'b', '--queue']);
+    gitAll(root);
+
+    let r = cli(root, ['mv', '1', '2', 'queue', '--top']);
+    assert.equal(r.code, 1);
+    assert.doesNotMatch(r.err, /batch/i);
+    r = cli(root, ['mv', '1', '1', 'active']);
+    assert.equal(r.code, 1);
+    assert.doesNotMatch(r.err, /batch/i);
+
+    const cliDoc = readFileSync(new URL('../docs/reference/02-cli.md', import.meta.url), 'utf8');
+    const mvSection = cliDoc.slice(cliDoc.indexOf('\n### mv\n'), cliDoc.indexOf('\n### archive\n'));
+    assert.ok(mvSection.length > 1000, 'the mv section of 02-cli is found');
+    assert.doesNotMatch(mvSection, /\bbatch/i);
+    assert.doesNotMatch(readFileSync(new URL('../docs/adr/adr-049-queue-order.md', import.meta.url), 'utf8'), /\bbatch/i);
   } finally {
     cleanup(root);
   }

@@ -14,7 +14,7 @@ import { srcFiles } from '../lib/mdwalk.js';
 import { frontmatterField } from '../lib/frontmatter.js';
 
 const CYRILLIC = /\p{Script=Cyrillic}/u;
-const MARKERS = '{label} must not contain the backslop:start or backslop:end markers: it sits inside the block, and the block bounds are found in raw text';
+const MARKERS = '{label} must not contain the backslop:start or backslop:end markers: it sits inside the block, and a marker there would copy a block boundary into the block text';
 const BACKTICK = '{label} must not contain a backtick: the template puts it in a code span, and a backtick inside closes it';
 const FOREIGN_LINK = '{message} — backslop neither writes nor removes files through a foreign link. Replace the harness root with a plain directory or deselect the {tool} adapter: --tools without it, or --tools none if no other adapters are selected';
 const NOT_OVERWRITTEN = 'files without the {marker} marker sit at adapter output paths and were not overwritten: {foreign}; the backslop skill is not installed there — remove or rename the file and rerun init, or deselect the adapter';

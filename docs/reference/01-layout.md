@@ -74,6 +74,7 @@ Owned outputs are a local generated result and do not belong in git. `init` keep
 - **Markdown traversal** does not follow a link on a harness root either, on any of its components (`.claude` or `.claude/skills`): `mv` and `archive` neither read nor rewrite files behind it. The `lint` link gate walks `<docs>/**` and root `*.md` and does not touch harness directories.
 - **Agent hook files.** The hook file of a selected harness (`<project>/.claude/settings.json`, `<project>/.cursor/hooks.json`, `<project>/.codex/hooks.json`) follows the rule of a selected adapter root: a symlink on any component of its path under the project root is refused before the first write, the file itself included. The hook file of an unselected harness behind such a link is skipped, and its records are not removed.
 - **A directory on an output path.** A directory at an output path of a selected adapter, and a file on a component of that path, are refused in words on write (`owned adapter output is not a file`, `a file sits where the adapter output path needs a directory`): there is nowhere to write.
+- **Status directories.** A status directory that is a symlink to a directory inside the project is read as a directory. One leading out of the project is not followed by the commands: the task scan skips it, and `status`, `show`, `brief`, `mv`, `archive` and `fold` print a warning naming it; `new` refuses while any status directory leads out, because the numbers behind the link are not seen, and `mv` refuses it as a destination. A link whose target is missing is judged by its text: a path inside the project is not out. `lint` gate 3 reports the link; gate 2 still reads the names behind it.
 
 ### The rules pair belongs to the tool
 
@@ -168,7 +169,7 @@ The name is `<prefix>-N-<slug>.md`, or `<prefix>-N.k-<slug>.md` for a finding; a
 
 ### Numbers
 
-- `new` gives the maximum over all status directories and the archive plus one; a finding's sub-id is the maximum `k` among the `N.*` files plus one. There is no counter in the files.
+- `new` gives the maximum over all status directories and the archive plus one; it refuses while a status directory is a symlink leading out of the project, whose numbers it cannot see ([Symlinks and traversal](#symlinks-and-traversal)); a finding's sub-id is the maximum `k` among the `N.*` files plus one. There is no counter in the files.
 - The numbers taken in other worktrees of the repository (on disk, uncommitted ones included) and in every local branch count with those of the current tree. Numbers are seen for a project in a subdirectory of its repository and for a `docs` directory with a non-ASCII name too. When a foreign number that is not in the current tree moves your number, the command names its source; a number that is also in the current tree is not named as a source.
 - A clone and a remote branch are not visible locally: `lint` catches a collision with them after the merge.
 - Without git — no repository, or git not installed — the number is computed from the current tree. Any other git failure during this scan (a signal, a timeout, a launch error, another exit code) refuses `new` with git's cause and without a file: a number that could not be checked is not given out.
