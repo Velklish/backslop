@@ -283,3 +283,11 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-174.1"></a>`BS-174.1-mv-several-numbers-called-batch` · 2026-10-02 · batch BS-202 · — · Multi-number mv is called a batch in ADR-049, 02-cli and lib/mv.js messages
 - <a id="bs-189.2"></a>`BS-189.2-glossary-writer-evidence-labels` · 2026-10-02 · batch BS-202 · — · Glossary Evidence labels of the writer rows break the file's form
 - <a id="bs-193.3"></a>`BS-193.3-unreadable-dir-walks-still-unworded` · 2026-10-02 · batch BS-202 · — · unreadable-dir-walks-still-unworded
+- <a id="bs-204"></a>`BS-204-minor-batch-lint-init` · 2026-10-02 · completed · — · Minor batch: lint wording, gate 8, template tests, module imports, init order
+- <a id="bs-96.2"></a>`BS-96.2-selected-adapter-refusals-after-first-write` · 2026-10-02 · batch BS-204 · — · init: selected-adapter refusals below the root and a CLAUDE.md directory come after the first write
+- <a id="bs-118.1"></a>`BS-118.1-command-modules-import-commands` · 2026-10-02 · batch BS-204 · — · lint and init still import from the adr and upgrade command modules
+- <a id="bs-161.1"></a>`BS-161.1-template-names-presence` · 2026-10-02 · batch BS-204 · — · Names test does not check that task.md and minor.md keep every section code reads
+- <a id="bs-174.2"></a>`BS-174.2-gate8-message-names-link` · 2026-10-02 · batch BS-204 · — · Gate 8 lint message and comment name a table row while the gate checks a link
+- <a id="bs-189.3"></a>`BS-189.3-templates-test-ru-message-english` · 2026-10-02 · batch BS-204 · — · templates.test.mjs lost a Russian assertion message
+- <a id="bs-193.2"></a>`BS-193.2-lint-unreadable-wording-duplicated` · 2026-10-02 · batch BS-204 · — · lint-unreadable-wording-duplicated
+- <a id="bs-193.4"></a>`BS-193.4-upgrade-pin-backtick-quoted-cli` · 2026-10-02 · batch BS-204 · — · upgrade-pin-backtick-quoted-cli

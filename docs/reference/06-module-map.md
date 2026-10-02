@@ -25,7 +25,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 
 ## Modules
 
-`lib/` has 36 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
+`lib/` has 37 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
 
 ### Command modules
 
@@ -37,7 +37,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 | `lib/archive.js` | `archive N` and `archive N.k --into M`: the move into the archive, the `result.md` draft, links fixed both ways | `run` |
 | `lib/fold.js` | `fold`: an archived task directory becomes one line of `LOG.md`; the body stays in git | `run` |
 | `lib/show.js` | `show N`: the body of a folded task, read from git | `run` |
-| `lib/adr.js` | `adr`: the next numbered ADR from a template. Also the ADR scan that `init` and `lint` reuse | `run`, `scanAdrs`, `formatAdrNumber`, `ADR_FILE_RE` |
+| `lib/adr.js` | `adr`: the next numbered ADR from a template | `run` |
 | `lib/brief.js` | `brief`: the worker brief, printed on stdout from disk data and the flags the orchestrator passes | `run` |
 | `lib/seed.js` | `seed`: candidates for `gates` and for subsystems with evidence; `--queue-reference` queues the reference tasks | `run` |
 | `lib/status.js` | `status`: the summary of active work, the queue, deferred work, triage and minor entries; `--json` | `run` |
@@ -46,17 +46,18 @@ The page names code by file and by identifier, not by line: find a line with `gr
 | `lib/tracks.js` | `tracks`: worktrees and run branches, merged or not, what is left and what is dirty | `run` |
 | `lib/links.js` | `links`: `links --external`, the http(s) addresses of the gate 1 file set, one request at a time, the class of each answer, the exit code. Also the one parser of every link form that gates 1, 8, 13 and 15 and `seed` read, heading anchors, the gate 1 check of a file, directory links, the rewrite on a move, a fold or an archive (every form gate 1 reads, in the syntax it was written) | `run`, `classifyStatus`, `externalUrls`, `linksOf`, `localLinks`, `relativeLinks`, `checkLinks`, `anchorsOf`, `anchorReader`, `slugOf`, `uniqueSlugs`, `hasAnchor`, `directoryLinks`, `mapLinks`, `rebaseTarget`, `rewriteMovedLinks`, `rewriteFoldedLinks`, `blankFences`, `CODE_SPAN` |
 | `lib/hook.js` | `hook`: the agent hook command; the session record in the git directory, the changed set, the errors of `lintProject` in it, the protocol of each harness, the loop ceiling | `run` |
-| `lib/upgrade.js` | `upgrade`: the tag, the trial run, the pins in `cli`, `gates` and live files; then it starts `migrate` and `init` of the new version as child processes and prints the CHANGELOG entries | `run`, `listReleaseTags`, `rewriteCommand`, `rewriteGates`, `livePinText`, `rewriteProsePins` |
+| `lib/upgrade.js` | `upgrade`: the tag, the trial run, the pins in `cli`, `gates` and live files; then it starts `migrate` and `init` of the new version as child processes and prints the CHANGELOG entries | `run`, `listReleaseTags`, `rewriteCommand`, `rewriteGates`, `rewriteProsePins` |
 | `lib/migrate.js` | `migrate`: the `MIGRATIONS` list and the redraw of the rules pair; writes the version stamp | `MIGRATIONS`, `run` |
 | `lib/changelog.js` | `changelog`: the tool's CHANGELOG entries between two versions | `run`, `changelogSince` |
 | `lib/merge-changelog.js` | `merge-changelog`: a merge of two `CHANGELOG.md` revisions by entry heading | `run`, `mergeChangelog`, `CONFLICT_MARK` |
 
-**Commands that import commands.** Eight imports cross from one command module to another, all for a function and never for `run`:
+**Commands that import commands.** Five imports cross from one command module to another, all for a function and never for `run`; `test/module-imports.test.mjs` fails on any import outside its `ALLOWED` list:
 
-- `lib/init.js` imports `scanAdrs` and `formatAdrNumber` from `lib/adr.js`;
-- `lib/lint.js` imports `scanAdrs` and `ADR_FILE_RE` from `lib/adr.js`, `livePinText` from `lib/upgrade.js`, and the link functions of gate 1 from `lib/links.js`;
+- `lib/lint.js` imports the link functions of gate 1 from `lib/links.js`;
 - `lib/migrate.js`, `lib/seed.js` and `lib/fold.js` import link functions from `lib/links.js`.
 - `lib/hook.js` imports `lintProject` from `lib/lint.js`.
+
+What command modules share lives in shared modules: the ADR scan in `lib/adr-scan.js`, which `adr`, `init` and `lint` import, and `livePinText` in `lib/mdwalk.js`, which `lint` and `upgrade` import.
 
 `lib/links.js` is a command module that shared modules import too: `lib/adapters.js`, `lib/tasks.js` and `lib/templates.js` read its parser. It imports `config`, `i18n`, `mdwalk` and `util` for its command, none of which reaches `links` back.
 
@@ -72,7 +73,8 @@ The page names code by file and by identifier, not by line: find a line with `gr
 | `lib/i18n.js` | the message lookup by English key, and the Russian localization `templates/i18n/ru.mjs` as `RU`: its messages, help text and parser words | `msg`, `msgBoth`, `RU` |
 | `lib/util.js` | `CliError` and `HelpRequest`, the output helpers, `parseCommandArgs`, `toPosix`, file read and write, the git wrapper and its helpers, the shell runner | `CliError`, `HelpRequest`, `parseCommandArgs`, `ok`, `info`, `warn`, `bad`, `note`, `printJson`, `toPosix`, `today`, `git`, `insideRepo`, `readText`, `writeText`, `readJson`, `runShell` |
 | `lib/version.js` | the tool version and version comparison | `TOOL_VERSION`, `compareVersions`, `normalizeVersion`, `latestVersion`, `stampNewerHead` |
-| `lib/mdwalk.js` | the markdown walkers: one set of files for the gates and for the commands that rewrite links, with `linkGateFiles`, the set gate 1 checks and `migrate` and `links --external` read; the live-pin files | `mdFiles`, `rootMarkdown`, `linkGateFiles`, `repoMarkdown`, `srcFiles`, `livePinFiles`, `stalePins`, `symlinkComponent`, `UnreadableDir` |
+| `lib/mdwalk.js` | the markdown walkers: one set of files for the gates and for the commands that rewrite links, with `linkGateFiles`, the set gate 1 checks and `migrate` and `links --external` read; the live-pin files | `mdFiles`, `rootMarkdown`, `linkGateFiles`, `repoMarkdown`, `srcFiles`, `livePinFiles`, `livePinText`, `stalePins`, `symlinkComponent`, `UnreadableDir` |
+| `lib/adr-scan.js` | the ADR files of a project: the file name pattern, the scan by number and the number format; `adr`, `init` and `lint` read it | `scanAdrs`, `formatAdrNumber`, `ADR_FILE_RE` |
 | `lib/log.js` | the line format of `LOG.md`: parse, format, anchors, reading and appending | `parseLogLine`, `formatLogLine`, `logFile`, `readLogText`, `appendLogLines`, `logAnchor`, `brokenLogLines` |
 | `lib/ids.js` | task ids `<prefix>-N[.k]`: parsing, formatting, the slug and file-stem patterns, the commit subject pattern. Imports only `util` | `formatId`, `matchId`, `SLUG_SRC`, `taskStemSrc`, `taskSubjectRe` |
 | `lib/text.js` | lines and line endings of a text file. A leaf module | `eolOf`, `splitLines` |
@@ -242,6 +244,7 @@ A probe is a mutation of a green project. A gate is confirmed by a probe that go
 | Help, versions and review regressions | `test/review.test.mjs` |
 | Shared modules | `test/config.test.mjs`, `test/tasks.test.mjs`, `test/links.test.mjs`, `test/mdwalk.test.mjs`, `test/util.test.mjs`, `test/version.test.mjs`, `test/adapter-ownership.test.mjs`, `test/hooks-install.test.mjs` |
 | The comment limit | `test/comment-length.test.mjs` |
+| The imports between command modules: only those listed in `ALLOWED` of the test | `test/module-imports.test.mjs` |
 | The language rule: Cyrillic only in templates/, docs/backlog/ and docs/archive/ | `test/english-only.test.mjs` |
 | The Russian localization: key parity of `lib/` and `bin/` with `templates/i18n/ru.mjs`, and the lookup | `test/i18n.test.mjs` |
 

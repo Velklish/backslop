@@ -1387,3 +1387,37 @@ test('init in the tool repository does not advise --tools, which it refuses ther
     cleanup(tool);
   }
 });
+
+function refusedBeforeWrite(shape, why) {
+  const root = emptyRepo();
+  try {
+    shape(root);
+    const r = cli(root, ['init', '--lang', 'en', '--tools', 'claude']);
+    assert.equal(r.code, 1, `${why}: ${r.out}`);
+    assert.match(r.err, why);
+    assert.doesNotMatch(r.err, /EISDIR|node:fs|\n\s+at /, `${why}: a stack`);
+    assert.equal(existsSync(path.join(root, 'backslop.json')), false, `${why}: the config was written`);
+    assert.equal(existsSync(path.join(root, 'docs')), false, `${why}: the docs skeleton was laid out`);
+  } finally {
+    cleanup(root);
+  }
+}
+
+test('init --tools claude refuses a bad owned output path or a CLAUDE.md directory before any write', () => {
+  refusedBeforeWrite((root) => mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'), { recursive: true }), /^✖ owned adapter output is not a file: \.claude\/skills\/backslop-task\/SKILL\.md/);
+  refusedBeforeWrite((root) => mkdirSync(path.join(root, 'CLAUDE.md')), /^✖ CLAUDE\.md is a directory, expected a file/);
+  refusedBeforeWrite((root) => put(root, '.claude/skills/backslop-task', 'a file instead of a directory\n'), /^✖ a file sits where the adapter output path needs a directory: \.claude\/skills\/backslop-task\/SKILL\.md/);
+});
+
+test('init --tools claude refuses a symlink on an owned output path before any write', { skip: process.platform === 'win32' }, () => {
+  const shared = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
+  try {
+    refusedBeforeWrite((root) => {
+      mkdirSync(path.join(root, '.claude/skills'), { recursive: true });
+      symlinkSync(shared, path.join(root, '.claude/skills/backslop-task'));
+    }, /^✖ adapter path contains a symlink: \.claude\/skills\/backslop-task/);
+    refusedBeforeWrite((root) => symlinkSync(path.join(root, 'missing-target'), path.join(root, 'CLAUDE.md')), /^✖ adapter path contains a symlink: CLAUDE\.md/);
+  } finally {
+    cleanup(shared);
+  }
+});

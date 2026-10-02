@@ -115,6 +115,7 @@ for (const { name, files, expected } of PARITY_CASES) {
 // parser's names catch it before `brief` and `mv` stop finding the section.
 const FIELDS = [FIELD_ORDER, FIELD_PREV_ORDER, FIELD_AREA, FIELD_CREATED, FIELD_TAKEN, FIELD_DEPS, FIELD_PARENT, FIELD_COST];
 const SECTIONS = [SECTION_CONTEXT, SECTION_WORK, SECTION_OUT, SECTION_CHECKS, SECTION_DEFERRED, SECTION_EVIDENCE];
+const REQUIRED = { 'task.md': [SECTION_WORK, SECTION_OUT, SECTION_CHECKS], 'minor.md': [SECTION_EVIDENCE] };
 const CARD_VARS = { area: 'a', context: 'c', cost: 'minor', date: '2026-01-01', id: 'X-1', parent: 'X-0', title: 't' };
 
 for (const lang of ['ru', 'en']) {
@@ -126,6 +127,9 @@ for (const lang of ['ru', 'en']) {
       assert.ok(list.length, `${rel}: the template has ## sections`);
       for (const { name } of list) {
         assert.ok(SECTIONS.some((key) => sectionName(key, lang) === name), `${lang} ${rel}: unknown section "${name}"`);
+      }
+      for (const key of REQUIRED[rel]) {
+        assert.ok(list.some(({ name }) => name === sectionName(key, lang)), `${lang} ${rel}: missing section "${sectionName(key, lang)}"`);
       }
       const labels = clean.slice(0, list[0].start).flatMap((line) => line.match(/^- \*\*(.+?):\*\* /)?.[1] ?? []);
       assert.ok(labels.length, `${rel}: the template has header fields`);

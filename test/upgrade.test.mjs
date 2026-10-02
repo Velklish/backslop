@@ -1571,3 +1571,12 @@ test('upgrade leaves a pin in a journal entry on the first line of a LOG.md that
     rmSync(shim, { recursive: true, force: true });
   }
 });
+
+test('rewriteCommand pins a floating cli inside backticks, $() and quotes', () => {
+  const floating = parseCli('npx github:me/proj');
+  for (const command of ['x=`npx github:me/proj lint`', 'x=$(npx github:me/proj lint)', 'sh -c "npx github:me/proj lint"', "sh -c 'npx github:me/proj lint'"]) {
+    assert.equal(rewriteCommand(command, 'npx github:me/proj', floating, '0.2.0'), command.replace('proj lint', 'proj#v0.2.0 lint'), command);
+  }
+  assert.equal(rewriteCommand('x=`npx github:me/projx lint`', 'npx github:me/proj', floating, '0.2.0'), 'x=`npx github:me/projx lint`');
+  assert.equal(rewriteCommand('x=`npx github:me/proj`', 'npx github:me/proj', floating, '0.2.0'), 'x=`npx github:me/proj#v0.2.0`');
+});
