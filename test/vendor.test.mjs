@@ -208,6 +208,7 @@ test('lint: the adapter pass checks the links and the LICENSE of the laid-out ve
     const rel = '.cursor/rules/backslop-techdoc/references/api-reference.md';
     put(root, rel, read(root, rel).replace('](voice-and-words.md)', '](missing.md)'));
     unlinkSync(path.join(root, '.cursor/rules/backslop-humanizer/LICENSE'));
+    put(root, '.gitignore', '');
     r = cli(root, ['lint']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err + r.out, /\.cursor\/rules\/backslop-techdoc\/references\/api-reference\.md: broken link missing\.md/);
