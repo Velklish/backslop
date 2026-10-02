@@ -997,6 +997,78 @@ test('status --json: blank or missing created and taken are null, like area and 
   } finally { cleanup(root); }
 });
 
+const REASON_STUB = ru('- **Reason:** [TODO]');
+
+function deferCard(root, reason) {
+  cli(root, ['new', 'a', '--queue', '--title', 'First']);
+  const moved = cli(root, ['mv', '1', 'deferred']);
+  assert.equal(moved.code, 0, moved.err);
+  const rel = 'docs/backlog/deferred/BS-1-a.md';
+  const text = read(root, rel);
+  assert.ok(text.includes(REASON_STUB), 'mv no longer writes the Reason stub this test fills');
+  put(root, rel, text.replace(REASON_STUB, REASON_STUB.replace('[TODO]', reason)));
+}
+
+test('status: a deferred card shows its Reason text, without the label markup', () => {
+  const root = makeProject();
+  try {
+    deferCard(root, 'waiting for the _reviewer_');
+    const human = cli(root, ['status']);
+    assert.equal(human.code, 0, human.err);
+    assert.match(human.out, /\n {2}BS-1 · First — waiting for the _reviewer_\n/);
+    assert.doesNotMatch(human.out, /\*\*/);
+    const json = cli(root, ['status', '--json']);
+    assert.equal(json.code, 0, json.err);
+    assert.equal(JSON.parse(json.out).deferred[0].deferred, 'waiting for the _reviewer_');
+  } finally { cleanup(root); }
+});
+
+test('status: an English-labelled Reason is read in a ru project, and a ru-labelled one in an en project', () => {
+  const root = makeProject({ git: false });
+  const en = makeProject({ git: false });
+  try {
+    put(root, 'docs/backlog/deferred/BS-1-a.md', `# BS-1 · A\n\n## ${SECTION.deferred}\n\n- **Deferred:** 2026-10-02\n- **Reason:** english label\n- **Return condition:** later\n`);
+    put(root, 'docs/backlog/deferred/BS-2-b.md', `# BS-2 · B\n\n## ${SECTION.deferred}\n\n${REASON_STUB.replace('[TODO]', 'localized label')}\n`);
+    const s = JSON.parse(cli(root, ['status', '--json']).out);
+    assert.deepEqual(s.deferred.map((d) => d.deferred), ['english label', 'localized label']);
+    put(en, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"en","tools":[]}\n');
+    put(en, 'docs/backlog/deferred/BS-1-a.md', `# BS-1 · A\n\n## ${SECTION.deferred}\n\n${REASON_STUB.replace('[TODO]', 'localized label in en')}\n`);
+    const human = cli(en, ['status']);
+    assert.equal(human.code, 0, human.err);
+    assert.match(human.out, /\n {2}BS-1 · A — localized label in en\n/);
+    assert.equal(JSON.parse(cli(en, ['status', '--json']).out).deferred[0].deferred, 'localized label in en');
+  } finally { cleanup(root); cleanup(en); }
+});
+
+test('status: an empty or stub Reason, or no Deferred section, shows no deferred text', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/backlog/deferred/BS-1-a.md', `# BS-1 · A\n\n## ${SECTION.deferred}\n\n- **Deferred:** 2026-10-02\n${REASON_STUB}\n`);
+    put(root, 'docs/backlog/deferred/BS-2-b.md', `# BS-2 · B\n\n## ${SECTION.deferred}\n\n- **Deferred:** 2026-10-02\n${REASON_STUB.replace(' [TODO]', '')}\n`);
+    put(root, 'docs/backlog/deferred/BS-3-c.md', '# BS-3 · C\n');
+    const human = cli(root, ['status']);
+    assert.equal(human.code, 0, human.err);
+    assert.match(human.out, new RegExp(`${ru('Deferred')} \\(3\\)\\n {2}BS-1 · A\\n {2}BS-2 · B\\n {2}BS-3 · C\\n`));
+    const s = JSON.parse(cli(root, ['status', '--json']).out);
+    assert.deepEqual(s.deferred.map((d) => d.deferred), [null, null, null]);
+  } finally { cleanup(root); }
+});
+
+test('status: a Deferred section without a Reason line shows its first line that is not a field', () => {
+  const root = makeProject({ git: false });
+  try {
+    const date = ru('- **Deferred:** {date}', { date: '2026-10-02' });
+    put(root, 'docs/backlog/deferred/BS-1-a.md', `# BS-1 · A\n\n## ${SECTION.deferred}\n\n\nwaiting for the owner\n${date}\n`);
+    put(root, 'docs/backlog/deferred/BS-2-b.md', `# BS-2 · B\n\n## ${SECTION.deferred}\n\n${date}\n`);
+    put(root, 'docs/backlog/deferred/BS-3-c.md', `# BS-3 · C\n\n## ${SECTION.deferred}\n\n${date}\n- **Reasons:** a wrong label\n`);
+    const human = cli(root, ['status']);
+    assert.equal(human.code, 0, human.err);
+    assert.ok(human.out.includes('\n  BS-1 · A — waiting for the owner\n  BS-2 · B\n  BS-3 · C\n'), human.out);
+    const s = JSON.parse(cli(root, ['status', '--json']).out);
+    assert.deepEqual(s.deferred.map((d) => d.deferred), ['waiting for the owner', null, null]);
+  } finally { cleanup(root); }
+});
+
 test('new and adr: a slug past the 255-byte file name is refused before anything is written', () => {
   const root = makeProject();
   try {

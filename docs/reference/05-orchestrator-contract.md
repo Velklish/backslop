@@ -80,7 +80,7 @@ A real run on a project with a task in every status and one folded task, each li
       "title": "Delta",
       "file": "docs/backlog/deferred/<prefix>-N-delta.md",
       "created": "YYYY-MM-DD",
-      "deferred": "- **Deferred:** YYYY-MM-DD"
+      "deferred": "Waiting for the reviewer"
     }
   ],
   "triage": [
@@ -106,9 +106,9 @@ A real run on a project with a task in every status and one folded task, each li
 ```
 
 - Every list is present, empty when its status has no tasks.
-- **Nulls.** An empty or missing `title`, `created`, `taken`, `area` or `cost` is `null`, never an empty string; `order` is `null` for a queued task without an integer Order; `deferred` is `null` when the task has no Deferred section or an empty one.
+- **Nulls.** An empty or missing `title`, `created`, `taken`, `area` or `cost` is `null`, never an empty string; `order` is `null` for a queued task without an integer Order.
 - **Order.** `active`, `deferred` and `triage` are ordered by `N`, then by `k`: a task `N` comes before its findings `N.k`. `queue` is ordered by Order, then by number, a task without Order last. `minor` is ordered by Scope as a string, entries without Scope last.
-- `deferred` is the first non-empty line of the Deferred section, as written in the file and in its language.
+- `deferred` is the text of the Reason line of the Deferred section, without the list marker and the label, as written in the file and in its language; it is `null` when that line is empty or still the `[TODO]` stub, and when the task has no Deferred section. A section without a Reason line gives its first non-empty line that is not a `- **Label:** value` field line, as written, or `null` when every line is a field.
 - `cost` is the Cost field as written (`minor`, `major (hypothesis)`); `area` is the Scope field as written, a markdown link included.
 - `archive` is the number of closed tasks: archive directories plus `LOG.md` journal lines, without minor entries closed into a batch with `--into`.
 - Paths are from the project root, in posix form.

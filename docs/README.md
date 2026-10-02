@@ -105,6 +105,18 @@ The single owner of the field semantics is the [01 config table](01-layout.md#ba
 
 <!-- quote:reference/05-orchestrator-contract.md -->
 ```text
+- `deferred` is the text of the Reason line of the Deferred section, without the list marker and the label, as written in the file and in its language; it is `null` when that line is empty or still the `[TODO]` stub, and when the task has no Deferred section. A section without a Reason line gives its first non-empty line that is not a `- **Label:** value` field line, as written, or `null` when every line is a field.
+```
+<!-- /quote -->
+
+<!-- quote:reference/05-orchestrator-contract.md -->
+```text
+      "deferred": "Waiting for the reviewer"
+```
+<!-- /quote -->
+
+<!-- quote:reference/05-orchestrator-contract.md -->
+```text
 - a crash is also exit 1 with empty stdout; its stderr carries a stack trace instead of a `✖` line, so a caller that reads only the exit code and stdout treats it as "no result", like a refusal.
 ```
 <!-- /quote -->
