@@ -26,7 +26,7 @@ Close what is named yours by your own decision and write that decision into the 
 
 {{gates}}
 
-Documentation goes in the same pass: the reference for the subsystem you touched, the README, the CHANGELOG. An undocumented change counts as unfinished.
+Documentation goes in the same pass: the reference for the subsystem you touched, the README, the CHANGELOG. An undocumented change counts as unfinished. A documentation fix carries a check that fails on the old text: a `quote:` block, a test or a lint rule; name it in the result.
 
 ## How to work
 
