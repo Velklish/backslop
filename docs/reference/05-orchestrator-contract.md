@@ -46,7 +46,7 @@ What an orchestrator, a skill or a script may rely on when it drives backslop: h
 
 - exit 1 with JSON on stdout is a **result**: the command ran, and the result is red (`gates --json`, a gate that is not green; `links --external --json`, a dead address); exit 2 with JSON on stdout is a result too (`links --external --json`, unverified addresses only);
 - exit 1 with empty stdout is a **refusal**: the command did nothing, and stderr says why;
-- a crash is also exit 1 with empty stdout; its stderr carries a stack trace instead of a `✖` line, so a caller that reads only the exit code and stdout sees it as "no result", like a refusal.
+- a crash is also exit 1 with empty stdout; its stderr carries a stack trace instead of a `✖` line, so a caller that reads only the exit code and stdout treats it as "no result", like a refusal.
 
 ## `status --json`
 
@@ -328,7 +328,7 @@ A real run in a repository with `package.json` scripts `test`, `lint` and `start
 
 - `gates` items are `{command, evidence}`, `subsystems` items `{name, evidence}`. `total` is the number of subsystem candidates, not of all items.
 - `evidence` is a human-readable pointer to where the candidate was found — a script key (`package.json → scripts.test`), a file with a line (`.github/workflows/ci.yml:7`) or a path (`src/api`) — not a locator to parse.
-- A script becomes a gate candidate only when its name matches `GATE_NAME` in [lib/seed.js](../../lib/seed.js), which is why `start` is absent above; the walk skips the directories of `SKIP_BUILD` in the same file. The lists live in the code, and the sources are named in [02 § seed](02-cli.md#seed).
+- A script becomes a gate candidate only when its name matches `GATE_NAME` in [lib/seed.js](../../lib/seed.js), which is why `start` is absent from the `gates` list of the sample run; the walk skips the directories of `SKIP_BUILD` in the same file. The lists live in the code, and the sources are named in [02 § seed](02-cli.md#seed).
 - The choice stays with the caller: a candidate is not a gate or a subsystem until the agent and the owner say so.
 
 ## Two shapes of `dirty`
@@ -366,7 +366,7 @@ These are the commands an orchestrator uses to change the tracker. The behaviour
 
 ## The managed block
 
-`init` writes the process section into `AGENTS.md` between the markers `<!-- backslop:start -->` and `<!-- backslop:end -->`; the rules are in [01 § Re-running init](01-layout.md#re-running-init).
+`init` writes the process section into `AGENTS.md` between the markers `<!-- backslop:start -->` and `<!-- backslop:end -->`; the rules are in [01 § Re-run init](01-layout.md#re-run-init).
 
 - A marker counts only on a line of its own. The block is replaced between its markers, or appended at the end of the file when there are none. A marker on its own line twice, or a marker without its pair, is refused before the first write.
 - Text outside the markers is the project's and survives `init`.
@@ -433,7 +433,7 @@ Stable, within one tagged version and across versions until an ADR changes it:
 - `lint` message text.
 - The output of `hook`: it is the protocol of the harness that runs it (a returned turn on stderr or in a `followup_message`, a `systemMessage` note), not a channel for an orchestrator.
 
-### Changing the contract
+### Change the contract
 
 - A behaviour change of a command updates `docs/reference/`, README and CHANGELOG in the same pass.
 - A contract change — file formats, commands, the composition of `status --json` — needs an ADR: a new one for a new question, or the ADR that decides the question rewritten in place (docs/README.md, principle 2).

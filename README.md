@@ -1,6 +1,6 @@
 # backslop
 
-A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command.
+A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command:
 
 ```bash
 npx github:Velklish/backslop init --lang en
@@ -20,6 +20,8 @@ Agents produce a lot of work, and it needs a tracker that lives in the repositor
 - **the process is skills**: a one-task lifecycle with worker and approver roles, a worker run by tracks with briefs and a review gate, and documentation population after installation.
 
 ## What appears in a project
+
+`init` lays down this core in every project:
 
 ```
 backslop.json                    config: prefix, docs, cli (with the version pin), gates, probe, writer, version, source, lang, tools, hooks, agents
@@ -41,7 +43,7 @@ Each adapter lays out the process skills, the `backslop-writer` release and batc
 
 `init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang ru`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
 
-With an adapter selected, ask an agent to "populate docs using backslop" once the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a worker batch closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
+With an adapter selected, ask an agent to "populate docs using backslop" after the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a worker batch closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
 
 ## Agent hooks
 
@@ -88,7 +90,7 @@ Each command links its reference section: behaviour, output and refusals.
 
 The command is long, so a project records it in the `cli` field of `backslop.json`, and skills and the `AGENTS.md` section substitute it from there. With a global install (`npm i -g github:Velklish/backslop#v<version>`), set `cli` to `backslop`.
 
-## Updating
+## Update a project
 
 `init` records the version that created the layout: `cli` is `npx github:Velklish/backslop#v<version>`, and `version` is its stamp. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else's commit. Update a project only when you choose to:
 
@@ -96,7 +98,7 @@ The command is long, so a project records it in the `cli` field of `backslop.jso
 npx github:Velklish/backslop upgrade
 ```
 
-The project command `<cli> upgrade` runs the code of the pinned version and finishes from a pin of 0.11.1 or later. For an older pin, use the untagged form above, which always runs fresh backslop and still updates the project to the latest tag; pins earlier than 0.9.0 are unsupported.
+The project command `<cli> upgrade` runs the code of the pinned version and finishes from a pin of 0.11.1 or later. For an older pin, use the untagged form `npx github:Velklish/backslop upgrade`, which always runs fresh backslop and still updates the project to the latest tag; pins earlier than 0.9.0 are unsupported.
 
 - **What it does.** `upgrade` takes the latest tag (or `--to X.Y.Z`), test-runs the new version, moves the pin in `cli` and inside the `gates` and `probe` commands, runs the new version's `migrate` and `init`, moves pins in the [live files](docs/reference/03-lint.md#live-pin-files), and prints the tool's CHANGELOG between the two versions.
 - **Preview.** `--dry-run` prints the plan only; it does not include the output of `migrate`. Preview the format migrations and the rules redraw with `npx github:Velklish/backslop#v<new> migrate --dry-run`.
@@ -132,7 +134,7 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 - English and Russian template layers are provided. Changing `lang` does not translate existing docs, except the tracking and archive rules: the next `migrate` redraws them in the new language unless they carry local edits.
 - A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-mention gate on lines such as `API-2.0`; choose a prefix absent from project text.
 
-## Working on backslop
+## Work on backslop
 
 - The repository rules are in [AGENTS.md](AGENTS.md), and the structure of the tool is in [docs/reference/](docs/reference/README.md).
 - Where each part of `lib/` lives, and how to add a command, a lint gate, a migration or a template placeholder: [06. Module map](docs/reference/06-module-map.md).
