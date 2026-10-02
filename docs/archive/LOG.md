@@ -262,3 +262,6 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-176.1"></a>`BS-176.1-tracks-dirty-trimmed-porcelain` · 2026-10-02 · batch BS-199 · — · tracks --json dirty trims porcelain lines, dropping the status column layout
 - <a id="bs-193.1"></a>`BS-193.1-mv-moves-card-before-link-walk-fails` · 2026-10-02 · batch BS-199 · — · mv-moves-card-before-link-walk-fails
 - <a id="bs-197.3"></a>`BS-197.3-gates-summary-omits-zero-counts` · 2026-10-02 · batch BS-199 · — · gates-summary-omits-zero-counts
+- <a id="bs-192"></a>`BS-192-self-host-writer-pass-release` · 2026-10-02 · completed · — · First technical-writer pass over backslop's own documentation
+- <a id="bs-185.1"></a>`BS-185.1-reference-readme-lists-links-external-json` · 2026-10-02 · batch BS-192 · — · reference-readme-lists-links-external-json
+- <a id="bs-192.45"></a>`BS-192.45-claude-code-agents-import-behaviour` · 2026-10-02 · batch BS-192 · — · Claude Code reading CLAUDE.md with an @AGENTS.md import has no record in the tree

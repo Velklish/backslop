@@ -25,7 +25,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 
 ## Modules
 
-`lib/` has 35 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
+`lib/` has 36 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
 
 ### Command modules
 
@@ -44,7 +44,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 | `lib/lint.js` | `lint`: every lint gate, in `lintProject`, which also returns what gate 1 read; the exit code is 1 with errors | `lintProject`, `run` |
 | `lib/gates.js` | `gates`: runs the `gates` list of `backslop.json`, the exit code of each command, the tree snapshot | `run`, `globToRe` |
 | `lib/tracks.js` | `tracks`: worktrees and run branches, merged or not, what is left and what is dirty | `run` |
-| `lib/links.js` | `links`: `links --external`, the http(s) addresses of the gate 1 file set, one request at a time, the class of each answer, the exit code. Also the one parser of every link form that gates 1, 8, 13 and 15 and `seed` read, heading anchors, the gate 1 check of a file, directory links, the rewrite on a move, a fold or an archive (it reads inline links and line-start declarations only) | `run`, `classifyStatus`, `externalUrls`, `linksOf`, `localLinks`, `relativeLinks`, `checkLinks`, `anchorsOf`, `anchorReader`, `slugOf`, `uniqueSlugs`, `hasAnchor`, `directoryLinks`, `mapLinks`, `rebaseTarget`, `rewriteMovedLinks`, `rewriteFoldedLinks`, `blankFences`, `CODE_SPAN` |
+| `lib/links.js` | `links`: `links --external`, the http(s) addresses of the gate 1 file set, one request at a time, the class of each answer, the exit code. Also the one parser of every link form that gates 1, 8, 13 and 15 and `seed` read, heading anchors, the gate 1 check of a file, directory links, the rewrite on a move, a fold or an archive (every form gate 1 reads, in the syntax it was written) | `run`, `classifyStatus`, `externalUrls`, `linksOf`, `localLinks`, `relativeLinks`, `checkLinks`, `anchorsOf`, `anchorReader`, `slugOf`, `uniqueSlugs`, `hasAnchor`, `directoryLinks`, `mapLinks`, `rebaseTarget`, `rewriteMovedLinks`, `rewriteFoldedLinks`, `blankFences`, `CODE_SPAN` |
 | `lib/hook.js` | `hook`: the agent hook command; the session record in the git directory, the changed set, the errors of `lintProject` in it, the protocol of each harness, the loop ceiling | `run` |
 | `lib/upgrade.js` | `upgrade`: the tag, the trial run, the pins in `cli`, `gates` and live files; then it starts `migrate` and `init` of the new version as child processes and prints the CHANGELOG entries | `run`, `listReleaseTags`, `rewriteCommand`, `rewriteGates`, `livePinText`, `rewriteProsePins` |
 | `lib/migrate.js` | `migrate`: the `MIGRATIONS` list and the redraw of the rules pair; writes the version stamp | `MIGRATIONS`, `run` |
@@ -185,7 +185,7 @@ Both helper modules are in `test/`; everything below is exported from [test/help
 
 | Helper | What it does |
 |---|---|
-| `makeProject({ docs = 'docs', git = true, stamp = true } = {})` | A temporary project built by hand, not by `init`, so an `init` defect does not redden another test. `backslop.json` has prefix `BS`, `gates: []`, **`lang: 'ru'`** and `tools: []`; `stamp: false` omits the `version` stamp. It creates the status directories, `archive/`, `adr/`, `reference/` and minimal READMEs — `docs/README.md` with one link, since Markdown files without any link fail gate 1 as `gate 1 read nothing` — and with `git: true` a repository on `main` with a test identity. Because `lang` is `ru`, messages come out in Russian, and a test builds its expectation through the Russian helpers below, never from a Russian literal; a test of an English message rewrites `lang` to `en` in `backslop.json` first |
+| `makeProject({ docs = 'docs', git = true, stamp = true } = {})` | A temporary project built by hand, not by `init`, so an `init` defect does not redden another test. `backslop.json` has prefix `BS`, `gates: []`, `lang: 'ru'` and `tools: []`; `stamp: false` omits the `version` stamp. It creates the status directories, `archive/`, `adr/`, `reference/` and minimal READMEs — `docs/README.md` with one link, since Markdown files without any link fail gate 1 as `gate 1 read nothing` — and with `git: true` a repository on `main` with a test identity. Because `lang` is `ru`, messages come out in Russian, and a test builds its expectation through the Russian helpers below, never from a Russian literal; a test of an English message rewrites `lang` to `en` in `backslop.json` first |
 | `cli(root, args, { cwd = root, env = {} } = {})` | Runs `bin/backslop.js` as a real process and returns `{ code, out, err }`. `NO_COLOR` is set and `--no-warnings` is appended to `NODE_OPTIONS` |
 | `put(root, rel, text)`, `read(root, rel)` | Write a file, creating directories, and read one; `rel` is a posix path below the project |
 | `run(root, args)` | Runs `git -C root …` and throws when it exits non-zero |
@@ -234,10 +234,13 @@ A probe is a mutation of a green project. A gate is confirmed by a probe that go
 | A command as a process with `makeProject` and `cli`: `new`, `mv`, `status`, `adr` and the flag, language and refusal rules shared by all commands | `test/commands.test.mjs` |
 | One file for a command with its own cases | `archive`, `brief`, `fold` (with `show`), `gates`, `hook`, `init`, `links` (`--external`, in `test/links-external.test.mjs`), `merge-changelog`, `seed`, `tracks`, `upgrade` (with `migrate`): `test/<name>.test.mjs` |
 | Lint gates and checks outside the numbered gates | `test/lint.test.mjs` |
+| Lint in a fresh `git worktree`, where ignored adapter outputs are absent | `test/lint-worktree.test.mjs` |
 | Templates: parity, slots, rendering | `test/templates.test.mjs`; the gate 12 probe is in `test/lint.test.mjs` |
+| Vendored writing skills: `LICENSE`, `SOURCE.md`, and how the adapters lay them out | `test/vendor.test.mjs` |
+| The `backslop-writer` skill templates and the `writer` field of `backslop.json` | `test/writer.test.mjs` |
 | Release script | `test/release.test.mjs` |
 | Help, versions and review regressions | `test/review.test.mjs` |
-| Shared modules | `test/config.test.mjs`, `test/tasks.test.mjs`, `test/links.test.mjs`, `test/mdwalk.test.mjs`, `test/util.test.mjs`, `test/version.test.mjs`, `test/adapter-ownership.test.mjs` |
+| Shared modules | `test/config.test.mjs`, `test/tasks.test.mjs`, `test/links.test.mjs`, `test/mdwalk.test.mjs`, `test/util.test.mjs`, `test/version.test.mjs`, `test/adapter-ownership.test.mjs`, `test/hooks-install.test.mjs` |
 | The comment limit | `test/comment-length.test.mjs` |
 | The language rule: Cyrillic only in templates/, docs/backlog/ and docs/archive/ | `test/english-only.test.mjs` |
 | The Russian localization: key parity of `lib/` and `bin/` with `templates/i18n/ru.mjs`, and the lookup | `test/i18n.test.mjs` |
