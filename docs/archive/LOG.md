@@ -379,3 +379,6 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-202.4"></a>`BS-202.4-acceptance-recipe-attachment-branch` · 2026-10-02 · batch BS-210 · — · The acceptance recipe has no branch for a task directory that holds attachments
 - <a id="bs-213"></a>`BS-213-hook-npx-start-cost` · 2026-10-03 · completed · — · Agent hooks: measure the start cost of the default npx cli
 - <a id="bs-196.1"></a>`BS-196.1-hook-npx-start-cost` · 2026-10-03 · batch BS-213 · — · Agent hooks: the default npx cli runs on every stop and start event
+- <a id="bs-216"></a>`BS-216-minor-batch-close-out` · 2026-10-03 · completed · — · Minor batch: flaky gates test, accepted pin-prose risk, stale table card
+- <a id="bs-84.3"></a>`BS-84.3-npm-form-prose-backslop-reads-as-pin` · 2026-10-03 · batch BS-216 · — · npm-form-prose-backslop-reads-as-pin
+- <a id="bs-213.1"></a>`BS-213.1-gate-cap-test-load-sensitive` · 2026-10-03 · batch BS-216 · — · gate-cap-test-load-sensitive
