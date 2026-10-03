@@ -228,6 +228,63 @@ test('rewrites: a percent-encoded link moves and stays encoded; a malformed esca
   assert.deepEqual(seen, ['my docs/archive/BS-1-x/task%.md'], 'resolve sees the raw path of a malformed escape');
 });
 
+test('lint resolves an encoded hash in an existing path segment', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/topic#one.md', '# Heading\n');
+    put(root, 'docs/links.md', '[one](topic%23one.md#heading)\n');
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint resolves an encoded question mark in an existing path segment', { skip: process.platform === 'win32' }, () => {
+  // Windows filenames cannot contain a question mark.
+  const root = makeProject();
+  try {
+    put(root, 'docs/topic?two.md', '# Heading\n');
+    put(root, 'docs/links.md', '[two](topic%3Ftwo.md#heading)\n');
+    const r = cli(root, ['lint']);
+    assert.equal(r.code, 0, r.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('rewrites keep hash and question mark encoded within path segments', () => {
+  assert.equal(rewriteMovedLinks('[x](../queue/topic%23one.md#heading)', FROM, TO),
+    '[x](../../backlog/queue/topic%23one.md#heading)');
+  assert.equal(rewriteIncomingLinks('[x](topic%23one.md?plain=1#heading)', 'docs',
+    'docs/topic#one.md', 'docs/archive/topic#one.md'), '[x](archive/topic%23one.md?plain=1#heading)');
+  assert.equal(rewriteIncomingLinks('[x](topic%3Ftwo.md#heading)', 'docs',
+    'docs/topic?two.md', 'docs/archive/topic?two.md'), '[x](archive/topic%3Ftwo.md#heading)');
+});
+
+test('mv keeps a working encoded hash link in the moved card', () => {
+  const root = makeProject();
+  try {
+    put(root, 'docs/backlog/queue/topic#one.md', '# Heading\n');
+    assert.equal(cli(root, ['new', 'linked', '--queue', '--title', 'Linked']).code, 0);
+    const card = 'docs/backlog/queue/BS-1-linked.md';
+    put(root, card, `${read(root, card)}\n[topic](topic%23one.md#heading)\n`);
+    gitAll(root);
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    const moved = 'docs/backlog/active/BS-1-linked.md';
+    assert.match(read(root, moved), /\[topic\]\(\.\.\/queue\/topic%23one\.md#heading\)/);
+    assert.deepEqual(broken(path.join(root, moved), root), []);
+    const archived = cli(root, ['archive', '1']);
+    assert.equal(archived.code, 0, archived.err);
+    const task = 'docs/archive/BS-1-linked/task.md';
+    assert.match(read(root, task), /\[topic\]\(\.\.\/\.\.\/backlog\/queue\/topic%23one\.md#heading\)/);
+    assert.deepEqual(broken(path.join(root, task), root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('fold names a link with a malformed escape into the folded directory and leaves it as written', () => {
   const root = makeProject();
   try {
