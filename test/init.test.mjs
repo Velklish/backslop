@@ -167,15 +167,16 @@ test('init: a BOM-prefixed package.json gives its name to docs/README.md', () =>
 // own check — before the first write. The check is shared: a class of fields, not one.
 test('init: --cli with a block marker — a refusal before the first write', () => {
   for (const [flag, value, why] of [
-    ['--cli', 'node bin/backslop.js <!-- backslop:end -->', new RegExp(`^✖ --cli must not contain the backslop:start or backslop:end markers: .* \\/ ${ruRe(MARKERS, { label: '--cli' }).source}`, 'm')],
-    ['--dir', 'docs <!-- backslop:end -->', new RegExp(`^✖ --dir must not contain the backslop:start or backslop:end markers: .* \\/ ${ruRe(MARKERS, { label: '--dir' }).source}`, 'm')],
-    ['--dir', 'docs`', new RegExp(`^✖ --dir must not contain a backtick: .* \\/ ${ruRe(BACKTICK, { label: '--dir' }).source}`, 'm')],
+    ['--cli', 'node bin/backslop.js <!-- backslop:end -->', MARKERS.replace('{label}', '--cli')],
+    ['--dir', 'docs <!-- backslop:end -->', MARKERS.replace('{label}', '--dir')],
+    ['--dir', 'docs`', BACKTICK.replace('{label}', '--dir')],
   ]) {
     const root = emptyRepo();
     try {
       const r = cli(root, ['init', flag, value]);
       assert.equal(r.code, 1, `${flag} “${value}”: a refusal was expected`);
-      assert.match(r.err, why);
+      assert.equal(r.err, `✖ ${why}\n`);
+      assert.doesNotMatch(r.err, CYRILLIC);
       assert.equal(existsSync(path.join(root, 'backslop.json')), false, 'the config is not written');
       assert.equal(existsSync(path.join(root, 'AGENTS.md')), false, 'the block is not written');
     } finally {
@@ -619,7 +620,12 @@ test('init: inside an already initialized project — a refusal with the root pa
     put(root, 'src/keep.txt', '');
     r = cli(root, ['init'], { cwd: sub });
     assert.equal(r.code, 1);
-    assert.match(r.err, ruRe('project is already initialized above at {existingRoot}; run init there or create a separate {config}'));
+    assert.equal(r.err, `✖ ${ru('project is already initialized above at {existingRoot}; run init there or create a separate {config}', { existingRoot: root, config: 'backslop.json' })}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' })}\n`);
+    r = cli(root, ['init'], { cwd: sub });
+    assert.equal(r.code, 1);
+    assert.equal(r.err, `✖ project is already initialized above at ${root}; run init there or create a separate backslop.json\n`);
+    assert.doesNotMatch(r.err, CYRILLIC);
     assert.ok(!existsSync(path.join(sub, 'backslop.json')));
   } finally {
     cleanup(root);
@@ -1337,7 +1343,22 @@ test('init suggests the backslop-seed skill only when an adapter is selected', (
   }
 });
 
-test('init flag errors follow --lang and stay bilingual only when the language is unknown', () => {
+test('init --lang refusal follows a known project language', () => {
+  const root = emptyRepo();
+  try {
+    assert.equal(cli(root, ['init']).code, 0);
+    let r = cli(root, ['init', '--lang', 'other']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, `✖ --lang «other»: ${ru('must be ru or en')}\n`);
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' })}\n`);
+    r = cli(root, ['init', '--lang', 'other']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ --lang «other»: must be ru or en\n');
+    assert.doesNotMatch(r.err, CYRILLIC);
+  } finally { cleanup(root); }
+});
+
+test('init flag errors follow --lang and use English when the language is unknown', () => {
   const cyrillic = CYRILLIC;
   for (const [args, line] of [
     [['--lang', 'en', '--tools', 'bogus'], '✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none'],
@@ -1359,7 +1380,8 @@ test('init flag errors follow --lang and stay bilingual only when the language i
   try {
     const r = cli(root, ['init', '--tools', 'bogus']);
     assert.equal(r.code, 1);
-    assert.match(r.err, new RegExp(`^✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none \\/ ${ruRe('--tools “{raw}”: a comma-separated list of claude, cursor, codex, or none', { raw: 'bogus' }).source}$`, 'm'));
+    assert.equal(r.err, '✖ --tools “bogus”: a comma-separated list of claude, cursor, codex, or none\n');
+    assert.doesNotMatch(r.err, cyrillic);
   } finally {
     cleanup(root);
   }

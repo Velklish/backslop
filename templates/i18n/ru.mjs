@@ -614,13 +614,6 @@ export const messages = {
   'unknown command “{name}”; see {cli} help': 'неизвестная команда «{name}»; список — {cli} help',
 };
 
-// The two-language form of a message printed outside a project, where it is not `en / ru`.
-export const both = {
-  '--since “{since}”: expected X.Y.Z': '--since “{since}”: expected X.Y.Z / нужна форма X.Y.Z',
-  '--to “{to}”: expected X.Y.Z': '--to “{to}”: expected X.Y.Z / нужна форма X.Y.Z',
-  'unknown command “{name}”; see {cli} help': 'Unknown command “{name}” / Неизвестная команда «{name}»; see / список — backslop help',
-};
-
 // Regular-expression sources of the words the parsers in lib/ read from `lang: ru` project files;
 // the English words stay in lib/.
 export const parserWords = {
@@ -681,7 +674,7 @@ export const sectionNames = {
   evidence: 'Улика',
 };
 
-// `backslop help` in a `lang: ru` project; outside a project it follows the English help.
+// `backslop help` in a `lang: ru` project; outside a project the English help is used.
 export const help = (version) => `backslop — бэклог для слопа: задачи файлами, архив, ADR, скиллы процесса
 
 Команды:

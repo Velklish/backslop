@@ -413,3 +413,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.27"></a>`BS-192.27-lint-numeric-link-text` · 2026-10-03 · completed · — · 03 Lint gates: link text is a page number
 - <a id="bs-192.31"></a>`BS-192.31-verification-multi-action-steps` · 2026-10-03 · completed · — · 04 Verification: steps 5 and 6 hold many actions each
 - <a id="bs-192.36"></a>`BS-192.36-module-map-numeric-link-text` · 2026-10-03 · completed · — · 06 Module map: link text is a page number
+- <a id="bs-203"></a>`BS-203-messages-unknown-language-english` · 2026-10-03 · completed · — · Messages in an unknown language are English: msgBoth is replaced

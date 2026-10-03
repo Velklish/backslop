@@ -5,7 +5,7 @@ import process from 'node:process';
 import { CliError, HelpRequest, bad } from '../lib/util.js';
 import { TOOL_VERSION } from '../lib/version.js';
 import { projectHintsOrNull } from '../lib/config.js';
-import { RU, msgBoth } from '../lib/i18n.js';
+import { RU, msg } from '../lib/i18n.js';
 
 const COMMANDS = ['init', 'new', 'mv', 'archive', 'fold', 'show', 'adr', 'brief', 'seed', 'status', 'lint', 'gates', 'tracks', 'links', 'hook', 'upgrade', 'migrate', 'changelog', 'merge-changelog'];
 
@@ -72,8 +72,7 @@ Run without installing: npx github:Velklish/backslop#v${TOOL_VERSION} <command>
 `;
 
 const help = (lang) => {
-  if (lang === 'en') return HELP_EN;
-  return lang === 'ru' ? RU.help(TOOL_VERSION) : `${HELP_EN}\n${RU.help(TOOL_VERSION)}`;
+  return lang === 'ru' ? RU.help(TOOL_VERSION) : HELP_EN;
 };
 
 async function main(argv) {
@@ -89,8 +88,8 @@ async function main(argv) {
     return 0;
   }
   if (!COMMANDS.includes(name)) {
-    throw new CliError(msgBoth(lang,
-      'unknown command “{name}”; see {cli} help', { name, cli: project?.cli }));
+    throw new CliError(msg(lang,
+      'unknown command “{name}”; see {cli} help', { name, cli: project?.cli ?? 'backslop' }));
   }
   const mod = await import(`../lib/${name}.js`);
   try {
