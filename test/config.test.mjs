@@ -8,13 +8,13 @@ const PROBE_STRING = ruRe("{config}: probe must be a command string that runs th
 const SINGLE_LINE = '{label} must be a single-line value without line breaks: a second line becomes a separate paragraph inside the block';
 const NO_BACKTICK = '{label} must not contain a backtick: the template puts it in a code span, and a backtick inside closes it';
 const NO_MARKERS = '{label} must not contain the backslop:start or backslop:end markers: it sits inside the block, and a marker there would copy a block boundary into the block text';
+const CYRILLIC = /\p{Script=Cyrillic}/u;
 
 test('config: a config without lang or tools is refused by commands that read it, init included', () => {
   const root = makeProject();
   const setConfig = (fields) => put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', gates: [], ...fields }, null, 2)}\n`);
   const cases = [
-    [{ tools: [] }, `backslop.json: ${ru('{field} is missing — {reason}; add it to {config} by hand: init reads the config first and cannot add the field', { field: 'lang', reason: ru('must be ru or en'), config: 'backslop.json' })}`
-      + ' / lang is missing — must be ru or en; add it to backslop.json by hand: init reads the config first and cannot add the field'],
+    [{ tools: [] }, 'backslop.json: lang is missing — must be ru or en; add it to backslop.json by hand: init reads the config first and cannot add the field'],
     [{ lang: 'en' }, 'backslop.json: tools is missing — expected a unique array of claude, cursor, codex, [] for no adapters; add it to backslop.json by hand: init reads the config first and cannot add the field'],
   ];
   try {
@@ -36,9 +36,15 @@ test('config: top level must be an object', () => {
   const root = makeProject({ git: false });
   try {
     put(root, 'backslop.json', '[]\n');
-    assert.throws(() => loadConfig(root), ruRe('top level must be an object'));
+    assert.throws(() => loadConfig(root), /top level must be an object/);
+    let r = cli(root, ['status']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ backslop.json: top level must be an object\n');
     put(root, 'backslop.json', 'null\n');
-    assert.throws(() => loadConfig(root), ruRe('top level must be an object'));
+    assert.throws(() => loadConfig(root), /top level must be an object/);
+    r = cli(root, ['status']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ backslop.json: top level must be an object\n');
   } finally { cleanup(root); }
 });
 
@@ -47,10 +53,25 @@ test('config: lang and tools reject unknown or duplicate ids', () => {
   try {
     put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"de","tools":[]}\n');
     assert.throws(() => loadConfig(root), /lang/);
+    const r = cli(root, ['status']);
+    assert.equal(r.code, 1);
+    assert.equal(r.err, '✖ backslop.json: lang «de» — must be ru or en\n');
+    assert.doesNotMatch(r.err, CYRILLIC);
     put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"ru","tools":["vscode"]}\n');
     assert.throws(() => loadConfig(root), /claude, cursor, codex/);
     put(root, 'backslop.json', '{"prefix":"BS","docs":"docs","gates":[],"lang":"ru","tools":["codex","codex"]}\n');
     assert.throws(() => loadConfig(root), ruRe('{config}: tools must be a unique array of claude, cursor, codex'));
+  } finally { cleanup(root); }
+});
+
+test('config: malformed JSON refusal uses English without a known language', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'backslop.json', '{\n');
+    const r = cli(root, ['status']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /^✖ backslop\.json: cannot be parsed — /);
+    assert.doesNotMatch(r.err, CYRILLIC);
   } finally { cleanup(root); }
 });
 

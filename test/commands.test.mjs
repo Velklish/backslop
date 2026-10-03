@@ -430,7 +430,7 @@ test('an extra positional is refused with exit 1 and named; mv and brief take se
   }
 });
 
-test('argv refusals speak the project language, and both languages outside a project', () => {
+test('argv refusals speak the project language, and English outside a project', () => {
   const root = makeProject();
   try {
     let r = cli(root, ['status', '--bogus']);
@@ -455,7 +455,8 @@ test('argv refusals speak the project language, and both languages outside a pro
     assert.equal(r.err, '✖ extra argument “bogus”: the command takes no positional arguments; quote a value with spaces\n');
     r = cli(root, ['status', '--bogus'], { cwd: path.dirname(root) });
     assert.equal(r.code, 1);
-    assert.equal(r.err, `✖ unknown option “--bogus”; see the command’s --help for its flags / ${ru('unknown option “{flag}”; see the command’s --help for its flags', { flag: '--bogus' })}\n`);
+    assert.equal(r.err, '✖ unknown option “--bogus”; see the command’s --help for its flags\n');
+    assert.doesNotMatch(r.err, CYRILLIC);
     assert.doesNotMatch(r.err, /To specify a positional argument/, 'Node’s hint about -- is gone');
   } finally {
     cleanup(root);
@@ -1126,10 +1127,37 @@ test('commands outside a project refuse with a hint about init', () => {
   try {
     const r = cli(root, ['status'], { cwd: path.dirname(root) });
     assert.equal(r.code, 1);
-    assert.match(r.err, /backslop init/);
+    assert.equal(r.err, `✖ backslop.json was not found in ${path.dirname(root)} or its parents — run backslop init first\n`);
+    assert.doesNotMatch(r.err, CYRILLIC);
   } finally {
     cleanup(root);
   }
+});
+
+test('early init and hook refusals outside a project use English', () => {
+  const root = makeProject();
+  try {
+    for (const [args, expected] of [
+      [['init', '--lang', 'other'], '✖ --lang «other»: must be ru or en\n'],
+      [['init', '--prefix', 'x'], '✖ --prefix “x”: expected 2–6 uppercase Latin letters or digits, starting with a letter\n'],
+      [['hook', 'other'], '✖ unknown hook event “other”: expected session-start or stop\n'],
+    ]) {
+      const r = cli(root, args, { cwd: path.dirname(root) });
+      assert.equal(r.code, 1, args.join(' '));
+      assert.equal(r.err, expected, args.join(' '));
+      assert.doesNotMatch(r.err, CYRILLIC, args.join(' '));
+    }
+  } finally { cleanup(root); }
+});
+
+test('changelog outside a project prints its no entries message in English', () => {
+  const root = makeProject();
+  try {
+    const r = cli(root, ['changelog', '--since', 'v99.0.0'], { cwd: path.dirname(root) });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^no entries after v99\.0\.0/);
+    assert.doesNotMatch(r.out, CYRILLIC);
+  } finally { cleanup(root); }
 });
 
 test('changelog and merge-changelog take the language from an otherwise invalid backslop.json', () => {
@@ -1152,17 +1180,17 @@ test('changelog and merge-changelog take the language from an otherwise invalid 
   } finally { cleanup(root); cleanup(tool); }
 });
 
-test('merge-changelog outside a project refuses in both languages', () => {
+test('merge-changelog outside a project refuses in English', () => {
   const root = makeProject();
   try {
     const r = cli(root, ['merge-changelog'], { cwd: path.dirname(root) });
     assert.equal(r.code, 1);
     assert.match(r.err, /both --ours <ref> and --theirs <ref> are required/);
-    assert.match(r.err, new RegExp(escapeRe(ru('both --ours <ref> and --theirs <ref> are required: two CHANGELOG.md revisions from git'))));
+    assert.doesNotMatch(r.err, CYRILLIC);
   } finally { cleanup(root); }
 });
 
-test('merge-changelog outside a project gives a git failure cause in each language', { skip: process.platform === 'win32' }, () => {
+test('merge-changelog outside a project gives an English git failure cause', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
   const shim = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-git-shim-')));
   try {
@@ -1171,14 +1199,14 @@ test('merge-changelog outside a project gives a git failure cause in each langua
     gitAll(root, 'changelog');
     const real = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
     const env = { PATH: `${shim}${path.delimiter}${process.env.PATH}` };
-    for (const [arg, en, ruText] of [
-      ['*:./CHANGELOG.md', 'cannot read HEAD:CHANGELOG.md', ru('cannot read {ref}:{changelog} — {cause}', { ref: 'HEAD', changelog: 'CHANGELOG.md', cause: KILLED })],
-      ['tag', 'cannot read the tag list', ru('cannot read the tag list — {cause}', { cause: KILLED })],
+    for (const [arg, en] of [
+      ['*:./CHANGELOG.md', 'cannot read HEAD:CHANGELOG.md'],
+      ['tag', 'cannot read the tag list'],
     ]) {
       writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do case "$a" in ${arg}) kill -9 $$;; esac; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
       const r = cli(root, ['merge-changelog', '--ours=HEAD', '--theirs=HEAD'], { env });
       assert.equal(r.code, 1, r.out);
-      assert.equal(r.err, `✖ ${en} — killed by SIGKILL / ${ruText}\n`);
+      assert.equal(r.err, `✖ ${en} — killed by SIGKILL\n`);
     }
   } finally {
     cleanup(root);
@@ -2189,6 +2217,7 @@ test('runnable hints in error messages name the project cli', () => {
     const r = cli(outside, ['frob']);
     assert.equal(r.code, 1);
     assert.match(r.err, /backslop help$/m);
+    assert.doesNotMatch(r.err, CYRILLIC);
   } finally {
     cleanup(outside);
   }

@@ -45,6 +45,12 @@ Each block quotes a statement of the README or the reference that a code change 
 <details>
 <summary>Quoted statements</summary>
 
+<!-- quote:adr/adr-051-localization.md -->
+```text
+- **Messages.** Human CLI output goes through `msg(lang, en, params)` in the config language (`lib/i18n.js`). The English text in the code is the key, with `{name}` placeholders filled from `params`; the Russian text is the entry of that key in `templates/i18n/ru.mjs`, and a key without an entry falls back to the English. Outside a project the language is unknown, so messages use the English text; `help` in `bin/backslop.js` prints the English help (`HELP_EN`).
+```
+<!-- /quote -->
+
 <!-- quote:../README.md -->
 ```text
 The project command `<cli> upgrade` runs the code of the pinned version and finishes from a pin of 0.11.1 or later. For an older pin, use the untagged form `npx github:Velklish/backslop upgrade`, which always runs fresh backslop and still updates the project to the latest tag; pins earlier than 0.9.0 are unsupported.
@@ -179,7 +185,7 @@ Inputs that cannot come from a Russian source are built from code points: the lo
 
 <!-- quote:reference/06-module-map.md -->
 ```text
-**Messages.** Every user-facing message is written once, in English, as the key of `msg(lang, en, params)` from `lib/i18n.js`: `{name}` in the text takes `params.name`, and a function param is called with the language of the text it fills. For `en` the lookup returns the English text; otherwise it returns the Russian entry of the same key in [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs), the CLI's Russian localization, and a key without an entry falls back to the English. An entry is a string with a subset of the key's placeholders, or a function of the params, for word order, plural forms and a text that differs by context. After the config is loaded the language is `cfg.lang`; before that, it is the `lang` passed to `run`. Outside a project that `lang` is `null`, and `msgBoth(lang, en, params)` returns both texts, `en / ru`, or the entry of the same key in `both` of that module when the two-language form is another. The key is a string literal at the call: `test/i18n.test.mjs` reads every key in `lib/` and `bin/` and fails on a key without an entry, on an entry no call uses, on a key written twice in the module, on one English text under two keys that differ only in placeholder names, and on a call whose params object has no param for a placeholder of its key. JSON output is language-neutral.
+**Messages.** Every user-facing message is written once, in English, as the key of `msg(lang, en, params)` from `lib/i18n.js`: `{name}` in the text takes `params.name`, and a function param is called with the language of the text it fills. For `ru` the lookup returns the Russian entry of the same key in [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs), the CLI's Russian localization; for `en` or an unknown language it returns the English text. A missing Russian entry falls back to English. An entry is a string with a subset of the key's placeholders, or a function of the params, for word order, plural forms and a text that differs by context. After the config is loaded the language is `cfg.lang`; before that, it is the `lang` passed to `run`. Outside a project that `lang` is `null`, so messages use English. The key is a string literal at the call: `test/i18n.test.mjs` reads every key in `lib/` and `bin/` and fails on a key without an entry, on an entry no call uses, on a key written twice in the module, on one English text under two keys that differ only in placeholder names, and on a call whose params object has no param for a placeholder of its key. JSON output is language-neutral.
 ```
 <!-- /quote -->
 

@@ -8,7 +8,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 
 **Output.** A hint you can run names the command from the project's `cli` field; outside a project it names `backslop`. Long output (`status --json`) reaches the reader whole, and a reader that closes the pipe early ends the command quietly.
 
-**Language.** Messages are in the project language (`lang` in `backslop.json`). An argv refusal, an unknown command, `help`, `version`, `changelog` and `merge-changelog` read `lang` without validating the rest of the config. Outside a project an argv or unknown-command refusal is one line in both languages, `EN / RU`, and `help` prints both full texts. A first `init` reports in the `--lang` language, or `ru` without it; its flag refusals before any language is known are `EN / RU`.
+**Language.** Messages are in the project language (`lang` in `backslop.json`). An argv refusal, an unknown command, `help`, `version`, `changelog` and `merge-changelog` read `lang` without validating the rest of the config. Outside a project, where the language is unknown, messages and `help` are English. A first `init` reports in the `--lang` language, or `ru` without it; its flag refusals before any language is known are English.
 
 **Flag parsing** is strict:
 
@@ -76,7 +76,7 @@ Refusals:
 
 - A `dir`/`prefix`/`cli` flag that differs from the existing config; an unknown `lang`, `tools` or `hooks` value; a project already initialized above; a stamp newer than the tool.
 - On a first run with hooks selected and an explicit local `--cli`, or a repeated run with hooks selected and a local config `cli`, a missing `devDependencies.backslop` declaration, before the first write. Add or restore the declaration, or change the `cli`; `lint` does not check whether the local executable exists.
-- A bad prefix; a `--dir` path outside the project or with a `..` segment, by the rule of the `docs` field (`docs/../x` is refused, not shortened to `x`); a value any later run would refuse (an empty `--cli`). A flag refusal speaks the language of `--lang` or of the existing config, or `EN / RU` when the language is unknown; a `--cli`/`--dir` refusal by the block rule names the flag, not `backslop.json`.
+- A bad prefix; a `--dir` path outside the project or with a `..` segment, by the rule of the `docs` field (`docs/../x` is refused, not shortened to `x`); a value any later run would refuse (an empty `--cli`). A flag refusal speaks the language of `--lang` or of the existing config, or English when the language is unknown; a `--cli`/`--dir` refusal by the block rule names the flag, not `backslop.json`.
 - `--tools` other than `none` in the tool's own repository (its `templates/` is the running tool's directory): self-host keeps `tools: []`, and a stand with an adapter is set up in a directory of its own.
 - Before the first write: a symlink on the root of a selected adapter or on the path of one of its outputs (unselected roots are not checked), a directory at an output path, a file on a component of that path, `CLAUDE.md` that is a directory or a dangling symlink with `claude` selected; `docs`, a skeleton directory under it, or a selected adapter root that is a file; `docs` or a skeleton directory under it that cannot be read (named with its error code, as the other commands name it); `AGENTS.md` or `.gitignore` that is a directory; `docs/README.md` that is not a file; `AGENTS.md` or a `.gitignore` that `init` rewrites not in UTF-8; a block marker on its own line twice, or without its pair; the hook file of a selected harness that is not valid JSON, whose top level or `hooks` is not an object, or whose start or stop value is not a list, or that has a symlink on its path.
 
@@ -413,7 +413,7 @@ Refusals:
 ### changelog
 
 - Behaviour: prints the sections of backslop's CHANGELOG with a version strictly after `--since` and not after `--to` (by default, the tool version). A section's version is the number at the start of its heading — the same rule as in `merge-changelog`.
-- Output: the sections as written in backslop's CHANGELOG; only the "no entries" message follows the project language (read without validating the rest of the config), and outside a project it is in both languages.
+- Output: the sections as written in backslop's CHANGELOG; only the "no entries" message follows the project language (read without validating the rest of the config), and outside a project it is English.
 - Refusals: a version not in the form X.Y.Z.
 
 ### merge-changelog

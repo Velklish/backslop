@@ -6,14 +6,14 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSyn
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { RU, msg, msgBoth } from '../lib/i18n.js';
+import { RU, msg } from '../lib/i18n.js';
 import { maskedLines, scannedCode } from './comment-scan.mjs';
 import { toPosix } from '../lib/util.js';
 import { cli } from './helpers.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const MODULE = 'templates/i18n/ru.mjs';
-const CALL = /(?<![\w$.])(msg|msgBoth)\(/g;
+const CALL = /(?<![\w$.])msg\(/g;
 const LITERAL = /^\s*('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\$]|\\.|\$(?!\{))*`)/;
 
 // The source with every comment blanked, offsets kept: a call named in a comment is not a call.
@@ -99,7 +99,7 @@ function scanCalls() {
       const at = afterFirstArg(code, m.index + m[0].length);
       const lit = at < 0 ? null : code.slice(at).match(LITERAL);
       if (!lit) opaque.push(where);
-      else calls.push({ where, fn: m[1], key: new Function(`return ${lit[1]}`)(), params: paramNames(code, at + lit[0].length) });
+      else calls.push({ where, key: new Function(`return ${lit[1]}`)(), params: paramNames(code, at + lit[0].length) });
     }
   }
   return { calls, opaque };
@@ -109,7 +109,7 @@ const { calls, opaque } = scanCalls();
 const placeholders = (text) => new Set([...text.matchAll(/\{([A-Za-z_$][\w$]*)\}/g)].map((m) => m[1]));
 
 test('every message key in lib/ and bin/ is a string literal', () => {
-  assert.ok(calls.length > 0, 'the scan found no msg or msgBoth call in lib/ or bin/');
+  assert.ok(calls.length > 0, 'the scan found no msg call in lib/ or bin/');
   assert.deepEqual(opaque, [], 'these calls pass a key the parity test cannot read — write the English text in place');
 });
 
@@ -129,19 +129,15 @@ test('every English message the CLI prints has a Russian entry in templates/i18n
 
 test('every Russian entry in templates/i18n/ru.mjs is a message the CLI prints', () => {
   const used = new Set(calls.map((c) => c.key));
-  const usedBoth = new Set(calls.filter((c) => c.fn === 'msgBoth').map((c) => c.key));
-  const dead = [
-    ...Object.keys(RU.messages).filter((k) => !used.has(k)).map((k) => `messages: “${k}”`),
-    ...Object.keys(RU.both).filter((k) => !usedBoth.has(k)).map((k) => `both: “${k}”`),
-  ];
-  assert.deepEqual(dead, [], `no msg or msgBoth call in lib/ or bin/ uses these entries of ${MODULE}`);
+  const dead = Object.keys(RU.messages).filter((k) => !used.has(k)).map((k) => `messages: “${k}”`);
+  assert.deepEqual(dead, [], `no msg call in lib/ or bin/ uses these entries of ${MODULE}`);
 });
 
 // Read from the module text: in the evaluated object a repeated key silently wins last.
 test('no key is written twice in templates/i18n/ru.mjs', () => {
   const text = readFileSync(path.join(ROOT, MODULE), 'utf8');
   const repeated = [];
-  for (const [name, table] of Object.entries({ messages: RU.messages, both: RU.both })) {
+  for (const [name, table] of Object.entries({ messages: RU.messages })) {
     const block = text.slice(text.indexOf(`export const ${name} = {`)).split('\n};')[0];
     const keys = [...block.matchAll(/^ {2}([A-Za-z_$][\w$]*|'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"):/gm)]
       .map((m) => (/^['"]/.test(m[1]) ? new Function(`return ${m[1]}`)() : m[1]));
@@ -154,7 +150,7 @@ test('no key is written twice in templates/i18n/ru.mjs', () => {
 
 test('no two keys in templates/i18n/ru.mjs are one English text with other placeholder names', () => {
   const twins = [];
-  for (const [name, table] of Object.entries({ messages: RU.messages, both: RU.both })) {
+  for (const [name, table] of Object.entries({ messages: RU.messages })) {
     const first = new Map();
     for (const key of Object.keys(table)) {
       const shape = key.replace(/\{[A-Za-z_$][\w$]*\}/g, '{}');
@@ -167,7 +163,7 @@ test('no two keys in templates/i18n/ru.mjs are one English text with other place
 
 test('a Russian string names only the placeholders of its English key', () => {
   const stray = [];
-  for (const table of [RU.messages, RU.both]) {
+  for (const table of [RU.messages]) {
     for (const [key, value] of Object.entries(table)) {
       if (typeof value !== 'string') continue;
       const own = placeholders(key);
@@ -185,12 +181,12 @@ test('a key missing from templates/i18n/ru.mjs falls back to the English text', 
 test('a function param is called with the language of the text it fills', () => {
   const lang = (l) => l;
   assert.equal(msg('en', 'no such message: {lang}', { lang }), 'no such message: en');
-  assert.equal(msgBoth(null, 'no such message: {lang}', { lang }), 'no such message: en / no such message: ru');
+  assert.equal(msg(null, 'no such message: {lang}', { lang }), 'no such message: en');
 });
 
-test('msgBoth without a language joins the English and the Russian text', () => {
-  assert.equal(msgBoth(null, 'cannot be parsed'), `cannot be parsed / ${RU.messages['cannot be parsed']}`);
-  assert.equal(msgBoth('ru', 'cannot be parsed'), RU.messages['cannot be parsed']);
+test('msg without a language returns the English text', () => {
+  assert.equal(msg(null, 'cannot be parsed'), 'cannot be parsed');
+  assert.equal(msg('ru', 'cannot be parsed'), RU.messages['cannot be parsed']);
 });
 
 test('init lays no templates/i18n/ into a project', () => {

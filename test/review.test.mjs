@@ -121,7 +121,7 @@ test('<command> --help and -h print the help outside a project too', () => {
       const r = cli(dir, args);
       assert.equal(r.code, 0, `${args.join(' ')}: ${r.err}`);
       assert.match(r.out, /Commands:/, args.join(' '));
-      assert.ok(r.out.includes(RU.help(TOOL_VERSION)), args.join(' '));
+      assert.doesNotMatch(r.out, /\p{Script=Cyrillic}/u, args.join(' '));
     }
     assert.ok(!existsSync(path.join(dir, 'backslop.json')), 'init -h initialised the directory');
   } finally {
@@ -201,12 +201,14 @@ test('version, -v, a command --help and an unknown command: exit code and output
   }
 });
 
-test('help outside a project prints both languages', () => {
+test('help outside a project prints English only', () => {
   const root = makeProject();
   try {
     const help = cli(root, ['help'], { cwd: path.dirname(root) }).out;
+    put(root, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang: 'en' })}\n`);
     assert.match(help, /Commands:/);
-    assert.ok(help.includes(RU.help(TOOL_VERSION)));
+    assert.equal(help, cli(root, ['help']).out);
+    assert.doesNotMatch(help, /\p{Script=Cyrillic}/u);
   } finally {
     cleanup(root);
   }
