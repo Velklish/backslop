@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **A repeated hook session start keeps its first commit and time** — when `session-start` runs again for the same harness and session id, `hook stop` still checks changes made before the second start. The report count resets on the repeated start; a new session id begins at its own start commit.
 - **The `init` message for an existing `docs/README.md` asks for a link to the ADR** — it said to add a row to the table, otherwise `lint` fails, but gate 8 checks that the ADR is linked from `docs/README.md`; a row in the table is now named as the usual place for the link, not as the condition.
 - **The `backslop-writer` audit files a Blocking card with `--cost critical` and a High card with `--cost major`** — the filing table gave `new <slug> --parent N` without a cost, so the card showed a dash instead of its label.
 - **The acceptance recipe in the `backslop-task` skill carries the attachment branch** — the skill restated step 5 of the `AGENTS.md` block without it, so an approver who followed the skill alone ran `fold` over a task directory with an attachment and met the refusal. The skill now squashes first with the directory in the tree, folds, and commits the draft as a second commit; the task reaches the main branch as two commits.
