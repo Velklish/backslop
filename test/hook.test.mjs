@@ -14,9 +14,9 @@ const BAD_B = 'docs/reference/b.md';
 const broken = (target) => `# Page\n\n[broken](${target})\n`;
 const errorLine = (file, target, line = 3) => `${file}: ${ru('broken link {href} (line {line})', { href: target, line })}`;
 const FIX_LINE = ru('fix these errors in the files named above; do not bypass the hook');
-const WARNING = (limit) => ru('lint errors in changed files returned the turn {limit} times in a row; letting it end:', { limit });
+const WARNING = (limit) => ru('lint errors in changed files were reported {limit} times in a row; the hook now exits 0, the errors stay:', { limit });
 
-// The stop payload of each harness, with its loop flag as measured.
+// The stop event JSON the tests feed to the hook, one shape per harness.
 const payload = (harness, extra = {}) => (harness === 'cursor'
   ? { session_id: SESSION, conversation_id: SESSION, hook_event_name: 'stop', loop_count: 0, ...extra }
   : { session_id: SESSION, hook_event_name: 'Stop', stop_hook_active: false, ...extra });
@@ -30,7 +30,7 @@ function hook(root, harness, event, { stdin = payload(harness), cwd = root, args
   return { code: r.status, out: r.stdout ?? '', err: r.stderr ?? '' };
 }
 
-// The turn is returned by stderr with exit 2, or by stdout JSON with exit 0 (cursor).
+// The errors come on stderr with exit 2, or as stdout JSON with exit 0 (cursor).
 function returnedText(harness, r) {
   if (harness === 'cursor') {
     assert.equal(r.code, 0, r.err);
@@ -53,7 +53,7 @@ function assertPasses(r, what) {
   assert.equal(r.err, '', what);
 }
 
-// The one note on the channel the harness shows the user.
+// The one note: stdout `systemMessage` JSON (claude, codex) or stderr (cursor).
 function noteOf(harness, r) {
   assert.equal(r.code, 0, `${harness}: ${r.err}`);
   if (harness === 'cursor') {
@@ -92,7 +92,7 @@ for (const harness of HARNESSES) {
     } finally { cleanup(root); }
   });
 
-  test(`hook ${harness}: an error in a file the session changed returns the turn`, () => {
+  test(`hook ${harness}: an error in a file the session changed is printed with the fix request`, () => {
     const root = session(harness);
     try {
       put(root, BAD_A, broken('missing.md'));
@@ -100,7 +100,7 @@ for (const harness of HARNESSES) {
     } finally { cleanup(root); }
   });
 
-  test(`hook ${harness}: an error in an untouched file does not return the turn`, () => {
+  test(`hook ${harness}: an error in an untouched file is not printed`, () => {
     const root = makeProject();
     try {
       put(root, BAD_B, broken('nothing.md'));
@@ -141,7 +141,7 @@ for (const harness of HARNESSES) {
     } finally { cleanup(root); }
   });
 
-  test(`hook ${harness}: the fourth stop lets the turn end, and a clean stop resets the count`, () => {
+  test(`hook ${harness}: the fourth stop exits 0 with a note, and a clean stop resets the count`, () => {
     const root = session(harness);
     try {
       put(root, BAD_A, broken('missing.md'));
@@ -180,7 +180,7 @@ test('hook: the count goes on when the errors change on every stop', () => {
     put(root, BAD_A, target(3));
     put(root, BAD_B, broken('nothing.md'));
     const r = hook(root, 'claude', 'stop');
-    assert.equal(noteOf('claude', r).split('\n')[0], WARNING(3), 'the fourth stop lets the turn end');
+    assert.equal(noteOf('claude', r).split('\n')[0], WARNING(3), 'the fourth stop exits 0 with the note');
     assert.equal(record(root, 'claude').returns.count, 3);
   } finally { cleanup(root); }
 });
@@ -306,7 +306,7 @@ test('hook: a repository without a commit uses the empty tree as the start', () 
   } finally { cleanup(root); }
 });
 
-test('hook: only errors count; a warning in a changed file does not return the turn', () => {
+test('hook: only errors count; a warning in a changed file is not printed', () => {
   const root = makeProject({ stamp: false });
   try {
     gitAll(root, 'base');
