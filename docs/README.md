@@ -173,7 +173,7 @@ Inputs that cannot come from a Russian source are built from code points: the lo
 
 <!-- quote:reference/06-module-map.md -->
 ```text
-4. **The docs.** A row in the command table of [02. CLI](02-cli.md) and a `### foo` section under it; the list of positional-argument counts in the "Flag parsing" paragraph of that page; a row in the command table of the README. If an orchestrator depends on the command, [05](05-orchestrator-contract.md) gets its channel and exit-code lines.
+4. **The docs.** A row in the command table of [02. CLI](02-cli.md) and a `### foo` section under it; the list of positional-argument counts in the "Flag parsing" paragraph of that page; a row in the command table of the README. If an orchestrator depends on the command, [05. Orchestrator contract](05-orchestrator-contract.md) gets its channel and exit-code lines.
 ```
 <!-- /quote -->
 
@@ -339,6 +339,96 @@ A record has this form:
 <!-- quote:reference/01-layout.md -->
 ```text
 - **Safeguards before the first write.** An uncommitted edit of such a file (`git status --porcelain` is not empty) is refused with the file name; for `archive/LOG.md` the refusal says that the entries stay and only an edit of the header would be erased. A `ROLES.md` that is no render of either language and lacks the paragraph "This file belongs to backslop" is the project's own file: `migrate` refuses before the first write, with git or without, names the file and asks to rename it. A render of the other language, or a file that keeps the paragraph, is backslop's own and is redrawn. A path through a symlink on any component is skipped with a warning, so the write does not go through the link. A pin move alone is not an edit: a file that, after every pin of the `cli` spec is set to the `cli` pin, equals its `HEAD` version up to line endings is redrawn — that is how `upgrade` of earlier versions leaves it.
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+This page is for a contributor or a maintainer who needs the exact layout and formats of a project that uses backslop. It covers what `init` lays down, the fields of `backslop.json`, the task, minor and archive files, the ADRs, the templates and the agent hook files. What each command does is on [02. CLI](02-cli.md), what each lint gate checks is on [03. Lint gates](03-lint.md), how a finding is verified is on [04. Finding verification protocol](04-verification.md), and what a caller may rely on is on [05. Orchestrator contract](05-orchestrator-contract.md).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+| `gates` | `["<cli> lint"]`, built from the project's `cli` | commands that must be green before hand-off; `backslop gates` runs them ([02. CLI](02-cli.md)), and the skills call exactly that. An entry is a non-empty command string (always run) or an object `{ "command": "<command>", "when": ["<glob>", …] }`: a scoped command runs only when the set of changed paths touches at least one pattern. `when` is a non-empty list of non-empty patterns; an empty one is refused, because the command would never run. A pattern matches the whole path from the project root (in a monorepo the project directory prefix is stripped, and a path outside the project leaves the set): `*` and `?` do not cross `/`, `**` does, and `**/` also matches the root. So a directory is written `docs/**`, not `docs`: a bare directory name matches no path, and the gate never runs |
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Scope.** `new` gives a new task a link to `reference/README.md` with the path depth computed; in a project without that file the stub stays as text, `[TODO: reference/ section]`, because a broken link would fail gate 1. Whoever files the task picks the actual section. A triaged task's Scope is a filled link to a reference section: in `queue/`, `active/` and `deferred/`, an empty field and the `[TODO]` stub left by `new` fail `lint` (gate 4, [03. Lint gates](03-lint.md)); in `triage/` the field is not checked, since an entry there lies unsorted.
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Previous order.** `mv` sets Previous order when a task leaves `queue/` and removes it when the task returns. Outside the queue there is no active Order, and `mv N queue --restore` ([02. CLI](02-cli.md)) needs the number the task left with. The fields are distinct: the gate that requires Order in `queue/` does not count a saved Previous order in its place.
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Lint.** In `minor/`, `lint` requires the Evidence section: a missing or empty one, or one holding a stub, is a gate 4 error ([03. Lint gates](03-lint.md)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+**Directory** — `docs/archive/<id>-<slug>/task.md`: the task definition as it was, with links rewritten for the new depth, and `result.md` from the template [templates/result.md](../../templates/result.md): closing date, outcome, what was done, how it was verified, which docs were updated. `archive N` lays it down so. While a `[TODO` stub remains in `result.md` outside code, `lint` is red; the stub form shown in a code span is not a stub ([03. Lint gates](03-lint.md)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Anchor.** The anchor is an explicit `<a id>`, not derived from the title: it must equal the number, and gate 13 checks that ([03. Lint gates](03-lint.md)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Commit** is the revision the body is read from; `—` while the body is not in history. `show N` reads it, and gate 13 reports a revision that is not in the history of `HEAD` ([03. Lint gates](03-lint.md)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Name a non-completed outcome with a table word.** "**Closed YYYY-MM-DD.** Refusal: moot" is the template's bare "Closed" and gives `completed`, while "**Closed YYYY-MM-DD.** Rejected: moot" gives `rejected`. `lint` gate 5 on an unfolded directory ([03. Lint gates](03-lint.md)) and `fold N` by a refusal before any write ([02. CLI](02-cli.md)) hold this requirement: the first paragraph or the heading of `result.md` must carry a table word. A bare "Closed" or "done" and the "Outcome:" marker, in either language, without a table word do not pass, and the template stub states the requirement. The fallback to the bare word and the marker remains for the bulk fold of old records closed before the gate; `result.md` has no separate Outcome field.
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Findings.** Closing a task does not close its findings: a finding `N.k` left in `triage/` after task `N` moved to the archive makes `lint` warn (gate 9, [03. Lint gates](03-lint.md)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Status.** `Proposed` or `Accepted`, on a `**Status:**` line; `lint` fails on another word, on a missing line and on a status line that names another ADR (gate 8, [03 § ADR status line](03-lint.md#adr-status-line)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Index.** Every ADR is linked from `docs/README.md`, as a row of its table by convention; at most one table row links it, and that row's Status cell is the status word of the file. `lint` fails without the link, on a second row, on a differing cell and on a `[TODO]` placeholder line left in the file (gate 8, [03 § ADR status line](03-lint.md#adr-status-line)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+| `docs/**` — the documentation skeleton | `init`; `migrate` redraws `backlog/README.md`, `archive/README.md`, `ROLES.md` and the header of `archive/LOG.md`; `fold` and `migrate` write `archive/LOG.md` when it is missing | [lib/init.js](../../lib/init.js), [lib/migrate.js](../../lib/migrate.js), [lib/fold.js](../../lib/fold.js) | docs/skills group | `backlog/README.md`, `archive/README.md` and `ROLES.md` whole: they belong to the tool, `migrate` compares them with their render, and in this repository they are a 1:1 render, as is the `archive/LOG.md` header above its first journal line; the ADR rows of `README.md` as links (gate 8, [03. Lint gates](03-lint.md)); the first link of each row of `reference/README.md`, read by `seed --queue-reference` |
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Placeholders** are written `{{name}}`. A placeholder without a key from the caller is a render-time error naming the template and the key; nothing is left in the text. `lint` gate 12 checks placeholders against the declared keys of each template group, both ways and in both language layers ([03. Lint gates](03-lint.md)).
+```
+<!-- /quote -->
+
+<!-- quote:reference/01-layout.md -->
+```text
+- **Source layer.** `templates/en/` is the source; a Russian twin in `templates/` has the same file, the same placeholders, the same skill frontmatter contract (`name` equals the directory name, `description` is not empty) and the same sequence of heading levels outside fenced code blocks — not merely the same count of headings — and the English layer has no Cyrillic. `lint` in the tool's repository fails on a mismatch ([03. Lint gates](03-lint.md)). It names a missing Russian twin of an English file and a Russian file without an English source; on a placeholder or heading mismatch it names the Russian file and prints the English value as the expected one.
 ```
 <!-- /quote -->
 
@@ -519,6 +609,119 @@ What the agent decides without asking, and what goes to the owner, is in [ROLES.
 <!-- quote:reference/02-cli.md -->
 ```text
 - Lays down the skeleton; the rules of a repeated run are in [01 § Re-run init](01-layout.md#re-run-init). An existing `docs/` file is not touched, nor are the rules pair and `ROLES.md` — `migrate` redraws them. An existing `ROLES.md` that is no render and lacks the "This file belongs to backslop" paragraph is kept, and `init` warns, naming the file and asking to rename it and run `init` again, which lays backslop's file; the block and the backlog README point at that path. The process ADR is `adr-001-process.md`, or the next free number in a project with ADRs of its own.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+This page is for a person or a script that calls the CLI. It holds every command with its flags, behaviour, output and refusals. The contract for scripts, which names the output channels, the exit codes and the JSON shapes a caller may rely on, is [05. Orchestrator contract](05-orchestrator-contract.md).
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- The acceptance procedure is four steps, one action each:
+  1. Run `fold N > "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"`. Expect the journal line in `<docs>/archive/LOG.md`, the task directory gone from the tree, and the draft in a file outside the working tree, because `git add -A` would otherwise take it into the task commit.
+  2. Run `git add -A`. Expect the changes of the fold, the journal line and the removed directory, staged.
+  3. Run `git reset --soft <base>`. Expect `HEAD` on `<base>` and the index still holding the whole change of the task.
+  4. Run `git commit --cleanup=verbatim -F "$(git rev-parse --git-dir)/BACKSLOP_DRAFT"`. Expect one acceptance commit whose message is the draft, with the subject `<prefix>-N: <what was done>`; `--cleanup=verbatim` stops git from cleaning the message at all.
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+This page is for a person fixing a red `lint` and for a contributor adding a gate. Each row of the gate table says what the gate catches and how to fix it; the sections after the table cover the checks outside the gates, the warnings and the walk of the files. The recipe for a new gate is [06 § Recipe: add a lint gate](06-module-map.md#recipe-add-a-lint-gate).
+```
+<!-- /quote -->
+
+<!-- quote:reference/06-module-map.md -->
+```text
+Where things live in the tool's own code, and the routine changes spelled out step by step: a command, a lint gate, a migration, a template placeholder. Start here when you change `bin/`, `lib/`, `scripts/` or the test helpers; behaviour as a user or an orchestrator sees it is on pages [01. Layout and formats](01-layout.md) to [05. Orchestrator contract](05-orchestrator-contract.md).
+```
+<!-- /quote -->
+
+<!-- quote:reference/06-module-map.md -->
+```text
+**A human refusal is a `CliError`** (`lib/util.js`). A command throws it for anything the reader can fix: a bad flag, an unknown task number, a config that breaks a rule. The entry point prints `✖ <message>` on stderr and exits 1, with no stack trace. Any other exception is a crash: the stack goes to stderr and the exit code is 1 as well; a crash is a code error and is never thrown on purpose. The table of exit codes and output channels is in [05 § Exit codes](05-orchestrator-contract.md#exit-codes).
+```
+<!-- /quote -->
+
+<!-- quote:reference/06-module-map.md -->
+```text
+- **Docs.** The `migrate` section of [02. CLI](02-cli.md) lists each migration and its refusal, and [01. Layout and formats](01-layout.md) describes the format. A format change that an orchestrator reads is a contract change, see [05 § Change the contract](05-orchestrator-contract.md#change-the-contract).
+```
+<!-- /quote -->
+
+<!-- quote:reference/04-verification.md -->
+```text
+5. **Probe removal of dead code.**
+   - a. Search for uses across `lib/`, `bin/`, `scripts/`, `test/`, `templates/` and `docs/`; record the search command and output. Mentions in backlog cards (`docs/backlog/`) and the archive (`docs/archive/`) quote the candidate and are not uses.
+```
+<!-- /quote -->
+
+<!-- quote:reference/04-verification.md -->
+```text
+   - d. Rerun that suite.
+   - e. Rerun `node bin/backslop.js lint`.
+   - f. Record each exit code and every red test by name.
+```
+<!-- /quote -->
+
+<!-- quote:reference/04-verification.md -->
+```text
+   - c. Run the suite.
+   - d. Name all red tests.
+```
+<!-- /quote -->
+
+<!-- quote:reference/04-verification.md -->
+```text
+   - h. Apply the same mutation.
+   - i. Rerun the suite.
+   - j. Name at least one other test that turns red.
+```
+<!-- /quote -->
+
+<!-- quote:reference/04-verification.md -->
+```text
+6. **Probe deletion of a test.**
+   - a. In a clone, run the unmutated suite as a baseline.
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+| 5 | Archive | A directory whose name does not match the pattern (a symlink to a directory inside the project is a task directory, a symlink leading out of the project is a stray file); a stray file in the archive — anything other than task directories, `README.md` and `LOG.md` (dot files are ignored); no `task.md` or `result.md`; a placeholder left in `result.md` — `[TODO` outside code, with code blocks and code spans blanked, so the placeholder form shown in code is an account of it and does not count, while the same form in prose does; a completed `result.md` that names no word of the outcome table ([01 § Archive](01-layout.md#archive)) — completed, rejected, merged into `<prefix>-N`, or a Russian form — in its first paragraph or heading: a bare closing word ("Closed" or its Russian form), "done" and the `Outcome:` marker are not an outcome, folding would read them as completed, and with no word at all it would write `—`. `fold N` refuses on the same two predicates; the outcome refusal carries the same message ([02. CLI](02-cli.md)). In a batch's `minor/` subdirectory, anything other than entry files `<prefix>-N[.k]-<slug>.md` (dot files are ignored); `docs/archive` or a batch's `minor/` that is a regular file — `<path>: a file, expected a directory` | complete the result — this is the approver's reminder; name the outcome with a table word in the first paragraph: `**Closed DATE.** Rejected: …`; only `archive N.k --into M` puts files into a batch's `minor/`; a file in place of a directory — remove or rename it and restore the directory |
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+| 13 | Closed-task journal | A line of `<docs>/archive/LOG.md` that looks like an entry (starts with `- <a id=`) but does not parse; a line whose anchor does not match its number; a link to `LOG.md#<anchor>` with no journal entry behind the anchor, in `docs/**` and root `*.md` (the gate 1 set, with its root symlinks and `.MD`) — the path resolves by the [link rule](#link-rule), and the anchor is everything after `#`, including after a `?query`; a line revision not reachable from `HEAD` (absent from `git rev-list HEAD`), through which `show N` cannot find the body. Gate 1 leaves the anchors of journal links in its own file set to this check, whose message names the missing entry and the line: incoming links of closed tasks point at the journal. The adapter pass checks journal anchors itself, since this check does not walk adapter outputs. The fourth catches a commit that a squash or rebase dropped after folding — before the push, when `lint` runs on the final acceptance commit as the procedure says; [02 § fold](02-cli.md#fold) says what leaves such a revision | fix the journal line to the form of [01 § Archive](01-layout.md#archive); point the link at an existing anchor — `backslop show N` shows the folded task's number; for an unreachable revision, bring the commit back into history or, when the body went into the acceptance commit message, replace the revision with `—`: `show N` finds the commit by its subject |
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+- **Adapter outputs** of every selected adapter: the output file is present, is a file, and is owned (carries the generated marker; a vendored skill's `LICENSE` stays verbatim and is owned through the marked `SOURCE.md` beside it, see [01 § Adapter ownership](01-layout.md#adapter-ownership)); its links pass the gate 1 rule — target, anchor and label — and do not point to a directory while their text names a task. A foreign file without the marker at an owned path is an error — `init` does not overwrite it; remove or rename the file and rerun `init`, or deselect the adapter. A directory at an owned path is an error, since `init` refuses on it. An output that is absent is an error too, unless git ignores that path in this working tree (see [Absent outputs and git](#absent-outputs-and-git)), or the output belongs to a vendored skill that `init` did not lay out because of a foreign `LICENSE` or `SOURCE.md` — the foreign file is the error then.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- Into `minor`: needs evidence — an Evidence section with text and without a placeholder, or `--evidence "…"` (one number only). A `task.md`-shaped card is reshaped: the Context, Work to do, Out of scope and Verification sections made only of placeholders are removed; in every other section but Evidence, a placeholder line by the gate 4 line rule ([03. Lint gates](03-lint.md)) is cut, while a table row with a written cell stays with its placeholder cells emptied. A Context with text and no Evidence becomes Evidence.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- **Do not commit between `archive N` and `fold N`** — except in the attachment branch below. A directory committed between them gives the line that commit as its revision, and a squash before the push drops it from history. A `fixup` onto the worker's commit discards the draft, and nothing is squashed after the fold. `lint` gate 13 catches a revision that is not in the history of `HEAD` ([03. Lint gates](03-lint.md)), so `lint` runs on the final commit, before the push.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- Behaviour: the tracker gates, gate 15 on project documentation included, the adapter checks and template parity — [03. Lint gates](03-lint.md). A status directory, `docs/backlog`, `archive/`, a batch's `minor/` or `adr/` that is a file is an error of gate 3, 5 or 8 with its path, not a crash.
 ```
 <!-- /quote -->
 
