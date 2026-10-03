@@ -270,7 +270,7 @@ A real run with a worktree on branch `track-a` carrying one task commit, a modif
 - `path` is the absolute worktree path as git prints it, `null` for a branch. `branch` is `null` for a detached worktree. `head` is the full sha of a worktree, `null` for a branch.
 - `merged` is whether the branch, or the detached sha, is an ancestor of `HEAD`.
 - `pending` lists the task commits not in `HEAD`, each `"<short sha> <subject>"`, chosen by a subject that starts with `<prefix>-` and a digit. `[]` means none; `null` means `git log` failed for that entry.
-- `dirty` lists the uncommitted entries of a worktree, `[]` when it is clean. `null` means "could not be checked" for a worktree — `git status` failed, or the worktree is `prunable` — and "not applicable" for a branch.
+- `dirty` lists the uncommitted entries of a worktree, including non-ignored untracked work regardless of `status.showUntrackedFiles`; `[]` means clean. `null` means "could not be checked" for a worktree — `git status` failed, or the worktree is `prunable` — and "not applicable" for a branch.
 - `prunable` and `locked` are booleans: whether `git worktree list --porcelain` prints the line of that name for the worktree; `false` for a branch.
 
 ## `links --external --json`
@@ -339,8 +339,8 @@ A real run in a repository with `package.json` scripts `test`, `lint` and `start
 
 The two commands report uncommitted work in different shapes, and a caller must not read one as the other:
 
-- `gates --json` `tree.dirty` is one string: the lines of `git status --porcelain -- .` joined by line breaks, leading space included, `""` on a clean tree. Untracked directories are collapsed (`?? src/`), and in a monorepo paths are from the project root. The paths `gates` compares with `when` patterns are in `scope.paths`, one file per item (`src/api/a.js`).
-- `tracks --json` `dirty` is an array: one item per `git status --porcelain` line of that worktree, as git prints it, leading space included (` M a.txt`).
+- `gates --json` `tree.dirty` is one string: the lines of `git status --porcelain --untracked-files=normal -- .` joined by line breaks, leading space included, `""` on a clean tree. Non-ignored untracked work appears regardless of `status.showUntrackedFiles`; untracked directories are collapsed (`?? src/`), and in a monorepo paths are from the project root. The paths `gates` compares with `when` patterns are in `scope.paths`, one file per item (`src/api/a.js`).
+- `tracks --json` `dirty` is an array: one item per `git status --porcelain --untracked-files=normal` line of that worktree, as git prints it, leading space included (` M a.txt`). Non-ignored untracked work appears regardless of `status.showUntrackedFiles`, with untracked directories collapsed.
 
 ## `brief`
 

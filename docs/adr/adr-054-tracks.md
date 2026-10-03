@@ -23,7 +23,7 @@ Cleaning up after a worker run relied on the orchestrator's memory: the `backslo
 - **Each entry** carries `kind` (`worktree` or `branch`), `path`, `branch`, `head`, `merged`, `pending`, `dirty`, `prunable` and `locked`; `--json` prints `{ tracks, total }`.
 - **`merged`** is `git merge-base --is-ancestor <ref> HEAD`; a detached worktree is measured by its own HEAD sha.
 - **`pending`** lists the ref's commits not reachable from HEAD whose subject starts with `<prefix>-<digit>` (`pendingCommits`); `--grep` only prefilters, because a squash commit carries the squashed subjects in its body. It is `null` when git could not answer, and the text output says the commits could not be checked.
-- **`dirty`** is the worktree's own `git status --porcelain`: `[]` is clean, `null` is not checked — a failed query, a prunable worktree whose directory is gone, or a branch without a worktree. `prunable` and `locked` come from `git worktree list --porcelain`, and the text output names `git worktree prune` for a prunable worktree.
+- **`dirty`** is the worktree's own `git status --porcelain --untracked-files=normal`: `[]` is clean, `null` is not checked — a failed query, a prunable worktree whose directory is gone, or a branch without a worktree. Explicit `normal` includes non-ignored untracked work regardless of `status.showUntrackedFiles` and collapses untracked directories. `prunable` and `locked` come from `git worktree list --porcelain`, and the text output names `git worktree prune` for a prunable worktree.
 - **Merged and pending are printed separately**, never folded into one verdict.
 - **One worktree parser.** `worktrees` in `lib/util.js` parses `git worktree list --porcelain` for `tracks`, for task numbering across worktrees and for the seed walk.
 
