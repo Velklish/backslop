@@ -5,9 +5,10 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { REPO, cleanup, cli, put, read, ruTemplate } from './helpers.mjs';
+import { REPO, cleanup, cli, put, read, ru, ruTemplate } from './helpers.mjs';
 import { renderTemplate } from '../lib/templates.js';
 import { TOOL_VERSION } from '../lib/version.js';
+import { hasLocalBackslop } from '../lib/hooks-install.js';
 
 const CLI = `npx github:Velklish/backslop#v${TOOL_VERSION}`;
 const FILES = { claude: '.claude/settings.json', cursor: '.cursor/hooks.json', codex: '.codex/hooks.json' };
@@ -65,6 +66,251 @@ test('hooks: init writes both records into a missing file and its missing direct
       cleanup(root);
     }
   }
+});
+
+test('hooks: a new project without an installation keeps the pinned npx command', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude'], { env: { PATH: root } });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(root, 'backslop.json')).cli, CLI);
+    assert.deepEqual(JSON.parse(read(root, FILES.claude)), fresh('claude'));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: a production dependency alone does not select the local command', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'package.json', json({ dependencies: { backslop: '0.12.0' } }));
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(root, 'backslop.json')).cli, CLI);
+    assert.deepEqual(JSON.parse(read(root, FILES.claude)), fresh('claude'));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: a project devDependency selects the fast command without running npm', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'package.json', `\uFEFF${json({ devDependencies: { backslop: 'github:Velklish/backslop#v0.12.0' } })}`);
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude'], { env: { PATH: root } });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(root, 'backslop.json')).cli, 'npx --no-install backslop');
+    assert.deepEqual(JSON.parse(read(root, FILES.claude)), fresh('claude', 'npx --no-install backslop'));
+    assert.match(r.err, /run npm install before using the agent hooks/);
+    assert.doesNotMatch(r.err, /an unpinned cli fetches/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: a PATH-only launcher does not change the committed npx command', () => {
+  const root = emptyRepo();
+  try {
+    writeFileSync(path.join(root, 'backslop'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude'], { env: { PATH: root } });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(root, 'backslop.json')).cli, CLI);
+    assert.deepEqual(JSON.parse(read(root, FILES.claude)), fresh('claude'));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: a devDependency takes precedence over a PATH launcher', () => {
+  const root = emptyRepo();
+  try {
+    writeFileSync(path.join(root, 'backslop'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    put(root, 'package.json', json({ devDependencies: { backslop: '0.12.0' } }));
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude'], { env: { PATH: root } });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(root, 'backslop.json')).cli, 'npx --no-install backslop');
+    assert.deepEqual(JSON.parse(read(root, FILES.claude)), fresh('claude', 'npx --no-install backslop'));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: a repeated init preserves its cli and refuses a removed devDependency before writes', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'package.json', json({ devDependencies: { backslop: '0.12.0' } }));
+    assert.equal(cli(root, ['init', '--lang', 'en', '--hooks', 'claude']).code, 0);
+    const before = read(root, 'backslop.json');
+    const hookBefore = read(root, FILES.claude);
+    put(root, 'package.json', json({}));
+    const r = cli(root, ['init']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /backslop is no longer in package.json devDependencies/);
+    assert.equal(read(root, 'backslop.json'), before);
+    assert.equal(read(root, FILES.claude), hookBefore);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: a first explicit local cli requires the project devDependency before writes', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude', '--cli', 'npx --no-install backslop']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /backslop is not in package.json devDependencies/);
+    assert.equal(existsSync(path.join(root, 'backslop.json')), false);
+    assert.equal(existsSync(path.join(root, FILES.claude)), false);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: whitespace around an explicit local cli still requires the devDependency', () => {
+  const root = emptyRepo();
+  try {
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude', '--cli', ' npx --no-install backslop ']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /backslop is not in package.json devDependencies/);
+    assert.equal(existsSync(path.join(root, 'backslop.json')), false);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: an explicit cli and a first init without hooks keep their precedence', () => {
+  const root = emptyRepo();
+  const other = emptyRepo();
+  try {
+    for (const dir of [root, other]) put(dir, 'package.json', json({ devDependencies: { backslop: '0.12.0' } }));
+    let r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude', '--cli', 'node bin/backslop.js']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(root, 'backslop.json')).cli, 'node bin/backslop.js');
+    assert.deepEqual(JSON.parse(read(root, FILES.claude)), fresh('claude', 'node bin/backslop.js'));
+    r = cli(other, ['init', '--lang', 'en']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(other, 'backslop.json')).cli, CLI);
+    r = cli(other, ['init', '--hooks', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(JSON.parse(read(other, 'backslop.json')).cli, CLI);
+    assert.deepEqual(JSON.parse(read(other, FILES.claude)), fresh('claude'));
+  } finally {
+    cleanup(root);
+    cleanup(other);
+  }
+});
+
+test('hooks: an installed project dependency needs no install warning', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'package.json', json({ devDependencies: { backslop: '0.12.0' } }));
+    mkdirSync(path.join(root, 'node_modules', '.bin'), { recursive: true });
+    writeFileSync(path.join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'backslop.cmd' : 'backslop'), 'installed');
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /run npm install before using the agent hooks/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: an older installed version warns with the declared fork spec', () => {
+  const en = 'installed backslop v{installed} is older than tool v{version}; update the declared backslop dependency ({spec}) to v{version} and run npm install';
+  const params = { installed: '0.1.0', version: TOOL_VERSION, spec: 'github:example/backslop#v0.1.0' };
+  for (const lang of ['en', 'ru']) {
+    const root = emptyRepo();
+    try {
+      put(root, 'package.json', json({ devDependencies: { backslop: params.spec } }));
+      put(root, 'node_modules/backslop/package.json', json({ version: params.installed }));
+      mkdirSync(path.join(root, 'node_modules', '.bin'), { recursive: true });
+      writeFileSync(path.join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'backslop.cmd' : 'backslop'), 'installed');
+      const r = cli(root, ['init', '--lang', lang, '--hooks', 'claude']);
+      assert.equal(r.code, 0, r.err);
+      assert.ok(r.err.includes(lang === 'ru' ? ru(en, params) : 'installed backslop v0.1.0 is older than tool'), r.err);
+      assert.ok(r.err.includes(`v${TOOL_VERSION}`), r.err);
+      assert.match(r.err, /github:example\/backslop#v0\.1\.0/);
+      assert.doesNotMatch(r.err, /npm i -D github:Velklish\/backslop/);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('hooks: a newer installed version advises using it without a downgrade command', () => {
+  const en = 'installed backslop v{installed} is newer than tool v{version}; run init with the installed version or update cli to select it';
+  const params = { installed: '9.9.9', version: TOOL_VERSION };
+  for (const lang of ['en', 'ru']) {
+    const root = emptyRepo();
+    try {
+      put(root, 'package.json', json({ devDependencies: { backslop: 'github:example/backslop#v9.9.9' } }));
+      put(root, 'node_modules/backslop/package.json', json({ version: params.installed }));
+      mkdirSync(path.join(root, 'node_modules', '.bin'), { recursive: true });
+      writeFileSync(path.join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'backslop.cmd' : 'backslop'), 'installed');
+      const r = cli(root, ['init', '--lang', lang, '--hooks', 'claude']);
+      assert.equal(r.code, 0, r.err);
+      assert.ok(r.err.includes(lang === 'ru' ? ru(en, params) : 'installed backslop v9.9.9 is newer than tool'), r.err);
+      assert.ok(r.err.includes(`v${TOOL_VERSION}`), r.err);
+      assert.doesNotMatch(r.err, /run npm install before using the agent hooks/);
+      assert.doesNotMatch(r.err, /npm i -D/);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('hooks: a matching installed version produces no mismatch warning', () => {
+  const root = emptyRepo();
+  try {
+    put(root, 'package.json', json({ devDependencies: { backslop: TOOL_VERSION } }));
+    put(root, 'node_modules/backslop/package.json', json({ version: TOOL_VERSION }));
+    const r = cli(root, ['init', '--lang', 'en', '--hooks', 'claude']);
+    assert.equal(r.code, 0, r.err);
+    assert.doesNotMatch(r.err, /installed backslop (?:v\S+ is (?:newer|older)|version \S+ cannot be compared)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: an unparseable installed version gets an inspection warning', () => {
+  const en = 'installed backslop version {installed} cannot be compared with tool v{version}; inspect the local package';
+  const params = { installed: '0.15.0-rc.1', version: TOOL_VERSION };
+  for (const lang of ['en', 'ru']) {
+    const root = emptyRepo();
+    try {
+      put(root, 'package.json', json({ devDependencies: { backslop: '0.15.0-rc.1' } }));
+      put(root, 'node_modules/backslop/package.json', json({ version: params.installed }));
+      const r = cli(root, ['init', '--lang', lang, '--hooks', 'claude']);
+      assert.equal(r.code, 0, r.err);
+      assert.ok(r.err.includes(lang === 'ru' ? ru(en, params) : `installed backslop version 0.15.0-rc.1 cannot be compared with tool v${TOOL_VERSION}`), r.err);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('hooks: local install detection looks for the Windows cmd launcher', () => {
+  const root = emptyRepo();
+  try {
+    mkdirSync(path.join(root, 'node_modules', '.bin'), { recursive: true });
+    writeFileSync(path.join(root, 'node_modules', '.bin', 'backslop.cmd'), 'installed');
+    assert.equal(hasLocalBackslop(root, 'win32'), true);
+    assert.equal(hasLocalBackslop(root, 'linux'), false);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: the user guide and references explain the shared local command', () => {
+  const guide = read(REPO, 'README.md');
+  const layout = read(REPO, 'docs/reference/01-layout.md');
+  const command = read(REPO, 'docs/reference/02-cli.md');
+  assert.match(guide, /devDependencies\.backslop.*npx --no-install backslop/s);
+  assert.match(layout, /On a fresh checkout without `npm install`, `init` warns/);
+  assert.match(command, /A first `init` without hooks keeps the pinned default/);
+  assert.match(guide, /Without the declaration, a fresh checkout has no local backslop installation/);
+  assert.doesNotMatch(guide, /fail on every event/);
+  assert.doesNotMatch(layout, /break hooks on every event/);
+  assert.match(command, /a warning names both versions/);
 });
 
 test('hooks: foreign content survives the write and the removal byte for byte, ours come after it', () => {

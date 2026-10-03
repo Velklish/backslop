@@ -51,6 +51,8 @@ An agent hook is a record that `init` writes into the project hook file of a sel
 
 Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hooks none` removes them); a first `init` selects none. `init` writes the records into `<project>/.claude/settings.json` for `claude`, `<project>/.cursor/hooks.json` for `cursor` and `<project>/.codex/hooks.json` for `codex`, next to the team's own settings and hooks, which `init` keeps; it never writes the files in your home directory. The rules are in [Agent hook records](docs/reference/01-layout.md#agent-hook-records).
 
+On a first `init --hooks` without `--cli`, a project-root `package.json` that declares `devDependencies.backslop` selects `npx --no-install backslop` for `backslop.json` and every selected hook record. Otherwise the pinned GitHub npx command stays, even if a global `backslop` is on `PATH`. These files are shared: a teammate receives the same command. Run `npm install` before using the local hooks on a fresh checkout; the hook command fails until the dependency is installed. Without the declaration, a fresh checkout has no local backslop installation from `package.json`, so that command fails there too. If the declaration is later removed, a repeated `init` with hooks refuses until it is restored or `cli` is changed in the config. `lint` does not check local installation state.
+
 ## Commands
 
 Each command links its reference section: behaviour, output and refusals.
@@ -82,7 +84,7 @@ The command is long, so a project records it in the `cli` field of `backslop.jso
 
 ## Update a project
 
-`init` records the version that created the layout: `cli` is `npx github:Velklish/backslop#v<version>`, and `version` is its stamp. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else's commit. Update a project only when you choose to:
+`init` records the version that created the layout: `version` is its stamp, and `cli` is `npx github:Velklish/backslop#v<version>` unless the selected hooks use the declared local dependency. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else's commit. Update a project only when you choose to:
 
 ```bash
 npx github:Velklish/backslop upgrade
@@ -95,6 +97,7 @@ The project command `<cli> upgrade` runs the code of the pinned version and fini
 - **What is lost.** `docs/backlog/README.md`, `docs/archive/README.md` and `docs/ROLES.md` belong to backslop: `migrate` redraws them from the new version's template, and a committed local edit in them is lost (an uncommitted one makes `migrate` refuse). The header of `docs/archive/LOG.md` is redrawn the same way; its journal lines are kept. Keep project rules of your own elsewhere, for example in `AGENTS.md` outside the backslop section.
 - **Options.** `--pin-only` changes only the configuration; after a manual `migrate` and `init`, run the full `upgrade` again to rewrite live pins, even without a newer tag. Downgrades are unsupported: an old version does not know a newer file format. `lint` keeps layout-version warnings advisory, but an old pin in a live file is an error.
 - **A global install** (`cli: "backslop"`) has no source derived from GitHub: set `source` in `backslop.json` to the repository URL with release tags, and update the installed package yourself first — `upgrade` refuses while `cli` still runs the old version.
+- **A local devDependency** (`cli: "npx --no-install backslop"`) has no release pin or derived source either: set `source` in `backslop.json`, update the installed package before `upgrade`, and keep its declaration in `package.json`. `upgrade` retains the local command and checks that it reports the target version.
 
 After an upgrade:
 
