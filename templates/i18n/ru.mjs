@@ -348,6 +348,9 @@ export const messages = {
   'card in {status}/ has “{field}” — only a queue/ card has it; delete the line': 'карточка в {status}/ несёт «{field}» — оно бывает только у карточки в queue/; удали строку',
   'queue/ card has “{field}” — the place it left queue/ with, dropped on entering; delete the line': 'карточка в queue/ несёт «{field}» — место, с которым она вышла из queue/, при входе оно снимается; удали строку',
   'a symlink leading out of the project — the tasks in it are not read; point the link inside the project or replace it with a directory': 'симлинк, ведущий за пределы проекта: задачи в нём не читаются; направь ссылку внутрь проекта или замени её каталогом',
+  // lib/lock.js
+  'the numbering lock cannot be taken — {file}: {cause}': 'замок нумерации не взять — {file}: {cause}',
+  'another `new` holds the numbering lock {lock} and did not release it in {seconds} s: run the command again; if no backslop process is running, delete the file (a lock older than {stale} s is removed by the next `new` on its own)': 'другой `new` держит замок нумерации {lock} и не отпустил его за {seconds} с: запусти команду ещё раз; если ни один процесс backslop не работает, удали этот файл (замок старше {stale} с следующий `new` снимает сам)',
   // lib/log.js
   'merged into {target}': 'слита в {target}',
   'rejected': 'отклонена',
@@ -507,6 +510,7 @@ export const messages = {
   'no scope': 'без области',
   'Archive': 'Архив',
   // lib/tasks.js
+  '{file} already exists and is not overwritten': '{file} уже существует и не перезаписывается',
   'hypothesis': 'гипотеза',
   'task number “{raw}” is invalid: expected N or N.k, optionally prefixed with {prefix}-': 'номер задачи «{raw}» не разбирается: нужен N или N.k, можно с префиксом {prefix}-',
   'number {id} is used twice: {files} — assign distinct numbers; lint reports this too': 'номер {id} занят дважды: {files} — разведи номера, lint это тоже покажет',

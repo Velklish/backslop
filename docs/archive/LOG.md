@@ -403,3 +403,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-220"></a>`BS-220-changelog-fenced-sections` · 2026-10-03 · completed · — · Preserve fenced Markdown content during changelog merges
 - <a id="bs-178.1"></a>`BS-178.1-encoded-hash-link-target` · 2026-10-03 · batch BS-220 · — · Lint rejects a percent-encoded hash in an existing filename
 - <a id="bs-221"></a>`BS-221-hidden-untracked-cleanliness` · 2026-10-03 · completed · — · Make clean-tree reports independent of hidden untracked files
+- <a id="bs-222"></a>`BS-222-simultaneous-task-numbering` · 2026-10-03 · completed · — · Define and enforce task numbering for simultaneous worktree creation
