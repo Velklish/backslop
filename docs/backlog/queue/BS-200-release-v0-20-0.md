@@ -1,4 +1,4 @@
-# BS-200 · Release v0.14.0
+# BS-200 · Release v0.20.0
 
 - **Order:** 1080
 - **Scope:** [Documentation index](../../README.md)
@@ -13,12 +13,14 @@ The release waits for the sixteen critical hypotheses BS-192.46 to BS-192.61 lis
 
 The ten `major` cards of the audit (BS-192.7, BS-192.8, BS-192.9, BS-192.18, BS-192.19, BS-192.20, BS-192.26, BS-192.27, BS-192.31, BS-192.36) wait until after the release: they are findings of structure and style, not statements that are wrong, and none of them blocks it.
 
+Owner decision (2026-10-03): the release number is 0.20.0, not 0.14.0; versions 0.13.x to 0.19.x are skipped.
+
 ## Work to do
 
 - Close each critical hypothesis BS-192.46 to BS-192.61: run its live check, or reword the statement; archive the entry by the batch that closes it.
-- Release v0.14.0 at the owner's checkpoint, by `AGENTS.md` § Release:
-  - `npm run release -- 0.14.0 --bump`, then review and commit the diff;
-  - `npm run release -- 0.14.0 --no-publish`.
+- Release v0.20.0 at the owner's checkpoint, by `AGENTS.md` § Release:
+  - `npm run release -- 0.20.0 --bump`, then review and commit the diff;
+  - `npm run release -- 0.20.0 --no-publish`.
 
   If the auto-mode classifier refuses the script's push, run the script's steps by hand and record each command with its exit code, as was done for v0.10.1.
 
@@ -32,4 +34,4 @@ The ten `major` cards of the audit (BS-192.7, BS-192.8, BS-192.9, BS-192.18, BS-
 
 - None of BS-192.46 to BS-192.61 is left in `docs/backlog/minor/` at the release commit.
 - `node bin/backslop.js gates` exits 0 on the release commit: record `gates N, green M` and the test count.
-- The tag `v0.14.0` points at the release commit, and `git ls-remote --tags origin v0.14.0` shows it after the push.
+- The tag `v0.20.0` points at the release commit, and `git ls-remote --tags origin v0.20.0` shows it after the push.
