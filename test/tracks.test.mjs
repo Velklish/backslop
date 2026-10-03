@@ -89,6 +89,25 @@ test('tracks: merged and unmerged tracks differ and uncommitted work is named, a
   }
 });
 
+test('tracks: hidden untracked work is reported with a directory row; ignored work stays clean', () => {
+  const root = makeProject();
+  try {
+    put(root, '.gitignore', 'ignored.txt\n');
+    seedRun(root);
+    const wt = beside(root, 'merged');
+    run(wt, ['config', 'status.showUntrackedFiles', 'no']);
+    put(wt, 'ignored.txt', 'ignored\n');
+    let entry = JSON.parse(cli(root, ['tracks', '--json']).out).tracks.find((t) => t.branch === 'track-merged');
+    assert.deepEqual(entry.dirty, []);
+    put(wt, 'nested/deep/work.txt', 'untracked\n');
+    entry = JSON.parse(cli(root, ['tracks', '--json']).out).tracks.find((t) => t.branch === 'track-merged');
+    assert.deepEqual(entry.dirty, ['?? nested/']);
+    assert.match(cli(root, ['tracks']).out, /\?\? nested\//);
+  } finally {
+    dropRun(root);
+  }
+});
+
 test('tracks: a repository without foreign worktrees and branches — an empty listing and code 0', () => {
   const root = makeProject();
   try {
@@ -308,6 +327,8 @@ test('tracks --json: a dirty item is the porcelain line as git prints it, the st
       'the same lines as git status --porcelain of that worktree');
     const contract = readFileSync(new URL('../docs/reference/05-orchestrator-contract.md', import.meta.url), 'utf8');
     assert.ok(contract.includes('"dirty": [\n        " M a.txt",'), 'the contract example shows the status column');
+    assert.ok(contract.includes('git status --porcelain --untracked-files=normal'),
+      'the documented dirty report requests collapsed untracked entries explicitly');
     assert.doesNotMatch(contract, /trimmed at both ends/, 'the contract no longer says the items are trimmed');
   } finally {
     dropRun(root);

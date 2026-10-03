@@ -101,6 +101,31 @@ test('gates: --require-clean refuses on a dirty tree before the first command', 
   }
 });
 
+test('gates: hidden untracked work is dirty, with directory rows and ignored files excluded', () => {
+  const root = makeProject();
+  try {
+    withGates(root, [mark('first', 0)]);
+    put(root, '.gitignore', 'ignored.txt\nran.txt\n');
+    gitAll(root, 'base');
+    run(root, ['config', 'status.showUntrackedFiles', 'no']);
+    put(root, 'ignored.txt', 'ignored\n');
+    let r = cli(root, ['gates', '--require-clean'], marked(root));
+    assert.equal(r.code, 0, r.err);
+    assert.deepEqual(ran(root), ['first']);
+    put(root, 'nested/deep/work.txt', 'untracked\n');
+    r = cli(root, ['gates', '--require-clean'], marked(root));
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /^\?\? nested\/$/m);
+    assert.doesNotMatch(r.err, /ignored\.txt|nested\/deep\/work\.txt/);
+    assert.deepEqual(ran(root), ['first'], 'no second gate ran');
+    const report = JSON.parse(cli(root, ['gates', '--json']).out);
+    assert.equal(report.tree.clean, false);
+    assert.equal(report.tree.dirty, '?? nested/');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('gates: --json is valid JSON with a tree snapshot, the gate output goes to stderr', () => {
   const root = makeProject();
   try {
@@ -462,6 +487,7 @@ test('gates: in a monorepo the tree snapshot and --require-clean see only the pr
     assert.equal(tree.clean, true);
     assert.equal(tree.dirty, '');
 
+    run(repo, ['config', 'status.showUntrackedFiles', 'no']);
     run(repo, ['mv', 'pkg/a.md', 'pkg/b c.md']);
     put(repo, 'pkg/new.txt', 'n\n');
     r = cli(repo, ['gates', '--require-clean', '--base', 'HEAD~1'], inProject);

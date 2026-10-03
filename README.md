@@ -70,8 +70,8 @@ Each command links its reference section: behaviour, output and refusals.
 | [`seed --scan [--json] \| --queue-reference`](docs/reference/02-cli.md#seed) | list gate and subsystem candidates with evidence, or queue reference tasks |
 | [`status [--json]`](docs/reference/02-cli.md#status) | active work, the ordered queue, deferred work, triage, and minor entries by scope |
 | [`lint`](docs/reference/02-cli.md#lint) | the tracker gates, project documentation without task ids and tracker links, adapter outputs and, in the tool's own repository, template parity ([gates](docs/reference/03-lint.md)) |
-| [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot |
-| [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty |
+| [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot including non-ignored untracked work regardless of Git's display setting |
+| [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty including non-ignored untracked work |
 | [`links --external [--json]`](docs/reference/02-cli.md#links) | request the http(s) links of the documents and classify each: ok, dead, unverified; outside `gates` and `lint` |
 | [`hook <session-start\|stop> --harness <claude\|cursor\|codex>`](docs/reference/02-cli.md#hook) | agent hook: record where a session started, report the `lint` errors in the files it changed |
 | [`upgrade [--to X.Y.Z] [--dry-run] [--pin-only]`](docs/reference/02-cli.md#upgrade) | update the pins, then migrate and initialize with the new version |
