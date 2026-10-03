@@ -399,3 +399,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-217.1"></a>`BS-217.1-init-message-ties-lint-to-adr-row` · 2026-10-03 · batch BS-218 · — · init-message-ties-lint-to-adr-row
 - <a id="bs-219"></a>`BS-219-minor-batch-hook-start-and-hoist` · 2026-10-03 · completed · — · Minor batch: hook start refire, hoisted local bin
 - <a id="bs-195.3"></a>`BS-195.3-hook-session-start-refire-resets-start` · 2026-10-03 · batch BS-219 · — · hook: a repeated session-start for one session id replaces the start point
+- <a id="bs-178"></a>`BS-178-bug-hunt-round-three` · 2026-10-03 · completed · — · Third bug-hunt round with new lenses: git config matrix, encodings, monorepo, parsers, Windows
