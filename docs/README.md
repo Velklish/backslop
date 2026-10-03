@@ -522,4 +522,22 @@ What the agent decides without asking, and what goes to the owner, is in [ROLES.
 ```
 <!-- /quote -->
 
+<!-- quote:adr/adr-055-docs-rules-ship-to-projects.md -->
+```text
+- **Git hooks instead of agent hooks** — `core.hooksPath` is set per clone, it collides with husky and lefthook, and a git hook runs at commit, while the stop record that `init` writes into a harness's project hook file runs `hook stop`.
+```
+<!-- /quote -->
+
+<!-- quote:adr/adr-055-docs-rules-ship-to-projects.md -->
+```text
+- Enabling `hooks` writes agent hooks into the project hook files of the harnesses, and its stop record runs `hook stop`, which runs `lint`, so a project turns it on knowingly.
+```
+<!-- /quote -->
+
+<!-- quote:adr/adr-055-docs-rules-ship-to-projects.md -->
+```text
+- **A stop hook that fails on every `lint` error** — in a project that is red after an upgrade, `hook stop` would report an error on every run until its migration lands.
+```
+<!-- /quote -->
+
 </details>

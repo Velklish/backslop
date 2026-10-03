@@ -21,8 +21,8 @@ A check that a project can turn off or postpone does not close this gap, because
 - **A mechanical slop check, as a word list or through Vale** — false positives on reference prose, which the local writing rules allow (inanimate subjects, uniform sentences), and Vale is a binary outside the Node standard library.
 - **A Russian slop pattern list** — new text to maintain with no upstream.
 - **A writer pass only by request** — it would not run.
-- **Git hooks instead of agent hooks** — `core.hooksPath` is set per clone, it collides with husky and lefthook, and it does not stop an agent at the end of its turn.
-- **A stop hook that blocks on every `lint` error** — a project that is red after an upgrade would block every agent turn until its migration lands.
+- **Git hooks instead of agent hooks** — `core.hooksPath` is set per clone, it collides with husky and lefthook, and a git hook runs at commit, while the stop record that `init` writes into a harness's project hook file runs `hook stop`.
+- **A stop hook that fails on every `lint` error** — in a project that is red after an upgrade, `hook stop` would report an error on every run until its migration lands.
 - **Shipping this repository's code checks (comment length, the language rule)** — they are one repository's style, not a documentation rule.
 
 ## Decision
@@ -45,4 +45,4 @@ A check that a project can turn off or postpone does not close this gap, because
 - `lint` stops being a tracker-only check. The reasoning of the comment-length ADR, that a repository's own style rule stays out of the product, keeps holding for code comments; documentation rules are the product's.
 - `upgrade` turns `lint` red in a project whose documentation carries task ids, tracker links, broken anchors or replaced ADRs. The project's migration task clears the listed violations; until then its gate is red, by design.
 - The writer pass costs agent time at every release and at every batch close.
-- Enabling `hooks` puts agent hooks into the project hook files of the harnesses and makes the stop hook part of every agent turn there, so a project turns it on knowingly.
+- Enabling `hooks` writes agent hooks into the project hook files of the harnesses, and its stop record runs `hook stop`, which runs `lint`, so a project turns it on knowingly.

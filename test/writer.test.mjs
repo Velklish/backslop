@@ -120,7 +120,10 @@ test('writer templates: both layers carry the audit mode, its report fields and 
     for (const [severity, cost] of [['Blocking', 'critical'], ['High', 'major'], ['Medium, Low', 'minor']]) {
       assert.match(filing, new RegExp(`\\| ${severity} \\| \`${cost}\` \\|`), `${rel}: ${severity} is not mapped to ${cost}`);
     }
-    assert.ok(filing.includes('{{cli}} new <slug> --parent N`'), `${rel}: no card command`);
+    for (const [severity, cost] of [['Blocking', 'critical'], ['High', 'major']]) {
+      const row = filing.split('\n').find((line) => line.startsWith(`| ${severity} |`));
+      assert.ok(row.includes(`{{cli}} new <slug> --parent N --cost ${cost}\``), `${rel}: the ${severity} card command carries no --cost ${cost}`);
+    }
     assert.ok(filing.includes('{{cli}} new <slug> --parent N --minor --evidence "…"`'), `${rel}: no minor command`);
     assert.ok(filing.includes('--minor --cost <level> --hypothesis --evidence'), `${rel}: no hypothesis command`);
     assert.ok(filing.includes('<!-- quote:before:<path> -->'), `${rel}: no quote:before rule`);

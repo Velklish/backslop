@@ -927,7 +927,7 @@ test('init on a project with its own docs/README.md: ADR-001 is created, the tab
     put(root, 'docs/README.md', '# My docs\n');
     const r = cli(root, ['init']);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, ruRe('{docs}/README.md already existed: add a row linking {adrRel} to its table, otherwise lint fails', { docs: 'docs', adrRel: 'adr/adr-001-process.md' }));
+    assert.match(r.out, ruRe('{docs}/README.md already existed: link {adrRel} from it (a row in its table is the usual place), otherwise lint fails', { docs: 'docs', adrRel: 'adr/adr-001-process.md' }));
     assert.equal(read(root, 'docs/README.md'), '# My docs\n');
   } finally {
     cleanup(root);

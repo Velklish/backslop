@@ -390,3 +390,10 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.62"></a>`BS-192.62-writer-skill-73-contradicts-102-other-products` · 2026-10-03 · batch BS-217 · — · backslop-writer SKILL.md:73 contradicts :102 for statements about other products
 - <a id="bs-197.6"></a>`BS-197.6-take-commit-owner` · 2026-10-03 · completed · — · take-commit-owner
 - <a id="bs-212.1"></a>`BS-212.1-code-harness-turn-claims` · 2026-10-03 · batch BS-197.6 · — · Hook messages, templates and comments state what a harness does with backslop output
+- <a id="bs-218"></a>`BS-218-minor-batch-night-leftovers` · 2026-10-03 · completed · — · Minor batch: acceptance recipe, writer cost flag, ADR-055 turn statements, init ADR message
+- <a id="bs-210.1"></a>`BS-210.1-acceptance-recipe-in-skill-lacks-attachment-branch` · 2026-10-03 · batch BS-218 · — · acceptance-recipe-in-skill-lacks-attachment-branch
+- <a id="bs-210.2"></a>`BS-210.2-writer-audit-cards-miss-cost-flag` · 2026-10-03 · batch BS-218 · — · writer-audit-cards-miss-cost-flag
+- <a id="bs-212.2"></a>`BS-212.2-layout-claude-md-model-measurement` · 2026-10-03 · batch BS-218 · — · layout-claude-md-model-measurement
+- <a id="bs-212.3"></a>`BS-212.3-adr-agent-turn-statements` · 2026-10-03 · batch BS-218 · — · adr-agent-turn-statements
+- <a id="bs-212.4"></a>`BS-212.4-adr-055-rejected-option-says-every-agent-turn` · 2026-10-03 · batch BS-218 · — · adr-055-rejected-option-says-every-agent-turn
+- <a id="bs-217.1"></a>`BS-217.1-init-message-ties-lint-to-adr-row` · 2026-10-03 · batch BS-218 · — · init-message-ties-lint-to-adr-row
