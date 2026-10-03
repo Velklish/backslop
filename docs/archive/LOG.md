@@ -404,3 +404,12 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-178.1"></a>`BS-178.1-encoded-hash-link-target` · 2026-10-03 · batch BS-220 · — · Lint rejects a percent-encoded hash in an existing filename
 - <a id="bs-221"></a>`BS-221-hidden-untracked-cleanliness` · 2026-10-03 · completed · — · Make clean-tree reports independent of hidden untracked files
 - <a id="bs-222"></a>`BS-222-simultaneous-task-numbering` · 2026-10-03 · completed · — · Define and enforce task numbering for simultaneous worktree creation
+- <a id="bs-192.7"></a>`BS-192.7-layout-intro-audience` · 2026-10-03 · completed · — · 01 Layout and formats: no first paragraph states the reader and the task
+- <a id="bs-192.9"></a>`BS-192.9-layout-numeric-link-text` · 2026-10-03 · completed · — · 01 Layout and formats: link text is a page number
+- <a id="bs-192.18"></a>`BS-192.18-cli-intro-audience` · 2026-10-03 · completed · — · 02 CLI: no first paragraph states the reader and the task
+- <a id="bs-192.19"></a>`BS-192.19-cli-acceptance-procedure-steps` · 2026-10-03 · completed · — · 02 CLI: the acceptance procedure is a sentence, not steps
+- <a id="bs-192.20"></a>`BS-192.20-cli-numeric-link-text` · 2026-10-03 · completed · — · 02 CLI: link text is a page number
+- <a id="bs-192.26"></a>`BS-192.26-lint-intro-audience` · 2026-10-03 · completed · — · 03 Lint gates: no first paragraph states the reader and the task
+- <a id="bs-192.27"></a>`BS-192.27-lint-numeric-link-text` · 2026-10-03 · completed · — · 03 Lint gates: link text is a page number
+- <a id="bs-192.31"></a>`BS-192.31-verification-multi-action-steps` · 2026-10-03 · completed · — · 04 Verification: steps 5 and 6 hold many actions each
+- <a id="bs-192.36"></a>`BS-192.36-module-map-numeric-link-text` · 2026-10-03 · completed · — · 06 Module map: link text is a page number
