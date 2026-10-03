@@ -388,3 +388,5 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-174.3"></a>`BS-174.3-adr-row-claim-in-templates` · 2026-10-03 · batch BS-217 · — · Consumer templates say lint fails without an ADR table row while gate 8 checks a link
 - <a id="bs-189.1"></a>`BS-189.1-writer-worker-batch-wording` · 2026-10-03 · batch BS-217 · — · README and the writer skill call a run "worker batch"
 - <a id="bs-192.62"></a>`BS-192.62-writer-skill-73-contradicts-102-other-products` · 2026-10-03 · batch BS-217 · — · backslop-writer SKILL.md:73 contradicts :102 for statements about other products
+- <a id="bs-197.6"></a>`BS-197.6-take-commit-owner` · 2026-10-03 · completed · — · take-commit-owner
+- <a id="bs-212.1"></a>`BS-212.1-code-harness-turn-claims` · 2026-10-03 · batch BS-197.6 · — · Hook messages, templates and comments state what a harness does with backslop output

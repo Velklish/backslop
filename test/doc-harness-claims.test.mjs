@@ -37,6 +37,32 @@ for (const [file, phrase] of REMOVED) {
   });
 }
 
+// Code, templates and tests say what backslop prints or writes; one phrase per file stays removed.
+const CODE_REMOVED = [
+  ['lib/hook.js', 'returns the turn'],
+  ['lib/adapters.js', 'will not see the backslop block'],
+  ['lib/mdwalk.js', 'Subagent working copies'],
+  ['bin/backslop.js', 'returns the turn on errors'],
+  ['templates/en/agents-hooks.md', 'returns the turn'],
+  ['templates/en/skills/backslop-batch/SKILL.md', 'Claude Code'],
+  ['templates/skills/backslop-batch/SKILL.md', 'Claude Code'],
+  ['templates/i18n/ru.mjs', 'returned the turn'],
+  ['templates/i18n/ru.mjs', 'Claude Code will not see'],
+  ['test/hook.test.mjs', 'return the turn'],
+  ['test/config.test.mjs', 'never breaks a session'],
+];
+
+for (const [file, phrase] of CODE_REMOVED) {
+  test(`${file} states what backslop does, not a harness: "${phrase}" stays removed`, () => {
+    assert.ok(!read(file).includes(phrase), `${file} holds "${phrase}": say what the code prints or writes`);
+  });
+}
+
+test('the Russian hook sentence has the verb of the English one before the lint span', () => {
+  assert.match(read('templates/en/agents-hooks.md'), /^The stop hook runs `lint` and prints/);
+  assert.match(read('templates/agents-hooks.md'), /^Stop hook \S+ `lint` \S+ /, 'the sentence names the verb, not a harness effect');
+});
+
 test('01-layout names the target of a pointer instead of saying above or below', () => {
   const text = read('docs/reference/01-layout.md');
   for (const phrase of ['see the table below', 'as in "Refusal: moot" above']) assert.ok(!text.includes(phrase), `01-layout holds "${phrase}"`);

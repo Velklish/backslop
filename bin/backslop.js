@@ -53,8 +53,9 @@ Commands:
   links --external [--json]                           request the http(s) links of the documents and classify each: ok, dead,
                                                       unverified; exit 0 all ok, 1 a dead one, 2 unverified only; not in gates
   hook <session-start|stop> --harness <claude|cursor|codex>
-                                                      agent hook: the stop event runs lint and returns the turn on errors
-                                                      in the files the session changed; reads the event JSON on stdin
+                                                      agent hook: the stop event runs lint and prints the errors in the
+                                                      files the session changed (stderr, exit 2; cursor: stdout JSON,
+                                                      exit 0); reads the event JSON on stdin
   upgrade [--to X.Y.Z] [--dry-run] [--pin-only]       update cli, gate, and live-file pins, migrate, and initialize the new version
   migrate [--dry-run]                                 migrate file formats, rewrite tracking and archive rules from the template, update the version stamp
   changelog [--since X.Y.Z] [--to X.Y.Z]              print backslop CHANGELOG entries between versions

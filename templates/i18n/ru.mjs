@@ -18,7 +18,7 @@ export const messages = {
   'symlink to AGENTS.md': 'симлинк на AGENTS.md',
   'present': 'есть',
   'custom file preserved': 'пользовательский файл сохранён',
-  'CLAUDE.md does not import AGENTS.md — add “@AGENTS.md” or Claude Code will not see the backslop block': 'CLAUDE.md не импортирует AGENTS.md — добавь строку «@AGENTS.md», иначе Claude Code блок не увидит',
+  'CLAUDE.md has no “@AGENTS.md” import line — add it, the backslop block is in AGENTS.md': 'в CLAUDE.md нет строки импорта «@AGENTS.md» — добавь её, блок backslop лежит в AGENTS.md',
   // lib/adr.js
   'slug is required: {cli} adr <slug> [--title "…"]': 'нужен slug: {cli} adr <slug> [--title "…"]',
   'slug “{slug}”: use lowercase Latin letters, digits, and hyphens between words': 'slug «{slug}»: латиница в нижнем регистре, цифры и дефисы между словами',
@@ -181,7 +181,7 @@ export const messages = {
   'not a git repository': 'не git-репозиторий',
   'the event on stdin cannot be read': 'событие со stdin не прочитать',
   'the event on stdin is not a JSON object with a session_id': 'событие на stdin — не JSON-объект с session_id',
-  'lint errors in changed files returned the turn {limit} times in a row; letting it end:': 'ошибки lint в изменённых файлах {limit} раза подряд возвращали ход; ход закончен, ошибки остались:',
+  'lint errors in changed files were reported {limit} times in a row; the hook now exits 0, the errors stay:': 'ошибки lint в изменённых файлах выданы {limit} раза подряд; хук завершается с кодом 0, ошибки остались:',
   'fix these errors in the files named above; do not bypass the hook': 'исправь эти ошибки в названных выше файлах; хук не обходи',
   // lib/hooks-install.js
   'agent hook file path contains a symlink: {link} — backslop does not write through a foreign link; replace it with a plain directory or file, or drop {harness} from --hooks': 'в пути файла хуков агента символическая ссылка: {link} — сквозь чужую ссылку backslop не пишет; замени её обычным каталогом или файлом либо убери {harness} из --hooks',
