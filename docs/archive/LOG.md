@@ -414,3 +414,5 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.31"></a>`BS-192.31-verification-multi-action-steps` · 2026-10-03 · completed · — · 04 Verification: steps 5 and 6 hold many actions each
 - <a id="bs-192.36"></a>`BS-192.36-module-map-numeric-link-text` · 2026-10-03 · completed · — · 06 Module map: link text is a page number
 - <a id="bs-203"></a>`BS-203-messages-unknown-language-english` · 2026-10-03 · completed · — · Messages in an unknown language are English: msgBoth is replaced
+- <a id="bs-223"></a>`BS-223-changelog-readers-fence-aware` · 2026-10-03 · completed · — · Gate 11 and the release top-section read use the fence-aware CHANGELOG rule
+- <a id="bs-224"></a>`BS-224-clean-tree-checks-untracked-status` · 2026-10-03 · completed · — · Release and migrate clean-tree checks see untracked files whatever status.showUntrackedFiles says

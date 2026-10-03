@@ -406,7 +406,7 @@ Output: the paths it rewrote or deleted, the files it kept and why, the stamp ch
 Refusals:
 
 - A stamp newer than the tool.
-- An uncommitted edit of a rules-pair file, of `ROLES.md` or of the journal `LOG.md` that would be redrawn — before the first write, with `--dry-run` too, the stamp untouched. The refusal for the journal has its own wording: its entries stay and only an edit of the header would be erased. The v0.12.0 migration refuses the same way on an uncommitted edit of `<docs>/ROADMAP.md` or `<docs>/README.md` that it would delete or edit — before the first write of the whole run, with `--dry-run` too. A pin move alone is not an edit (CRLF in a checkout under `core.autocrlf` included).
+- An uncommitted edit of a rules-pair file, of `ROLES.md` or of the journal `LOG.md` that would be redrawn — before the first write, with `--dry-run` too, the stamp untouched. The refusal for the journal has its own wording: its entries stay and only an edit of the header would be erased. The v0.12.0 migration refuses the same way on an uncommitted edit of `<docs>/ROADMAP.md` or `<docs>/README.md` that it would delete or edit — before the first write of the whole run, with `--dry-run` too. An untracked file counts as an edit, whatever `status.showUntrackedFiles` says; an ignored one is not asked about. A pin move alone is not an edit (CRLF in a checkout under `core.autocrlf` included).
 - A `ROLES.md` of the project's own — no render of either language and no "This file belongs to backslop" paragraph — before the first write, with `--dry-run` too, with git or without; the refusal names the file and asks to rename it and fix the links to it.
 - A git failure other than "no repository" and "git is not installed" — before the first write.
 
@@ -450,6 +450,8 @@ Refusals:
 
 `npm run release` is a script of this repository, not a backslop command; the release procedure is in [`AGENTS.md` § Release](../../AGENTS.md#release).
 
+- `--bump` finds the top section outside code fences, as `merge-changelog` does: a fenced `## …` line is an example, never the section it renames, and every other byte of `CHANGELOG.md` stays as it was.
+- Both clean-tree checks (before the gates and after them) are `git status --porcelain --untracked-files=normal`: a file git does not track and does not ignore stops the release, whatever `status.showUntrackedFiles` says, because it would land in `npm pack`; an untracked directory shows as one row.
 - The packed files are the `files` field of `package.json`: `bin`, `lib`, `templates`, `README.md`, `LICENSE`, `CHANGELOG.md`; the tarball holds every git-tracked file under them, and beyond them only `package.json`.
 
 ## Implementation notes

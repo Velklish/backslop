@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { today } from '../lib/util.js';
-import { sectionVersion } from '../lib/changelog-format.js';
+import { firstSection, sectionVersion } from '../lib/changelog-format.js';
 import { compareVersions } from '../lib/version.js';
 
 function fail(message) {
@@ -52,17 +52,23 @@ function bump(version) {
   const bumped = pkg.replace(`"version": "${current}"`, `"version": "${version}"`);
   if (bumped === pkg) throw new Error(`package.json: no line "version": "${current}" — bump it by hand`);
   const changelog = readFileSync('CHANGELOG.md', 'utf8');
-  const heading = changelog.match(/^## (.*)$/m);
-  if (!heading) throw new Error('CHANGELOG.md: no “## ” section at all');
-  if (sectionVersion(heading[1].trim()) !== null) throw new Error(`CHANGELOG.md: the top section “${heading[0]}” is already released — nothing to rename to v${version}`);
+  // Split keeping the separators: a rename must leave every other byte of the file as it was.
+  const parts = changelog.split(/(\r?\n)/);
+  // A leading BOM would hide a first-line fence from the classifier: read a copy without it.
+  const lines = parts.filter((_, i) => i % 2 === 0).map((line, i) => (i === 0 ? line.replace(/^\uFEFF/, '') : line));
+  const top = firstSection(lines);
+  if (!top) throw new Error('CHANGELOG.md: no “## ” section at all');
+  const heading = lines[top.at];
+  if (sectionVersion(top.title) !== null) throw new Error(`CHANGELOG.md: the top section “${heading}” is already released — nothing to rename to v${version}`);
   const section = `## v${version} — ${today()}`;
 
   // All checks come before the first write: a refusal midway would leave drift lint catches.
   // `init` is not covered and may refuse after two writes; the stamp then stays as it was.
   writeFileSync('package.json', bumped);
-  writeFileSync('CHANGELOG.md', changelog.replace(heading[0], section));
+  parts[top.at * 2] = `${top.at === 0 && changelog.startsWith('\uFEFF') ? '\uFEFF' : ''}${section}`;
+  writeFileSync('CHANGELOG.md', parts.join(''));
   command(process.execPath, ['bin/backslop.js', 'init']);
-  process.stdout.write(`release: bump ${current} → ${version}: package.json, CHANGELOG.md (“${heading[0]}” → “${section}”), backslop.json stamp through init\n`);
+  process.stdout.write(`release: bump ${current} → ${version}: package.json, CHANGELOG.md (“${heading}” → “${section}”), backslop.json stamp through init\n`);
   process.stdout.write(`release: review the diff and commit, then npm run release -- ${version} --no-publish\n`);
 }
 
@@ -92,7 +98,7 @@ function main(argv) {
 
   const branch = command('git', ['branch', '--show-current'], { capture: true }).stdout.trim();
   if (branch !== 'main') throw new Error(`the current branch is “${branch || 'detached HEAD'}”, a release is allowed only from main`);
-  const dirty = command('git', ['status', '--porcelain'], { capture: true }).stdout.trim();
+  const dirty = command('git', ['status', '--porcelain', '--untracked-files=normal'], { capture: true }).stdout.trim();
   if (dirty) throw new Error(`the working tree is dirty:\n${dirty}`);
   if (tagExistsLocally(tag)) throw new Error(`the local tag ${tag} already exists`);
   if (tagExistsOnOrigin(tag)) throw new Error(`the tag ${tag} already exists in origin`);
@@ -106,7 +112,7 @@ function main(argv) {
   command('npm', ['test']);
   command('npm', ['run', 'lint']);
   command('npm', ['pack', '--dry-run']);
-  const dirtyAfterGates = command('git', ['status', '--porcelain'], { capture: true }).stdout.trim();
+  const dirtyAfterGates = command('git', ['status', '--porcelain', '--untracked-files=normal'], { capture: true }).stdout.trim();
   if (dirtyAfterGates) throw new Error(`the gates changed the working tree; the tag is not created:\n${dirtyAfterGates}`);
   command('git', ['tag', tag]);
   try {

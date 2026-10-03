@@ -41,4 +41,4 @@ Every parallel worker edits `CHANGELOG.md`, so every acceptance merges it. `git 
 - When only `--theirs` carries the bump, the section title comes from `--ours`, and in this repository gate 11 flags the missing version section.
 - The same subgroup added under different headings on each side is refused by the self-check and merged by hand.
 - The parse must stay the exact inverse of the assembly, or the additive check fails on every merge.
-- The `splitSections` readers (`merge-changelog`, `baseUnreleased`, `changelogSince` and lint's `unreleasedSpan`) use the fence-aware boundary rule, so a heading in an example cannot change their section boundaries.
+- The `splitSections` readers (`merge-changelog`, `baseUnreleased`, `changelogSince` and lint's `unreleasedSpan`) use the fence-aware boundary rule, so a heading in an example cannot change their section boundaries. Gate 11 (`splitSections`) and `release --bump` (`firstSection`) read the same way: a fenced `## v1.2.3` is not the released section and a fenced `## …` line is not the top section.

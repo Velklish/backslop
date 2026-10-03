@@ -661,6 +661,28 @@ test('migrate: an uncommitted edit of the rules — a refusal naming the file, t
   }
 });
 
+test('migrate: an untracked rules file is a refusal even with status.showUntrackedFiles=no', () => {
+  const root = makeProject();
+  try {
+    setConfig(root, { cli: 'node bin/backslop.js', version: '0.10.0' });
+    gitAll(root);
+    run(root, ['rm', '-q', '--cached', 'docs/backlog/README.md']);
+    run(root, ['commit', '-qm', 'untrack the rules']);
+    run(root, ['config', 'status.showUntrackedFiles', 'no']);
+    put(root, 'docs/backlog/README.md', '# Own rules, never committed\n');
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'the setting hides the file from a bare status');
+    for (const args of [['migrate', '--dry-run'], ['migrate']]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 1, `${args.join(' ')}: a refusal was expected: ${r.out}`);
+      assert.match(r.err, ruRe(NOT_COMMITTED, { dirty: 'docs/backlog/README.md' }));
+    }
+    assert.equal(read(root, 'docs/backlog/README.md'), '# Own rules, never committed\n');
+    assert.equal(config(root).version, '0.10.0', 'the refusal did not move the stamp');
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('migrate: an uncommitted line of the journal refuses the redraw with its own wording, the entries stay', () => {
   const root = makeProject();
   try {
@@ -1388,7 +1410,7 @@ test('migrate: a failing git status is a refusal, not "no git"', () => {
     put(root, 'docs/backlog/README.md', `${read(root, 'docs/backlog/README.md')}MY LOCAL EDIT\n`);
     const r = cli(root, ['migrate'], { env: { GIT_INDEX_FILE: index } });
     assert.equal(r.code, 1, r.out);
-    assert.match(r.err, /git status --porcelain -- docs\/backlog\/README\.md: fatal: /);
+    assert.match(r.err, /git status --porcelain --untracked-files=all -- docs\/backlog\/README\.md: fatal: /);
     assert.doesNotMatch(r.out, /no git/);
     assert.match(read(root, 'docs/backlog/README.md'), /MY LOCAL EDIT/);
     assert.equal(config(root).version, '0.10.0');
@@ -1538,6 +1560,25 @@ for (const lang of ['ru', 'en']) {
       }
       assert.equal(run(root, ['status', '--porcelain']).stdout, before, 'something was written');
       assert.ok(hasRoadmap(root));
+      assert.equal(config(root).version, '0.11.0');
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`roadmap migration (${lang}): an untracked ROADMAP.md is a refusal even with status.showUntrackedFiles=no`, () => {
+    const { root } = roadmapConsumer(lang);
+    try {
+      run(root, ['rm', '-q', '--cached', 'docs/ROADMAP.md']);
+      run(root, ['commit', '-qm', 'untrack the roadmap']);
+      run(root, ['config', 'status.showUntrackedFiles', 'no']);
+      assert.equal(run(root, ['status', '--porcelain']).stdout, '', 'the setting hides the file from a bare status');
+      for (const args of [['migrate', '--dry-run'], ['migrate']]) {
+        const r = cli(root, args);
+        assert.equal(r.code, 1, `${args.join(' ')}: ${r.out}`);
+        assert.match(r.err, lang === 'ru' ? ruRe('{dirty}: uncommitted edit — migrate would delete or edit the file and erase it with no trace in history; commit or revert the edit, then retry', { dirty: 'docs/ROADMAP.md' }) : /docs\/ROADMAP\.md: uncommitted edit — migrate would delete or edit the file/);
+      }
+      assert.ok(hasRoadmap(root), 'the untracked file survived');
       assert.equal(config(root).version, '0.11.0');
     } finally {
       cleanup(root);

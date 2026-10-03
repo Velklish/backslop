@@ -808,6 +808,12 @@ toolProbe('11. no CHANGELOG section for the released version', (dir) => {
   put(dir, 'CHANGELOG.md', '# Changelog\n\n## Unreleased\n\n- **One** — it was\n');
 }, ruRe('no “## v{version}” section — the released version has no entry', { version: '9.9.9' }));
 
+toolProbe('11. a fenced "## v<version>" example is not the released section', (dir) => {
+  bumpPackage(dir, '9.9.9');
+  put(dir, 'backslop.json', `${JSON.stringify({ ...JSON.parse(read(dir, 'backslop.json')), version: '9.9.9' }, null, 2)}\n`);
+  put(dir, 'CHANGELOG.md', '# Changelog\n\n## Unreleased\n\n- **One** — the heading looks like\n\n  ```md\n  ## v9.9.9\n  ```\n\n```md\n## v9.9.9 — 2026-01-01\n```\n');
+}, ruRe('no “## v{version}” section — the released version has no entry', { version: '9.9.9' }));
+
 toolProbe('11. a stale pin in the README prose', (dir) => put(dir, 'README.md', 'Install `npx github:Velklish/backslop#v0.2.0`\n'), errRe('README.md', PIN_TOOL, { line: 1, pin: 'github:Velklish/backslop#v0.2.0', version: TOOL_VERSION }));
 
 test('lint: 11. a stale release pin with a .git suffix or without v in README', () => {

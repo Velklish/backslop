@@ -80,7 +80,7 @@ What command modules share lives in shared modules: the ADR scan in `lib/adr-sca
 | `lib/ids.js` | task ids `<prefix>-N[.k]`: parsing, formatting, the slug and file-stem patterns, the commit subject pattern. Imports only `util` | `formatId`, `matchId`, `SLUG_SRC`, `taskStemSrc`, `taskSubjectRe` |
 | `lib/text.js` | lines and line endings of a text file. A leaf module | `eolOf`, `splitLines` |
 | `lib/frontmatter.js` | a YAML frontmatter field of a skill file | `FRONTMATTER`, `frontmatterField` |
-| `lib/changelog-format.js` | the structure of `CHANGELOG.md` shared by `changelog`, `merge-changelog`, `lint` and `scripts/release.mjs` | `CHANGELOG_ENTRY`, `sectionVersion`, `splitSections`, `unreleasedIndex`, `taggedVersions` |
+| `lib/changelog-format.js` | the structure of `CHANGELOG.md` shared by `changelog`, `merge-changelog`, `lint` and `scripts/release.mjs` | `CHANGELOG_ENTRY`, `sectionVersion`, `firstSection`, `splitSections`, `unreleasedIndex`, `taggedVersions` |
 | `lib/adapters.js` | the harness outputs of the selected adapters: render, remove, and the Claude stub | `renderAdapters`, `cleanupAdapters`, `checkAdapterRoots`, `ownedAdapterFiles`, `generatedAdapterFiles`, `ensureClaudeStub`, `CLAUDE_STUB` |
 | `lib/adapters-registry.js` | the single list of adapters with the root directory of each; it imports nothing | `TOOLS`, `ADAPTER_ROOTS`, `adapterRootRel`, `validTools` |
 | `lib/adapter-ownership.js` | the generated marker: what makes an adapter output owned by the tool | `markGenerated`, `hasGeneratedMarker`, `isOwnedAdapterFile`, `adapterRel`, `GENERATED_MARKER` |
