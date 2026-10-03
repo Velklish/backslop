@@ -215,7 +215,7 @@ test('hook: characters of the session id outside [\\w.-] become _ and the name i
   } finally { cleanup(root); }
 });
 
-test('hook: a second session-start replaces the record and drops the count', () => {
+test('hook: a repeated session-start keeps the first start and time but drops the count', () => {
   const root = session('claude');
   try {
     put(root, BAD_A, broken('missing.md'));
@@ -225,10 +225,40 @@ test('hook: a second session-start replaces the record and drops the count', () 
     gitAll(root, 'moved on');
     assert.equal(hook(root, 'claude', 'session-start').code, 0);
     const second = record(root, 'claude');
-    assert.equal(second.start, head(root));
-    assert.notEqual(second.start, first.start);
+    assert.equal(second.start, first.start);
+    assert.equal(second.time, first.time);
+    assert.notEqual(second.start, head(root));
     assert.equal(second.returns, undefined);
-    assertPasses(hook(root, 'claude', 'stop'), 'the committed error is before the new start');
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'missing.md')]);
+  } finally { cleanup(root); }
+});
+
+test('hook: a new session id starts at the later commit', () => {
+  const root = session('claude');
+  try {
+    put(root, BAD_A, broken('missing.md'));
+    gitAll(root, 'moved on');
+    const id = 's-2';
+    assert.equal(hook(root, 'claude', 'session-start', { stdin: { session_id: id } }).code, 0);
+    const next = JSON.parse(readFileSync(path.join(root, '.git', 'backslop', 'hooks', `claude-${id}.json`), 'utf8'));
+    assert.equal(next.start, head(root));
+    assertPasses(hook(root, 'claude', 'stop', { stdin: { session_id: id } }), 'the committed error predates the new id');
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'missing.md')]);
+  } finally { cleanup(root); }
+});
+
+test('hook: a new session id sharing a record filename starts at the later commit', () => {
+  const root = makeProject();
+  try {
+    gitAll(root, 'base');
+    assert.equal(hook(root, 'claude', 'session-start', { stdin: { session_id: 'a/b' } }).code, 0);
+    put(root, BAD_A, broken('missing.md'));
+    gitAll(root, 'moved on');
+    assert.equal(hook(root, 'claude', 'session-start', { stdin: { session_id: 'a_b' } }).code, 0);
+    const next = JSON.parse(readFileSync(path.join(root, '.git', 'backslop', 'hooks', 'claude-a_b.json'), 'utf8'));
+    assert.equal(next.session, 'a_b');
+    assert.equal(next.start, head(root));
+    assertPasses(hook(root, 'claude', 'stop', { stdin: { session_id: 'a_b' } }), 'the old id shares a filename');
   } finally { cleanup(root); }
 });
 
