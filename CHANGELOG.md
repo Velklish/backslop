@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **`release` and `migrate` see untracked files whatever `status.showUntrackedFiles` says** — the two clean-tree checks of `release` and the uncommitted-edit checks of `migrate` now ask git for non-ignored untracked files explicitly. With the setting `no`, an untracked file under `files` of `package.json` used to pass the check and land in `npm pack`, and an untracked generated file that `migrate` would delete or rewrite was lost without a trace; both now stop the run.
+- **`lint` gate 11 and `release --bump` read the CHANGELOG outside code fences** — a fenced `## v1.2.3` example no longer satisfies the released-version check while the real section is missing, and a fenced `## …` line is no longer taken as the top section that `--bump` renames. `--bump` also keeps every other byte of the file, line endings and a leading BOM included, and a BOM does not hide a fence on the first line.
 - **Local links resolve encoded filename delimiters.** Lint reads `%23` and `%3F` as `#` and `?` in filenames, and task moves keep those characters encoded in rewritten links.
 - **Fenced changelog examples survive structural merges.** Section headings, groups and entries written inside backtick or tilde code fences stay in their enclosing entry, with every source line preserved; an unclosed fence in either file head or unreleased section makes the merge refuse before writing. The `splitSections` readers use the same section boundaries.
 - **Clean-tree reports include untracked work regardless of Git's display setting** — `gates --require-clean` and `tracks` explicitly request non-ignored untracked entries, while retaining collapsed directory rows in their reports.

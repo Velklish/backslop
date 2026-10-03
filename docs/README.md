@@ -344,7 +344,7 @@ A record has this form:
 
 <!-- quote:reference/01-layout.md -->
 ```text
-- **Safeguards before the first write.** An uncommitted edit of such a file (`git status --porcelain` is not empty) is refused with the file name; for `archive/LOG.md` the refusal says that the entries stay and only an edit of the header would be erased. A `ROLES.md` that is no render of either language and lacks the paragraph "This file belongs to backslop" is the project's own file: `migrate` refuses before the first write, with git or without, names the file and asks to rename it. A render of the other language, or a file that keeps the paragraph, is backslop's own and is redrawn. A path through a symlink on any component is skipped with a warning, so the write does not go through the link. A pin move alone is not an edit: a file that, after every pin of the `cli` spec is set to the `cli` pin, equals its `HEAD` version up to line endings is redrawn — that is how `upgrade` of earlier versions leaves it.
+- **Safeguards before the first write.** An uncommitted edit of such a file (`git status --porcelain --untracked-files=all` for the file is not empty, so a file git does not track counts, whatever `status.showUntrackedFiles` says) is refused with the file name; for `archive/LOG.md` the refusal says that the entries stay and only an edit of the header would be erased. A `ROLES.md` that is no render of either language and lacks the paragraph "This file belongs to backslop" is the project's own file: `migrate` refuses before the first write, with git or without, names the file and asks to rename it. A render of the other language, or a file that keeps the paragraph, is backslop's own and is redrawn. A path through a symlink on any component is skipped with a warning, so the write does not go through the link. A pin move alone is not an edit: a file that, after every pin of the `cli` spec is set to the `cli` pin, equals its `HEAD` version up to line endings is redrawn — that is how `upgrade` of earlier versions leaves it.
 ```
 <!-- /quote -->
 
@@ -590,7 +590,7 @@ What the agent decides without asking, and what goes to the owner, is in [ROLES.
 
 <!-- quote:reference/02-cli.md -->
 ```text
-- An uncommitted edit of a rules-pair file, of `ROLES.md` or of the journal `LOG.md` that would be redrawn — before the first write, with `--dry-run` too, the stamp untouched. The refusal for the journal has its own wording: its entries stay and only an edit of the header would be erased. The v0.12.0 migration refuses the same way on an uncommitted edit of `<docs>/ROADMAP.md` or `<docs>/README.md` that it would delete or edit — before the first write of the whole run, with `--dry-run` too. A pin move alone is not an edit (CRLF in a checkout under `core.autocrlf` included).
+- An uncommitted edit of a rules-pair file, of `ROLES.md` or of the journal `LOG.md` that would be redrawn — before the first write, with `--dry-run` too, the stamp untouched. The refusal for the journal has its own wording: its entries stay and only an edit of the header would be erased. The v0.12.0 migration refuses the same way on an uncommitted edit of `<docs>/ROADMAP.md` or `<docs>/README.md` that it would delete or edit — before the first write of the whole run, with `--dry-run` too. An untracked file counts as an edit, whatever `status.showUntrackedFiles` says; an ignored one is not asked about. A pin move alone is not an edit (CRLF in a checkout under `core.autocrlf` included).
 ```
 <!-- /quote -->
 
@@ -746,6 +746,30 @@ Where things live in the tool's own code, and the routine changes spelled out st
 <!-- quote:adr/adr-055-docs-rules-ship-to-projects.md -->
 ```text
 - **A stop hook that fails on every `lint` error** — in a project that is red after an upgrade, `hook stop` would report an error on every run until its migration lands.
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- `--bump` finds the top section outside code fences, as `merge-changelog` does: a fenced `## …` line is an example, never the section it renames, and every other byte of `CHANGELOG.md` stays as it was.
+```
+<!-- /quote -->
+
+<!-- quote:adr/adr-043-changelog-merge.md -->
+```text
+- The `splitSections` readers (`merge-changelog`, `baseUnreleased`, `changelogSince` and lint's `unreleasedSpan`) use the fence-aware boundary rule, so a heading in an example cannot change their section boundaries. Gate 11 (`splitSections`) and `release --bump` (`firstSection`) read the same way: a fenced `## v1.2.3` is not the released section and a fenced `## …` line is not the top section.
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+| 11 | Release versions | Only in the tool's own repository (the same sign as template parity: its `templates/` is the running tool's directory). `package.json` that does not parse as JSON — an error with the parser's text; the other checks of this gate stop, the other gates run. No `version` field in `package.json` — nothing to compare with. `version` in `package.json` differs from the `backslop.json` stamp. `CHANGELOG.md` has no `## vX.Y.Z` section for that version; a heading inside a code fence is an example, not a section. In `README.md` or `AGENTS.md`, a pin `github:Velklish/backslop#vX.Y.Z` (also with a `.git` suffix and without `v`: `….git#vX.Y.Z`, `…#X.Y.Z`) or `backslop@X.Y.Z` names another version; a pin with a pre-release tail (`-rc.1`) is another version and is reported with its tail; a pin with another suffix (`x`, a fourth number) is another pin and this check does not read it, and in the tool's own repository, whose `cli` carries no pin, no other check reports it. Code blocks count: an install command is an instruction, not an example | `npm run release -- X.Y.Z --bump`; in the prose of an install example, the generic form `#v<version>` has nothing to drift |
+```
+<!-- /quote -->
+
+<!-- quote:reference/02-cli.md -->
+```text
+- Both clean-tree checks (before the gates and after them) are `git status --porcelain --untracked-files=normal`: a file git does not track and does not ignore stops the release, whatever `status.showUntrackedFiles` says, because it would land in `npm pack`; an untracked directory shows as one row.
 ```
 <!-- /quote -->
 

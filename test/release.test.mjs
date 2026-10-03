@@ -64,7 +64,7 @@ function putFakeCli(f) {
 
 const SEQ = [
   'git branch --show-current',
-  'git status --porcelain',
+  'git status --porcelain --untracked-files=normal',
   'git rev-parse --verify --quiet refs/tags/v0.2.0',
   'git ls-remote --exit-code --tags origin refs/tags/v0.2.0',
   'git fetch origin',
@@ -72,7 +72,7 @@ const SEQ = [
   'npm test',
   'npm run lint',
   'npm pack --dry-run',
-  'git status --porcelain',
+  'git status --porcelain --untracked-files=normal',
   'git tag v0.2.0',
   'git push --atomic --dry-run origin main v0.2.0',
   'npm publish',
@@ -104,8 +104,58 @@ test('release: changes made by the gates stop the release before the tag', () =>
     assert.equal(r.code, 1);
     assert.match(r.err, /the gates changed the working tree; the tag is not created/);
     assert.match(r.err, /\?\? generated\.txt/);
-    assert.match(r.log, /npm pack --dry-run\ngit status --porcelain\n$/);
+    assert.match(r.log, /npm pack --dry-run\ngit status --porcelain --untracked-files=normal\n$/);
     assert.doesNotMatch(r.log, /git tag|npm publish|git push/);
+  } finally {
+    cleanup(f);
+  }
+});
+
+// Real git, a bare origin and `status.showUntrackedFiles=no`: only npm stays a shim.
+function gitFixture() {
+  const f = fixture();
+  rmSync(path.join(f.bin, 'git'));
+  const origin = path.join(f.root, 'origin.git');
+  const git = (...args) => {
+    const r = spawnSync('git', args, { cwd: f.root, encoding: 'utf8' });
+    assert.equal(r.status, 0, `git ${args.join(' ')}: ${r.stderr}`);
+  };
+  writeFileSync(path.join(f.root, '.gitignore'), 'fake-bin/\norigin.git/\nrelease.log\n');
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'test@example.com');
+  git('config', 'user.name', 'test');
+  git('config', 'commit.gpgsign', 'false');
+  git('add', '-A');
+  git('commit', '-qm', 'snapshot');
+  git('init', '-q', '--bare', origin);
+  git('remote', 'add', 'origin', origin);
+  git('push', '-q', 'origin', 'main');
+  git('config', 'status.showUntrackedFiles', 'no');
+  return f;
+}
+
+test('release: an untracked file stops the release before the gates even with status.showUntrackedFiles=no', () => {
+  const f = gitFixture();
+  try {
+    writeFileSync(path.join(f.root, 'stray.txt'), 'x\n');
+    const r = runRelease(f);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /the working tree is dirty:\n\?\? stray\.txt/);
+    assert.doesNotMatch(r.log, /npm /, 'no gate ran');
+  } finally {
+    cleanup(f);
+  }
+});
+
+// The fake npm is an extensionless shebang script, which spawnSync cannot launch on win32.
+test('release: an untracked file made by the gates stops the release before the tag even with status.showUntrackedFiles=no', { skip: process.platform === 'win32' }, () => {
+  const f = gitFixture();
+  try {
+    const r = runRelease(f, '0.2.0', { FAKE_GATE_DIRTY: '1' });
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.err, /the gates changed the working tree; the tag is not created:\n\?\? generated\.txt/);
+    assert.match(r.log, /npm pack --dry-run\n$/);
+    assert.doesNotMatch(r.log, /npm publish/);
   } finally {
     cleanup(f);
   }
@@ -116,15 +166,15 @@ test('release: argument, package version, branch, dirty tree and tag collision s
     { version: 'v0.2.0', match: /one argument of the form X\.Y\.Z/, log: [] },
     { fixture: { version: '0.1.0' }, match: /version 0\.1\.0.*the release asked for is 0\.2\.0/, log: [] },
     { env: { FAKE_BRANCH: 'topic' }, match: /the current branch is “topic”/, log: ['git branch --show-current'] },
-    { env: { FAKE_DIRTY: '1' }, match: /the working tree is dirty/, log: ['git branch --show-current', 'git status --porcelain'] },
-    { env: { FAKE_LOCAL_TAG: '1' }, match: /the local tag v0\.2\.0 already exists/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0'] },
-    { env: { FAKE_REMOTE_TAG: '1' }, match: /the tag v0\.2\.0 already exists in origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0'] },
-    { env: { FAKE_FETCH_FAIL: '1' }, match: /git fetch origin/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin'] },
+    { env: { FAKE_DIRTY: '1' }, match: /the working tree is dirty/, log: ['git branch --show-current', 'git status --porcelain --untracked-files=normal'] },
+    { env: { FAKE_LOCAL_TAG: '1' }, match: /the local tag v0\.2\.0 already exists/, log: ['git branch --show-current', 'git status --porcelain --untracked-files=normal', 'git rev-parse --verify --quiet refs/tags/v0.2.0'] },
+    { env: { FAKE_REMOTE_TAG: '1' }, match: /the tag v0\.2\.0 already exists in origin/, log: ['git branch --show-current', 'git status --porcelain --untracked-files=normal', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0'] },
+    { env: { FAKE_FETCH_FAIL: '1' }, match: /git fetch origin/, log: ['git branch --show-current', 'git status --porcelain --untracked-files=normal', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin'] },
     { version: ['0.2.0', '--nope'], match: /unknown flag --nope/, log: [] },
     { version: ['0.2.0', '--bump', '--no-publish'], match: /together make no sense/, log: [] },
     { version: ['0.1.0', '--bump'], match: /bump goes only upward, 0\.1\.0 is not newer/, log: [] },
     { version: ['0.3.0', '--bump'], setup: (f) => writeFileSync(path.join(f.root, 'CHANGELOG.md'), '# Changelog\n\nno sections\n'), match: /no “## ” section at all/, log: [] },
-    { env: { FAKE_DIVERGED: '1' }, match: /is not a fast-forward from origin\/main/, log: ['git branch --show-current', 'git status --porcelain', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin', 'git merge-base --is-ancestor refs/remotes/origin/main HEAD'] },
+    { env: { FAKE_DIVERGED: '1' }, match: /is not a fast-forward from origin\/main/, log: ['git branch --show-current', 'git status --porcelain --untracked-files=normal', 'git rev-parse --verify --quiet refs/tags/v0.2.0', 'git ls-remote --exit-code --tags origin refs/tags/v0.2.0', 'git fetch origin', 'git merge-base --is-ancestor refs/remotes/origin/main HEAD'] },
   ];
   for (const c of cases) {
     const f = fixture(c.fixture);
@@ -333,6 +383,48 @@ test('release --bump: the version, the CHANGELOG section heading and the stamp t
     assert.equal(JSON.parse(readFileSync(path.join(f.root, 'package.json'), 'utf8')).version, '0.3.0');
   } finally {
     cleanup(f);
+  }
+});
+
+test('release --bump skips a fenced heading and keeps every other byte of the CHANGELOG', () => {
+  for (const eol of ['\n', '\r\n']) {
+    const f = fixture();
+    try {
+      putFakeCli(f);
+      const before = ['# Changelog', '', '```md', '## Unreleased', '## v0.1.0 — 2026-09-01', '```', '', '## Unreleased', '', '- **One** — x', '', '## v0.1.0 — 2026-09-01', '', '- **Old** — y', ''].join(eol);
+      writeFileSync(path.join(f.root, 'CHANGELOG.md'), before);
+      const r = runRelease(f, ['0.3.0', '--bump']);
+      assert.equal(r.code, 0, `${JSON.stringify(eol)}: ${r.err}`);
+      const after = readFileSync(path.join(f.root, 'CHANGELOG.md'), 'utf8');
+      const renamed = after.match(/^## v0\.3\.0 — \d{4}-\d{2}-\d{2}(?=\r?\n)/m);
+      assert.ok(renamed, `${JSON.stringify(eol)}: the real heading is renamed`);
+      assert.equal(after, before.replace(/^## Unreleased$(?=\r?\n\r?\n- \*\*One)/m, renamed[0]), `${JSON.stringify(eol)}: the fenced lines and the line endings stay`);
+    } finally {
+      cleanup(f);
+    }
+  }
+});
+
+test('release --bump with a BOM: a first-line fence is still a fence, and a first-line heading keeps the BOM', () => {
+  const BOM = '\uFEFF';
+  const cases = [
+    { label: 'BOM before a first-line fence', before: `${BOM}\`\`\`md\n## Unreleased\n\`\`\`\n\n## Unreleased\n\n- **One** — x\n`, want: (date) => `${BOM}\`\`\`md\n## Unreleased\n\`\`\`\n\n## v0.3.0 — ${date}\n\n- **One** — x\n` },
+    { label: 'BOM before a first-line heading', before: `${BOM}## Unreleased\n\n- **One** — x\n`, want: (date) => `${BOM}## v0.3.0 — ${date}\n\n- **One** — x\n` },
+  ];
+  for (const c of cases) {
+    const f = fixture();
+    try {
+      putFakeCli(f);
+      writeFileSync(path.join(f.root, 'CHANGELOG.md'), c.before);
+      const r = runRelease(f, ['0.3.0', '--bump']);
+      assert.equal(r.code, 0, `${c.label}: ${r.err}`);
+      const after = readFileSync(path.join(f.root, 'CHANGELOG.md'), 'utf8');
+      const date = after.match(/## v0\.3\.0 — (\d{4}-\d{2}-\d{2})/)?.[1];
+      assert.ok(date, `${c.label}: the real heading is renamed`);
+      assert.equal(after, c.want(date), c.label);
+    } finally {
+      cleanup(f);
+    }
   }
 });
 
