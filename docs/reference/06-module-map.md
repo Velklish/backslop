@@ -25,7 +25,7 @@ The page names code by file and by identifier, not by line: find a line with `gr
 
 ## Modules
 
-`lib/` has 37 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
+`lib/` has 38 files. Every command is one module; the rest are shared. `lib/<name>.js` that exports `run` is a command only if it is in `COMMANDS`.
 
 ### Command modules
 
@@ -75,6 +75,7 @@ What command modules share lives in shared modules: the ADR scan in `lib/adr-sca
 | `lib/version.js` | the tool version and version comparison | `TOOL_VERSION`, `compareVersions`, `normalizeVersion`, `latestVersion`, `stampNewerHead` |
 | `lib/mdwalk.js` | the markdown walkers: one set of files for the gates and for the commands that rewrite links, with `linkGateFiles`, the set gate 1 checks and `migrate` and `links --external` read; the live-pin files | `mdFiles`, `rootMarkdown`, `linkGateFiles`, `linkBase`, `repoMarkdown`, `srcFiles`, `livePinFiles`, `livePinText`, `stalePins`, `symlinkComponent`, `UnreadableDir` |
 | `lib/adr-scan.js` | the ADR files of a project: the file name pattern, the scan by number and the number format; `adr`, `init` and `lint` read it | `scanAdrs`, `formatAdrNumber`, `ADR_FILE_RE` |
+| `lib/lock.js` | the numbering lock: a lock file in the git common directory around the allocation of a number, the wait, the refusal and the takeover of a stale lock | `withNumberingLock`, `takeNumberingLock`, `lockIo`, `LOCK_FILE`, `LOCK_WAIT_MS`, `LOCK_STALE_MS` |
 | `lib/log.js` | the line format of `LOG.md`: parse, format, anchors, reading, appending and the header redraw | `parseLogLine`, `formatLogLine`, `logFile`, `readLogText`, `appendLogLines`, `logAnchor`, `brokenLogLines`, `redrawLogHeader` |
 | `lib/ids.js` | task ids `<prefix>-N[.k]`: parsing, formatting, the slug and file-stem patterns, the commit subject pattern. Imports only `util` | `formatId`, `matchId`, `SLUG_SRC`, `taskStemSrc`, `taskSubjectRe` |
 | `lib/text.js` | lines and line endings of a text file. A leaf module | `eolOf`, `splitLines` |

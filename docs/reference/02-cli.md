@@ -89,6 +89,7 @@ Behaviour:
 - A finding in `triage/` gets the Evidence field as a separate line with a placeholder to fill; a minor entry gets the `--evidence` text instead.
 - Scope gets a link to `reference/README.md` with the depth from the status directory computed (text, in a project without that file); whoever files the task writes the actual section.
 - The number is the next free one across the current tree, other worktrees and local branches ([01 § Numbers](01-layout.md#numbers)).
+- The whole operation — the scan, the number, the Order renumbering of the neighbours for `--queue`, the card write — runs under a lock file in the git common directory, so calls started together in sibling worktrees get different numbers. A caller waits up to 10 seconds for it; a lock older than 60 seconds is removed. Without git there is no lock.
 
 Output:
 
@@ -96,6 +97,7 @@ Output:
 
 Refusals:
 
+- The numbering lock still taken after 10 seconds: the message names the lock file (`backslop-new.lock` in the git common directory) and says to run the command again, or to delete the file when no backslop process is running; nothing is written. A card path that already exists. A lock, claim or temporary file in the git common directory that cannot be created, written or replaced (permissions, a full disk): the message names the file and the cause, at once and without waiting.
 - A git failure while scanning foreign numbers, other than "no repository" and "git is not installed"; a bad slug; a slug that makes the file name `<prefix>-<N[.k]>-<slug>.md` longer than 255 bytes — before any write and before the queue is renumbered; no such parent; `docs/backlog` or the status directory the file goes into is a file.
 - `--top` without `--queue`; `--minor` without `--parent` or with `--queue`; `--hypothesis`/`--evidence` without `--minor`; `--cost` without `--parent` and without `--minor`; `--cost minor` without `--minor`; `--cost` outside the three levels; `--cost major|critical` without `--hypothesis`; `--minor` without `--evidence` or with empty evidence.
 - A status directory or an archive task directory that is a symlink leading out of the project — the numbers behind it are not seen; before any write.
