@@ -38,7 +38,7 @@
 
 One link rule serves gates 1, 8, 13 and 15 and `seed --queue-reference`, and one parser reads their links:
 
-- The target is the href up to the first `#` or `?`, decoded (`%2E` is a dot; a broken `%` escape is a broken link).
+- The target is the href up to the first literal `#` or `?`, then percent-decoded (`%2E` is a dot, `%23` is a filename hash, and `%3F` is a filename question mark; a broken `%` escape is a broken link). The fragment and query are not decoded as part of the path.
 - A leading `/` resolves from the repository root, as on GitHub and GitLab — in a monorepo subproject too (`/pkg/a/docs/…`). Outside a repository it resolves from the project root, and a git failure while finding the root refuses `lint` with its cause. Any other path resolves from the file's directory.
 - External addresses are not checked: any `<scheme>:`, case-insensitive (`https:`, `ftp:`, `tel:`, `HTTPS:`; a drive letter `C:/…` is a scheme too), and `//host`. A bare `#anchor` points into the same file.
 - Footnotes `[^1]:` are not link declarations. A code fence closes only on a fence of the same character that is not shorter than the opening one; an unclosed fence runs to the end of the file.

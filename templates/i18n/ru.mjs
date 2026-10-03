@@ -362,6 +362,7 @@ export const messages = {
   'the merge failed its own check and the file was not handed over: {fails}': 'слияние не прошло собственную проверку, файл не отдан: {fails}',
   '{changelog} on the --ours side has no unreleased section (a “## …” heading that does not start with a version, or a top section whose version has no tag)': '{changelog} стороны --ours: нет секции невыпущенного (заголовок «## …», который не начинается с номера версии, или верхняя секция с версией без тега)',
   'the unreleased section on the {side} side carries an unresolved {mark} mark: close the previous merge before merging on top of it': 'секция невыпущенного стороны {side} несёт незакрытую метку {mark}: разбери прошлое слияние, прежде чем сливать поверх',
+  'the {side} side has an unclosed code fence at line {line}: close it before merging': 'на стороне {side} незакрытый блок кода на строке {line}: закрой его перед слиянием',
   'cannot write --out {file}: {cause}': 'не записывается --out {file}: {cause}',
   'both --ours <ref> and --theirs <ref> are required: two CHANGELOG.md revisions from git': 'нужны --ours <ref> и --theirs <ref>: две редакции CHANGELOG.md из git',
   '--base is empty: pass --base <ref>, the merge-base revision, or drop the flag': '--base пуст: нужен --base <ref> — ревизия базы слияния, или флаг убирается целиком',

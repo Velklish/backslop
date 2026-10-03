@@ -61,7 +61,7 @@ Each command links its reference section: behaviour, output and refusals.
 |---|---|
 | [`init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>] [--hooks <CSV\|none>]`](docs/reference/02-cli.md#init) | create docs, adapters, agent hooks, the AGENTS.md block and backslop.json; on repeat, refresh the adapters and the AGENTS.md block |
 | [`new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical\|major] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]`](docs/reference/02-cli.md#new) | create a task (in `triage/`, or the queue), a finding of task N / N.M, or a minor finding with evidence |
-| [`mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]`](docs/reference/02-cli.md#mv) | change the status of one or several tasks, or reorder the queue |
+| [`mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]`](docs/reference/02-cli.md#mv) | change task status or queue order; rewrite links with encoded filename characters preserved |
 | [`archive <N> [--dry-run] [--range <base>..HEAD]`, `archive <N.k> --into <M> [--dry-run]`](docs/reference/02-cli.md#archive) | close a task into `archive/` and print the documentation it touched; close a minor entry by batch M |
 | [`fold <N> [--dry-run]`, `fold [--older-than <date>] [--embed-missing] [--dry-run]`](docs/reference/02-cli.md#fold) | fold a closed task, or the accumulated archive, into `archive/LOG.md` lines; `fold N` puts the body into the commit message draft, the bulk form names each body's revision (`--embed-missing` carries bodies that are not in history) |
 | [`show <N>`](docs/reference/02-cli.md#show) | print the body of a folded task |
@@ -77,7 +77,7 @@ Each command links its reference section: behaviour, output and refusals.
 | [`upgrade [--to X.Y.Z] [--dry-run] [--pin-only]`](docs/reference/02-cli.md#upgrade) | update the pins, then migrate and initialize with the new version |
 | [`migrate [--dry-run]`](docs/reference/02-cli.md#migrate) | migrate file formats, redraw the tracking and archive rules, update the version stamp |
 | [`changelog [--since X.Y.Z] [--to X.Y.Z]`](docs/reference/02-cli.md#changelog) | print backslop CHANGELOG entries between versions |
-| [`merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]`](docs/reference/02-cli.md#merge-changelog) | merge two `CHANGELOG.md` revisions |
+| [`merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]`](docs/reference/02-cli.md#merge-changelog) | merge two `CHANGELOG.md` revisions while keeping fenced examples intact; refuse an unclosed fence in either file head or unreleased section |
 | [`version \| --version \| -v`, `help \| --help \| -h \| <command> --help`](docs/reference/02-cli.md#version-and-help) | print the version or the help |
 
 The command is long, so a project records it in the `cli` field of `backslop.json`, and skills and the `AGENTS.md` section substitute it from there. With a global install (`npm i -g github:Velklish/backslop#v<version>`), set `cli` to `backslop`.

@@ -400,3 +400,5 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-219"></a>`BS-219-minor-batch-hook-start-and-hoist` · 2026-10-03 · completed · — · Minor batch: hook start refire, hoisted local bin
 - <a id="bs-195.3"></a>`BS-195.3-hook-session-start-refire-resets-start` · 2026-10-03 · batch BS-219 · — · hook: a repeated session-start for one session id replaces the start point
 - <a id="bs-178"></a>`BS-178-bug-hunt-round-three` · 2026-10-03 · completed · — · Third bug-hunt round with new lenses: git config matrix, encodings, monorepo, parsers, Windows
+- <a id="bs-220"></a>`BS-220-changelog-fenced-sections` · 2026-10-03 · completed · — · Preserve fenced Markdown content during changelog merges
+- <a id="bs-178.1"></a>`BS-178.1-encoded-hash-link-target` · 2026-10-03 · batch BS-220 · — · Lint rejects a percent-encoded hash in an existing filename

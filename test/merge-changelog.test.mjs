@@ -7,6 +7,9 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import os from 'node:os';
 import path from 'node:path';
 import { CONFLICT_MARK, mergeChangelog } from '../lib/merge-changelog.js';
+import { changelogSince } from '../lib/changelog.js';
+import { structuralLines } from '../lib/changelog-format.js';
+import { blankFences } from '../lib/links.js';
 import { KILLED, cleanup, cli, escapeRe, gitAll, makeProject, put, read, ru, ruHeadRe, ruRe, run } from './helpers.mjs';
 
 const NO_UNRELEASED = ruRe('{changelog} on the --ours side has no unreleased section (a “## …” heading that does not start with a version, or a top section whose version has no tag)');
@@ -14,6 +17,7 @@ const ENTRIES = 'entries: ours {ours}, theirs {theirs}, merged {merged}';
 const REMOVED = 'removed relative to --base: {title}';
 const LEFT_MARKS = '{marks} {mark} mark(s) left in the result — the conflict is not closed: pick a revision and remove the mark';
 const UNRESOLVED = 'the unreleased section on the {side} side carries an unresolved {mark} mark: close the previous merge before merging on top of it';
+const UNCLOSED_FENCE = 'the {side} side has an unclosed code fence at line {line}: close it before merging';
 const CANNOT_READ = 'cannot read {ref}:{changelog} — {cause}';
 
 const OURS = `# Changelog
@@ -41,6 +45,87 @@ const THEIRS = `# Changelog
 
 - **Old** — released
 `;
+
+test('merge-changelog: fenced headings and entries stay in an entry, with following entries intact', () => {
+  const base = '# Changes\n\n## Unreleased\n\n- **Existing** Stable entry.\n';
+  for (const fence of ['```', '~~~~']) {
+    const example = `\n- **Guide** Example format:\n\n${fence}md\n## Example heading\n### Example group\n**Example subgroup**\n- **Example entry** Text.\n${fence}\n\n- **Added** New behavior.\n`;
+    const { text, report } = mergeChangelog(base, base + example, base, 'en');
+    assert.equal(text, base + example);
+    assert.equal(report.merged, 3);
+  }
+});
+
+test('merge-changelog: a long fence, CRLF, and the next real section keep their boundaries', () => {
+  const base = '# Changes\r\n\r\n## Unreleased\r\n\r\n- **Existing** Stable.\r\n\r\n## 1.0.0\r\n\r\n- **Old** Released.\r\n';
+  const theirs = base.replace('## 1.0.0', '- **Guide** Example.\r\n\r\n````md\r\n```\r\n## 9.9.9\r\n- **Fake** Example.\r\n```\r\n````\r\n\r\n- **Added** Next.\r\n\r\n## 1.0.0');
+  const { text, report } = mergeChangelog(base, theirs, base, 'en');
+  assert.equal(text, theirs);
+  assert.equal(report.merged, 3);
+  assert.equal(changelogSince(text, '0.9.0', '1.0.0'), '## 1.0.0\n- **Old** Released.');
+});
+
+test('merge-changelog: an unclosed fence on either side refuses before writing', () => {
+  const base = '# Changes\n\n## Unreleased\n\n- **A** Shared.\n\n## v1.0.0\n\n- **Old** Released.\n';
+  const ours = base.replace('## v1.0.0', '- **C** Ours after the insertion point.\n\n## v1.0.0');
+  const theirs = base.replace('## v1.0.0', '- **B** Example.\n\n```md\n## Example heading\n\n## v1.0.0');
+  assert.throws(() => mergeChangelog(ours, theirs, base, 'en'), /--theirs.*line 9/);
+  assert.throws(() => mergeChangelog(theirs, ours, base, 'en'), /--ours.*line 9/);
+  const root = makeProject();
+  try {
+    put(root, 'CHANGELOG.md', ours);
+    gitAll(root, 'ours');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', theirs);
+    gitAll(root, 'theirs');
+    run(root, ['checkout', '-q', 'main']);
+    const r = cli(root, ['merge-changelog', '--ours=main', '--theirs=worker', '--out=CHANGELOG.md']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, ruRe(UNCLOSED_FENCE, { side: '--theirs', line: 9 }));
+    assert.equal(read(root, 'CHANGELOG.md'), ours);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('merge-changelog: an unclosed fence in the file head refuses on either side', () => {
+  const good = '# Changes\n\n## Unreleased\n\n- **A** Shared.\n';
+  const bad = '# Changes\n\n```md\n## Unreleased\n\n- **A** Shared.\n';
+  const root = makeProject();
+  try {
+    put(root, 'CHANGELOG.md', good);
+    gitAll(root, 'good');
+    run(root, ['checkout', '-qb', 'worker']);
+    put(root, 'CHANGELOG.md', bad);
+    gitAll(root, 'bad');
+    run(root, ['checkout', '-q', 'main']);
+    put(root, 'merged.md', 'untouched\n');
+    for (const [side, ours, theirs] of [['--theirs', 'main', 'worker'], ['--ours', 'worker', 'main']]) {
+      const r = cli(root, ['merge-changelog', `--ours=${ours}`, `--theirs=${theirs}`, '--out=merged.md']);
+      assert.equal(r.code, 1, side);
+      assert.match(r.err, ruRe(UNCLOSED_FENCE, { side, line: 3 }));
+      assert.equal(read(root, 'merged.md'), 'untouched\n');
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('changelog and link readers classify the same top-level fences', () => {
+  for (const text of [
+    'before\n```md\n## Hidden\n```\nafter',
+    'before\n~~~\n- **Hidden**\n~~~\nafter',
+    'before\n````md\n```\n## Hidden\n````\nafter',
+    'before\n  ```md\n## Hidden\n  ```\nafter',
+    'before\n```md\n## Hidden',
+  ]) {
+    const raw = text.split('\n');
+    const structural = structuralLines(raw);
+    const blanked = blankFences(text).split('\n');
+    assert.deepEqual(structural.map((line, i) => line === '' && raw[i] !== ''),
+      blanked.map((line, i) => line.trim() === '' && raw[i].trim() !== ''), text);
+  }
+});
 
 test('merge-changelog: entries of both sides, a matching entry once, released sections from ours', () => {
   const { text, report } = mergeChangelog(OURS, THEIRS);
@@ -571,6 +656,7 @@ test('merge-changelog: the mark name in prose is not a mark — code spans, an i
     },
     { name: 'a code span in the merged section', entry: '- **Merge by the command** — both revisions under the mark `<!-- backslop:conflict … -->`\n', released: '' },
     { name: 'an indented code block in the merged section', entry: '- **Merge by the command** — sample output:\n\n      <!-- backslop:conflict One -->\n\n', released: '' },
+    { name: 'a mark line inside a fenced example', entry: '- **Merge by the command** — sample output:\n\n```md\n<!-- backslop:conflict One -->\n```\n\n', released: '' },
   ];
   for (const { name, entry, released } of rows) {
     const ours = `# Changelog\n\n## Unreleased\n\n${entry}- **Own at ours** — body ours\n${released}`;
