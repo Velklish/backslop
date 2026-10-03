@@ -95,8 +95,8 @@ Every finding is filed, and its severity decides where. `N` is the number of the
 
 | Severity | Cost label | Record |
 |---|---|---|
-| Blocking | `critical` | a card, `{{cli}} new <slug> --parent N`, with evidence; raise it at once to the orchestrator, or to the owner when there is none, without waiting for the task result |
-| High | `major` | a card, `{{cli}} new <slug> --parent N`, with evidence on the `Evidence:` line of its Context |
+| Blocking | `critical` | a card, `{{cli}} new <slug> --parent N --cost critical`, with evidence; raise it at once to the orchestrator, or to the owner when there is none, without waiting for the task result |
+| High | `major` | a card, `{{cli}} new <slug> --parent N --cost major`, with evidence on the `Evidence:` line of its Context |
 | Medium, Low | `minor` | an entry, `{{cli}} new <slug> --parent N --minor --evidence "…"` |
 
 - The evidence is the document's `file:line` and the code, command or output that contradicts or confirms it. A finding you could not verify yourself (the command cannot be run here, the evidence is out of reach) is an assumption, which is a different case from a document fact the code cannot confirm: file a Blocking or High one as `{{cli}} new <slug> --parent N --minor --cost <level> --hypothesis --evidence "…"`.
