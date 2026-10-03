@@ -377,3 +377,5 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.35"></a>`BS-192.35-contract-w6-terms-not-in-glossary` · 2026-10-02 · batch BS-210 · — · 05 Orchestrator contract: terms the glossary does not define
 - <a id="bs-192.40"></a>`BS-192.40-module-map-w6-terms-not-in-glossary` · 2026-10-02 · batch BS-210 · — · 06 Module map: terms the glossary does not define
 - <a id="bs-202.4"></a>`BS-202.4-acceptance-recipe-attachment-branch` · 2026-10-02 · batch BS-210 · — · The acceptance recipe has no branch for a task directory that holds attachments
+- <a id="bs-213"></a>`BS-213-hook-npx-start-cost` · 2026-10-03 · completed · — · Agent hooks: measure the start cost of the default npx cli
+- <a id="bs-196.1"></a>`BS-196.1-hook-npx-start-cost` · 2026-10-03 · batch BS-213 · — · Agent hooks: the default npx cli runs on every stop and start event
