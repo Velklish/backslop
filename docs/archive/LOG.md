@@ -383,3 +383,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-84.3"></a>`BS-84.3-npm-form-prose-backslop-reads-as-pin` · 2026-10-03 · batch BS-216 · — · npm-form-prose-backslop-reads-as-pin
 - <a id="bs-213.1"></a>`BS-213.1-gate-cap-test-load-sensitive` · 2026-10-03 · batch BS-216 · — · gate-cap-test-load-sensitive
 - <a id="bs-192.8"></a>`BS-192.8-layout-harness-table-empty-header` · 2026-10-03 · rejected · — · 01 Layout and formats: the harness table has an empty header cell
+- <a id="bs-215"></a>`BS-215-hook-cli-fast-form` · 2026-10-03 · completed · — · init picks a fast hook cli when backslop is installed, npx otherwise

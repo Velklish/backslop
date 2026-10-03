@@ -69,11 +69,75 @@ test('parseCli: the GitHub and exact npm pins keep the npx flags; other pin form
   assert.equal(parseCli('npx backslop').pin, null);
   assert.equal(parseCli('npx backslop').repoUrl, null);
   assert.equal(parseCli('npx backslop').withPin('0.2.0'), 'npx backslop@0.2.0');
+  assert.equal(parseCli('npx --no-install backslop'), null, 'a project-local executable has no release pin');
   assert.equal(parseCli('npx --yes backslop@latest').pin, null);
   assert.equal(parseCli('npx --yes backslop@latest').withPin('2.0.0'), 'npx --yes backslop@2.0.0');
   const flagged = parseCli('npx --yes -q github:me/proj#v01.2.3');
   assert.equal(flagged.pin, '1.2.3', 'the pin is normalised');
   assert.equal(flagged.withPin('v0.2.0'), 'npx --yes -q github:me/proj#v0.2.0', 'the npx flags are kept');
+});
+
+test('lint: the project-local fast command is not a floating release form', () => {
+  const root = makeProject({ git: false });
+  try {
+    setConfig(root, { cli: 'npx --no-install backslop', gates: ['npx --no-install backslop lint'], lang: 'en' });
+    let r = cli(root, ['lint']);
+    assert.doesNotMatch(r.err, /an unpinned cli fetches a fresh version/);
+    setConfig(root, { cli: 'npx backslop', gates: ['npx backslop lint'] });
+    r = cli(root, ['lint']);
+    assert.match(r.err, /an unpinned cli fetches a fresh version/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('upgrade: the local fast command requires source and stays unchanged', () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  try {
+    const local = 'npx --no-install backslop';
+    setConfig(root, { cli: local, gates: [`${local} lint`], version: '0.1.0', lang: 'en' });
+    let r = cli(root, ['upgrade', '--dry-run']);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /has no source field/);
+    setConfig(root, { source: src, hooks: ['claude'] });
+    put(root, 'package.json', JSON.stringify({ devDependencies: { backslop: '0.12.0' } }));
+    r = cli(root, ['upgrade', '--dry-run'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /its pin is unchanged; update the installation yourself/);
+    assert.equal(config(root).cli, local);
+    assert.deepEqual(config(root).gates, [`${local} lint`]);
+    r = cli(root, ['upgrade'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 0, r.err);
+    assert.equal(config(root).cli, local);
+    assert.deepEqual(config(root).gates, [`${local} lint`]);
+    assert.equal(config(root).version, TOOL_VERSION);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
+});
+
+test('upgrade: a local hook cli refuses a removed devDependency before migration', () => {
+  const root = makeProject({ git: false });
+  const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+  const shim = npxShim();
+  try {
+    const local = 'npx --no-install backslop';
+    setConfig(root, { cli: local, gates: [`${local} lint`], version: '0.1.0', lang: 'en', hooks: ['claude'], source: src });
+    put(root, 'node_modules/backslop/package.json', JSON.stringify({ version: TOOL_VERSION }));
+    const before = read(root, 'backslop.json');
+    const r = cli(root, ['upgrade'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+    assert.equal(r.code, 1);
+    assert.match(r.err, /backslop is not in package.json devDependencies/);
+    assert.equal(read(root, 'backslop.json'), before);
+  } finally {
+    cleanup(root);
+    rmSync(src, { recursive: true, force: true });
+    rmSync(shim, { recursive: true, force: true });
+  }
 });
 
 test('upgrade: pins with a .git suffix or without v move and take the canonical #vX.Y.Z form', () => {
