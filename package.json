@@ -1,6 +1,6 @@
 {
   "name": "backslop",
-  "version": "0.12.0",
+  "version": "0.20.0",
   "description": "A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command.",
   "type": "module",
   "bin": {
