@@ -324,8 +324,8 @@ test('gates: a git failure other than no repository or no git refuses before the
   }
 });
 
-// The cap is narrowed to 2 s on the real `spawnSync`, the gate command is the same: the shell
-// traps the cap's SIGTERM and exits with code 0, and `spawnSync` returns ETIMEDOUT with `status` 0.
+// The shim answers these commands by text; their bodies do not run while it matches.
+// Keep real bodies so a missed match makes the test fail.
 test('gates: a gate with a launch error at code 0 is not green, the total and the exit code are red', { skip: process.platform === 'win32' }, () => {
   const root = makeProject({ git: false });
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-gate-cap-')));
@@ -335,7 +335,8 @@ test('gates: a gate with a launch error at code 0 is not green, the total and th
       "import cp from 'node:child_process';",
       "import { syncBuiltinESMExports } from 'node:module';",
       'const real = cp.spawnSync;',
-      'cp.spawnSync = (file, opts, ...rest) => real(file, opts?.shell === true ? { ...opts, timeout: 2000 } : opts, ...rest);',
+      "const timedOut = (status, signal) => ({ status, signal, error: Object.assign(new Error('spawnSync ETIMEDOUT'), { code: 'ETIMEDOUT' }) });",
+      "cp.spawnSync = (file, opts, ...rest) => opts?.shell === true && file.startsWith('trap ') ? timedOut(0, null) : opts?.shell === true && file === 'sleep 5' ? timedOut(null, 'SIGTERM') : real(file, opts, ...rest);",
       'syncBuiltinESMExports();',
     ].join('\n'));
     const trapped = "trap 'exit 0' TERM; n=0; while [ $n -lt 100 ]; do sleep 0.05; n=$((n+1)); done; exit 7";
@@ -358,7 +359,7 @@ test('gates: a gate with a launch error at code 0 is not green, the total and th
     assert.equal(report.green, 1);
     assert.deepEqual(ran(root), ['after']);
 
-    // The usual cap: the shell dies of SIGTERM, and spawnSync reports ETIMEDOUT with the signal.
+    // A cap can also leave the shell with SIGTERM and ETIMEDOUT.
     withGates(root, ['sleep 5']);
     r = cli(root, ['gates'], { env });
     assert.equal(r.code, 1, r.out);
