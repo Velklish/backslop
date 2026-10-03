@@ -43,7 +43,7 @@ Each adapter lays out the process skills, the `backslop-writer` release and batc
 
 `init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang ru`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
 
-With an adapter selected, ask an agent to "populate docs using backslop" after the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a worker batch closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
+With an adapter selected, ask an agent to "populate docs using backslop" after the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a run with workers closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
 
 ## Agent hooks
 

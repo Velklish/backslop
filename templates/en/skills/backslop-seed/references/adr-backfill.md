@@ -17,7 +17,7 @@ Read in phases 2–3 of the `backslop-seed` skill. The first ADR, about the proc
   - **Options** only where alternatives are known to have been considered; if unknown, “alternatives could not be reconstructed”;
   - **Decision:** what was selected, with evidence: manifest, configuration, or directory;
   - **Consequences:** what the decision still constrains — the most valuable part of a retrospective record.
-- Add a row to `{{docs}}/README.md` in the same pass; without it, `{{cli}} lint` fails.
+- Add a row that links the ADR to `{{docs}}/README.md` in the same pass; without the link, `{{cli}} lint` fails.
 
 ## Do not
 

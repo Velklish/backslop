@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { loadConfig } from '../lib/config.js';
 import { TEMPLATES_DIR, templateParity } from '../lib/templates.js';
-import { cleanup, cli, escapeRe, makeProject, put, read, ruRe, ruTwinLine } from './helpers.mjs';
+import { REPO, cleanup, cli, escapeRe, makeProject, put, read, ruRe, ruTwinLine } from './helpers.mjs';
 
 const TOOLS = ['claude', 'cursor', 'codex'];
 const SKILL = 'backslop-writer';
@@ -14,6 +14,14 @@ const HEADING_RE = /^## .+$/gm;
 const AUDIT_HEADINGS = ['## Audit Mode', '## Audit Report', '## Filing Findings', '## Regression Check', '## Release Hold'];
 const AUDIT_AT = 6;
 const RU_SKILL = 'skills/backslop-writer/SKILL.md';
+// Fixed Russian expectations as code points: Cyrillic lives in templates/ only.
+const ruText = (hex) => String.fromCodePoint(...hex.split(' ').map((code) => parseInt(code, 16)));
+// "closing a run with workers"
+const RU_RUN_CLOSES = ruText('0437 0430 043a 0440 044b 0442 0438 0438 0020 0437 0430 0445 043e 0434 0430 0020 0441 0020 0077 006f 0072 006b 0065 0072 0027 0430 043c 0438');
+// "A statement of the document about the project itself that the code cannot confirm"
+const RU_PROJECT_STATEMENT = ruText('0423 0442 0432 0435 0440 0436 0434 0435 043d 0438 0435 0020 0434 043e 043a 0443 043c 0435 043d 0442 0430 0020 043e 0020 0441 0430 043c 043e 043c 0020 043f 0440 043e 0435 043a 0442 0435');
+// "A statement about another product is an assumption, not a confirmed Blocking finding"
+const RU_OTHER_PRODUCT = ruText('0423 0442 0432 0435 0440 0436 0434 0435 043d 0438 0435 0020 043e 0020 043f 043e 0432 0435 0434 0435 043d 0438 0438 0020 0434 0440 0443 0433 043e 0433 043e 0020 043f 0440 043e 0434 0443 043a 0442 0430 002c 0020 043a 043e 0442 043e 0440 043e 0435 0020 043d 0435 0020 0443 0434 0430 043b 043e 0441 044c 0020 043f 0440 043e 0432 0435 0440 0438 0442 044c 0020 0441 0430 043c 043e 043c 0443 002c 0020 2014 0020 043d 0435 0020 044d 0442 043e 0442 0020 0441 043b 0443 0447 0430 0439 003a 0020 044d 0442 043e 0020 043f 0440 0435 0434 043f 043e 043b 043e 0436 0435 043d 0438 0435 002c 0020 0435 0433 043e 0020 0437 0430 0432 043e 0434 044f 0442 0020 0437 0430 043f 0438 0441 044c 044e 0020 0060 002d 002d 0068 0079 0070 006f 0074 0068 0065 0073 0069 0073 0060 0020 0441 0020 0446 0435 043d 043e 0439 0020 043f 043e 0020 0440 0430 0437 0434 0435 043b 0443 0020 00ab 0417 0430 0432 0435 0434 0435 043d 0438 0435 0020 043d 0430 0445 043e 0434 043e 043a 00bb 002c 0020 0430 0020 043d 0435 0020 043f 043e 0434 0442 0432 0435 0440 0436 0434 0451 043d 043d 043e 0439 0020 043d 0430 0445 043e 0434 043a 043e 0439 0020 0042 006c 006f 0063 006b 0069 006e 0067 002e');
 const WRITER_REFUSALS = [
   '{config}: writer must be an object with optional style and currency arrays',
   '{config}: writer.{field} is unknown; expected style or currency',
@@ -76,6 +84,29 @@ test('writer templates: parity and stable headings', () => {
     '## Output',
   ]);
   assert.match(ruHeadings[AUDIT_AT], /audit$/);
+});
+
+test('writer: the README and the skill description name the closing of a run with workers', () => {
+  const readme = readFileSync(path.join(REPO, 'README.md'), 'utf8');
+  assert.doesNotMatch(readme, /worker\sbatch/i);
+  assert.match(readme, /when a run with workers closes/);
+  const descriptions = ['en/skills/backslop-writer/SKILL.md', RU_SKILL].map((rel) => (
+    readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8').match(/^description: (".*")$/m)[1]));
+  assert.match(descriptions[0], /closing a run with workers/);
+  assert.doesNotMatch(descriptions[0], /worker\sbatch/i);
+  assert.ok(descriptions[1].includes(RU_RUN_CLOSES), 'the twin says a run with workers closes');
+  assert.doesNotMatch(descriptions[1], /worker-/, 'the twin does not glue worker to the batch');
+});
+
+test('writer templates: a statement about another product is an assumption in both layers', () => {
+  const en = readFileSync(path.join(TEMPLATES_DIR, 'en/skills/backslop-writer/SKILL.md'), 'utf8');
+  const step = en.split('\n').find((line) => line.startsWith('3. Read the document as its reader'));
+  assert.match(step, /about this project that the code cannot confirm is an unverifiable fact/);
+  assert.match(step, /behaviour of another product that you cannot verify yourself[^.]*assumption[^.]*`--hypothesis` entry with a cost/);
+  assert.match(step, /not as a confirmed Blocking finding/);
+  const twin = twinParagraph(en, 'A statement about the behaviour of another product');
+  assert.ok(twin.includes(RU_PROJECT_STATEMENT), 'the twin limits the confirmed finding to the project itself');
+  assert.ok(twin.includes(RU_OTHER_PRODUCT), 'the twin makes another product an assumption, not a confirmed finding');
 });
 
 test('writer templates: both layers carry the audit mode, its report fields and the cost mapping', () => {

@@ -33,3 +33,17 @@ test('seed: the Russian adr-backfill reference puts the survey wording in a pare
   const line = ruTwinLine('skills/backslop-seed/references/adr-backfill.md', 'Show the owner the complete list of candidates');
   assert.match(line, /\([^()]*AGENTS\.md\)/, 'the pointer to the owner-talk wording is a parenthesis, one voice per sentence');
 });
+
+test('templates: lint fails without the link to an ADR, not without a table row', () => {
+  // Code points spell the Russian for "without the link": Cyrillic lives in templates/ only.
+  const word = (...codes) => String.fromCodePoint(...codes);
+  const bez = word(1073, 1077, 1079);
+  const link = word(1089, 1089, 1099, 1083, 1082, 1080);
+  const withoutLink = new RegExp(`${bez} ${link},? \`\\{\\{cli\\}\\} lint\``);
+  for (const [rel, anchor] of [['docs/README.md', 'Create a new ADR with'], ['skills/backslop-seed/references/adr-backfill.md', 'in the same pass; without']]) {
+    const en = template(['en'], ...rel.split('/')).split('\n').find((line) => line.includes(anchor));
+    assert.match(en, /without the link, `\{\{cli\}\} lint` fails/, `en ${rel}: the claim is about the link`);
+    assert.doesNotMatch(en, /without (the row|it)/, `en ${rel}: no claim about a row`);
+    assert.match(ruTwinLine(rel, anchor), withoutLink, `ru ${rel}: the claim is about the link`);
+  }
+});

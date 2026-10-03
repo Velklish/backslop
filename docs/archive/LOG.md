@@ -384,3 +384,7 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-213.1"></a>`BS-213.1-gate-cap-test-load-sensitive` · 2026-10-03 · batch BS-216 · — · gate-cap-test-load-sensitive
 - <a id="bs-192.8"></a>`BS-192.8-layout-harness-table-empty-header` · 2026-10-03 · rejected · — · 01 Layout and formats: the harness table has an empty header cell
 - <a id="bs-215"></a>`BS-215-hook-cli-fast-form` · 2026-10-03 · completed · — · init picks a fast hook cli when backslop is installed, npx otherwise
+- <a id="bs-217"></a>`BS-217-minor-batch-writer-templates` · 2026-10-03 · completed · — · Minor batch: writer skill and consumer templates wording
+- <a id="bs-174.3"></a>`BS-174.3-adr-row-claim-in-templates` · 2026-10-03 · batch BS-217 · — · Consumer templates say lint fails without an ADR table row while gate 8 checks a link
+- <a id="bs-189.1"></a>`BS-189.1-writer-worker-batch-wording` · 2026-10-03 · batch BS-217 · — · README and the writer skill call a run "worker batch"
+- <a id="bs-192.62"></a>`BS-192.62-writer-skill-73-contradicts-102-other-products` · 2026-10-03 · batch BS-217 · — · backslop-writer SKILL.md:73 contradicts :102 for statements about other products

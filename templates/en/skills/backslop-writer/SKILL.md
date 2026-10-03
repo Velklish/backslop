@@ -1,6 +1,6 @@
 ---
 name: backslop-writer
-description: "Run the backslop technical-writer pass before a release or at batch close: check that documentation is current with behaviour changes, apply the project writing rules, and return currency and style ledgers. Its audit mode scores documentation, decides whether it is shippable and files every finding with a regression check. Use when preparing a release, closing a worker batch, auditing documentation (a score, shippability, findings) or its currency, or deciding whether docs need updates after behaviour-changing commits. Not for the initial documentation population (`backslop-seed`) or a one-task lifecycle (`backslop-task`)."
+description: "Run the backslop technical-writer pass before a release or at batch close: check that documentation is current with behaviour changes, apply the project writing rules, and return currency and style ledgers. Its audit mode scores documentation, decides whether it is shippable and files every finding with a regression check. Use when preparing a release, closing a run with workers, auditing documentation (a score, shippability, findings) or its currency, or deciding whether docs need updates after behaviour-changing commits. Not for the initial documentation population (`backslop-seed`) or a one-task lifecycle (`backslop-task`)."
 ---
 
 # backslop-writer — technical-writer pass
@@ -70,7 +70,7 @@ For each document:
 
 1. Load `backslop-techdoc` and read its `references/audit-checklist.md` before the first finding. Cite only rule IDs you have read there.
 2. Apply the project's own rules first, as in Precedence, and name the file you honored on the report's `Local style guide` line.
-3. Read the document as its reader, then check every command, flag and statement of behaviour against the code before judging style. A statement the document makes that the code cannot confirm is an unverifiable fact: a confirmed Blocking finding of the document, not a hypothesis.
+3. Read the document as its reader, then check every command, flag and statement of behaviour against the code before judging style. A statement the document makes about this project that the code cannot confirm is an unverifiable fact: a confirmed Blocking finding of the document, not a hypothesis. A statement about the behaviour of another product that you cannot verify yourself is not that case: it is an assumption, filed as a `--hypothesis` entry with a cost under Filing Findings, not as a confirmed Blocking finding.
 4. Write the audit report, then file every finding.
 
 A `lang: ru` document follows the checklist's "Non-English documents" section: record the skipped `[EN]` rules on the `Language` line. A translated README is audited as a faithful counterpart, as under Language: a fact the translation lacks is a finding, not a rewrite.
