@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BLOCK_END, BLOCK_START, PREFIX_RE, loadConfig, parseCli, pinRe } from '../lib/config.js';
-import { cleanup, cli, makeProject, put, read, ru, ruRe } from './helpers.mjs';
+import { BLOCK_END, BLOCK_START, PREFIX_RE, defaults, loadConfig, parseCli, pinRe, projectHintsOrNull } from '../lib/config.js';
+import { REPO, cleanup, cli, makeProject, put, read, ru, ruRe } from './helpers.mjs';
 
 const WHEN_KEY = '{at}.when must be a non-empty array of non-empty glob patterns; a scope with no patterns would never run the command';
 const PROBE_STRING = ruRe("{config}: probe must be a command string that runs the project's mutation probe");
@@ -9,6 +9,32 @@ const SINGLE_LINE = '{label} must be a single-line value without line breaks: a 
 const NO_BACKTICK = '{label} must not contain a backtick: the template puts it in a code span, and a backtick inside closes it';
 const NO_MARKERS = '{label} must not contain the backslop:start or backslop:end markers: it sits inside the block, and a marker there would copy a block boundary into the block text';
 const CYRILLIC = /\p{Script=Cyrillic}/u;
+
+test('config: fresh defaults are English; loading and loose hints preserve the stored language', () => {
+  assert.equal(defaults().lang, 'en');
+  const root = makeProject({ git: false });
+  try {
+    for (const lang of ['ru', 'en']) {
+      put(root, 'backslop.json', `${JSON.stringify({ ...defaults(), lang })}\n`);
+      assert.equal(loadConfig(root).lang, lang);
+      assert.equal(projectHintsOrNull(root).lang, lang);
+    }
+    put(root, 'backslop.json', '{}\n');
+    assert.equal(projectHintsOrNull(root).lang, 'ru', 'the legacy loose hint fallback stays Russian');
+    assert.throws(() => loadConfig(root), /lang is missing/);
+  } finally { cleanup(root); }
+});
+
+test('localization docs promise English fresh init and preservation of existing choices', () => {
+  assert.match(read(REPO, 'README.md'), /a first `init` writes `"lang": "en"`/);
+  assert.match(read(REPO, 'README.md'), /`--lang en`, `--tools none`/);
+  assert.match(read(REPO, 'docs/reference/01-layout.md'), /a first `init` writes `en` unless `--lang` says otherwise/);
+  assert.match(read(REPO, 'docs/reference/02-cli.md'), /A first `init` reports in the `--lang` language, or English without it/);
+  assert.match(read(REPO, 'docs/adr/adr-051-localization.md'), /a new project without the flag gets `en`/);
+  for (const rel of ['README.md', 'docs/reference/01-layout.md', 'docs/reference/02-cli.md', 'docs/adr/adr-051-localization.md']) {
+    assert.match(read(REPO, rel), /`upgrade`.*preserve|`upgrade` keep/, rel);
+  }
+});
 
 test('config: a config without lang or tools is refused by commands that read it, init included', () => {
   const root = makeProject();

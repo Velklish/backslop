@@ -8,7 +8,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 
 **Output.** A hint you can run names the command from the project's `cli` field; outside a project it names `backslop`. Long output (`status --json`) reaches the reader whole, and a reader that closes the pipe early ends the command quietly.
 
-**Language.** Messages are in the project language (`lang` in `backslop.json`). An argv refusal, an unknown command, `help`, `version`, `changelog` and `merge-changelog` read `lang` without validating the rest of the config. Outside a project, where the language is unknown, messages and `help` are English. A first `init` reports in the `--lang` language, or `ru` without it; its flag refusals before any language is known are English.
+**Language.** Messages are in the project language (`lang` in `backslop.json`). An argv refusal, an unknown command, `help`, `version`, `changelog` and `merge-changelog` read `lang` without validating the rest of the config. Outside a project, where the language is unknown, messages and `help` are English. A first `init` reports in the `--lang` language, or English without it; its flag refusals before any language is known are English. Repeated `init` without `--lang` and `upgrade` keep the existing language.
 
 **Flag parsing** is strict:
 

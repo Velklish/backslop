@@ -53,6 +53,35 @@ const config = (root) => JSON.parse(read(root, 'backslop.json'));
 // A copy of the rules of a project on the previous version: one line differs from this template.
 const staleRules = (text) => text.replace(/^(?!#)\S.*$/m, 'The tracker of the previous version.');
 
+for (const lang of ['ru', 'en']) {
+  test(`upgrade: existing ${lang} choice survives migration and init with localized docs and output`, () => {
+    const root = makeProject();
+    const src = releasesRepo(['v0.1.0', `v${TOOL_VERSION}`]);
+    const shim = npxShim();
+    try {
+      setConfig(root, { lang, cli: 'npx github:me/proj#v0.1.0', source: src });
+      assert.equal(cli(root, ['init']).code, 0);
+      const preserved = read(root, 'docs/GLOSSARY.md');
+      setConfig(root, { version: '0.1.0' });
+      gitAll(root);
+      const r = cli(root, ['upgrade'], { env: { PATH: `${shim}${path.delimiter}${process.env.PATH}` } });
+      assert.equal(r.code, 0, r.err);
+      assert.equal(config(root).lang, lang);
+      assert.equal(config(root).version, TOOL_VERSION);
+      assert.equal(read(root, 'docs/GLOSSARY.md'), preserved);
+      const vars = { cli: config(root).cli, prefix: 'BS', project: path.basename(root) };
+      for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md', 'docs/ROLES.md']) {
+        assert.equal(read(root, rel), renderTemplate(lang === 'en' ? `en/${rel}` : rel, vars), rel);
+      }
+      for (const rel of ['AGENTS.md', 'docs/archive/LOG.md']) {
+        assert.equal(/\p{Script=Cyrillic}/u.test(read(root, rel)), lang === 'ru', rel);
+      }
+      if (lang === 'en') assert.doesNotMatch(r.out + r.err, /\p{Script=Cyrillic}/u);
+      else assert.match(r.out, ruRe('init: {docs}/ (prefix {prefix}), files created {created}, left unchanged {skipped}'));
+    } finally { cleanup(root); cleanup(src); cleanup(shim); }
+  });
+}
+
 test('parseCli: the GitHub and exact npm pins keep the npx flags; other pin forms carry none', () => {
   const pinned = parseCli('npx github:me/proj#v0.1.0');
   assert.equal(pinned.pin, '0.1.0');
@@ -748,7 +777,7 @@ function switchedToEn(edit = (root) => root) {
   run(root, ['init', '-q', '-b', 'main']);
   run(root, ['config', 'user.email', 'test@example.com']);
   run(root, ['config', 'user.name', 'test']);
-  const r = cli(root, ['init', '--tools', 'none']);
+  const r = cli(root, ['init', '--lang', 'ru', '--tools', 'none']);
   assert.equal(r.code, 0, r.err);
   edit(root);
   gitAll(root);

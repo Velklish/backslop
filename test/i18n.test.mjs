@@ -189,6 +189,44 @@ test('msg without a language returns the English text', () => {
   assert.equal(msg('ru', 'cannot be parsed'), RU.messages['cannot be parsed']);
 });
 
+test('CLI without config: help, refusals and changelog messages are English', () => {
+  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-i18n-')));
+  try {
+    for (const [args, code, text] of [
+      [['help'], 0, /init \[--dir docs\]/],
+      [['init', '--help'], 0, /init \[--dir docs\]/],
+      [['no-such-command'], 1, /unknown command “no-such-command”; see backslop help/],
+      [['status'], 1, /backslop\.json was not found/],
+      [['init', '--prefix', 'x'], 1, /expected 2–6 uppercase Latin letters or digits/],
+      [['changelog', '--since', '99.0.0'], 0, /no entries after v99\.0\.0/],
+      [['merge-changelog'], 1, /both --ours <ref> and --theirs <ref> are required/],
+    ]) {
+      const r = cli(root, args);
+      assert.equal(r.code, code, r.err);
+      assert.match(r.out + r.err, text, args.join(' '));
+      assert.doesNotMatch(r.out + r.err, /\p{Script=Cyrillic}/u);
+      assert.equal(existsSync(path.join(root, 'backslop.json')), false);
+    }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('implicit fresh init and subsequent human CLI messages are English', () => {
+  const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-i18n-')));
+  try {
+    for (const [args, text] of [
+      [['init'], /init: docs\/ \(prefix BS\), files created/],
+      [['help'], /init \[--dir docs\]/],
+      [['status'], /Queue \(0\)/],
+      [['new', 'english', '--title', 'English task'], /BS-1-english\.md/],
+    ]) {
+      const r = cli(root, args);
+      assert.equal(r.code, 0, r.err);
+      assert.match(r.out + r.err, text, args.join(' '));
+      assert.doesNotMatch(r.out + r.err, /\p{Script=Cyrillic}/u);
+    }
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('init lays no templates/i18n/ into a project', () => {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-i18n-')));
   try {
