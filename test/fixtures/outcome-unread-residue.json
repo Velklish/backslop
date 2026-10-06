@@ -1,37 +1,44 @@
 [
   {
-    "id": "BL-315",
-    "phrase": "**{Closed.0} {byRefusal} 2026-08-30** by the owner's decision (collecting answers by the queue): …",
-    "outcome": "{completed.0}"
+    "id": "FX-101",
+    "phrase": "**{Closed.0} {byRefusal} 2026-01-01** by the owner's decision: …",
+    "outcome": "{completed.0}",
+    "lang": "ru"
   },
   {
-    "id": "BL-497",
-    "phrase": "- **{Closed.0} {byRefusal}:** 2026-09-03, …",
-    "outcome": "{completed.0}"
+    "id": "FX-102",
+    "phrase": "- **{Closed.0} {byRefusal}:** 2026-01-02, …",
+    "outcome": "{completed.0}",
+    "lang": "ru"
   },
   {
-    "id": "BL-507",
-    "phrase": "**{Closed.0} 2026-09-16. {Closed.0} by a boundary, but {not} {completed.0}.**",
-    "outcome": "{completed.0}"
+    "id": "FX-103",
+    "phrase": "**{Closed.0} 2026-01-03. {Closed.0} by a boundary, but {not} {completed.0}.**",
+    "outcome": "{completed.0}",
+    "lang": "ru"
   },
   {
-    "id": "BL-398",
-    "phrase": "**{Closed.0}:** 2026-09-01. {Outcome} — {withdrawn.0} together with the subject, not fixed by code.",
-    "outcome": "{completed.0}"
+    "id": "FX-104",
+    "phrase": "**{Closed.0}:** 2026-01-04. {Outcome} — {withdrawn.0} together with the sample, no edit.",
+    "outcome": "{completed.0}",
+    "lang": "ru"
   },
   {
-    "id": "BL-611",
-    "phrase": "**{Closed.0} 2026-09-10.** {Duplicate}: the same subject … stands in the queue as [`BL-552.4`].",
-    "outcome": "{completed.0}"
+    "id": "FX-105",
+    "phrase": "**{Closed.0} 2026-01-05.** {Duplicate}: the same sample … is queued as [`FX-152.4`].",
+    "outcome": "{completed.0}",
+    "lang": "ru"
   },
   {
-    "id": "BL-294",
-    "phrase": "{Closed.0} 2026-08-29 by worker guide of run night8. … the return condition of the scenario rewritten under the touch principle (BL-018 {rejected.4}), …",
-    "outcome": "{rejected.0}"
+    "id": "FX-106",
+    "phrase": "{Closed.0} 2026-01-06 by a check. … the sample label changed (FX-18 {rejected.4}), …",
+    "outcome": "{rejected.0}",
+    "lang": "ru"
   },
   {
-    "id": "PB-169",
+    "id": "FX-107",
     "phrase": "**Closed on a recorded decision, and the rejected option is recorded with it.**",
-    "outcome": "rejected"
+    "outcome": "rejected",
+    "lang": "en"
   }
 ]
