@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **The repository's full test suite runs at most two files concurrently** — `npm test` sets `--test-concurrency=2` for shared-machine verification, keeping the 60-second timeout, test discovery and assertions.
+
 ## v0.20.0 — 2026-10-03
 
 - **`release` and `migrate` see untracked files whatever `status.showUntrackedFiles` says** — the two clean-tree checks of `release` and the uncommitted-edit checks of `migrate` now ask git for non-ignored untracked files explicitly. With the setting `no`, an untracked file under `files` of `package.json` used to pass the check and land in `npm pack`, and an untracked generated file that `migrate` would delete or rewrite was lost without a trace; both now stop the run.
