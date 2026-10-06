@@ -1,6 +1,6 @@
 # Closed task journal
 
-One line per task: number with slug, closing date, outcome, closing commit, and title. The body is not in the tree — the definition and the result live in git, and `node bin/backslop.js show N` retrieves them. Lines are appended at the end: a single fold adds its own line, a bulk fold adds its lines by closing date, equal dates by number.
+One line per task: number with slug, closing date, outcome, body revision, and title. The revision names the commit `show N` reads the body from, which may include edits made after closure. The body is not in the tree — the definition and the result live in git, and `node bin/backslop.js show N` retrieves them. Lines are appended at the end: a single fold adds the task and its batch entries, a bulk fold orders top-level tasks by closing date, equal dates by number. Each batch's minor entries follow its line in numeric order.
 
 An `—` outcome means that `result.md` did not name one. An `—` commit means that the body is in no revision the line could name. After `node bin/backslop.js fold N` it is only in the message of the fold commit, so commit the draft, and `show` finds it by the task section in a commit message, then by the `BS-N:` subject. After a bulk fold the body was not in history: it is in the draft if `--embed-missing` was given, and otherwise it is lost.
 
@@ -422,3 +422,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-237"></a>`BS-237-english-install-default` · 2026-10-06 · completed · — · Make new installations English by default
 - <a id="bs-241"></a>`BS-241-minor-hoisted-install-warning` · 2026-10-06 · completed · `4db8bdba90` · Minor batch: hoisted local installation diagnostics
 - <a id="bs-215.2"></a>`BS-215.2-hoisted-local-hook-bin-warning` · 2026-10-06 · batch BS-241 · `4db8bdba90` · Local install warning ignores a hoisted node_modules/.bin
+- <a id="bs-228"></a>`BS-228-bulk-fold-log-headers-wrong` · 2026-10-07 · completed · — · The LOG.md and archive README headers describe columns and order that bulk-folded lines do not have

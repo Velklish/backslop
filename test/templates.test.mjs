@@ -233,6 +233,32 @@ test('self-host: the rules pair, ROLES.md and the LOG header in docs/ are the re
   assert.equal(header, expected, `docs/archive/LOG.md header differs from its ${cfg.lang} template`);
 });
 
+test('archive header: the revision is the body source and can include edits after closure', () => {
+  const text = readFileSync(path.join(TEMPLATES_DIR, 'en/docs/archive/LOG.md'), 'utf8');
+  assert.ok(text.includes('number with slug, closing date, outcome, body revision, and title'));
+  assert.ok(text.includes('The revision names the commit `show N` reads the body from, which may include edits made after closure.'));
+  assert.ok(!text.includes('closing commit'));
+});
+
+test('archive header: a task directory is before folding and a journal line is after it', () => {
+  const text = readFileSync(path.join(TEMPLATES_DIR, 'en/docs/archive/README.md'), 'utf8');
+  const intro = text.split('\n')[2];
+  assert.ok(intro.startsWith('Before folding, a closed task is a '));
+  assert.ok(intro.endsWith('After folding, it has a line in [LOG.md](LOG.md) and no directory in the tree.'));
+});
+
+test('archive header: bulk ordering is top-level with minor entries beside their batch', () => {
+  const text = readFileSync(path.join(TEMPLATES_DIR, 'en/docs/archive/LOG.md'), 'utf8');
+  assert.ok(text.includes('a bulk fold orders top-level tasks by closing date, equal dates by number.'));
+  assert.ok(text.includes("Each batch's minor entries follow its line in numeric order."));
+  const repo = path.dirname(TEMPLATES_DIR);
+  for (const rel of ['docs/reference/01-layout.md', 'docs/reference/02-cli.md']) {
+    const reference = readFileSync(path.join(repo, ...rel.split('/')), 'utf8');
+    assert.ok(reference.includes('top-level tasks') || reference.includes('Top-level tasks'), rel);
+    assert.ok(reference.includes("Each batch's minor entries follow its"), rel);
+  }
+});
+
 // A folded batch cannot be reloaded by a write: the close order lives in the backlog README
 // of both language layers, and the batch skill only links there.
 test('backlog README: a batch is folded after its entries', () => {

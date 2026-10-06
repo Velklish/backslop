@@ -207,7 +207,7 @@ The archive holds two record forms, and they live side by side for as long as ne
 - <a id="<lowercase prefix>-N"></a>`<prefix>-N-slug` · YYYY-MM-DD · completed · `a1b2c3d4e5` · Task title
 ```
 
-- **Order.** Lines are appended at the end of the journal: a single fold as one line, a bulk fold as a run of lines ordered by closing date — the dates that stand in the lines; equal dates go by number.
+- **Order.** Lines are appended at the end of the journal: a single fold adds the task and its batch entries, a bulk fold orders top-level tasks by closing date — the dates that stand in the lines; equal dates go by number. Each batch's minor entries follow its line in numeric order.
 - **Fields**, left to right: the anchor (the number in lower case — incoming links point at it), the number with its slug, the closing date, the outcome, the commit and the title. The outcome is written in the `lang` form: `completed` for `en`, and for `ru` its Russian text from [templates/i18n/ru.mjs](../../templates/i18n/ru.mjs).
 - **Title last.** The title stands last because it alone may contain the `·` separator; everything before it parses in one pass without backtracking.
 - **Anchor.** The anchor is an explicit `<a id>`, not derived from the title: it must equal the number, and gate 13 checks that ([03. Lint gates](03-lint.md)).

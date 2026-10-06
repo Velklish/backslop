@@ -205,7 +205,7 @@ Behaviour of the bulk `fold`:
 - The revision is missing for four causes, with different answers. No repository, the directory is not committed (a new file counts even with `status.showUntrackedFiles=no`) and a file does not match the revision — differs from it, or `git hash-object` cannot read it (deleted bypassing the index) — are refusals: history could not be checked, which is not proof that the body is absent. No body in history (no commit touched the directory, or the revision lacks the task, the result or a batch entry) is proof: by default the body leaves with the directory, and the command prints on stderr which task was dropped; `--embed-missing` carries such bodies into the message draft whole.
 - `--embed-missing` carries no attachments: a directory with no body in history that holds an attachment not saved in `HEAD` is a refusal before the first write, listing the files, not a skipped directory.
 - `--older-than` takes only tasks closed strictly before the named date; the closing date is read as [01 § Archive](01-layout.md#archive) says, and a record with no date and no revision is not taken.
-- Journal lines and the draft's list go in closing-date order — the dates that stand in the lines — and equal dates by number.
+- Top-level tasks in the journal and the draft's list go in closing-date order — the dates that stand in the lines — and equal dates by number. Each batch's minor entries follow its journal line in numeric order.
 
 Output of the bulk `fold`:
 
