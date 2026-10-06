@@ -420,3 +420,5 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-239"></a>`BS-239-shared-machine-test-concurrency` · 2026-10-06 · completed · — · Limit the full test suite to two concurrent files on a shared machine
 - <a id="bs-233"></a>`BS-233-synthetic-parser-fixtures` · 2026-10-06 · completed · — · Replace copied consumer histories with synthetic parser fixtures
 - <a id="bs-237"></a>`BS-237-english-install-default` · 2026-10-06 · completed · — · Make new installations English by default
+- <a id="bs-241"></a>`BS-241-minor-hoisted-install-warning` · 2026-10-06 · completed · `f15551a5971c1a1e9707a4fec4f5046ef139fd95` · Minor batch: hoisted local installation diagnostics
+- <a id="bs-215.2"></a>`BS-215.2-hoisted-local-hook-bin-warning` · 2026-10-06 · batch BS-241 · `f15551a5971c1a1e9707a4fec4f5046ef139fd95` · Local install warning ignores a hoisted node_modules/.bin
