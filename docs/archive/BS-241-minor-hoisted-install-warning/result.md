@@ -1,7 +1,0 @@
-# BS-241 · Result
-
-**Completed 2026-10-06.** `init` diagnostics now find a declared local Backslop installation in the project or nearest ancestor launcher and read that installation's version; the project launcher still wins, and the declared dependency remains the fallback when no launcher exists. BS-215.2 — Local install warning ignores a hoisted node_modules/.bin is completed and attached here. Its evidence records a genuine offline npm 11.6.2 workspace install on Node 25.2.1/macOS arm64: the child `npx --offline --no-install backslop version` and generated Codex hook succeeded while child `init` exposed the false warning. Windows execution was not performed; BS-215.1 remains open.
-
-**Verification.** The worker's clean `b15ecde54338ae779554a57f39d67a3d78103bea` gates record reports 2 configured, 2 executed, 2 green (`lint` exit 0; `npm test` exit 0, 1070/1070); focused `node --test test/hooks-install.test.mjs` passed 44/44. Isolated reviewer PASS `20261006T170820924-0002-ee3aa1` covered all eight changed files against `64cc317f3cf78fd38c5dc25c93c40c26b926699f`, with zero findings; clarification `20261006T171035083-0003-5df519` confirmed coverage of the original offline and EPERM evidence. Approver committed-tree clean gates and archive lint are recorded in the attached acceptance evidence.
-
-**Documentation in the same pass.** Updated `README.md`, `CHANGELOG.md`, `docs/reference/01-layout.md` and `docs/reference/02-cli.md`; the task and attached BS-215.2 record retain the offline fixture provenance and static Windows limitation.
