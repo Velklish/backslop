@@ -180,7 +180,7 @@ Everything the tool lays into a project comes from `templates/`. `templates/en/*
 
 ## Tests
 
-`npm test` is `node --test --test-timeout=60000`: Node's test runner over `test/*.test.mjs`, 60 seconds per test, no dependencies. `node --test test/lint.test.mjs` runs one file. The repository gates are `node bin/backslop.js lint` and `npm test`.
+`npm test` is `node --test --test-timeout=60000 --test-concurrency=2`: Node's test runner over `test/*.test.mjs`, at most two files concurrently, 60 seconds per test, no dependencies. `node --test test/lint.test.mjs` runs one file. The repository gates are `node bin/backslop.js lint` and `npm test`.
 
 ### Helpers
 

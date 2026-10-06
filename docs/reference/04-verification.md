@@ -12,7 +12,7 @@ This protocol is repo-local: backslop does not ship it to consumer projects. Use
 
 5. **Probe removal of dead code.**
    - a. Search for uses across `lib/`, `bin/`, `scripts/`, `test/`, `templates/` and `docs/`; record the search command and output. Mentions in backlog cards (`docs/backlog/`) and the archive (`docs/archive/`) quote the candidate and are not uses.
-   - b. In a clone, run `node --test --test-timeout=60000` before removal to establish the baseline.
+   - b. In a clone, run `npm test` before removal to establish the baseline.
    - c. Remove the candidate.
    - d. Rerun that suite.
    - e. Rerun `node bin/backslop.js lint`.
@@ -40,5 +40,7 @@ This protocol is repo-local: backslop does not ship it to consumer projects. Use
    - **Failure:** an invalid mutation, a mutation caught only by the candidate, a pre-existing red counted as another guard, or an uncaught second mutation means deletion is not established. Delete-safe means another test catches every mutation tried.
 
 7. **Make the evidence auditable.** Give every code claim a file:line citation and every behaviour claim its command, output and exit code. Give every number its measured quantity, commit and conditions. Run timing-sensitive tests without CPU contention: at most one suite per machine, with `--test-concurrency` no higher than 2 when other work runs alongside. Rerun a timeout failure alone before recording it as a finding. **Evidence:** those citations and run conditions, including the isolated rerun where required. **Failure:** a missing provenance or an unresolved timeout does not support a verdict.
+
+The repository's `npm test` runs the full suite with `--test-timeout=60000 --test-concurrency=2`: at most two test files run concurrently. Keep these settings for baseline and candidate runs on a shared machine.
 
 Windows behaviour is verified by reading the code unless a Windows machine runs the reproduction. For git-dependent behaviour, record the installed git version used for verification.

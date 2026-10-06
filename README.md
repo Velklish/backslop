@@ -132,7 +132,7 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 - The repository rules are in [AGENTS.md](AGENTS.md), and the structure of the tool is in [docs/reference/](docs/reference/README.md).
 - Where each part of `lib/` lives, and how to add a command, a lint gate, a migration or a template placeholder: [06. Module map](docs/reference/06-module-map.md).
 - `templates/` is the source of everything installed into a project; the repository's own `docs/` are managed with the same tool.
-- `node bin/backslop.js gates` runs the repository gates: `lint` and `npm test`.
+- `node bin/backslop.js gates` runs the repository gates: `lint` and `npm test`. The full test suite runs at most two files concurrently, with a 60-second timeout per test.
 - Windows is supported.
 
 ## Third-party components
