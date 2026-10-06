@@ -53,6 +53,8 @@ Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hoo
 
 On a first `init --hooks` without `--cli`, a project-root `package.json` that declares `devDependencies.backslop` selects `npx --no-install backslop` for `backslop.json` and every selected hook record. Otherwise the pinned GitHub npx command stays, even if a global `backslop` is on `PATH`. These files are shared: a teammate receives the same command. Run `npm install` before using the local hooks on a fresh checkout; the hook command fails until the dependency is installed. Without the declaration, a fresh checkout has no local backslop installation from `package.json`, so that command fails there too. If the declaration is later removed, a repeated `init` with hooks refuses until it is restored or `cli` is changed in the config. `lint` does not check local installation state.
 
+For local-install diagnostics, `init` checks the project first, then the nearest ancestor with a `node_modules/.bin/backslop` launcher (`backslop.cmd` on Windows). This includes npm workspace installations hoisted above the project. Version warnings use `node_modules/backslop/package.json` at that launcher's level. If no launcher exists, `init` warns to run `npm install` and still checks any package version recorded in the project itself.
+
 ## Commands
 
 Each command links its reference section: behaviour, output and refusals.

@@ -2,13 +2,14 @@
 // them; the AGENTS.md block names the stop hook only when hooks are selected.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { REPO, cleanup, cli, put, read, ru, ruTemplate } from './helpers.mjs';
+import { REPO, cleanup, cli, put, read, ru, ruTemplate, toolCopy } from './helpers.mjs';
 import { renderTemplate } from '../lib/templates.js';
 import { TOOL_VERSION } from '../lib/version.js';
-import { hasLocalBackslop } from '../lib/hooks-install.js';
+import { hasLocalBackslop, installedBackslopVersion } from '../lib/hooks-install.js';
 
 const CLI = `npx github:Velklish/backslop#v${TOOL_VERSION}`;
 const FILES = { claude: '.claude/settings.json', cursor: '.cursor/hooks.json', codex: '.codex/hooks.json' };
@@ -300,6 +301,151 @@ test('hooks: local install detection looks for the Windows cmd launcher', () => 
   }
 });
 
+// npm creates links from a dependency-free source copy; private configs and cache stay offline.
+test('hooks: a genuine offline npm workspace installation supplies the child hooks and diagnostics', {
+  skip: process.platform === 'win32', // POSIX npm/npx links; Windows controls are static.
+}, (t) => {
+  const root = emptyRepo();
+  const source = toolCopy();
+  const child = path.join(root, 'packages', 'child');
+  try {
+    const manifest = JSON.parse(read(source, 'package.json'));
+    assert.deepEqual(manifest.dependencies ?? {}, {});
+    assert.deepEqual(manifest.devDependencies ?? {}, {});
+    put(root, 'package.json', json({ name: 'workspace-fixture', private: true, workspaces: ['packages/*'] }));
+    put(child, 'package.json', json({ name: 'workspace-child', private: true, devDependencies: { backslop: `file:${source}` } }));
+    put(root, 'user.npmrc', '');
+    put(root, 'global.npmrc', '');
+    const env = {
+      ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^npm_config_/i.test(key))),
+      npm_config_userconfig: path.join(root, 'user.npmrc'),
+      npm_config_globalconfig: path.join(root, 'global.npmrc'),
+      npm_config_cache: path.join(root, 'cache'),
+      npm_config_update_notifier: 'false',
+    };
+    const run = (program, args, cwd, input = '') => {
+      const r = spawnSync(program, args, { cwd, env, input, encoding: 'utf8' });
+      t.diagnostic(JSON.stringify({ program, args, cwd, exit: r.status, stdout: r.stdout, stderr: r.stderr }));
+      assert.equal(r.status, 0, `${program} ${args.join(' ')}: ${r.error?.message ?? ''}\n${r.stdout}\n${r.stderr}`);
+      return r;
+    };
+    run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund'], root);
+    assert.equal(realpathSync(path.join(root, 'node_modules', '.bin', 'backslop')), path.join(source, 'bin', 'backslop.js'));
+    assert.equal(realpathSync(path.join(root, 'node_modules', 'backslop')), source);
+    assert.equal(existsSync(path.join(child, 'node_modules', '.bin', 'backslop')), false);
+    const deps = JSON.parse(run('npm', ['ls', '--all', '--json'], root).stdout);
+    assert.equal(deps.dependencies['workspace-child'].dependencies.backslop.version, manifest.version);
+    const version = run('npx', ['--offline', '--no-install', 'backslop', 'version'], child);
+    assert.equal(version.stdout.trim(), `backslop ${manifest.version}`);
+    const r = init(child, '--tools', 'none', '--hooks', 'codex');
+    assert.equal(JSON.parse(read(child, 'backslop.json')).cli, 'npx --no-install backslop');
+    const hook = JSON.parse(read(child, FILES.codex)).hooks.SessionStart[0].hooks[0].command;
+    assert.equal(hook, 'npx --no-install backslop hook session-start --harness codex');
+    run('git', ['init', '-q'], child);
+    const started = run('npx', ['--offline', '--no-install', ...hook.split(' ').slice(2)], child, json({ session_id: 'workspace-fixture' }));
+    assert.equal(started.stdout, '');
+    assert.equal(started.stderr, '');
+    const state = JSON.parse(read(child, '.git/backslop/hooks/codex-workspace-fixture.json'));
+    assert.equal(state.session, 'workspace-fixture');
+    assert.match(state.start, /^[0-9a-f]{40,64}$/);
+    assert.equal(hasLocalBackslop(child), true);
+    assert.equal(installedBackslopVersion(child), manifest.version);
+    assert.doesNotMatch(r.err, /run npm install before using the agent hooks|installed backslop/);
+  } finally {
+    cleanup(root);
+    cleanup(source);
+  }
+});
+
+test('hooks: static launcher controls prefer the project then the nearest ancestor and its version', () => {
+  for (const platform of ['linux', 'win32']) {
+    const root = emptyRepo();
+    const near = path.join(root, 'packages');
+    const child = path.join(near, 'child');
+    const launcher = platform === 'win32' ? 'backslop.cmd' : 'backslop';
+    try {
+      put(root, `node_modules/.bin/${launcher}`, 'static launcher');
+      put(root, 'node_modules/backslop/package.json', json({ version: '0.1.0' }));
+      put(near, `node_modules/.bin/${launcher}`, 'static launcher');
+      put(near, 'node_modules/backslop/package.json', json({ version: '9.9.9' }));
+      put(child, 'node_modules/backslop/package.json', json({ version: TOOL_VERSION }));
+      assert.equal(hasLocalBackslop(child, platform), true);
+      assert.equal(installedBackslopVersion(child, platform), '9.9.9');
+      put(child, `node_modules/.bin/${launcher}`, 'static launcher');
+      assert.equal(installedBackslopVersion(child, platform), TOOL_VERSION);
+      unlinkSync(path.join(child, 'node_modules', '.bin', launcher));
+      unlinkSync(path.join(near, 'node_modules', 'backslop', 'package.json'));
+      assert.equal(installedBackslopVersion(child, platform), null, 'a nearer launcher cannot borrow a farther package version');
+      unlinkSync(path.join(near, 'node_modules', '.bin', launcher));
+      assert.equal(installedBackslopVersion(child, platform), '0.1.0');
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('hooks: without a launcher the version diagnostic keeps only the project package fallback', () => {
+  const root = emptyRepo();
+  const child = path.join(root, 'packages', 'child');
+  try {
+    put(root, 'node_modules/backslop/package.json', json({ version: '9.9.9' }));
+    mkdirSync(child, { recursive: true });
+    assert.equal(hasLocalBackslop(child), false);
+    assert.equal(installedBackslopVersion(child), null);
+    put(child, 'node_modules/backslop/package.json', json({ version: '0.15.0-rc.1' }));
+    assert.equal(installedBackslopVersion(child), '0.15.0-rc.1');
+    put(child, 'package.json', json({ devDependencies: { backslop: '0.15.0-rc.1' } }));
+    const r = init(child, '--tools', 'none', '--hooks', 'codex');
+    assert.match(r.err, /run npm install before using the agent hooks/);
+    assert.match(r.err, /installed backslop version 0.15.0-rc.1 cannot be compared/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('hooks: static ancestor installations retain older, newer and nonsemver diagnostics', () => {
+  const versions = [
+    ['0.1.0', /installed backslop v0.1.0 is older than tool/],
+    ['9.9.9', /installed backslop v9.9.9 is newer than tool/],
+    ['0.15.0-rc.1', /installed backslop version 0.15.0-rc.1 cannot be compared/],
+  ];
+  for (const [version, warning] of versions) {
+    const root = emptyRepo();
+    const child = path.join(root, 'packages', 'child');
+    try {
+      put(root, `node_modules/.bin/${process.platform === 'win32' ? 'backslop.cmd' : 'backslop'}`, 'static launcher');
+      put(root, 'node_modules/backslop/package.json', json({ version }));
+      put(child, 'package.json', json({ devDependencies: { backslop: 'github:example/backslop#v0.1.0' } }));
+      const r = init(child, '--tools', 'none', '--hooks', 'codex');
+      assert.match(r.err, warning);
+      assert.doesNotMatch(r.err, /run npm install before using the agent hooks|npm i -D/);
+      if (version === '0.1.0') assert.match(r.err, /github:example\/backslop#v0\.1\.0/);
+      else assert.doesNotMatch(r.err, /update the declared backslop dependency/);
+    } finally {
+      cleanup(root);
+    }
+  }
+});
+
+test('hooks: an ancestor installation alone does not select or authorize the local command', () => {
+  const root = emptyRepo();
+  const child = path.join(root, 'packages', 'child');
+  try {
+    put(root, `node_modules/.bin/${process.platform === 'win32' ? 'backslop.cmd' : 'backslop'}`, 'static launcher');
+    put(root, 'node_modules/backslop/package.json', json({ version: TOOL_VERSION }));
+    put(child, 'package.json', json({}));
+    const refused = cli(child, ['init', '--lang', 'en', '--hooks', 'codex', '--cli', 'npx --no-install backslop']);
+    assert.equal(refused.code, 1);
+    assert.match(refused.err, /backslop is not in package.json devDependencies/);
+    assert.equal(existsSync(path.join(child, 'backslop.json')), false);
+    const r = init(child, '--tools', 'none', '--hooks', 'codex');
+    assert.equal(JSON.parse(read(child, 'backslop.json')).cli, CLI);
+    assert.doesNotMatch(r.err, /installed backslop/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('hooks: the user guide and references explain the shared local command', () => {
   const guide = read(REPO, 'README.md');
   const layout = read(REPO, 'docs/reference/01-layout.md');
@@ -311,6 +457,8 @@ test('hooks: the user guide and references explain the shared local command', ()
   assert.doesNotMatch(guide, /fail on every event/);
   assert.doesNotMatch(layout, /break hooks on every event/);
   assert.match(command, /a warning names both versions/);
+  for (const doc of [guide, layout, command]) assert.match(doc, /nearest ancestor.*node_modules/s);
+  assert.match(command, /same level as the selected launcher/);
 });
 
 test('hooks: foreign content survives the write and the removal byte for byte, ours come after it', () => {
