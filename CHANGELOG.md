@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **The repository's full test suite runs at most two files concurrently** — `npm test` sets `--test-concurrency=2` for shared-machine verification, keeping the 60-second timeout, test discovery and assertions.
+- **Parser fixtures use synthetic narratives** — the first-paragraph and residue corpora retain all cases and expected outcomes, with explicit language metadata and synthetic task ids. Copied consumer histories and the consumer-specific heading examples are removed; parser behavior is unchanged.
 
 ## v0.20.0 — 2026-10-03
 

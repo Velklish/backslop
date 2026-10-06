@@ -418,3 +418,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-224"></a>`BS-224-clean-tree-checks-untracked-status` · 2026-10-03 · completed · — · Release and migrate clean-tree checks see untracked files whatever status.showUntrackedFiles says
 - <a id="bs-200"></a>`BS-200-release-v0-20-0` · 2026-10-03 · completed · — · Release v0.20.0
 - <a id="bs-239"></a>`BS-239-shared-machine-test-concurrency` · 2026-10-06 · completed · — · Limit the full test suite to two concurrent files on a shared machine
+- <a id="bs-233"></a>`BS-233-synthetic-parser-fixtures` · 2026-10-06 · completed · — · Replace copied consumer histories with synthetic parser fixtures

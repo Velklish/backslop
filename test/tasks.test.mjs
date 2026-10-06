@@ -240,9 +240,9 @@ test('batch: batchOf reads the batch number in RU and EN', () => {
   assert.equal(batchOf(COMPLETED), null);
 });
 
-// The heading and the first paragraph are modelled on the consumers’ history, the Russian outcome
-// words are `ruExpand` tokens filled from the parser vocabulary; `cut`: the paragraph is cut short.
-const expandRu = (e) => (e.id.startsWith('PB') ? e : { ...e, heading: e.heading && ruExpand(e.heading), paragraph: e.paragraph && ruExpand(e.paragraph), phrase: e.phrase && ruExpand(e.phrase), outcome: ruExpand(e.outcome) });
+// Synthetic paragraphs retain parser forms; `cut` records an incomplete source paragraph.
+// Russian vocabulary tokens expand only for cases whose explicit language is `ru`.
+const expandRu = (e) => (e.lang !== 'ru' ? e : { ...e, heading: e.heading && ruExpand(e.heading), paragraph: e.paragraph && ruExpand(e.paragraph), phrase: e.phrase && ruExpand(e.phrase), outcome: ruExpand(e.outcome) });
 const EVIDENCE = JSON.parse(readFileSync(new URL('./fixtures/outcome-first-paragraphs.json', import.meta.url), 'utf8')).map(expandRu);
 
 test('the outcome is the first dictionary word by position: entries a dictionary scan named with the wrong outcome', () => {
@@ -250,7 +250,7 @@ test('the outcome is the first dictionary word by position: entries a dictionary
   const got = EVIDENCE.map((e) => {
     const [prefix] = e.id.split('-');
     const text = `${e.heading}\n\n${e.paragraph}\n\n## ${SECTION.verification}\n\nBelow the paragraph “${ruOutcomeWord('rejected')}” and “${ruOutcomeWord('merged', `${prefix}-1`)}” are not an outcome.\n`;
-    return [e.id, outcomeFromResult(text, prefix, prefix === 'PB' ? 'en' : 'ru')];
+    return [e.id, outcomeFromResult(text, prefix, e.lang)];
   });
   assert.deepEqual(got, EVIDENCE.map((e) => [e.id, e.outcome]));
 });
@@ -338,15 +338,25 @@ test('the “merged by” form with a number is a merge, like “merged into”:
   assert.equal(hasNamedOutcome(ruExpand('# BL-1 · {Result}\n\n**{Closed.0} 2026-09-12 {merged.3} {into} `BL-604`.**\n'), 'BL'), true);
 });
 
-// The first phrases of consumer entries whose outcome the journal names otherwise; “…” is a
-// shortening, paths are cut.
+// Synthetic residue keeps the current reading even when prose suggests another outcome.
+// An ellipsis retains the position of omitted text.
 const UNREAD = JSON.parse(readFileSync(new URL('./fixtures/outcome-unread-residue.json', import.meta.url), 'utf8')).map(expandRu);
+
+test('parser fixtures declare language independently of synthetic task ids', () => {
+  for (const e of [...EVIDENCE, ...UNREAD]) {
+    assert.match(e.id, /^FX-\d+$/);
+    assert.ok(['en', 'ru'].includes(e.lang), e.id);
+  }
+  for (const corpus of [EVIDENCE, UNREAD]) {
+    assert.deepEqual([...new Set(corpus.map((e) => e.lang))].sort(), ['en', 'ru']);
+  }
+});
 
 test('known residue: “closed by refusal”, “but not completed”, “Outcome — withdrawn”, a duplicate without “merged”, a word about a foreign task — are not read by the owner’s decision, the verdict keeps the current reading', () => {
   assert.equal(UNREAD.length, 7);
   const got = UNREAD.map((e) => {
     const [prefix] = e.id.split('-');
-    return [e.id, outcomeFromResult(`${ruResultHeading(e.id)}\n\n${e.phrase}\n`, prefix, prefix === 'PB' ? 'en' : 'ru')];
+    return [e.id, outcomeFromResult(`${ruResultHeading(e.id)}\n\n${e.phrase}\n`, prefix, e.lang)];
   });
   assert.deepEqual(got, UNREAD.map((e) => [e.id, e.outcome]));
 });
