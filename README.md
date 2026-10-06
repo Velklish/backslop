@@ -3,10 +3,10 @@
 A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command:
 
 ```bash
-npx github:Velklish/backslop init --lang en
+npx github:Velklish/backslop init
 ```
 
-Without `--lang`, `init` writes `"lang": "ru"`: new files and messages are then in Russian. Requires Node 20+ and git. The package has no dependencies.
+Without `--lang`, a first `init` writes `"lang": "en"`: new files and messages are English. Use `init --lang ru` for Russian. Repeated `init` and `upgrade` preserve the configured language unless you explicitly change it. Requires Node 20+ and git. The package has no dependencies.
 
 ## What it is
 
@@ -41,7 +41,7 @@ Adapters are written only when selected — `init --tools claude,cursor,codex`; 
 
 Each adapter lays out the process skills, the `backslop-writer` release and batch-close pass, and two third-party writing skills, `backslop-humanizer` and `backslop-techdoc`, with their `LICENSE` and `SOURCE.md` (see [Third-party components](#third-party-components)).
 
-`init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang ru`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
+`init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang en`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
 
 With an adapter selected, ask an agent to "populate docs using backslop" after the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a run with workers closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
 

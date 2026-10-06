@@ -66,6 +66,57 @@ const EXPECTED = [
   'docs/backlog/triage/.gitkeep', 'docs/backlog/queue/.gitkeep', 'docs/backlog/active/.gitkeep', 'docs/backlog/deferred/.gitkeep', 'docs/backlog/minor/.gitkeep',
 ];
 
+const LANGUAGE_FILES = [
+  'AGENTS.md', 'docs/README.md', 'docs/GLOSSARY.md', 'docs/ROLES.md',
+  'docs/reference/README.md', 'docs/adr/adr-001-process.md',
+  'docs/backlog/README.md', 'docs/archive/README.md', 'docs/archive/LOG.md',
+  '.claude/skills/backslop-task/SKILL.md', '.claude/skills/backslop-batch/SKILL.md',
+  '.claude/skills/backslop-seed/SKILL.md', '.claude/skills/backslop-writer/SKILL.md',
+];
+
+for (const [label, args, lang] of [
+  ['implicit English', [], 'en'], ['explicit Russian', ['--lang', 'ru'], 'ru'],
+]) {
+  test(`init: ${label} generates localized docs, adapters and CLI output`, () => {
+    const root = emptyRepo();
+    try {
+      const r = cli(root, ['init', ...args, '--tools', 'claude']);
+      assert.equal(r.code, 0, r.err);
+      const output = lang === 'ru' ? ruRe('init: {docs}/ (prefix {prefix}), files created {created}, left unchanged {skipped}') : /init: docs\/ \(prefix BS\), files created/;
+      for (const rel of LANGUAGE_FILES) {
+        const text = read(root, rel);
+        assert.ok(text.trim(), `${rel} is empty`);
+        assert.equal(CYRILLIC.test(text), lang === 'ru', `${rel}: wrong language`);
+        assert.doesNotMatch(text, /\{\{/u, `${rel}: unresolved placeholder`);
+      }
+      assert.equal(JSON.parse(read(root, 'backslop.json')).lang, lang);
+      assert.match(r.out, output);
+      if (lang === 'en') assert.doesNotMatch(r.out + r.err, CYRILLIC);
+      const status = cli(root, ['status']);
+      assert.equal(status.code, 0, status.err);
+      assert.match(status.out, lang === 'ru' ? new RegExp(`${ru('Queue')} \\(0\\)`) : /Queue \(0\)/);
+    } finally { cleanup(root); }
+  });
+}
+
+for (const lang of ['ru', 'en']) {
+  test(`init: repeated init without --lang preserves existing ${lang} config, docs and output`, () => {
+    const root = emptyRepo();
+    try {
+      assert.equal(cli(root, ['init', '--lang', lang, '--tools', 'claude']).code, 0);
+      const before = LANGUAGE_FILES.map((rel) => read(root, rel));
+      put(root, 'docs/own.md', '# Own documentation\n');
+      const r = cli(root, ['init']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(JSON.parse(read(root, 'backslop.json')).lang, lang);
+      LANGUAGE_FILES.forEach((rel, i) => assert.equal(read(root, rel), before[i], rel));
+      assert.equal(read(root, 'docs/own.md'), '# Own documentation\n');
+      assert.match(r.out, lang === 'ru' ? ruRe('init: {docs}/ (prefix {prefix}), files created {created}, left unchanged {skipped}') : /adapter outputs: claude/);
+      if (lang === 'en') assert.doesNotMatch(r.out + r.err, CYRILLIC);
+    } finally { cleanup(root); }
+  });
+}
+
 test('init: a ROLES.md of the project\'s own is kept and named in a warning, backslop\'s own is not', () => {
   const root = emptyRepo();
   try {
@@ -93,7 +144,7 @@ test('init: layout, lint green, an end-to-end task cycle, a repeated init is ide
   const root = emptyRepo();
   try {
     writeFileSync(path.join(root, 'package.json'), '{ "name": "@me/demo-app" }\n');
-    let r = cli(root, ['init']);
+    let r = cli(root, ['init', '--lang', 'ru']);
     assert.equal(r.code, 0, r.err);
     for (const rel of EXPECTED) assert.ok(existsSync(path.join(root, rel)), `no ${rel}`);
     assert.ok(!existsSync(path.join(root, 'docs/ROADMAP.md')), 'init laid down docs/ROADMAP.md');
@@ -276,7 +327,7 @@ test('init: an override value stays text — no link definition opens, and brack
 test('init refuses a stepOverrides value with a line break or a block marker and leaves AGENTS.md unchanged', () => {
   const root = emptyRepo();
   try {
-    let r = cli(root, ['init']);
+    let r = cli(root, ['init', '--lang', 'ru']);
     assert.equal(r.code, 0, r.err);
     const cfg = JSON.parse(read(root, 'backslop.json'));
     const before = read(root, 'AGENTS.md');
@@ -407,7 +458,7 @@ test('init: step 4 names the trimmed probe command, and without the field init n
 test('init: a custom --prefix and --dir lay out the tree, and new and lint work under that prefix', () => {
   const root = emptyRepo();
   try {
-    let r = cli(root, ['init', '--prefix', 'DFL', '--dir', 'doc']);
+    let r = cli(root, ['init', '--lang', 'ru', '--prefix', 'DFL', '--dir', 'doc']);
     assert.equal(r.code, 0, r.err);
     assert.ok(existsSync(path.join(root, 'doc/backlog/README.md')));
     assert.match(read(root, 'doc/archive/README.md'), ruLineRe('docs/archive/README.md', 'directory with two files', { prefix: 'DFL' }));
@@ -522,7 +573,7 @@ test('init keeps the header of an existing AGENTS.md and a user CLAUDE.md', () =
 test('init refuses a --prefix that differs from the prefix in the config', () => {
   const root = emptyRepo();
   try {
-    let r = cli(root, ['init', '--prefix', 'DFL']);
+    let r = cli(root, ['init', '--lang', 'ru', '--prefix', 'DFL']);
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['init', '--prefix', 'ZZ']);
     assert.equal(r.code, 1);
@@ -614,7 +665,7 @@ test('init: markers quoted in prose are not the block; a marker line twice is re
 test('init: inside an already initialized project — a refusal with the root path', () => {
   const root = emptyRepo();
   try {
-    let r = cli(root, ['init']);
+    let r = cli(root, ['init', '--lang', 'ru']);
     assert.equal(r.code, 0, r.err);
     const sub = path.join(root, 'src');
     put(root, 'src/keep.txt', '');
@@ -649,7 +700,7 @@ test('init with tools=[] keeps a user CLAUDE.md symlink to AGENTS.md', { skip: p
   try {
     put(root, 'AGENTS.md', '# Project\n');
     symlinkSync('AGENTS.md', path.join(root, 'CLAUDE.md'));
-    const r = cli(root, ['init']);
+    const r = cli(root, ['init', '--lang', 'ru']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, new RegExp(`CLAUDE\\.md: ${ru('not selected')}`));
     assert.ok(lstatSync(path.join(root, 'CLAUDE.md')).isSymbolicLink(), 'CLAUDE.md is no longer a symlink');
@@ -663,7 +714,7 @@ test('init: a repeated --dir spelling the stored docs differently is not a confl
   const root = emptyRepo();
   try {
     for (const dir of ['docs/', 'docs/', './docs']) {
-      const r = cli(root, ['init', '--dir', dir, '--tools', 'none']);
+      const r = cli(root, ['init', '--lang', 'ru', '--dir', dir, '--tools', 'none']);
       assert.equal(r.code, 0, `--dir ${dir}: ${r.err}`);
     }
     assert.equal(JSON.parse(read(root, 'backslop.json')).docs, 'docs');
@@ -773,7 +824,7 @@ test('init --tools cursor: a malformed quoted description in a skill template is
   });
   const root = emptyRepo();
   try {
-    const r = toolCli(tool, ['init', '--tools', 'cursor'], { cwd: root });
+    const r = toolCli(tool, ['init', '--lang', 'ru', '--tools', 'cursor'], { cwd: root });
     assert.equal(r.code, 1, r.out);
     assert.equal(r.err, `✖ ${ru('template {template}: the frontmatter description is not a valid JSON string', { template: 'templates/skills/backslop-task/SKILL.md' })}\n`);
   } finally {
@@ -853,7 +904,7 @@ test('init: unknown, empty and repeated adapter ids are rejected', () => {
 test('init: a rerun with --tools and --lang rewrites both fields of an existing config', () => {
   const root = emptyRepo();
   try {
-    assert.equal(cli(root, ['init']).code, 0);
+    assert.equal(cli(root, ['init', '--lang', 'ru']).code, 0);
     const r = cli(root, ['init', '--tools', 'cursor', '--lang', 'en']);
     assert.equal(r.code, 0, r.err);
     assert.equal(JSON.parse(read(root, 'backslop.json')).lang, 'en');
@@ -911,7 +962,7 @@ test('init --lang en: the CLI and the generated tree are English, mixed metadata
 test('init again: the version stamp is moved, a mismatch with the cli pin is named', () => {
   const root = emptyRepo();
   try {
-    let r = cli(root, ['init']);
+    let r = cli(root, ['init', '--lang', 'ru']);
     assert.equal(r.code, 0, r.err);
     const cfg = JSON.parse(read(root, 'backslop.json'));
     put(root, 'backslop.json', `${JSON.stringify({ ...cfg, version: '0.0.1', cli: 'npx github:Velklish/backslop#v0.0.1' }, null, 2)}\n`);
@@ -931,7 +982,7 @@ test('init on a project with its own docs/README.md: ADR-001 is created, the tab
   const root = emptyRepo();
   try {
     put(root, 'docs/README.md', '# My docs\n');
-    const r = cli(root, ['init']);
+    const r = cli(root, ['init', '--lang', 'ru']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, ruRe('{docs}/README.md already existed: link {adrRel} from it (a row in its table is the usual place), otherwise lint fails', { docs: 'docs', adrRel: 'adr/adr-001-process.md' }));
     assert.equal(read(root, 'docs/README.md'), '# My docs\n');
@@ -946,7 +997,7 @@ test('init in a project with its own ADRs: the process ADR gets the next number,
     put(root, 'docs/adr/adr-001-architecture.md', '# ADR-001: Architecture\n\n**Status:** Accepted\n');
     put(root, 'docs/adr/adr-002-storage.md', '# ADR-002: Storage\n\n**Status:** Accepted\n');
     put(root, 'docs/README.md', '# Documentation\n\n| Document | Topic | Status |\n|---|---|---|\n');
-    let r = cli(root, ['init']);
+    let r = cli(root, ['init', '--lang', 'ru']);
     assert.equal(r.code, 0, r.err);
     assert.ok(!existsSync(path.join(root, 'docs/adr/adr-001-process.md')));
     assert.match(read(root, 'docs/adr/adr-003-process.md'), new RegExp(`^${ruLineRe('docs/adr/adr-001-process.md', 'Tasks and decisions are managed with backslop', { adrNumber: '003' }).source}\\n`));
@@ -964,7 +1015,7 @@ test('init --tools none: an unmarked file at the current template path stays and
   const tool = toolCopy((dir) => put(dir, 'templates/skills/backslop-task/references/extra.md', '# extra\n'));
   const root = emptyRepo();
   try {
-    assert.equal(toolCli(tool, ['init', '--tools', 'none'], { cwd: root }).code, 0);
+    assert.equal(toolCli(tool, ['init', '--lang', 'ru', '--tools', 'none'], { cwd: root }).code, 0);
     put(root, '.claude/skills/backslop-task/references/extra.md', 'a foreign file\n');
     put(root, '.claude/skills/backslop-task/mine.md', 'a foreign file\n');
     const r = toolCli(tool, ['init', '--tools', 'none'], { cwd: root });
@@ -982,7 +1033,7 @@ test('init --tools none: an unmarked file at a shipped skill path is left byte f
   const rel = '.claude/skills/backslop-batch/references/measurements.md';
   const root = emptyRepo();
   try {
-    assert.equal(cli(root, ['init', '--tools', 'none']).code, 0);
+    assert.equal(cli(root, ['init', '--lang', 'ru', '--tools', 'none']).code, 0);
     put(root, rel, 'my own file, no marker\n');
     const r = cli(root, ['init', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
@@ -1001,7 +1052,7 @@ test('init: a symlink at a harness root — a refusal only for the selected adap
   try {
     symlinkSync(shared, path.join(root, '.claude'));
     put(shared, 'skills/backslop-task/SKILL.md', '<!-- backslop:generated -->\n# behind the link\n');
-    const r = cli(root, ['init', '--tools', 'claude']);
+    const r = cli(root, ['init', '--lang', 'ru', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err, ruRe('adapter path contains a symlink: {link}', { link: '.claude' }));
     assert.match(r.err, ruRe(FOREIGN_LINK, { tool: 'claude' }), 'the refusal names the remedy — deselect the adapter');
@@ -1009,7 +1060,7 @@ test('init: a symlink at a harness root — a refusal only for the selected adap
     assert.ok(!existsSync(path.join(root, 'docs')), 'the docs skeleton is not laid out');
 
     // An unselected adapter behind a link: init passes, the file behind the link is not removed.
-    for (const args of [['init'], ['init', '--tools', 'none'], ['init', '--tools', 'cursor']]) {
+    for (const args of [['init', '--lang', 'ru'], ['init', '--tools', 'none'], ['init', '--tools', 'cursor']]) {
       const ok = cli(root, args);
       assert.equal(ok.code, 0, `${args.join(' ')}: ${ok.err}`);
     }
@@ -1032,7 +1083,7 @@ test('init: a symlink at a harness root — a refusal only for the selected adap
     const root2 = emptyRepo();
     const shared2 = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-shared-')));
     try {
-      assert.equal(cli(root2, ['init', '--tools', 'claude']).code, 0);
+      assert.equal(cli(root2, ['init', '--lang', 'ru', '--tools', 'claude']).code, 0);
       rmSync(path.join(root2, '.claude'), { recursive: true, force: true });
       symlinkSync(shared2, path.join(root2, '.claude'));
       const bare = cli(root2, ['init']);
@@ -1184,7 +1235,7 @@ test('init removes a marked file outside backslop-* under the harness root and l
 test('init --tools claude: a foreign file without a marker at an owned output path is not overwritten and is named by a warning', () => {
   const root = emptyRepo();
   try {
-    assert.equal(cli(root, ['init', '--tools', 'claude']).code, 0);
+    assert.equal(cli(root, ['init', '--lang', 'ru', '--tools', 'claude']).code, 0);
     const rel = '.claude/skills/backslop-batch/references/measurements.md';
     assert.match(read(root, rel), /<!-- backslop:generated -->/);
     put(root, rel, '# my file at this path\n');
@@ -1204,7 +1255,7 @@ test('init --tools cursor: a user rule without the marker at a skill path is kep
   const rel = '.cursor/rules/backslop-task.mdc';
   const root = emptyRepo();
   try {
-    assert.equal(cli(root, ['init', '--tools', 'none']).code, 0);
+    assert.equal(cli(root, ['init', '--lang', 'ru', '--tools', 'none']).code, 0);
     put(root, rel, 'my own cursor rule, no marker\n');
     const r = cli(root, ['init', '--tools', 'cursor']);
     assert.equal(r.code, 0, r.err);
@@ -1221,7 +1272,7 @@ test('init --tools claude: a directory at an owned output path — a refusal wit
   const root = emptyRepo();
   try {
     mkdirSync(path.join(root, '.claude/skills/backslop-task/SKILL.md'), { recursive: true });
-    const r = cli(root, ['init', '--tools', 'claude']);
+    const r = cli(root, ['init', '--lang', 'ru', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err, ruRe('owned adapter output is not a file: {outRel}', { outRel: '.claude/skills/backslop-task/SKILL.md' }));
     assert.doesNotMatch(r.err, /EISDIR|node:fs/);
@@ -1236,7 +1287,7 @@ test('init --tools claude: a file at a component of an owned output path — a r
   const root = emptyRepo();
   try {
     put(root, '.claude/skills/backslop-task', 'a file instead of a directory\n');
-    const r = cli(root, ['init', '--tools', 'claude']);
+    const r = cli(root, ['init', '--lang', 'ru', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err, ruRe('a file sits where the adapter output path needs a directory: {rel}', { rel: '.claude/skills/backslop-task/' }));
     assert.doesNotMatch(r.err, /ENOTDIR|EISDIR|node:fs/);
@@ -1249,7 +1300,7 @@ test('init --tools in the root of backslop itself — a refusal before any write
   const tool = toolCopy();
   const root = emptyRepo();
   try {
-    const r = toolCli(tool, ['init', '--tools', 'claude']);
+    const r = toolCli(tool, ['init', '--lang', 'ru', '--tools', 'claude']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err, ruRe('--tools {tools}: {root} is the backslop repository itself (templates/ is the running tool\'s directory), adapter outputs are not laid out here; set up a stand in a directory of its own and run init --tools {tools} there', { tools: 'claude' }));
     for (const rel of ['backslop.json', 'CLAUDE.md', '.claude', 'docs', 'AGENTS.md']) {
@@ -1346,7 +1397,7 @@ test('init suggests the backslop-seed skill only when an adapter is selected', (
 test('init --lang refusal follows a known project language', () => {
   const root = emptyRepo();
   try {
-    assert.equal(cli(root, ['init']).code, 0);
+    assert.equal(cli(root, ['init', '--lang', 'ru']).code, 0);
     let r = cli(root, ['init', '--lang', 'other']);
     assert.equal(r.code, 1);
     assert.equal(r.err, `✖ --lang «other»: ${ru('must be ru or en')}\n`);
@@ -1416,7 +1467,7 @@ test('an en project with an invalid tools field fails in English only', () => {
 test('init in a ru project: an empty adapter list prints the Russian none, and the success line starts with init:', () => {
   const root = emptyRepo();
   try {
-    const r = cli(root, ['init', '--tools', 'none']);
+    const r = cli(root, ['init', '--lang', 'ru', '--tools', 'none']);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /^✔ init: docs\/ /m);
     assert.match(r.out, new RegExp(`^ {2}${escapeRe(ru('adapter outputs: none'))}$`, 'm'));

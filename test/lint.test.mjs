@@ -854,7 +854,7 @@ test('lint: 11. a malformed package.json is a gate error, and the other gates st
 // ordinary fixture with a `templates/` directory does not wake the gate.
 function toolProject(mutate) {
   const dir = toolCopy();
-  assert.equal(toolCli(dir, ['init']).code, 0, 'the tool copy lays itself out');
+  assert.equal(toolCli(dir, ['init', '--lang', 'ru']).code, 0, 'the tool copy lays itself out');
   mutate(dir);
   return { dir, ...toolCli(dir, ['lint']) };
 }
