@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Archive headers describe folded tasks and body revisions** — the journal header names the revision `show N` reads, including edits after closure, and the archive README limits task directories to records not yet folded. Bulk-fold ordering is stated for top-level tasks, with each batch's minor entries immediately after its line. Both template languages and the matching reference wording follow the existing behaviour; journal entries and command behaviour are unchanged.
 - **New installations default to English** — a first `init` without `--lang` writes `lang: en` and generates English documentation, adapter outputs and CLI messages. `--lang ru` still selects Russian; repeated `init` without the flag and `upgrade` preserve the configured language.
 - **Hoisted local installations count in `init` diagnostics** — a declared npm workspace dependency installed above the project no longer triggers a false missing-install warning. Diagnostics prefer the project launcher, then the nearest ancestor launcher, and read the package version at that level; without a launcher, the project's package-only version diagnostics remain.
 - **The repository's full test suite runs at most two files concurrently** — `npm test` sets `--test-concurrency=2` for shared-machine verification, keeping the 60-second timeout, test discovery and assertions.
