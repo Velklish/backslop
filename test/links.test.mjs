@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   EXTERNAL, anchorReader, anchorsOf, checkLinks, directoryLinks, hasAnchor, linksOf, normalizeHrefTarget, relativeLinks,
-  rewriteFoldedLinks, repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, slugOf, splitHref, uniqueSlugs,
+  referenceDeclarationsOnLine, rewriteInheritedLinks, rewriteFoldedLinks, repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, slugOf, splitHref, uniqueSlugs,
 } from '../lib/links.js';
 import { SECTION, cleanup, cli, escapeRe, gitAll, makeProject, put, read, ru, ruCard, ruOutcome, ruRe, ruResult, run } from './helpers.mjs';
 
@@ -19,10 +19,93 @@ const FOLD_SUMMARY = 'folded tasks {entries}, lines appended to {log} {lines}, f
 const FROM = 'docs/backlog/active';
 const TO = 'docs/archive/BS-42-move-breaks-links';
 
+test('inheritance: empty local destinations retain exact file provenance while moves leave them empty', () => {
+  const file = 'docs/backlog/triage/parent #1?.md';
+  const parent = '../triage/parent%20%231%3F.md';
+  for (const title of ['', ' "Literal [link](stay.md)"', " 'Literal [link](stay.md)'", ' (Title)']) {
+    const source = `[Self](<>${title}) ![Self]( <>${title} ) <a href="">Self</a> <a href=''>Self</a>\n\n`
+      + `[self]: <>${title}\n`;
+    assert.equal(rewriteInheritedLinks(source, file, 'docs/backlog/minor'),
+      `[Self](<${parent}>${title}) ![Self]( <${parent}>${title} ) `
+      + `<a href="${parent}">Self</a> <a href='${parent}'>Self</a>\n\n[self]: <${parent}>${title}\n`);
+    assert.equal(rewriteMovedLinks(source, 'docs/backlog/triage', 'docs/backlog/minor'), source);
+    const reference = `- **Scope:** [Self][self]\n\n[self]: <>${title}\n`;
+    assert.deepEqual(referenceDeclarationsOnLine(reference, 1, 'docs/backlog/triage', 'docs/backlog/minor', file),
+      [`[self]: <${parent}>${title}`]);
+    assert.equal(linksOf(reference).filter((link) => link.form === 'reference')[0].href, '');
+  }
+});
+
+test('inheritance: pathless query destinations retain exact file provenance and complete tails', () => {
+  const file = 'docs/backlog/triage/parent #1?.md';
+  for (const tail of ['?plain=1#L1', '?plain=1&view=source#L1-L20', '?view=raw', '?', '#context']) {
+    const source = `[Line](${tail}) <a href="${tail}">Line</a>\n\n[scope]: <${tail}> "Literal [link](stay.md)"\n`;
+    const parent = '../triage/parent%20%231%3F.md';
+    assert.equal(rewriteInheritedLinks(source, file, 'docs/backlog/minor'),
+      `[Line](${parent}${tail}) <a href="${parent}${tail}">Line</a>\n\n`
+      + `[scope]: <${parent}${tail}> "Literal [link](stay.md)"\n`);
+    const moved = tail.startsWith('#') ? tail : `../triage${tail}`;
+    assert.equal(rewriteMovedLinks(source, 'docs/backlog/triage', 'docs/backlog/minor'),
+      `[Line](${moved}) <a href="${moved}">Line</a>\n\n`
+      + `[scope]: <${moved}> "Literal [link](stay.md)"\n`);
+    assert.deepEqual(splitHref(tail), { target: '', rest: tail });
+  }
+  const external = '[web](https://example.com/?plain=1#L1) [root](/docs/README.md?plain=1#L1)';
+  assert.equal(rewriteInheritedLinks(external, file, 'docs/backlog/minor'), external);
+  assert.equal(rewriteMovedLinks(external, 'docs/backlog/triage', 'docs/backlog/minor'), external);
+});
+
+test('inheritance: same-file fragments retain their source file while moves retain bare fragments', () => {
+  const file = 'docs/backlog/triage/parent #1.md';
+  const source = '[anchor](#context) <a href="#context">Context</a> [web](https://example.com/#context)';
+  const inherited = '[anchor](../triage/parent%20%231.md#context) '
+    + '<a href="../triage/parent%20%231.md#context">Context</a> [web](https://example.com/#context)';
+  assert.equal(rewriteInheritedLinks(source, file, 'docs/backlog/minor'), inherited);
+  assert.equal(rewriteMovedLinks(source, 'docs/backlog/triage', 'docs/backlog/minor'), source);
+  const reference = '- **Scope:** [Context][scope]\n\n[scope]: #context "Literal [link](stay.md)"\n';
+  assert.deepEqual(referenceDeclarationsOnLine(reference, 1, 'docs/backlog/triage', 'docs/backlog/minor', file),
+    ['[scope]: ../triage/parent%20%231.md#context "Literal [link](stay.md)"']);
+});
+
+test('inheritance: rejected inline titles stay parser-visible and stop transferred source at destination', () => {
+  for (const tail of [' "Closed [link](other.md)" ordinary prose', ' "Unclosed [link](other.md)', ' ordinary [link](other.md)']) {
+    const source = `- **Scope:** [Guide][scope]\n\n[scope]: <guide.md>${tail}\n`;
+    assert.deepEqual(referenceDeclarationsOnLine(source, 1), ['[scope]: <guide.md>']);
+    assert.deepEqual(linksOf(source).filter((link) => link.form === 'inline').map((link) => link.href), ['other.md']);
+  }
+  const valid = '- **Scope:** [Guide][scope]\n\n[scope]: <guide.md> "Closed [link](other.md)"\n';
+  assert.deepEqual(referenceDeclarationsOnLine(valid, 1), ['[scope]: <guide.md> "Closed [link](other.md)"']);
+  assert.deepEqual(linksOf(valid).map((link) => link.form), ['reference', 'definition']);
+});
+
 const ENCODED = '[a](a%20b.md) [b](<a b.md>) [c](a%20b.md#x) [d](a%2Db.md) [e](%c3%a9.md)';
 
 // Gate 1 problems of a file as `{ href, real }`: `real` is the real spelling of a case mismatch.
 const broken = (file, root) => checkLinks(file, root).problems.map(({ href, real = null }) => ({ href, real }));
+
+test('reference titles: consume literal definition lines and retain following and invalid-title declarations', () => {
+  for (const [open, close] of [['"', '"'], ["'", "'"], ['(', ')']]) {
+    for (const separator of [' ', '\n  ']) {
+      const text = `[scope]: guide.md${separator}${open}Example\n  [embedded]: literal.md\n  end${close}\n`
+        + '[after]: after.md\n\n[embedded][] [After][after]\n';
+      assert.deepEqual(linksOf(text), [
+        { form: 'definition', href: 'guide.md', line: 1 },
+        { form: 'definition', href: 'after.md', line: separator === ' ' ? 4 : 5 },
+        { line: separator === ' ' ? 6 : 7, text: 'embedded', form: 'unresolved', href: null, label: 'embedded' },
+        { line: separator === ' ' ? 6 : 7, text: 'After', form: 'reference', href: 'after.md', label: 'after' },
+      ], text);
+    }
+  }
+  for (const title of [
+    '"Unclosed\n  [embedded]: literal.md\n  end',
+    '"Closed\n  [embedded]: literal.md\n  end" trailing prose',
+    '"Blank\n\n  [embedded]: literal.md\n  end"',
+  ]) {
+    const definitions = linksOf(`[scope]: guide.md ${title}\n\n[after]: after.md\n`)
+      .filter((link) => link.form === 'definition').map((link) => link.href);
+    assert.deepEqual(definitions, ['guide.md', 'literal.md', 'after.md'], title);
+  }
+});
 
 test('moved file: link targets are recomputed from the new directory or left as written', () => {
   for (const [label, before, after, to = TO] of [

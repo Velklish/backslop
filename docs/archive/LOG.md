@@ -424,3 +424,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-215.2"></a>`BS-215.2-hoisted-local-hook-bin-warning` · 2026-10-06 · batch BS-241 · `4db8bdba90` · Local install warning ignores a hoisted node_modules/.bin
 - <a id="bs-228"></a>`BS-228-bulk-fold-log-headers-wrong` · 2026-10-07 · completed · — · The LOG.md and archive README headers describe columns and order that bulk-folded lines do not have
 - <a id="bs-244"></a>`BS-244-unpinned-live-cli-alignment` · 2026-10-07 · completed · — · Flag bare backslop calls when the configured CLI forbids installation
+- <a id="bs-229"></a>`BS-229-minor-under-subfinding-numbering-scope` · 2026-10-07 · completed · — · new --parent N.M --minor numbers the entry N.k under the root and leaves Scope empty, which lint then flags

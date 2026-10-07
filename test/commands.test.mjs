@@ -10,6 +10,9 @@ import { markGenerated } from '../lib/adapter-ownership.js';
 import { loadProject } from '../lib/config.js';
 import { toPosix } from '../lib/util.js';
 import { listReleaseTags } from '../lib/upgrade.js';
+import { FIELD_AREA, FIELD_PARENT, fieldName, getField, setField } from '../lib/tasks.js';
+import { msg } from '../lib/i18n.js';
+import { linksOf } from '../lib/links.js';
 
 // Gate 4 requires an "Area" on a task outside triage/: fixtures that bring lint to green fill the
 // stubs from `new` with this helper: the stub check of gate 4 sees them across the whole backlog.
@@ -1720,6 +1723,528 @@ test('new --minor: an N.k file in minor/ with a cost and a parent, an empty area
     cleanup(root);
   }
 });
+
+for (const lang of ['en', 'ru']) {
+  for (const archived of [false, true]) for (const reference of [false, true]) {
+    test(`new --minor (${lang}): keeps the exact ${archived ? 'archived' : 'triage'} parent's empty target (${reference ? 'reference' : 'inline'})`, () => {
+      for (const title of ['', ' "Literal [link](stay.md)"', " 'Literal [link](stay.md)'", ' (Title)']) {
+        const root = makeProject();
+        try {
+          put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+          put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+          let rel = 'docs/backlog/triage/BS-1.1-parent.md';
+          if (archived) {
+            let r = cli(root, ['new', 'parent', '--parent', '1', '--minor', '--evidence', 'source.js:1']);
+            assert.equal(r.code, 0, r.err);
+            put(root, 'docs/backlog/triage/BS-2-batch.md', '# BS-2 · Batch\n');
+            gitAll(root, 'fixture before archive');
+            r = cli(root, ['archive', '2']);
+            assert.equal(r.code, 0, r.err);
+            put(root, 'docs/archive/BS-2-batch/result.md', '# BS-2 · Result\n\n**Closed 2026-10-01.** Completed.\n');
+            r = cli(root, ['archive', '1.1', '--into', '2']);
+            assert.equal(r.code, 0, r.err);
+            rel = 'docs/archive/BS-2-batch/minor/BS-1.1-parent.md';
+          }
+          const scope = reference ? '[Self][self]' : `[Self](<>${title})`;
+          const parent = setField(archived ? read(root, rel) : '# BS-1.1 · Parent\n', FIELD_AREA, scope, lang)
+            + (reference ? `\n[self]: <>${title}\n` : '');
+          put(root, rel, parent);
+          let r = cli(root, ['lint']);
+          assert.equal(r.code, 0, r.err);
+          assert.equal(r.err, '');
+          r = cli(root, ['new', 'child', '--parent', '1.1', '--minor', '--evidence', 'source.js:2']);
+          assert.equal(r.code, 0, r.err);
+          assert.equal(r.err, '');
+          const childRel = 'docs/backlog/minor/BS-1.2-child.md';
+          const child = read(root, childRel);
+          const href = path.posix.relative(path.posix.dirname(childRel), rel);
+          assert.equal(getField(child, FIELD_PARENT), 'BS-1.1');
+          assert.equal(getField(child, FIELD_AREA), reference ? scope : `[Self](<${href}>${title})`);
+          if (reference) assert.ok(child.includes(`\n[self]: <${href}>${title}\n`));
+          assert.deepEqual(linksOf(child).map((link) => link.href), reference ? [href, href] : [href]);
+          assert.equal(path.resolve(root, path.dirname(childRel), href), path.join(root, rel));
+          r = cli(root, ['lint']);
+          assert.equal(r.code, 0, r.err);
+          assert.equal(r.err, '');
+          assert.equal(read(root, rel), parent);
+        } finally {
+          cleanup(root);
+        }
+      }
+    });
+  }
+
+  for (const archived of [false, true]) for (const reference of [false, true]) {
+    test(`new --minor (${lang}): keeps the exact ${archived ? 'archived' : 'triage'} parent's query-only target (${reference ? 'reference' : 'inline'})`, () => {
+      const root = makeProject();
+      try {
+        put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+        put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+        let rel = 'docs/backlog/triage/BS-1.1-parent.md';
+        if (archived) {
+          let r = cli(root, ['new', 'parent', '--parent', '1', '--minor', '--evidence', 'source.js:1']);
+          assert.equal(r.code, 0, r.err);
+          put(root, 'docs/backlog/triage/BS-2-batch.md', '# BS-2 · Batch\n');
+          gitAll(root, 'fixture before archive');
+          r = cli(root, ['archive', '2']);
+          assert.equal(r.code, 0, r.err);
+          put(root, 'docs/archive/BS-2-batch/result.md', '# BS-2 · Result\n\n**Closed 2026-10-01.** Completed.\n');
+          r = cli(root, ['archive', '1.1', '--into', '2']);
+          assert.equal(r.code, 0, r.err);
+          rel = 'docs/archive/BS-2-batch/minor/BS-1.1-parent.md';
+        }
+        const tail = '?plain=1#L1';
+        const scope = reference ? '[Line][scope]' : `[Line](${tail})`;
+        const parent = setField(archived ? read(root, rel) : '# BS-1.1 · Parent\n', FIELD_AREA, scope, lang)
+          + (reference ? `\n[scope]: ${tail}\n` : '');
+        put(root, rel, parent);
+        assert.ok(existsSync(path.join(root, rel)));
+        let r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        assert.equal(r.err, '');
+        r = cli(root, ['new', 'child', '--parent', '1.1', '--minor', '--evidence', 'source.js:2']);
+        assert.equal(r.code, 0, r.err);
+        assert.equal(r.err, '');
+        const childRel = 'docs/backlog/minor/BS-1.2-child.md';
+        const child = read(root, childRel);
+        const href = path.posix.relative(path.posix.dirname(childRel), rel) + tail;
+        assert.equal(getField(child, FIELD_PARENT), 'BS-1.1');
+        assert.equal(getField(child, FIELD_AREA), reference ? scope : `[Line](${href})`);
+        if (reference) assert.ok(child.includes(`\n[scope]: ${href}\n`));
+        assert.deepEqual(linksOf(child).map((link) => link.href), reference ? [href, href] : [href]);
+        assert.equal(path.resolve(root, path.dirname(childRel), href.split('?')[0]), path.join(root, rel));
+        r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        assert.equal(r.err, '');
+        assert.equal(read(root, rel), parent);
+      } finally {
+        cleanup(root);
+      }
+    });
+  }
+
+  for (const reference of [false, true]) {
+    test(`new --minor (${lang}): keeps the exact triage parent's same-file fragment (${reference ? 'reference' : 'inline'})`, () => {
+      const root = makeProject();
+      try {
+        put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+        put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+        const rel = 'docs/backlog/triage/BS-1.1-parent.md';
+        const scope = reference ? '[Context][scope]' : '[Context](#context)';
+        const parent = setField('# BS-1.1 · Parent\n', FIELD_AREA, scope, lang)
+          + '\n## Context\n\nReal parent context.\n' + (reference ? '\n[scope]: #context\n' : '');
+        put(root, rel, parent);
+        let r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        assert.equal(r.err, '');
+        r = cli(root, ['new', 'child', '--parent', '1.1', '--minor', '--evidence', 'source.js:2']);
+        assert.equal(r.code, 0, r.err);
+        assert.equal(r.err, '');
+        const child = read(root, 'docs/backlog/minor/BS-1.2-child.md');
+        const href = '../triage/BS-1.1-parent.md#context';
+        assert.equal(getField(child, FIELD_PARENT), 'BS-1.1');
+        assert.equal(getField(child, FIELD_AREA), reference ? scope : `[Context](${href})`);
+        if (reference) assert.ok(child.includes(`\n[scope]: ${href}\n`));
+        assert.deepEqual(linksOf(child).map((link) => link.href), reference ? [href, href] : [href]);
+        assert.equal(path.resolve(root, 'docs/backlog/minor', href.split('#')[0]), path.join(root, rel));
+        assert.ok(parent.includes('\n## Context\n'));
+        assert.doesNotMatch(child, /\n## Context\n/);
+        r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        assert.equal(r.err, '');
+        assert.equal(read(root, rel), parent);
+      } finally {
+        cleanup(root);
+      }
+    });
+  }
+
+  test(`new --minor (${lang}): excludes invalid inline title tails from an archived declaration`, () => {
+    const root = makeProject();
+    try {
+      put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+      put(root, 'docs/reference/guide.md', '# Guide\n');
+      put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+      let r = cli(root, ['new', 'parent', '--parent', '1', '--minor', '--evidence', 'source.js:1']);
+      assert.equal(r.code, 0, r.err);
+      put(root, 'docs/backlog/triage/BS-2-batch.md', '# BS-2 · Batch\n');
+      gitAll(root, 'fixture before archive');
+      r = cli(root, ['archive', '2']);
+      assert.equal(r.code, 0, r.err);
+      put(root, 'docs/archive/BS-2-batch/result.md', '# BS-2 · Result\n\n**Closed 2026-10-01.** Completed.\n');
+      r = cli(root, ['archive', '1.1', '--into', '2']);
+      assert.equal(r.code, 0, r.err);
+      const rel = 'docs/archive/BS-2-batch/minor/BS-1.1-parent.md';
+      const parent = setField(read(root, rel), FIELD_AREA, '[Guide][scope]', lang)
+        + '\n[scope]: ../../../reference/guide.md "Closed [link](../../../reference/guide.md)" ordinary prose\n';
+      put(root, rel, parent);
+      assert.ok(existsSync(path.resolve(root, path.dirname(rel), '../../../reference/guide.md')));
+      assert.deepEqual(linksOf(parent).filter((link) => link.form === 'inline').map((link) => link.href),
+        ['../../../reference/guide.md']);
+      r = cli(root, ['lint']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(r.err, '');
+      r = cli(root, ['new', 'child', '--parent', '1.1', '--minor', '--evidence', 'source.js:2']);
+      assert.equal(r.code, 0, r.err);
+      const child = read(root, 'docs/backlog/minor/BS-1.2-child.md');
+      assert.equal(getField(child, FIELD_PARENT), 'BS-1.1');
+      assert.equal(getField(child, FIELD_AREA), '[Guide][scope]');
+      assert.equal(child.slice(child.indexOf('\n[scope]:') + 1).trimEnd(), '[scope]: ../../reference/guide.md');
+      assert.doesNotMatch(child, /Closed|ordinary prose|\[link\]/);
+      assert.deepEqual(linksOf(child).map((link) => link.form), ['reference', 'definition']);
+      r = cli(root, ['lint']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(r.err, '');
+      assert.equal(read(root, rel), parent);
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`new --minor (${lang}): preserves definition-looking text in an archived multiline reference title`, () => {
+    const root = makeProject();
+    try {
+      put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+      put(root, 'docs/reference/guide.md', '# Guide\n');
+      put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+      let r = cli(root, ['new', 'parent', '--parent', '1', '--minor', '--evidence', 'source.js:1']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(r.err, '');
+      put(root, 'docs/backlog/triage/BS-2-batch.md', '# BS-2 · Batch\n');
+      gitAll(root, 'fixture before archive');
+      r = cli(root, ['archive', '2']);
+      assert.equal(r.code, 0, r.err);
+      put(root, 'docs/archive/BS-2-batch/result.md', '# BS-2 · Result\n\n**Closed 2026-10-01.** Completed.\n');
+      r = cli(root, ['archive', '1.1', '--into', '2']);
+      assert.equal(r.code, 0, r.err);
+      const rel = 'docs/archive/BS-2-batch/minor/BS-1.1-parent.md';
+      const title = '"Example\n  [embedded]: ../../../reference/guide.md\n  end"';
+      const parent = setField(read(root, rel), FIELD_AREA, '[Guide][scope]', lang)
+        + `\n[scope]: ../../../reference/guide.md ${title}\n`;
+      put(root, rel, parent);
+      r = cli(root, ['lint']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(r.err, '');
+      r = cli(root, ['new', 'child', '--parent', '1.1', '--minor', '--evidence', 'source.js:2']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(r.err, '');
+      const child = read(root, 'docs/backlog/minor/BS-1.2-child.md');
+      assert.equal(getField(child, FIELD_PARENT), 'BS-1.1');
+      assert.equal(getField(child, FIELD_AREA), '[Guide][scope]');
+      assert.equal(child.slice(child.indexOf('\n[scope]:') + 1).trimEnd(),
+        `[scope]: ../../reference/guide.md ${title}`);
+      r = cli(root, ['lint']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(r.err, '');
+      assert.deepEqual(linksOf(child), [
+        { line: 3, text: 'Guide', form: 'reference', href: '../../reference/guide.md', label: 'scope' },
+        { form: 'definition', href: '../../reference/guide.md', line: 14 },
+      ]);
+      assert.equal(read(root, rel), parent);
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  for (const titleForm of ['inline', 'continuation', 'multiline']) {
+    test(`new --minor (${lang}): preserves literal Markdown in an archived reference title (${titleForm})`, () => {
+      const root = makeProject();
+      try {
+        put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+        put(root, 'docs/reference/guide.md', '# Guide\n');
+        put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+        let r = cli(root, ['new', 'parent', '--parent', '1', '--minor', '--evidence', 'source.js:1']);
+        assert.equal(r.code, 0, r.err);
+        put(root, 'docs/backlog/triage/BS-2-batch.md', '# BS-2 · Batch\n');
+        gitAll(root, 'fixture before archive');
+        r = cli(root, ['archive', '2']);
+        assert.equal(r.code, 0, r.err);
+        put(root, 'docs/archive/BS-2-batch/result.md', '# BS-2 · Result\n\n**Closed 2026-10-01.** Completed.\n');
+        r = cli(root, ['archive', '1.1', '--into', '2']);
+        assert.equal(r.code, 0, r.err);
+        const rel = 'docs/archive/BS-2-batch/minor/BS-1.1-parent.md';
+        const title = titleForm === 'multiline'
+          ? '"Example\n  [link](../../../reference/guide.md)"'
+          : '"Example [link](../../../reference/guide.md)"';
+        const separator = titleForm === 'inline' ? ' ' : '\n  ';
+        const declaration = `[scope]: ../../../reference/guide.md${separator}${title}`;
+        const parent = setField(read(root, rel), FIELD_AREA, '[Guide][scope]', lang)
+          + `\n${declaration}\n`;
+        put(root, rel, parent);
+        r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        r = cli(root, ['new', 'child', '--parent', '1.1', '--minor', '--evidence', 'source.js:2']);
+        assert.equal(r.code, 0, r.err);
+        const child = read(root, 'docs/backlog/minor/BS-1.2-child.md');
+        assert.equal(getField(child, FIELD_PARENT), 'BS-1.1');
+        assert.equal(getField(child, FIELD_AREA), '[Guide][scope]');
+        const inherited = child.slice(child.indexOf('\n[scope]:') + 1).trimEnd();
+        assert.equal(inherited, `[scope]: ../../reference/guide.md${separator}${title}`);
+        r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        assert.doesNotMatch(r.err, /BS-1\.2-child\.md/);
+        assert.deepEqual(linksOf(child).map((link) => link.form), ['reference', 'definition']);
+        for (const invalidTitle of [
+          '"Unclosed [link](other.md)',
+          '"Closed [link](other.md)" ordinary prose',
+          '"Blank [link](other.md)\n\n  end"',
+        ]) {
+          assert.deepEqual(linksOf(`[scope]: guide.md\n  ${invalidTitle}\n`)
+            .filter((link) => link.form === 'inline').map((link) => link.href), ['other.md']);
+        }
+        assert.equal(read(root, rel), parent);
+      } finally {
+        cleanup(root);
+      }
+    });
+  }
+
+  for (const archived of [false, true]) {
+    for (const continued of [false, true, 'multiline']) {
+      const location = archived ? 'CLI-archived batch' : 'minor parent';
+      const titleCase = continued === 'multiline' ? ' with multiline titles' : continued ? ' with continuation titles' : '';
+      test(`new --minor (${lang}): transfers only used reference declarations from a ${location}${titleCase}`, () => {
+        const root = makeProject();
+        try {
+          put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+          for (const file of ['guide.md', 'guide file.md', 'other.md']) {
+            put(root, `docs/reference/${file}`, '# Guide\n\n## Section\n');
+          }
+          put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+          put(root, 'docs/backlog/triage/BS-1.1-sibling.md', '# BS-1.1 · Sibling\n');
+          let r = cli(root, ['new', 'parent', '--parent', '1', '--minor', '--evidence', 'source.js:1']);
+          assert.equal(r.code, 0, r.err);
+          let rel = 'docs/backlog/minor/BS-1.2-parent.md';
+          const scope = 'Prose [inline](../../reference/guide.md?plain=1#L1), [full][sCoPe], '
+            + '[collapsed][], [shortcut], [root][root-ref], [web][web-ref], '
+            + '![badge][badge]; literal `[unused][unused]`.';
+          const used = [
+            '[SCOPE]: <../../reference/guide%20file.md#section> "Quoted \\"title\\""',
+            '[collapsed]: ../../reference/guide.md?plain=1#L1 \'Collapsed title\'',
+            '[shortcut]: ../../reference/guide.md#section (Shortcut title)',
+            '[root-ref]: /docs/reference/guide.md#section "Root title"',
+            '[web-ref]: https://example.com/#section "Web title"',
+            '[badge]: https://example.com/badge.svg "Badge title"',
+          ];
+          if (continued) {
+            used[0] = used[0].replace('> "', '>\n  "');
+            used[1] = used[1].replace(" 'Collapsed", "\n>   'Collapsed");
+            used[2] = used[2].replace(' (Shortcut', '\n  (Shortcut');
+            used[3] = used[3].replace(' "Root title"', '');
+            used[4] = used[4].replace(' "Web title"', '');
+            used[5] = used[5].replace(' "Badge title"', '');
+          }
+          if (continued === 'multiline') {
+            used[0] = '[SCOPE]: <../../reference/guide%20file.md#section>\n'
+              + '  "Quoted \\"title\\"\n  with second line"';
+            used[1] = "[collapsed]: ../../reference/guide.md?plain=1#L1\n"
+              + ">   'Collapsed\n>   second line'";
+            used[2] = '[shortcut]: ../../reference/guide.md#section (Shortcut\n'
+              + '  escaped \\) and last line)';
+          }
+          const carried = [used[0], `> ${used[1]}`, `- ${used[2]}`, ...used.slice(3)];
+          const declarations = [carried[0], '[scope]: ../../reference/other.md#section "Second ignored"',
+            carried[1], ...(continued ? [''] : []), carried[2],
+            ...(continued ? [''] : []), carried[3],
+            ...(continued ? ['Following ordinary prose is not a title.', ''] : []),
+            carried[4], ...(continued ? ['[unrelated]: https://example.com/ "Unrelated title"', ''] : []),
+            carried[5], ...(continued ? ['```markdown', '"Fenced title"', '```', ''] : []),
+            '[unused]: ../../reference/other.md#section "Unused title"'];
+          put(root, rel, setField(read(root, rel), FIELD_AREA, scope, lang) + `\n${declarations.join('\n')}\n`);
+          if (archived) {
+            put(root, 'docs/backlog/triage/BS-2-batch.md', '# BS-2 · Batch\n');
+            gitAll(root, 'fixture before archive');
+            r = cli(root, ['archive', '2']);
+            assert.equal(r.code, 0, r.err);
+            put(root, 'docs/archive/BS-2-batch/result.md', '# BS-2 · Result\n\n**Closed 2026-10-01.** Completed.\n');
+            r = cli(root, ['archive', '1.2', '--into', '2']);
+            assert.equal(r.code, 0, r.err);
+            rel = 'docs/archive/BS-2-batch/minor/BS-1.2-parent.md';
+            assert.ok(read(root, rel).includes('../../../reference/guide%20file.md#section'));
+          }
+          const parent = read(root, rel);
+          const before = cli(root, ['lint']);
+          assert.equal(before.code, 0, before.err);
+          r = cli(root, ['new', 'child', '--parent', '1.2', '--minor', '--evidence', 'source.js:2']);
+          assert.equal(r.code, 0, r.err);
+          const child = read(root, 'docs/backlog/minor/BS-1.3-child.md');
+          assert.match(child, /^# BS-1\.3 · child\n/);
+          assert.equal(getField(child, FIELD_PARENT), 'BS-1.2');
+          assert.equal(getField(child, FIELD_AREA), scope);
+          for (const declaration of carried) assert.ok(child.includes(`\n${declaration}\n`), declaration);
+          assert.equal(linksOf(child).filter((link) => link.form === 'definition').length, used.length);
+          assert.deepEqual(linksOf(child).filter((link) => link.form === 'reference').map((link) => link.href), [
+            '../../reference/guide%20file.md#section', '../../reference/guide.md?plain=1#L1',
+            '../../reference/guide.md#section', '/docs/reference/guide.md#section',
+            'https://example.com/#section', 'https://example.com/badge.svg',
+          ]);
+          assert.doesNotMatch(child, /\[unused\]:|Second ignored|Unused title|Following ordinary|Unrelated title|Fenced title/);
+          const after = cli(root, ['lint']);
+          assert.equal(after.code, 0, after.err);
+          assert.doesNotMatch(after.err, /BS-1\.3-child\.md/);
+          assert.equal(read(root, rel), parent);
+          assert.equal(read(root, 'docs/backlog/triage/BS-1.1-sibling.md'), '# BS-1.1 · Sibling\n');
+        } finally {
+          cleanup(root);
+        }
+      });
+    }
+  }
+
+  test(`new --minor (${lang}): excludes invalid title continuations and unrelated source`, () => {
+    const tails = [
+      '  "Invalid blank\n\n  end"',
+      '  "Invalid unterminated\n  continuation',
+      '  "Invalid closed" ordinary prose',
+      '[unrelated]: https://example.com/ "Unrelated title"',
+      '```markdown\n"Fenced title"\n```',
+    ];
+    for (const tail of tails) {
+      const root = makeProject();
+      try {
+        put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+        put(root, 'docs/reference/guide.md', '# Guide\n');
+        const rel = 'docs/backlog/triage/BS-1-root.md';
+        const declaration = '[scope]: ../../reference/guide.md';
+        const parent = setField('# BS-1 · Root\n', FIELD_AREA, 'Prose [guide][scope]', lang)
+          + `\n${declaration}\n${tail}\n`;
+        put(root, rel, parent);
+        let r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        r = cli(root, ['new', 'child', '--parent', '1', '--minor', '--evidence', 'source.js:1']);
+        assert.equal(r.code, 0, r.err);
+        const child = read(root, 'docs/backlog/minor/BS-1.1-child.md');
+        assert.equal(getField(child, FIELD_PARENT), 'BS-1');
+        assert.equal(getField(child, FIELD_AREA), 'Prose [guide][scope]');
+        assert.ok(child.includes(`\n${declaration}\n`));
+        assert.doesNotMatch(child, /Invalid|ordinary prose|Unrelated title|Fenced title|\[unrelated\]:/);
+        assert.equal(linksOf(child).filter((link) => link.form === 'definition').length, 1);
+        r = cli(root, ['lint']);
+        assert.equal(r.code, 0, r.err);
+        assert.doesNotMatch(r.err, /BS-1\.1-child\.md/);
+        assert.equal(read(root, rel), parent);
+      } finally {
+        cleanup(root);
+      }
+    }
+  });
+
+  test(`new --minor (${lang}): inherits the exact parent Scope with root numbering and no rewrites`, () => {
+    const root = makeProject();
+    try {
+      put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+      put(root, 'docs/reference/guide.md', '# Guide\n\n## Section\n');
+      const scope = '  Finding prose: [one](../../reference/guide.md#section), [two](../../README.md), '
+        + '[root](/docs/README.md), [external](https://example.com/#section), literal `[text](stay.md)`.  ';
+      const cards = [
+        ['docs/backlog/triage/BS-1-root.md', setField('# BS-1 · Root\n', FIELD_AREA, 'Root prose', lang)],
+        ['docs/backlog/triage/BS-1.2-parent.md', setField('# BS-1.2 · Parent\n', FIELD_AREA, scope, lang)],
+        ['docs/backlog/triage/BS-1.7-sibling.md', '# BS-1.7 · Sibling\n'],
+      ];
+      for (const [rel, text] of cards) put(root, rel, text);
+      let r = cli(root, ['new', 'child', '--parent', '1.2', '--minor', '--evidence', 'source.js:1']);
+      assert.equal(r.code, 0, r.err);
+      const child = read(root, 'docs/backlog/minor/BS-1.8-child.md');
+      assert.match(child, /^# BS-1\.8 · child\n/);
+      assert.equal(getField(child, FIELD_PARENT), 'BS-1.2');
+      assert.equal(getField(child, FIELD_AREA), scope.trim());
+      assert.ok(child.includes(msg(lang, 'Evidence: {evidence}', { evidence: 'source.js:1' })));
+      assert.ok(child.includes(`- **${fieldName(FIELD_AREA, lang)}:** ${scope.trim()}\n`));
+      r = cli(root, ['new', 'ordinary', '--parent', '1', '--minor', '--evidence', 'source.js:2']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(getField(read(root, 'docs/backlog/minor/BS-1.9-ordinary.md'), FIELD_AREA), 'Root prose');
+      r = cli(root, ['lint']);
+      assert.equal(r.code, 0, r.err);
+      assert.doesNotMatch(r.err, /BS-1\.(?:8|9)-(?:child|ordinary)\.md/);
+      for (const [rel, text] of cards) assert.equal(read(root, rel), text, rel);
+      assert.deepEqual(readdirSync(path.join(root, 'docs/backlog/minor')).sort(), ['BS-1.8-child.md', 'BS-1.9-ordinary.md']);
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`new --minor (${lang}): rebases Scope from a finding in an archived batch`, () => {
+    const root = makeProject();
+    try {
+      put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+      put(root, 'docs/reference/guide.md', '# Guide\n\n## Section\n');
+      put(root, 'docs/reference/other file.md', '# Other\n');
+      put(root, 'docs/backlog/triage/BS-1-root.md', '# BS-1 · Root\n');
+      put(root, 'docs/archive/BS-2-batch/task.md', '# BS-2 · Batch\n');
+      put(root, 'docs/archive/BS-2-batch/result.md', '# BS-2 · Result\n\n**Closed 2026-10-01.** Completed.\n');
+      const rel = 'docs/archive/BS-2-batch/minor/BS-1.2-parent.md';
+      const scope = 'Keep prose: [guide](../../../reference/guide.md#section), '
+        + '[other](../../../reference/other%20file.md), [root](/docs/README.md), '
+        + '[web](https://example.com/#section), literal `[example](untouched.md)`.';
+      const parent = setField('# BS-1.2 · Parent\n', FIELD_AREA, scope, lang);
+      put(root, rel, parent);
+      const r = cli(root, ['new', 'child', '--parent', '1.2', '--minor', '--cost', 'major', '--hypothesis', '--evidence', 'source.js:3']);
+      assert.equal(r.code, 0, r.err);
+      const child = read(root, 'docs/backlog/minor/BS-1.3-child.md');
+      assert.equal(getField(child, FIELD_PARENT), 'BS-1.2');
+      assert.equal(getField(child, FIELD_AREA), scope.replaceAll('../../../reference/', '../../reference/'));
+      assert.match(child, /major/);
+      for (const [before, after] of [['../../../reference/guide.md', '../../reference/guide.md'],
+        ['../../../reference/other file.md', '../../reference/other file.md']]) {
+        assert.equal(path.resolve(root, path.dirname(rel), before), path.resolve(root, 'docs/backlog/minor', after));
+      }
+      const lint = cli(root, ['lint']);
+      assert.equal(lint.code, 0, lint.err);
+      assert.doesNotMatch(lint.err, /BS-1\.3-child\.md/);
+      assert.equal(read(root, rel), parent);
+    } finally {
+      cleanup(root);
+    }
+  });
+
+  test(`new --minor (${lang}): absent, empty and placeholder parent Scope retain the warning fallback`, () => {
+    for (const scope of [null, '', '   ', '[TODO: reference section]', '[TODO: reference section](../../reference/README.md)']) {
+      const root = makeProject();
+      try {
+        put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+        put(root, 'docs/reference/README.md', '# Reference\n');
+        const base = '# BS-1 · Root\n';
+        const parent = scope === null ? base : setField(base, FIELD_AREA, scope, lang);
+        put(root, 'docs/backlog/triage/BS-1-root.md', parent);
+        const r = cli(root, ['new', 'child', '--parent', '1', '--minor', '--evidence', 'source.js:4']);
+        assert.equal(r.code, 0, r.err);
+        const child = read(root, 'docs/backlog/minor/BS-1.1-child.md');
+        assert.equal(getField(child, FIELD_AREA), '');
+        assert.doesNotMatch(child, /\[TODO/);
+        const lint = cli(root, ['lint']);
+        assert.equal(lint.code, 0, lint.err);
+        assert.ok(lint.err.includes(msg(lang, '“{label}” is empty: name the reference section', { label: fieldName(FIELD_AREA, lang) })), lint.err);
+        assert.equal(read(root, 'docs/backlog/triage/BS-1-root.md'), parent);
+      } finally {
+        cleanup(root);
+      }
+    }
+  });
+
+  test(`new --minor (${lang}): unavailable archive bodies keep empty Scope without reading journal metadata`, () => {
+    for (const folded of [false, true]) {
+      const root = makeProject();
+      try {
+        put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }));
+        if (folded) {
+          const journal = setField('# Journal\n', FIELD_AREA, 'Journal metadata, not parent Scope', lang)
+            + '\n- <a id="bs-1"></a>`BS-1-root` · 2026-10-01 · — · — · Root\n';
+          put(root, 'docs/archive/LOG.md', journal);
+        } else {
+          put(root, 'docs/archive/BS-1-root/result.md', '# Result\n');
+        }
+        const r = cli(root, ['new', 'child', '--parent', '1', '--minor', '--evidence', 'source.js:5']);
+        assert.equal(r.code, 0, r.err);
+        const child = read(root, 'docs/backlog/minor/BS-1.1-child.md');
+        assert.equal(getField(child, FIELD_AREA), '');
+        assert.equal(getField(child, FIELD_PARENT), 'BS-1');
+        assert.doesNotMatch(child, /Journal metadata/);
+      } finally {
+        cleanup(root);
+      }
+    }
+  });
+}
 
 test('new --parent --cost: a task card carries the Cost field; status shows it, a card without one shows none', () => {
   const root = makeProject();
