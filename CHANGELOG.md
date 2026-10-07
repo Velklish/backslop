@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Local CLI instructions retain the no-install command** — when `cli` is `npx --no-install backslop`, `lint` reports bare `npx backslop` invocations in live files and gate/probe commands, naming the location and the configured command to use. Quoted calls include a JSON-escaped closing quote in `package.json`. The existing version-pin checks and historical exclusions remain.
 - **Archive headers describe folded tasks and body revisions** — the journal header names the revision `show N` reads, including edits after closure, and the archive README limits task directories to records not yet folded. Bulk-fold ordering is stated for top-level tasks, with each batch's minor entries immediately after its line. Both template languages and the matching reference wording follow the existing behaviour; journal entries and command behaviour are unchanged.
 - **New installations default to English** — a first `init` without `--lang` writes `lang: en` and generates English documentation, adapter outputs and CLI messages. `--lang ru` still selects Russian; repeated `init` without the flag and `upgrade` preserve the configured language.
 - **Hoisted local installations count in `init` diagnostics** — a declared npm workspace dependency installed above the project no longer triggers a false missing-install warning. Diagnostics prefer the project launcher, then the nearest ancestor launcher, and read the package version at that level; without a launcher, the project's package-only version diagnostics remain.

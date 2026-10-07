@@ -1433,6 +1433,193 @@ test('lint: a stale pin in history files or quoted as card evidence is not drift
   }
 });
 
+test('lint: local no-install cli rejects bare calls by live file and line, green after correction', () => {
+  const root = makeProject({ git: false });
+  const local = 'npx --no-install backslop';
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: local, lang: 'en' });
+    put(root, 'README.md', 'See [docs](docs/README.md).\nRun `npx backslop status`.\n');
+    put(root, 'package.json', '{"scripts":{"lint":"npx backslop lint"}}\n');
+    put(root, '.github/workflows/ci.yml', 'steps:\n  - run: npx backslop lint\n');
+    const result = cli(root, ['lint']);
+    assert.equal(result.code, 1, result.out + result.err);
+    for (const [file, line] of [['README.md', 2], ['package.json', 1], ['.github/workflows/ci.yml', 2]]) {
+      assert.ok(result.err.includes(`${file}: line ${line}:`), result.err);
+    }
+    assert.ok(result.err.includes(local), result.err);
+    put(root, 'README.md', `See [docs](docs/README.md).\nRun \`${local} status\`.\n`);
+    put(root, 'package.json', JSON.stringify({ scripts: { lint: `${local} lint` } }) + '\n');
+    put(root, '.github/workflows/ci.yml', `steps:\n  - run: ${local} lint\n`);
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local no-install cli rejects an escaped closing quote in package.json', () => {
+  const root = makeProject({ git: false });
+  const local = 'npx --no-install backslop';
+  const bare = '{"scripts":{"check":"sh -c \\"npx backslop\\""}}';
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: local, lang: 'en' });
+    assert.deepEqual(JSON.parse(bare), { scripts: { check: 'sh -c "npx backslop"' } });
+    put(root, 'package.json', bare);
+    assert.deepEqual(problems(root), [
+      `package.json: line 1: bare npx backslop omits the cli installation restriction — use ${local} configured in backslop.json`,
+    ]);
+    const red = cli(root, ['lint']);
+    assert.equal(red.code, 1, red.out + red.err);
+    put(root, 'package.json', bare.replace('npx backslop', local));
+    assert.deepEqual(problems(root), []);
+    const green = cli(root, ['lint']);
+    assert.equal(green.code, 0, green.out + green.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local no-install cli rejects bare gate and probe commands by entry', () => {
+  const root = makeProject({ git: false });
+  const local = 'npx --no-install backslop';
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: local, lang: 'en', gates: ['npx backslop lint', { command: 'npx backslop status', when: ['docs/**'] }], probe: 'npx backslop lint' });
+    const result = cli(root, ['lint']);
+    assert.equal(result.code, 1, result.out + result.err);
+    for (const at of ['gates[0]', 'gates[1]', 'probe']) {
+      assert.ok(result.err.includes(`backslop.json: ${at}:`), result.err);
+    }
+    assert.ok(result.err.includes(local), result.err);
+    setConfig(root, { gates: [`${local} lint`, { command: `${local} status`, when: ['docs/**'] }], probe: `${local} lint` });
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local no-install cli leaves historical bare calls silent and journal header live', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: 'npx --no-install backslop', lang: 'en' });
+    put(root, 'CHANGELOG.md', '## Unreleased\n\n- **Old** — ran `npx backslop lint`.\n');
+    put(root, 'docs/adr/adr-001-process.md', '# ADR-001: Process\n\n**Status:** Accepted\n\nRan `npx backslop lint`.\n');
+    put(root, 'docs/backlog/queue/BS-1-a.md', `${read(root, 'docs/backlog/queue/BS-1-a.md')}\nRan \`npx backslop lint\`.\n`);
+    put(root, 'docs/archive/BS-4-e/task.md', `${read(root, 'docs/archive/BS-4-e/task.md')}\nRan \`npx backslop lint\`.\n`);
+    const entry = '- <a id="bs-6"></a>`BS-6-y` · 2026-09-01 · completed · — · Ran `npx backslop lint`';
+    put(root, 'docs/archive/LOG.md', `# Log\n\n${entry}\n`);
+    assert.deepEqual(problems(root), []);
+    put(root, 'docs/archive/LOG.md', `# Log\nRun \`npx backslop show N\`.\n${entry}\n`);
+    const found = problems(root);
+    assert.equal(found.length, 1, found.join(' | '));
+    assert.ok(found[0].startsWith('docs/archive/LOG.md: line 2:'), found[0]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: bare calls keep the existing pinned, floating, global and self-host cli verdicts', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    put(root, 'README.md', 'See [docs](docs/README.md).\nRun `npx backslop status`.\n');
+    for (const command of [`npx github:me/proj#v${TOOL_VERSION}`, `npx backslop@${TOOL_VERSION}`, 'npx backslop', 'npx backslop@latest', 'backslop', 'node bin/backslop.js']) {
+      setConfig(root, { cli: command, gates: ['npx backslop lint'], probe: 'npx backslop status' });
+      assert.deepEqual(problems(root), [], command);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local no-install cli checks literal quoted and fenced command text', () => {
+  const root = makeProject({ git: false });
+  const lines = [
+    'Run `npx backslop lint`.',
+    '```sh',
+    'npx backslop lint && npm test',
+    'echo "npx backslop lint"',
+    "printf '%s' 'npx backslop status'",
+    'sh -c "npx backslop lint"',
+    '(npx\tbackslop status)',
+    '```',
+  ];
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: 'npx --no-install backslop', lang: 'en' });
+    put(root, 'docs/calls.md', lines.join('\n') + '\n');
+    const found = problems(root);
+    assert.equal(found.length, 6, found.join(' | '));
+    for (const line of [1, 3, 4, 5, 6, 7]) {
+      assert.ok(found.some((p) => p.startsWith(`docs/calls.md: line ${line}: bare npx`)), found.join(' | '));
+    }
+    setConfig(root, { gates: ['echo "npx backslop lint"', "printf '%s' 'npx backslop status'"], probe: 'sh -c "npx backslop lint"' });
+    const configured = problems(root).filter((p) => p.startsWith('backslop.json:'));
+    assert.equal(configured.length, 3, configured.join(' | '));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local no-install cli ignores normal text, longer tokens, pins and other options', () => {
+  const root = makeProject({ git: false });
+  const controls = [
+    'backslop can be called using npx', 'anpx backslop', './npx backslop', '$npx backslop',
+    'npx backslop-other', 'npx backslopx', 'npx backslop@latest', 'npx backslop@0.1.0',
+    'npx backslop.js', 'npx backslop/other', 'npx --yes backslop', 'npx -y backslop',
+    'npx --no-install backslop', 'npx github:me/backslop#v0.1.0',
+    'npx backslop\\other',
+  ];
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: '  npx --no-install backslop  ', gates: controls, probe: controls.join(' && ') });
+    put(root, 'docs/controls.md', controls.map((command) => `\`${command}\``).join('\n') + '\n');
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local no-install cli diagnostic follows the project language', () => {
+  const root = makeProject({ git: false });
+  const key = '{at}: bare {command} omits the cli installation restriction — use {cli} configured in {config}';
+  const local = 'npx --no-install backslop';
+  try {
+    seedGreen(root);
+    put(root, 'docs/calls.md', 'Run `npx backslop status`.\n');
+    for (const lang of ['en', 'ru']) {
+      setConfig(root, { cli: local, lang, gates: ['npx backslop lint'] });
+      const at = msg(lang, 'line {lineNo}', { lineNo: 1 });
+      const expected = (location) => msg(lang, key, { at: location, command: 'npx backslop', cli: local, config: 'backslop.json' });
+      assert.deepEqual(problems(root), [`docs/calls.md: ${expected(at)}`, `backslop.json: ${expected('gates[0]')}`]);
+      if (lang === 'ru') assert.notEqual(expected(at), msg('en', key, { at, command: 'npx backslop', cli: local, config: 'backslop.json' }));
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local no-install cli reads symlink and non-UTF-8 live command text', { skip: process.platform === 'win32' }, () => {
+  // Windows symlinks require privileges that the test runner may not have.
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    setConfig(root, { cli: 'npx --no-install backslop', lang: 'en' });
+    put(root, 'misc/calls.md', 'Run `npx backslop status`.\n');
+    symlinkSync(path.join(root, 'misc/calls.md'), path.join(root, 'CALLS.md'));
+    writeFileSync(path.join(root, 'docs/bytes.md'), Buffer.concat([Buffer.from([0xff]), Buffer.from(' `npx backslop lint`\n')]));
+    const found = problems(root);
+    assert.equal(found.length, 2, found.join(' | '));
+    for (const file of ['CALLS.md', 'docs/bytes.md']) {
+      assert.ok(found.some((p) => p.startsWith(`${file}: line 1: bare npx backslop`)), found.join(' | '));
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('lint: an unpinned cli leaves a stale prose pin silent', () => {
   const root = makeProject({ git: false });
   const V = TOOL_VERSION;

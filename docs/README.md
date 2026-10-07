@@ -18,7 +18,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 | [adr/adr-045-gates-runner.md](adr/adr-045-gates-runner.md) | Gates runner and path-scoped gates | Accepted |
 | [adr/adr-046-comment-length-gate.md](adr/adr-046-comment-length-gate.md) | Inline comments: at most two lines and 100 code points, checked by a test | Accepted |
 | [adr/adr-047-findings.md](adr/adr-047-findings.md) | Findings: numbering under a parent, cost label, the minor/ status and batch closing | Accepted |
-| [adr/adr-048-version-pin-upgrade-migrate.md](adr/adr-048-version-pin-upgrade-migrate.md) | Version pin, upgrade and migrate | Accepted |
+| [adr/adr-048-version-pin-upgrade-migrate.md](adr/adr-048-version-pin-upgrade-migrate.md) | Version pin, local no-install CLI alignment, upgrade and migrate | Accepted |
 | [adr/adr-049-queue-order.md](adr/adr-049-queue-order.md) | Queue order: an integer rank per file, a saved rank on leaving, restore of several tasks in one call | Accepted |
 | [adr/adr-050-process.md](adr/adr-050-process.md) | Tasks and decisions live as files; a task's status is its directory | Accepted |
 | [adr/adr-051-localization.md](adr/adr-051-localization.md) | Layout language: the lang field and a second template set | Accepted |
