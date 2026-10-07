@@ -262,6 +262,7 @@ export const messages = {
   'the file is not UTF-8': 'файл не в UTF-8',
   '{cli} upgrade rewrites it': 'переставит {cli} upgrade',
   'upgrade does not rewrite it ({why}) — edit it by hand': 'upgrade его не переписывает ({why}) — поправь руками',
+  '{at}: bare {command} omits the cli installation restriction — use {cli} configured in {config}': '{at}: вызов {command} без флагов опускает запрет установки из cli — используй {cli}, заданный в {config}',
   'line {lineNo}: pin {pin} differs from cli — expected {expected}; {fix}': 'строка {lineNo}: пин {pin} расходится с cli — ожидается {expected}; {fix}',
   '{at}: pin {pin} differs from cli — expected {expected}; {cli} upgrade rewrites it': '{at}: пин {pin} расходится с cli — ожидается {expected}; переставит {cli} upgrade',
   'gate 1 read nothing: {files} Markdown files and not one link — a walk that reads no link does not prove a clean tree; check the docs field in {config} and link the documents from the index': 'гейт 1 не прочёл ничего: markdown-файлов {files}, ссылок 0 — обход без единой ссылки не доказывает, что дерево чистое; проверь поле docs в {config} и свяжи документы с индексом',
