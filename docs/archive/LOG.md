@@ -432,3 +432,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-200.1"></a>`BS-200.1-managed-block-template-drift` · 2026-10-09 · batch BS-240 · — · Managed AGENTS.md block can drift from its template unchecked
 - <a id="bs-242"></a>`BS-242-minor-deletion-probe-repeat-scope` · 2026-10-09 · completed · — · Minor batch: deletion-probe repeat scope
 - <a id="bs-192.63"></a>`BS-192.63-verification-step6-repeat-scope` · 2026-10-09 · batch BS-242 · — · verification-step6-repeat-scope
+- <a id="bs-234"></a>`BS-234-public-markdown-renderer-contract` · 2026-10-09 · completed · — · Remove private-host provenance from the Markdown renderer contract

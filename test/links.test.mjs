@@ -2,10 +2,11 @@
 // that must not be touched.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   EXTERNAL, anchorReader, anchorsOf, checkLinks, directoryLinks, hasAnchor, linksOf, normalizeHrefTarget, relativeLinks,
   referenceDeclarationsOnLine, rewriteInheritedLinks, rewriteFoldedLinks, repoPrefix, rewriteIncomingLinks, rewriteMovedLinks, slugOf, splitHref, uniqueSlugs,
@@ -18,6 +19,18 @@ const FOLD_SUMMARY = 'folded tasks {entries}, lines appended to {log} {lines}, f
 
 const FROM = 'docs/backlog/active';
 const TO = 'docs/archive/BS-42-move-breaks-links';
+
+test('anchors: the tracked tree has no private renderer hostname', () => {
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const tracked = spawnSync('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8' });
+  assert.equal(tracked.status, 0, tracked.stderr);
+  const files = tracked.stdout.split('\0').filter((file) => file && existsSync(path.join(root, file)));
+  assert.ok(files.includes('lib/links.js') && files.includes('CHANGELOG.md'));
+  const hostname = ['gitlab', 'ati', 'st'].join('.');
+  const hits = files.flatMap((file) => readFileSync(path.join(root, file), 'utf8').split('\n')
+    .flatMap((line, i) => line.toLowerCase().includes(hostname) ? [`${file}:${i + 1}`] : []));
+  assert.deepEqual(hits, [], 'private renderer hostname in tracked files');
+});
 
 test('inheritance: empty local destinations retain exact file provenance while moves leave them empty', () => {
   const file = 'docs/backlog/triage/parent #1?.md';
@@ -696,11 +709,11 @@ test('parser: a fence closes only on its own character, at least as long as the 
   assert.deepEqual(relativeLinks('````\n```\n[a](a.md)\n````\n[b](b.md)\n'), ['b.md']);
 });
 
-test('anchors: GitHub slugs as gitlab.ati.st renders them, duplicate suffixes, explicit ids', () => {
+test('anchors: local heading contract, duplicate suffixes, explicit ids', () => {
   for (const [heading, slug] of [['A — B', 'a--b'], ['a  --  b', 'a------b'], ['Über Straße 2.0 (beta)', 'über-straße-20-beta']]) {
     assert.equal(slugOf(heading), slug, heading);
   }
-  // Each heading and its id as the gitlab.ati.st Markdown API rendered them.
+  // Local heading-source/id fixtures; the contract is in docs/reference/03-lint.md.
   const rendered = [
     ['_emph_ and *star* word', 'emph-and-star-word'], ['![logo](l.png) Title', 'logo-title'], ['Tom &amp; Jerry', 'tom--jerry'],
     ['`<a>` tag', 'a-tag'], ['snake_case name', 'snake_case-name'], ['foo_bar_', 'foo_bar_'], ['__init__ method', 'init-method'],
@@ -710,7 +723,7 @@ test('anchors: GitHub slugs as gitlab.ati.st renders them, duplicate suffixes, e
   ];
   assert.deepEqual([...anchorsOf(rendered.map(([h]) => `## ${h}`).join('\n'))], rendered.map(([, id]) => id));
   assert.deepEqual([...anchorsOf('# &#99999999; &bogus; x\n')], ['99999999-bogus-x']);
-  // Setext headings and headings in a blockquote or a list item, as gitlab.ati.st gave their ids.
+  // Setext paragraph joining and container headings follow the same local slug rule.
   const nested = [
     'Line one', 'Line two', '===', '', 'Text', '  ---', '', '- Foo', '  ---', '', '1. Bar', '   ===', '',
     '- item', '---', '', 'Para', '', '---', '', '> quoted', '> ===', '', '1. ## Numbered *h*', '', '>> ## Deep', '',
@@ -751,7 +764,91 @@ test('checkLinks: a non-Markdown target, a target outside the project and a skip
 });
 
 test('anchors: a named entity that stands for punctuation or a symbol drops out of the slug', () => {
-  // Ids as the gitlab.ati.st Markdown API rendered these headings.
+  // Decoded symbols are dropped while the two surrounding spaces each become a hyphen.
   const rendered = [['A &mdash; B', 'a--b'], ['Copy &copy; x &hellip; y', 'copy--x--y']];
   assert.deepEqual([...anchorsOf(rendered.map(([h]) => `## ${h}`).join('\n'))], rendered.map(([, id]) => id));
+});
+
+test('anchors: every supported named entity agrees with its numeric and literal local fixture', () => {
+  const entities = [
+    ['amp', 0x26], ['lt', 0x3c], ['gt', 0x3e], ['quot', 0x22], ['apos', 0x27],
+    ['nbsp', 0xa0], ['ensp', 0x2002], ['emsp', 0x2003], ['thinsp', 0x2009],
+    ['iexcl', 0xa1], ['cent', 0xa2], ['pound', 0xa3], ['curren', 0xa4], ['yen', 0xa5],
+    ['brvbar', 0xa6], ['sect', 0xa7], ['uml', 0xa8], ['copy', 0xa9], ['laquo', 0xab],
+    ['not', 0xac], ['reg', 0xae], ['macr', 0xaf], ['deg', 0xb0], ['plusmn', 0xb1],
+    ['acute', 0xb4], ['para', 0xb6], ['middot', 0xb7], ['cedil', 0xb8], ['raquo', 0xbb],
+    ['iquest', 0xbf], ['times', 0xd7], ['divide', 0xf7], ['ndash', 0x2013], ['mdash', 0x2014],
+    ['lsquo', 0x2018], ['rsquo', 0x2019], ['sbquo', 0x201a], ['ldquo', 0x201c], ['rdquo', 0x201d],
+    ['bdquo', 0x201e], ['dagger', 0x2020], ['bull', 0x2022], ['hellip', 0x2026],
+    ['permil', 0x2030], ['prime', 0x2032], ['lsaquo', 0x2039], ['rsaquo', 0x203a],
+    ['euro', 0x20ac], ['trade', 0x2122], ['larr', 0x2190], ['uarr', 0x2191],
+    ['rarr', 0x2192], ['darr', 0x2193], ['harr', 0x2194],
+  ];
+  for (const [name, code] of entities) {
+    for (const source of [`&${name};`, `&${name.toUpperCase()};`, `&#${code};`, `&#x${code.toString(16)};`, String.fromCodePoint(code)]) {
+      assert.deepEqual([...anchorsOf(`# A ${source} B\n`)], ['a--b'], source);
+    }
+  }
+});
+
+test('anchors: numeric references, unknown names and code spans follow the local entity limits', () => {
+  const fixtures = [
+    ['A &#233; B', 'a-é-b'], ['A &#x45; B', 'a-e-b'], ['A &#32; B', 'a---b'],
+    ['A &le; &minus; &eacute; B', 'a-le-minus-eacute-b'],
+    ['A &#0; &#x0; &#1114112; &#99999999; B', 'a-0-x0-1114112-99999999-b'],
+    ['A `&amp;` `&#169;` `<b>` B', 'a-amp-169-b-b'], ['A &amp B', 'a-amp-b'],
+  ];
+  for (const [source, id] of fixtures) assert.deepEqual([...anchorsOf(`# ${source}\n`)], [id], source);
+});
+
+test('anchors: contract documents code-span composition limits', () => {
+  assert.deepEqual([...anchorsOf('# [A `B`](f)\n')], ['a-bf']);
+  const contract = readFileSync(new URL('../docs/reference/03-lint.md', import.meta.url), 'utf8');
+  assert.ok(contract.includes('Prose is processed separately on each side of a code span'),
+    'heading contract must state the code-span composition limit');
+  assert.ok(contract.includes('``[A `B`](f)`` becomes `a-bf`'));
+});
+
+test('anchors: contract documents explicit IDs outside heading-slug uniqueness', () => {
+  assert.deepEqual([...anchorsOf('<a id="x-1"></a>\n\n# X\n# X\n')], ['x', 'x-1']);
+  const contract = readFileSync(new URL('../docs/reference/03-lint.md', import.meta.url), 'utf8');
+  assert.ok(contract.includes('Explicit IDs are added after heading-slug uniqueness'),
+    'heading contract must state that explicit IDs do not reserve heading slugs');
+  assert.ok(contract.includes('exposes `x` and `x-1`, without generating `x-2`'));
+});
+
+test('anchors: contract documents parenthesized heading destinations', () => {
+  for (const source of ['[A](f(x).md)', '![A](f(x).md)']) {
+    assert.deepEqual([...anchorsOf(`# ${source}\n`)], ['amd'], source);
+  }
+  const contract = readFileSync(new URL('../docs/reference/03-lint.md', import.meta.url), 'utf8');
+  assert.ok(contract.includes('Inline link and image destinations stop at the first closing parenthesis'),
+    'heading contract must state the parenthesized-destination limit');
+  assert.ok(contract.includes('`[A](f(x).md)` and `![A](f(x).md)` both become `amd`'));
+});
+
+test('anchors: contract documents the inherited constructor entity exception', () => {
+  for (const source of ['&constructor;', '&CONSTRUCTOR;']) {
+    assert.deepEqual([...anchorsOf(`# ${source}\n`)], ['function-object--native-code-'], source);
+  }
+  assert.deepEqual([...anchorsOf('# &unlisted;\n')], ['unlisted']);
+  assert.deepEqual([...anchorsOf('# `&constructor;`\n')], ['constructor']);
+  const contract = readFileSync(new URL('../docs/reference/03-lint.md', import.meta.url), 'utf8');
+  const adr = readFileSync(new URL('../docs/adr/adr-057-markdown-heading-anchors.md', import.meta.url), 'utf8');
+  assert.ok(contract.includes('The inherited `constructor` property is an exception'),
+    'heading contract must state the inherited constructor lookup exception');
+  assert.ok(adr.includes('The inherited `constructor` property is an exception'),
+    'heading ADR must state the inherited constructor lookup exception');
+});
+
+test('anchors: contract documents nested heading labels as limited preprocessing', () => {
+  for (const source of ['[A [B]](f.md)', '![A [B]](f.md)']) {
+    assert.deepEqual([...anchorsOf(`# ${source}\n`)], ['a-bfmd'], source);
+  }
+  const contract = readFileSync(new URL('../docs/reference/03-lint.md', import.meta.url), 'utf8');
+  assert.ok(contract.includes('Heading prose uses limited substitutions, not a complete Markdown inline parser'),
+    'heading contract must bound its inline preprocessing');
+  assert.ok(contract.includes('Labels are not parsed for balanced brackets'),
+    'heading contract must state the nested-label limit');
+  assert.ok(contract.includes('`[A [B]](f.md)` and `![A [B]](f.md)` both become `a-bfmd`'));
 });

@@ -27,6 +27,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 | [adr/adr-054-tracks.md](adr/adr-054-tracks.md) | The tracks command observes a worker run and never removes anything | Accepted |
 | [adr/adr-055-docs-rules-ship-to-projects.md](adr/adr-055-docs-rules-ship-to-projects.md) | Documentation rules ship to projects: lint checks, writing skills, agent hooks and the writer pass | Accepted |
 | [adr/adr-056-adr-placeholder-gate.md](adr/adr-056-adr-placeholder-gate.md) | A placeholder left in an ADR fails lint | Accepted |
+| [adr/adr-057-markdown-heading-anchors.md](adr/adr-057-markdown-heading-anchors.md) | Markdown heading anchors use a precise local contract | Accepted |
 
 ## Cross-cutting principles
 
