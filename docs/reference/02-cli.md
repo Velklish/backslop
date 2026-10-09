@@ -112,6 +112,8 @@ With `--parent N.M`, the newborn entry still gets the next free `N.k` under root
 
 ### mv
 
+Run planning: create each task with `new`, take the track with one `mv N M K active`, and commit only those planning changes together. A task taken later in the run goes into the next planning or acceptance commit, never a separate take commit. The commands change files; they do not create commits.
+
 Behaviour:
 
 - `git mv` between status directories. After all moves, link rewrites and queue renumbering finish, `mv` stages the complete contents of every tracked card moved by this call at its new path. Tracking checks and staging of those paths use literal Git pathspecs. Edits to files not moved by this call, including incoming links and neighbour renumbering, stay unstaged, as does queue reordering without a move. A file outside the git index (or with no repository) is moved by a plain rename, with a warning, and is not added to the index.
