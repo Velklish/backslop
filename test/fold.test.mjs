@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ANY, KILLED, SECTION, cleanup, cli, escapeRe, gitAll, makeProject, put, read, resultTemplateParagraphs, ru, ruCard, ruExpand, ruHeadRe, ruOutcome, ruOutcomeWord, ruRe, ruResult, ruResultHeading, run } from './helpers.mjs';
@@ -473,6 +473,242 @@ test('fold --embed-missing: an attachment beside a committed task.md in an ignor
     assert.match(r.err, unsavedRe('docs/archive/BS-1-alpha/scan.png'));
     assert.ok(existsSync(path.join(root, 'docs/archive/BS-1-alpha/scan.png')), 'the attachment stays on disk');
     assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')), 'the refusal writes no journal');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: bulk dry-run previews every journal line and link rewrite without changing the tree', () => {
+  const root = makeProject();
+  try {
+    closed(root, { date: '2026-01-10' });
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Beta', date: '2026-05-10' });
+    const beforeLinks = [
+      '[task](archive/BS-1-alpha/task.md#context) and [result](archive/BS-2-beta/result.md).',
+      '[directory](/docs/archive/BS-1-alpha/) and [notes](archive/BS-1-alpha/notes.md).',
+    ];
+    put(root, 'docs/preview.md', `${beforeLinks.join('\n')}\n`);
+    put(root, 'docs/archive/BS-1-alpha/notes.md', '[self](task.md)\n');
+    gitAll(root);
+    const tracked = run(root, ['ls-files', '-z']).stdout.split('\0').filter(Boolean);
+    const before = tracked.map((rel) => read(root, rel));
+    const index = run(root, ['ls-files', '--stage']).stdout;
+
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.deepEqual(tracked.map((rel) => read(root, rel)), before, 'dry-run preserves every file');
+    assert.equal(run(root, ['ls-files', '--stage']).stdout, index, 'dry-run preserves the index');
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+    assert.ok(!existsSync(path.join(root, 'docs/archive/LOG.md')));
+
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.equal(dry.out, real.out, 'stdout stays the same commit message draft');
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  - <a id=')).map((l) => l.slice(2)), logLines(root));
+    const afterLinks = read(root, 'docs/preview.md').trimEnd().split('\n');
+    assert.equal(afterLinks[0], '[task](archive/LOG.md#bs-1) and [result](archive/LOG.md#bs-2).');
+    assert.equal(afterLinks[1], '[directory](/docs/archive/LOG.md#bs-1) and [notes](archive/BS-1-alpha/notes.md).');
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  - [')).map((l) => l.slice(4)), beforeLinks);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  + [')).map((l) => l.slice(4)), afterLinks);
+    assert.match(dry.err, /docs\/preview\.md/);
+    assert.match(dry.err, /docs\/preview\.md: archive\/BS-1-alpha\/notes\.md/);
+    assert.doesNotMatch(dry.err, /\[self\]/, 'files removed by fold have no link rewrites');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: bulk dry-run previews link rewrites in the appended journal lines', () => {
+  const root = makeProject();
+  try {
+    closed(root, { title: 'Alpha [other](/docs/archive/BS-2-beta/task.md)' });
+    closed(root, { id: 'BS-2', slug: 'beta', title: 'Beta' });
+    const journal = '# Journal\n\n[other](/docs/archive/BS-2-beta/result.md)\n';
+    put(root, 'docs/archive/LOG.md', journal);
+    gitAll(root);
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.equal(read(root, 'docs/archive/LOG.md'), journal);
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.equal(dry.out, real.out);
+    const lines = logLines(root);
+    assert.match(lines[0], /Alpha \[other\]\(\/docs\/archive\/LOG\.md#bs-2\)$/);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  - <a id=')).map((l) => l.slice(2)), lines);
+    assert.ok(dry.err.includes(`  + ${lines[0]}\n`), 'the rewrite of the appended line is previewed');
+    assert.match(dry.err, /  - \[other\]\(\/docs\/archive\/BS-2-beta\/result\.md\)/);
+    assert.match(dry.err, /  \+ \[other\]\(\/docs\/archive\/LOG\.md#bs-2\)/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: bulk dry-run skips rewrites through an alias of a removed directory (symlink)', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  try {
+    closed(root);
+    put(root, 'docs/archive/BS-1-alpha/notes.md', '[self](task.md)\n');
+    symlinkSync(path.join(root, 'docs', 'archive'), path.join(root, 'aa-alias'));
+    gitAll(root);
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.doesNotMatch(dry.err, /\[self\]/);
+    assert.equal(read(root, 'docs/archive/BS-1-alpha/notes.md'), '[self](task.md)\n');
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  - <a id=')).map((l) => l.slice(2)), logLines(root));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: bulk dry-run previews surviving file aliases once, matching the real changed path (symlink)', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  try {
+    closed(root);
+    const before = '[task](archive/BS-1-alpha/task.md)';
+    put(root, 'docs/preview.md', `${before}\n`);
+    symlinkSync(path.join(root, 'docs', 'preview.md'), path.join(root, 'preview-alias.md'));
+    gitAll(root);
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.equal(read(root, 'docs/preview.md'), `${before}\n`);
+    assert.equal(read(root, 'preview-alias.md'), `${before}\n`);
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.equal(dry.out, real.out);
+    const previewPaths = dry.err.split('\n').filter((l) => /^ {2}(?:docs\/preview\.md|preview-alias\.md)$/.test(l)).map((l) => l.trim());
+    const changedPaths = real.err.split('\n').filter((l) => /^ {4}(?:docs\/preview\.md|preview-alias\.md)$/.test(l)).map((l) => l.trim());
+    assert.equal(changedPaths.length, 1, 'the real fold changes only the first path to the physical file');
+    assert.deepEqual(previewPaths, changedPaths, 'preview lists exactly the paths changed by real fold');
+    const after = read(root, 'docs/preview.md').trimEnd();
+    assert.equal(after, '[task](archive/LOG.md#bs-1)');
+    assert.equal(read(root, 'preview-alias.md'), `${after}\n`);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  - [task]')).map((l) => l.slice(4)), [before]);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  + [task]')).map((l) => l.slice(4)), [after]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: bulk dry-run previews hardlinked files as the real sequential writes do', () => {
+  const root = makeProject();
+  try {
+    closed(root);
+    const before = '[task](archive/BS-1-alpha/task.md)';
+    put(root, 'docs/preview-a.md', `${before}\n`);
+    linkSync(path.join(root, 'docs', 'preview-a.md'), path.join(root, 'docs', 'preview-b.md'));
+    gitAll(root);
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.equal(read(root, 'docs/preview-a.md'), `${before}\n`);
+    assert.equal(read(root, 'docs/preview-b.md'), `${before}\n`);
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.equal(dry.out, real.out);
+    const previewPaths = dry.err.split('\n').filter((l) => /^ {2}docs\/preview-[ab]\.md$/.test(l)).map((l) => l.trim());
+    const changedPaths = real.err.split('\n').filter((l) => /^ {4}docs\/preview-[ab]\.md$/.test(l)).map((l) => l.trim());
+    assert.equal(changedPaths.length, 1);
+    assert.deepEqual(previewPaths, changedPaths, 'preview follows writes to the shared inode');
+    const after = read(root, 'docs/preview-a.md').trimEnd();
+    assert.equal(after, '[task](archive/LOG.md#bs-1)');
+    assert.equal(read(root, 'docs/preview-b.md'), `${after}\n`);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  - [task]')).map((l) => l.slice(4)), [before]);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  + [task]')).map((l) => l.slice(4)), [after]);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('fold: bulk dry-run previews a multiline HTML href without invented or shifted lines', () => {
+  const root = makeProject();
+  try {
+    closed(root);
+    const before = '# Preview\n<a href="archive/BS-1-alpha/task.md?\nq">task</a>\nunchanged tail\n';
+    put(root, 'docs/preview.md', before);
+    gitAll(root);
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.equal(read(root, 'docs/preview.md'), before);
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.equal(dry.out, real.out);
+    const after = read(root, 'docs/preview.md');
+    assert.equal(after, '# Preview\n<a href="archive/LOG.md#bs-1">task</a>\nunchanged tail\n');
+    assert.doesNotMatch(dry.err, /^ {2}\+ undefined$/m, 'preview never invents an after-line');
+    const removed = dry.err.split('\n').filter((l) => l.startsWith('  - ') && !l.startsWith('  - <a id=')).map((l) => l.slice(4));
+    const added = dry.err.split('\n').filter((l) => l.startsWith('  + ')).map((l) => l.slice(4));
+    assert.deepEqual(removed, ['<a href="archive/BS-1-alpha/task.md?', 'q">task</a>']);
+    assert.deepEqual(added, ['<a href="archive/LOG.md#bs-1">task</a>']);
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Windows directory symlinks require privileges unavailable in the fixture runner.
+test('fold: bulk dry-run skips files removed through a symlinked archive ancestor', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  try {
+    closed(root);
+    const before = '[self](/docs/archive/BS-1-alpha/task.md)\n';
+    put(root, 'docs/archive/BS-1-alpha/notes.md', before);
+    renameSync(path.join(root, 'docs', 'archive'), path.join(root, 'aa-archive'));
+    symlinkSync('../aa-archive', path.join(root, 'docs', 'archive'));
+    gitAll(root);
+    const tracked = run(root, ['ls-files', '-z']).stdout.split('\0').filter((rel) => rel && rel !== 'docs/archive');
+    const snapshot = tracked.map((rel) => read(root, rel));
+    const index = run(root, ['ls-files', '--stage']).stdout;
+
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.deepEqual(tracked.map((rel) => read(root, rel)), snapshot);
+    assert.equal(run(root, ['ls-files', '--stage']).stdout, index);
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+    assert.ok(!existsSync(path.join(root, 'aa-archive', 'LOG.md')));
+
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.equal(dry.out, real.out);
+    assert.ok(!existsSync(path.join(root, 'aa-archive', 'BS-1-alpha')), 'the physical task directory is removed');
+    assert.ok(existsSync(path.join(root, 'docs', 'archive')), 'the archive symlink survives');
+    assert.doesNotMatch(real.err, /^ {4}aa-archive\/BS-1-alpha\/notes\.md$/m);
+    assert.deepEqual(dry.err.split('\n').filter((l) => l.startsWith('  - <a id=')).map((l) => l.slice(2)), logLines(root));
+    assert.doesNotMatch(dry.err, /\[self\]/, 'preview excludes files the real fold removes through an ancestor symlink');
+  } finally {
+    cleanup(root);
+  }
+});
+
+// Windows directory symlinks require privileges unavailable in the fixture runner.
+test('fold: bulk dry-run keeps rewrites in the surviving target of a task symlink', { skip: process.platform === 'win32' }, () => {
+  const root = makeProject();
+  try {
+    closed(root);
+    const before = '[self](/docs/archive/BS-1-alpha/task.md)\n';
+    put(root, 'docs/archive/BS-1-alpha/notes.md', before);
+    renameSync(path.join(root, 'docs', 'archive', 'BS-1-alpha'), path.join(root, 'aa-task'));
+    symlinkSync('../../aa-task', path.join(root, 'docs', 'archive', 'BS-1-alpha'));
+    gitAll(root);
+    const dry = cli(root, ['fold', '--dry-run']);
+    assert.equal(dry.code, 0, dry.err);
+    assert.equal(read(root, 'aa-task/notes.md'), before);
+    assert.equal(run(root, ['status', '--porcelain', '--untracked-files=all']).stdout, '');
+
+    const real = cli(root, ['fold']);
+    assert.equal(real.code, 0, real.err);
+    assert.equal(dry.out, real.out);
+    assert.ok(!existsSync(path.join(root, 'docs', 'archive', 'BS-1-alpha')), 'only the task symlink is removed');
+    const after = read(root, 'aa-task/notes.md');
+    assert.equal(after, '[self](/docs/archive/LOG.md#bs-1)\n');
+    assert.match(real.err, /^ {4}aa-task\/notes\.md$/m);
+    assert.match(dry.err, /^ {2}aa-task\/notes\.md$/m);
+    assert.ok(dry.err.includes(`  - ${before.trimEnd()}\n`));
+    assert.ok(dry.err.includes(`  + ${after.trimEnd()}\n`));
   } finally {
     cleanup(root);
   }
