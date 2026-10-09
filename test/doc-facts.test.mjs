@@ -35,3 +35,8 @@ test('05-orchestrator-contract lists the config fields in the order saveConfig w
   const word = lines[at].match(/The (\w+) fields/)[1];
   assert.equal(NUMBER_WORDS.indexOf(word), order.length, `the page says "${word}" fields`);
 });
+
+test('04-verification states the deletion-probe repeat scope and baseline reuse conditions', () => {
+  const repeat = page('04-verification.md').split('\n').find((line) => line.startsWith('   - k.'));
+  assert.equal(repeat, '   - k. Repeat sub-steps 6b through 6j with a second, different mutation of the same guarded code. Reuse the baseline from 6a only for the identical committed SHA, the same environment and a clean restored tree; otherwise rerun 6a before repeating 6b through 6j.');
+});
