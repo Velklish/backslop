@@ -503,6 +503,142 @@ test('mv: queue → active sets the taken date and drops the order', () => {
   }
 });
 
+for (const [from, target, fields, args] of [
+  ['queue', 'active', '- **Order:** 10\n', []],
+  ['active', 'queue', '- **Previous order:** 10\n- **Taken:** 2026-01-01\n', ['--restore']],
+  ['active', 'deferred', '- **Taken:** 2026-01-01\n', []],
+  ['triage', 'minor', '- **Cost:** —\n- **Scope:** [TODO]\n', ['--evidence', 'verified']],
+]) {
+  test(`mv: a tracked status move stages the complete card for ${target}`, () => {
+    const root = makeProject();
+    try {
+      const cfg = JSON.parse(read(root, 'backslop.json'));
+      put(root, 'backslop.json', JSON.stringify({ ...cfg, lang: 'en' }));
+      const oldRel = `docs/backlog/${from}/BS-1-a.md`;
+      const newRel = `docs/backlog/${target}/BS-1-a.md`;
+      put(root, oldRel, `# BS-1 · First\n\n${fields}\n## Context\n\nSee [neighbour](BS-2-b.md).\n`);
+      put(root, `docs/backlog/${from}/BS-2-b.md`, '# BS-2 · Neighbour\n');
+      put(root, 'README.md', `# Project\n\n[task](${oldRel})\n`);
+      put(root, 'unrelated.txt', 'base\n');
+      gitAll(root);
+      put(root, 'unrelated.txt', 'staged\n');
+      run(root, ['add', '--', 'unrelated.txt']);
+      put(root, 'unrelated.txt', 'unstaged\n');
+      const incomingIndex = run(root, ['show', ':README.md']).stdout;
+      const r = cli(root, ['mv', '1', target, ...args]);
+      assert.equal(r.code, 0, r.err);
+      const card = read(root, newRel);
+      assert.equal(run(root, ['show', `:${newRel}`]).stdout, card, 'the index holds every card edit');
+      assert.equal(run(root, ['diff', '--', newRel]).stdout, '', 'no card edit remains unstaged');
+      const cached = run(root, ['diff', '--cached', '--', oldRel, newRel]).stdout;
+      assert.match(cached, new RegExp(escapeRe(newRel)));
+      if (target === 'active') {
+        assert.match(cached, /\+.*\*\*Taken:\*\* \d{4}-\d{2}-\d{2}/);
+        assert.match(card, /\*\*Previous order:\*\* 10/);
+        assert.doesNotMatch(card, /\*\*Order:\*\*/);
+      } else if (target === 'queue') {
+        assert.match(card, /\*\*Order:\*\* 10/);
+        assert.doesNotMatch(card, /\*\*(?:Previous order|Taken):\*\*/);
+      } else if (target === 'deferred') {
+        assert.match(card, /## Deferred\n/);
+        assert.doesNotMatch(card, /\*\*Taken:\*\*/);
+      } else {
+        assert.match(card, /\*\*Cost:\*\* minor/);
+        assert.doesNotMatch(card, /\[TODO\]/);
+        assert.match(card, /Evidence: verified/);
+      }
+      assert.match(card, new RegExp(escapeRe(`../${from}/BS-2-b.md`)));
+      assert.equal(run(root, ['show', ':README.md']).stdout, incomingIndex);
+      assert.match(read(root, 'README.md'), new RegExp(escapeRe(newRel)));
+      assert.equal(run(root, ['show', ':unrelated.txt']).stdout, 'staged\n');
+      assert.equal(read(root, 'unrelated.txt'), 'unstaged\n');
+      assert.deepEqual(run(root, ['diff', '--cached', '--no-renames', '--name-only']).stdout.trim().split('\n').sort(),
+        [oldRel, newRel, 'unrelated.txt'].sort());
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
+test('mv: multi-number staging waits for final ranks and links', () => {
+  const root = makeProject();
+  try {
+    for (const n of [1, 2, 3]) {
+      put(root, `docs/backlog/active/BS-${n}-a.md`, ruCard(`BS-${n}`, 'First',
+        { previousOrder: 1, taken: '2026-01-01' }, [['context', `[next](BS-${n % 3 + 1}-a.md)`]]));
+    }
+    gitAll(root);
+    const r = cli(root, ['mv', '1', '2', '3', 'queue', '--restore']);
+    assert.equal(r.code, 0, r.err);
+    const cards = [1, 2, 3].map((n) => read(root, `docs/backlog/queue/BS-${n}-a.md`));
+    assert.deepEqual(cards.map((card) => card.match(fieldRe('order', ' (\\d+)'))[1]), ['1', '10', '20']);
+    for (const n of [3, 2, 1]) {
+      const rel = `docs/backlog/queue/BS-${n}-a.md`;
+      assert.equal(run(root, ['show', `:${rel}`]).stdout, read(root, rel), `${rel}: final card is staged`);
+      assert.equal(run(root, ['diff', '--', rel]).stdout, '');
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+for (const tracked of [true, false]) {
+  test(`mv: bracket-path staging isolates a ${tracked ? 'tracked' : 'untracked'} card`, () => {
+    const root = makeProject({ docs: 'docs[1]' });
+    try {
+      const oldRel = 'docs[1]/backlog/queue/BS-1-a.md';
+      const newRel = 'docs[1]/backlog/active/BS-1-a.md';
+      const unrelated = 'docs1/backlog/active/BS-1-a.md';
+      put(root, unrelated, 'base\n');
+      if (tracked) put(root, oldRel, ruCard('BS-1', 'First', { order: 10 }));
+      gitAll(root);
+      if (!tracked) put(root, oldRel, ruCard('BS-1', 'First', { order: 10 }));
+      put(root, unrelated, 'unstaged\n');
+      const r = cli(root, ['mv', '1', 'active']);
+      assert.equal(r.code, 0, r.err);
+      assert.equal(run(root, ['show', `:${unrelated}`]).stdout, 'base\n', 'a matching path stays unstaged');
+      assert.equal(read(root, unrelated), 'unstaged\n');
+      if (tracked) {
+        assert.equal(run(root, ['show', `:${newRel}`]).stdout, read(root, newRel));
+        assert.equal(run(root, ['diff', '--', `:(literal)${newRel}`]).stdout, '');
+      } else {
+        assert.match(r.err, ruRe('file is not tracked by git — moved without git mv'));
+        assert.equal(run(root, ['diff', '--cached']).stdout, '');
+        assert.equal(run(root, ['ls-files', '--', `:(literal)${newRel}`]).stdout, '');
+      }
+    } finally {
+      cleanup(root);
+    }
+  });
+}
+
+test('mv: an untracked status move leaves the index unchanged', () => {
+  const root = makeProject();
+  try {
+    gitAll(root);
+    put(root, 'docs/backlog/queue/BS-1-a.md', ruCard('BS-1', 'First', { order: '10' }));
+    const r = cli(root, ['mv', '1', 'active']);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, ruRe('file is not tracked by git — moved without git mv'));
+    assert.equal(run(root, ['diff', '--cached']).stdout, '');
+    assert.equal(run(root, ['ls-files', '--', 'docs/backlog/active/BS-1-a.md']).stdout, '');
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('mv: queue reordering leaves field edits unstaged', () => {
+  const root = threeQueued();
+  try {
+    const r = cli(root, ['mv', '3', 'queue', '--top']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(run(root, ['diff', '--cached']).stdout, '');
+    assert.match(run(root, ['diff']).stdout, fieldRe('order', ' 5'));
+  } finally {
+    cleanup(root);
+  }
+});
+
 test('mv: a queued task is reordered by --top or --after; a bare move and --after itself are refused', () => {
   const root = threeQueued();
   try {

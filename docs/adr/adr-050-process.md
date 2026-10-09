@@ -29,6 +29,8 @@ A project needs a task tracker and a decision log that live next to the code, th
 
 ## Consequences
 
+For tracked status moves, `mv` stages the complete moved cards after every move, link rewrite and queue renumbering finishes: a later move may still change an earlier card's fields and links. The new tracking checks and staging use literal Git pathspecs, so a directory name containing brackets cannot match another path. A commit of the index alone must carry the fields required by the new statuses. This stages any existing edits in those cards too. Edits to files not moved by this call and queue reordering without a move stay unstaged; an untracked card is not added to the index. The staging boundary belongs to `mv`, not to `relocateTask`, which is shared with archive operations.
+
 - A move touches more than one file: every file that links to the task, and in the queue the other queue files a renumbering rewrites. Parallel branches conflict there too, not only on the same task.
 - Seeing the queue costs a command; opening the backlog README shows no list.
 - Lint holds links, numbers, the backlog layout and the fields each status requires; the quality of a task's text and of its result stays with the author.
