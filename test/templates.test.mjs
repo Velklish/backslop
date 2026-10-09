@@ -12,7 +12,7 @@ import {
   SECTION_CHECKS, SECTION_CONTEXT, SECTION_DEFERRED, SECTION_EVIDENCE, SECTION_OUT, SECTION_WORK,
   fieldName, getField, readTitle, sectionName, sections,
 } from '../lib/tasks.js';
-import { SECTION, cleanup, put, ru, ruTwinLine, run, toolCli, toolCopy } from './helpers.mjs';
+import { SECTION, cleanup, put, read, ru, ruTwinLine, run, toolCli, toolCopy } from './helpers.mjs';
 
 test('template parity: the composition and placeholders match', () => {
   assert.deepEqual(templateParity(), []);
@@ -231,6 +231,24 @@ test('self-host: the rules pair, ROLES.md and the LOG header in docs/ are the re
   const header = log.slice(0, log.search(/^- <a id=/m)).trimEnd();
   const expected = renderProjectTemplate(cfg, 'docs/archive/LOG.md', { cli: cfg.cli, prefix: cfg.prefix }).trimEnd();
   assert.equal(header, expected, `docs/archive/LOG.md header differs from its ${cfg.lang} template`);
+});
+
+test('self-host: the managed AGENTS.md block matches init with the repository configuration', () => {
+  const repo = path.dirname(TEMPLATES_DIR);
+  const original = read(repo, 'AGENTS.md');
+  const tool = toolCopy();
+  const block = (text) => text.replace(/\r\n/g, '\n')
+    .match(/^[ \t]*<!-- backslop:start -->[ \t]*\n[\s\S]*?^[ \t]*<!-- backslop:end -->[ \t]*$/m)?.[0].trim();
+  try {
+    put(tool, 'backslop.json', read(repo, 'backslop.json'));
+    put(tool, 'AGENTS.md', original);
+    const rendered = toolCli(tool, ['init']);
+    assert.equal(rendered.code, 0, rendered.err);
+    const actual = block(original);
+    assert.ok(actual, 'AGENTS.md has a managed backslop block');
+    assert.equal(actual, block(read(tool, 'AGENTS.md')),
+      'AGENTS.md managed block differs from init with the repository configuration');
+  } finally { cleanup(tool); }
 });
 
 test('archive header: the revision is the body source and can include edits after closure', () => {
