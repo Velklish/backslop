@@ -135,6 +135,7 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 - Where each part of `lib/` lives, and how to add a command, a lint gate, a migration or a template placeholder: [06. Module map](docs/reference/06-module-map.md).
 - `templates/` is the source of everything installed into a project; the repository's own `docs/` are managed with the same tool.
 - `node bin/backslop.js gates` runs the repository gates: `lint` and `npm test`. The full test suite runs at most two files concurrently, with a 60-second timeout per test.
+- `npm test` compares this repository's managed `AGENTS.md` block with what `init` renders using its `backslop.json`, including step overrides and probe/hook passages. Text outside the block is not compared.
 - Parser fixtures use synthetic narratives and explicit language metadata; their policy is in [Outcome words](docs/reference/01-layout.md#outcome-words).
 - Windows is supported.
 

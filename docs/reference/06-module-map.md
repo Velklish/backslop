@@ -238,7 +238,7 @@ A probe is a mutation of a green project. A gate is confirmed by a probe that go
 | One file for a command with its own cases | `archive`, `brief`, `fold` (with `show`), `gates`, `hook`, `init`, `links` (`--external`, in `test/links-external.test.mjs`), `merge-changelog`, `seed`, `tracks`, `upgrade` (with `migrate`): `test/<name>.test.mjs` |
 | Lint gates and checks outside the numbered gates | `test/lint.test.mjs` |
 | Lint in a fresh `git worktree`, where ignored adapter outputs are absent | `test/lint-worktree.test.mjs` |
-| Templates: parity, slots, rendering | `test/templates.test.mjs`; the gate 12 probe is in `test/lint.test.mjs` |
+| Templates: parity, slots, rendering, and the repository's managed AGENTS block compared with init under its actual configuration | `test/templates.test.mjs`; the gate 12 probe is in `test/lint.test.mjs` |
 | Vendored writing skills: `LICENSE`, `SOURCE.md`, and how the adapters lay them out | `test/vendor.test.mjs` |
 | The `backslop-writer` skill templates and the `writer` field of `backslop.json` | `test/writer.test.mjs` |
 | Release script | `test/release.test.mjs` |

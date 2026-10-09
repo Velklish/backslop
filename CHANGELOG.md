@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **The repository test suite guards its managed `AGENTS.md` block** — it compares only that block with `init` output under the repository's actual configuration, including step overrides and probe/hook passages. Unmanaged prose is excluded; consumer `lint` is unchanged.
 - **Run planning uses one commit for creation and the track take** — the agents section and `backslop-batch` put `new` for each task and one `mv N M K active` into a planning commit containing only those changes. A later take joins the next planning or acceptance commit instead of getting a standalone commit. A planning commit with another task's changes is kept at acceptance. Both languages take the rule on the next `init`.
 
 - **Bulk `fold --dry-run` previews journal lines and link rewrites** — stderr shows each line to append, each changed file and its before/after Markdown lines, and links left unrewritten. The preview includes rewrites in lines appended to an existing journal, including linked task titles. Surviving symlinks and hardlinks share planned text, so the preview names the same changed paths as the real fold. Before/after blocks preserve multiline rewrites without shifting unchanged trailing lines. The commit message draft stays on stdout, and the tree and index stay unchanged. The single-task dry run is unchanged.
