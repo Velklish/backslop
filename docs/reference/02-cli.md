@@ -114,7 +114,7 @@ With `--parent N.M`, the newborn entry still gets the next free `N.k` under root
 
 Behaviour:
 
-- `git mv` between status directories. A file outside the git index (or with no repository) is moved by a plain rename, with a warning.
+- `git mv` between status directories. After all moves, link rewrites and queue renumbering finish, `mv` stages the complete contents of every tracked card moved by this call at its new path. Tracking checks and staging of those paths use literal Git pathspecs. Edits to files not moved by this call, including incoming links and neighbour renumbering, stay unstaged, as does queue reordering without a move. A file outside the git index (or with no repository) is moved by a plain rename, with a warning, and is not added to the index.
 - Several numbers per call: all are resolved and checked before the first move, then moved one by one in argument order, with one `ok` line each and one summary of the queue renumbering (a file renumbered twice by neighbours from the same call counts once). Every refusal visible before a move happens before the first move; a file-system failure in the middle of a call is not undone — the check is atomic, the move is not.
 - Into `queue`: sets Order and removes Previous order. Out of `queue`: removes Order and keeps its number in Previous order, where `--restore` reads it. A return to `queue` without `--restore` discards the saved number, with one line per task that had one.
 - A task already in `queue/` with `--top`/`--after M` is reordered, not moved: its place is computed as the bullet "Queue position" describes, without the task itself among the neighbours; only Order changes, the file stays and no links are rewritten.

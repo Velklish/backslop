@@ -45,6 +45,12 @@ Each block quotes a statement of the README or the reference that a code change 
 <details>
 <summary>Quoted statements</summary>
 
+<!-- quote:reference/02-cli.md -->
+```text
+- `git mv` between status directories. After all moves, link rewrites and queue renumbering finish, `mv` stages the complete contents of every tracked card moved by this call at its new path. Tracking checks and staging of those paths use literal Git pathspecs. Edits to files not moved by this call, including incoming links and neighbour renumbering, stay unstaged, as does queue reordering without a move. A file outside the git index (or with no repository) is moved by a plain rename, with a warning, and is not added to the index.
+```
+<!-- /quote -->
+
 <!-- quote:adr/adr-051-localization.md -->
 ```text
 - **Messages.** Human CLI output goes through `msg(lang, en, params)` in the config language (`lib/i18n.js`). The English text in the code is the key, with `{name}` placeholders filled from `params`; the Russian text is the entry of that key in `templates/i18n/ru.mjs`, and a key without an entry falls back to the English. Outside a project the language is unknown, so messages use the English text; `help` in `bin/backslop.js` prints the English help (`HELP_EN`).
