@@ -18,7 +18,7 @@
 
 ## Language
 
-Everything in this repository is English. Russian lives only in three places: `templates/` (the Russian template layer and `templates/i18n/ru.mjs`), `docs/backlog/` (tracker cards, which may quote Russian messages) and `docs/archive/` (the history of closed tasks). `test/english-only.test.mjs` fails on a tracked file elsewhere that holds a character of U+0400–U+04FF and names each hit as file:line; a document that needs a Russian token names its source in `templates/` instead.
+Original prose in this repository is English, including current tracker cards and archive titles and outcomes. Russian is allowed in the Russian template twins and `templates/i18n/ru.mjs`, and in identified verbatim diagnostics or multilingual input. `test/english-only.test.mjs` scans tracked files for U+0400–U+04FF and names unexplained hits as file:line. Its evidence exceptions name the exact path, entry, literal and source; they exempt neither a whole tracker file nor adjacent prose. Preserve original evidence bytes and historical task bodies; see [repository language evidence](docs/reference/04-verification.md#repository-language-evidence).
 
 ## Contributor invariants
 
