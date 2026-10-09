@@ -44,3 +44,11 @@ This protocol is repo-local: backslop does not ship it to consumer projects. Use
 The repository's `npm test` runs the full suite with `--test-timeout=60000 --test-concurrency=2`: at most two test files run concurrently. Keep these settings for baseline and candidate runs on a shared machine.
 
 Windows behaviour is verified by reading the code unless a Windows machine runs the reproduction. For git-dependent behaviour, record the installed git version used for verification.
+
+## Repository language evidence
+
+Original prose in this repository's current tracker and archive is English. This is a contributor rule for the tool repository; consumer projects still support both languages and multilingual parser inputs.
+
+`test/english-only.test.mjs` scans existing tracked files for U+0400–U+04FF. File exceptions are the Russian template twins and `templates/i18n/ru.mjs`; English templates and unrelated template paths remain checked. Verbatim evidence exceptions name a path, an entry marker, exact quoted literals and their source. Only one occurrence of each literal is ignored; additional prose, duplicate or changed literals, and literals in another entry or file remain checked. The test also requires each declared literal to remain present exactly once.
+
+Preserve localized diagnostics and multilingual parser input as written. A retained historical report phrase is evidence of its recorded wording, not proof that a command printed it. Translate original titles and outcome spellings without changing anchors, ids, slugs, dates, revisions, row order or outcome semantics. Historical task bodies stay in their original commits. Verify metadata and representative retrievals against the integration base, recording each command's exit and body hash; a wrapper exit alone does not prove every retrieval succeeded.

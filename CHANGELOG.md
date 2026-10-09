@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Repository tracker history is English** — translate original journal titles and outcome spellings while preserving task metadata, outcome semantics and historical bodies. The tracked-tree language test rejects unexplained Russian tracker/archive prose and retains only identified verbatim diagnostics and multilingual-input literals alongside supported localization resources.
+
 - **The test-deletion probe states what its second mutation repeats** — repeat sub-steps 6b through 6j with a second, different mutation of the same guarded code. Reuse the 6a baseline only for the identical committed SHA, the same environment and a clean restored tree; otherwise rerun 6a. The neighbouring steps and deletion-proof evidence and failure conditions are unchanged.
 - **The repository test suite guards its managed `AGENTS.md` block** — it compares only that block with `init` output under the repository's actual configuration, including step overrides and probe/hook passages. Unmanaged prose is excluded; consumer `lint` is unchanged.
 - **Run planning uses one commit for creation and the track take** — the agents section and `backslop-batch` put `new` for each task and one `mv N M K active` into a planning commit containing only those changes. A later take joins the next planning or acceptance commit instead of getting a standalone commit. A planning commit with another task's changes is kept at acceptance. Both languages take the rule on the next `init`.

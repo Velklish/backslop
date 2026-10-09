@@ -132,6 +132,8 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 
 ## Work on backslop
 
+- Original prose in this repository's tracker and archive is English. The tracked-tree language test permits Russian template twins, CLI localization, and exact identified diagnostic or multilingual-input literals; it rejects unexplained prose beside those literals. Historical task bodies remain unchanged in git. See [repository language evidence](docs/reference/04-verification.md#repository-language-evidence).
+
 - The repository rules are in [AGENTS.md](AGENTS.md), and the structure of the tool is in [docs/reference/](docs/reference/README.md).
 - Where each part of `lib/` lives, and how to add a command, a lint gate, a migration or a template placeholder: [06. Module map](docs/reference/06-module-map.md).
 - `templates/` is the source of everything installed into a project; the repository's own `docs/` are managed with the same tool.
