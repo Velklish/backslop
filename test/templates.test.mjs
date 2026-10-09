@@ -464,3 +464,22 @@ test('init lays out a skill whose description holds a cli with a quote and a bac
     }
   } finally { cleanup(tool); cleanup(project); }
 });
+
+for (const rel of ['agents-section.md', 'skills/backslop-batch/SKILL.md']) {
+  test(`planning commits: ${rel} batches creation and takes, including later takes`, () => {
+    const vars = {
+      cli: 'node bin/backslop.js', prefix: 'BS', docs: 'docs', hooksRule: '', probeRule: '',
+    };
+    const text = renderProjectTemplate({ lang: 'en' }, rel, vars);
+    for (const sentence of [
+      'For a run, make one planning commit containing only the tasks it creates and the track it takes:',
+      'run `node bin/backslop.js new` for each task and one `node bin/backslop.js mv N M K active` for the track.',
+      'A task taken later in the run goes into the next planning or acceptance commit, never a separate take commit.',
+    ]) assert.ok(text.includes(sentence), `${rel}: missing planning rule: ${sentence}`);
+    assert.ok(text.includes("contains only this task's creation and take"), `${rel}: acceptance must preserve other tasks' changes`);
+    if (rel === 'agents-section.md') {
+      const agents = readFileSync(path.join(path.dirname(TEMPLATES_DIR), 'AGENTS.md'), 'utf8');
+      assert.ok(agents.includes(text), 'self-host: AGENTS.md carries the rendered planning rule');
+    }
+  });
+}
