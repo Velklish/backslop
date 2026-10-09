@@ -430,3 +430,5 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-232"></a>`BS-232-run-bookkeeping-in-one-commit` · 2026-10-09 · completed · — · A run's tasks are created and taken one commit each: no rule batches creation, and a track taken task by task keeps every take commit
 - <a id="bs-240"></a>`BS-240-minor-managed-block-parity` · 2026-10-09 · completed · — · Minor batch: managed AGENTS block parity
 - <a id="bs-200.1"></a>`BS-200.1-managed-block-template-drift` · 2026-10-09 · batch BS-240 · — · Managed AGENTS.md block can drift from its template unchecked
+- <a id="bs-242"></a>`BS-242-minor-deletion-probe-repeat-scope` · 2026-10-09 · completed · — · Minor batch: deletion-probe repeat scope
+- <a id="bs-192.63"></a>`BS-192.63-verification-step6-repeat-scope` · 2026-10-09 · batch BS-242 · — · verification-step6-repeat-scope

@@ -35,7 +35,7 @@ This protocol is repo-local: backslop does not ship it to consumer projects. Use
    - h. Apply the same mutation.
    - i. Rerun the suite.
    - j. Name at least one other test that turns red.
-   - k. Repeat the full sequence with a second, different mutation of the same guarded code.
+   - k. Repeat sub-steps 6b through 6j with a second, different mutation of the same guarded code. Reuse the baseline from 6a only for the identical committed SHA, the same environment and a clean restored tree; otherwise rerun 6a before repeating 6b through 6j.
    - **Evidence:** baseline, both mutations, restoration and skip changes, suite commands, outputs, exit codes and red test names for every run.
    - **Failure:** an invalid mutation, a mutation caught only by the candidate, a pre-existing red counted as another guard, or an uncaught second mutation means deletion is not established. Delete-safe means another test catches every mutation tried.
 
