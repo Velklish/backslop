@@ -426,3 +426,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-244"></a>`BS-244-unpinned-live-cli-alignment` · 2026-10-07 · completed · — · Flag bare backslop calls when the configured CLI forbids installation
 - <a id="bs-229"></a>`BS-229-minor-under-subfinding-numbering-scope` · 2026-10-07 · completed · — · new --parent N.M --minor numbers the entry N.k under the root and leaves Scope empty, which lint then flags
 - <a id="bs-226"></a>`BS-226-mv-leaves-status-fields-unstaged` · 2026-10-09 · completed · — · mv stages the rename but not the status fields it writes, so a commit of the staged change carries a bare rename
+- <a id="bs-230"></a>`BS-230-bulk-fold-dry-run-shows-little` · 2026-10-09 · completed · — · A bulk fold --dry-run prints only directory-to-revision pairs, not the log lines or link rewrites it will make
