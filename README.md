@@ -127,7 +127,7 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 - Skills appear only for selected `tools`. Without an adapter, a project gets the `AGENTS.md` section and `docs/`, and no `backslop-seed` skill.
 - A project that never selected an adapter gets no `.gitignore`; deselecting every adapter (`--tools none`) leaves an empty backslop block in it.
 - English and Russian template layers are provided. Changing `lang` does not translate existing docs, except the tracking and archive rules, `ROLES.md` and the journal header: the next `migrate` redraws them in the new language unless they carry local edits.
-- Heading anchors use the [local heading-anchor contract](docs/reference/03-lint.md#heading-anchor-contract), including a fixed named-entity table; renderer-specific compatibility is not guaranteed. The inherited `constructor` entity lookup remains a known defect: `&constructor;` yields `function-object--native-code-` in the local Node fixtures.
+- Heading anchors use the [local heading-anchor contract](docs/reference/03-lint.md#heading-anchor-contract), including a fixed named-entity table; renderer-specific compatibility is not guaranteed. Named entities decode only own entries of the fixed table; unsupported names such as `&constructor;` keep their source text before slug filtering.
 - A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-mention gate on lines such as `API-2.0`; choose a prefix absent from project text.
 
 ## Work on backslop

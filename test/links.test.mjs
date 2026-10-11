@@ -827,18 +827,70 @@ test('anchors: contract documents parenthesized heading destinations', () => {
   assert.ok(contract.includes('`[A](f(x).md)` and `![A](f(x).md)` both become `amd`'));
 });
 
-test('anchors: contract documents the inherited constructor entity exception', () => {
-  for (const source of ['&constructor;', '&CONSTRUCTOR;']) {
-    assert.deepEqual([...anchorsOf(`# ${source}\n`)], ['function-object--native-code-'], source);
+for (const name of ['constructor', 'CONSTRUCTOR']) {
+  test(`anchors: inherited entity &${name}; uses unknown-name fallback`, () => {
+    assert.deepEqual([...anchorsOf(`# &${name};\n`)], ['constructor'],
+      `Unknown named entity &${name}; must keep its source text`);
+  });
+}
+
+test('anchors: other prototype-like names follow heading preprocessing', () => {
+  const fixtures = [
+    ['hasOwnProperty', 'hasownproperty'], ['isPrototypeOf', 'isprototypeof'],
+    ['propertyIsEnumerable', 'propertyisenumerable'], ['toLocaleString', 'tolocalestring'],
+    ['toString', 'tostring'], ['valueOf', 'valueof'], ['unlisted', 'unlisted'],
+    ['__proto__', 'proto'], ['__defineGetter__', 'definegetter'],
+  ];
+  for (const [name, expected] of fixtures) {
+    assert.deepEqual([...anchorsOf(`# &${name};\n`)], [expected], name);
   }
-  assert.deepEqual([...anchorsOf('# &unlisted;\n')], ['unlisted']);
   assert.deepEqual([...anchorsOf('# `&constructor;`\n')], ['constructor']);
+  assert.deepEqual([...anchorsOf('# `&__proto__;`\n')], ['__proto__']);
+});
+
+test('checkLinks: constructor headings accept fallback fragments', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/guide.md', '# &constructor;\n\n# &CONSTRUCTOR;\n');
+    put(root, 'docs/note.md', '[lower](guide.md#constructor) [upper](guide.md#constructor-1)\n');
+    assert.deepEqual(checkLinks(path.join(root, 'docs/note.md'), root), {
+      counts: { links: 2, local: 2, anchors: 2 }, problems: [],
+    });
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('checkLinks: constructor headings reject function-derived fragments', () => {
+  const root = makeProject({ git: false });
+  try {
+    put(root, 'docs/guide.md', '# &constructor;\n\n# &CONSTRUCTOR;\n');
+    put(root, 'docs/note.md', '[lower](guide.md#function-object--native-code-) '
+      + '[upper](guide.md#function-object--native-code--1)\n');
+    assert.deepEqual(checkLinks(path.join(root, 'docs/note.md'), root), {
+      counts: { links: 2, local: 2, anchors: 2 },
+      problems: [
+        { kind: 'anchor', line: 1, href: 'guide.md#function-object--native-code-',
+          fragment: 'function-object--native-code-', target: 'docs/guide.md' },
+        { kind: 'anchor', line: 1, href: 'guide.md#function-object--native-code--1',
+          fragment: 'function-object--native-code--1', target: 'docs/guide.md' },
+      ],
+    });
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('anchors: contract documents own named entities and unknown-name fallback', () => {
   const contract = readFileSync(new URL('../docs/reference/03-lint.md', import.meta.url), 'utf8');
-  const adr = readFileSync(new URL('../docs/adr/adr-057-markdown-heading-anchors.md', import.meta.url), 'utf8');
-  assert.ok(contract.includes('The inherited `constructor` property is an exception'),
-    'heading contract must state the inherited constructor lookup exception');
-  assert.ok(adr.includes('The inherited `constructor` property is an exception'),
-    'heading ADR must state the inherited constructor lookup exception');
+  const adr = readFileSync(new URL('../docs/adr/adr-057-markdown-heading-anchors.md', import.meta.url),
+    'utf8');
+  for (const document of [contract, adr]) {
+    assert.ok(document.includes('Named entities decode only own entries of the fixed table'));
+    assert.ok(document.includes('inherited Object properties do not supply entity values')
+      || document.includes('Inherited Object properties do not supply entity values'));
+    assert.ok(!document.includes('The inherited `constructor` property is an exception'));
+  }
 });
 
 test('anchors: contract documents nested heading labels as limited preprocessing', () => {

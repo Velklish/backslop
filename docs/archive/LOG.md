@@ -434,3 +434,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-192.63"></a>`BS-192.63-verification-step6-repeat-scope` · 2026-10-09 · batch BS-242 · — · verification-step6-repeat-scope
 - <a id="bs-234"></a>`BS-234-public-markdown-renderer-contract` · 2026-10-09 · completed · — · Remove private-host provenance from the Markdown renderer contract
 - <a id="bs-236"></a>`BS-236-english-tracker-history` · 2026-10-09 · completed · — · Make the repository tracker history English
+- <a id="bs-234.1"></a>`BS-234.1-heading-entity-prototype-lookup` · 2026-10-12 · completed · — · Heading entity lookup reads inherited Object properties
