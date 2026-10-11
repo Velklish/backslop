@@ -46,9 +46,21 @@ Each block quotes a statement of the README or the reference that a code change 
 <details>
 <summary>Quoted statements</summary>
 
+<!-- quote:../CHANGELOG.md -->
+```text
+- **Heading entity lookup excludes inherited Object properties** — `&constructor;` and `&CONSTRUCTOR;` retain the unknown-name fallback and yield `constructor`. Link checks accept `#constructor` and reject the former function-derived fragment. Supported table entries, numeric references, code spans and other heading preprocessing keep their existing rules.
+```
+<!-- /quote -->
+
+<!-- quote:reference/03-lint.md -->
+```text
+3. Decode the supported named entities below, case-insensitively, and semicolon-terminated decimal `&#N;` or hexadecimal `&#xN;` references with values from 1 through `0x10ffff`. Numeric letters and marks survive step 4; numeric spaces become hyphens. Named entities decode only own entries of the fixed table. Unknown named entities and invalid numeric references remain source text: `&constructor;` becomes `constructor`, `&eacute;` becomes `eacute`, `&le;` becomes `le`, `&#0;` becomes `0`, and `&#99999999;` becomes `99999999` after punctuation removal. Inherited Object properties do not supply entity values. No full HTML entity table is carried.
+```
+<!-- /quote -->
+
 <!-- quote:../README.md -->
 ```text
-- Heading anchors use the [local heading-anchor contract](docs/reference/03-lint.md#heading-anchor-contract), including a fixed named-entity table; renderer-specific compatibility is not guaranteed. The inherited `constructor` entity lookup remains a known defect: `&constructor;` yields `function-object--native-code-` in the local Node fixtures.
+- Heading anchors use the [local heading-anchor contract](docs/reference/03-lint.md#heading-anchor-contract), including a fixed named-entity table; renderer-specific compatibility is not guaranteed. Named entities decode only own entries of the fixed table; unsupported names such as `&constructor;` keep their source text before slug filtering.
 ```
 <!-- /quote -->
 
