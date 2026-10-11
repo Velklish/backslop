@@ -46,6 +46,12 @@ Each block quotes a statement of the README or the reference that a code change 
 <details>
 <summary>Quoted statements</summary>
 
+<!-- quote:../README.md -->
+```text
+- Heading anchors use the [local heading-anchor contract](docs/reference/03-lint.md#heading-anchor-contract), including a fixed named-entity table; renderer-specific compatibility is not guaranteed. The inherited `constructor` entity lookup remains a known defect: `&constructor;` yields `function-object--native-code-` in the local Node fixtures.
+```
+<!-- /quote -->
+
 <!-- quote:reference/02-cli.md -->
 ```text
 - `git mv` between status directories. After all moves, link rewrites and queue renumbering finish, `mv` stages the complete contents of every tracked card moved by this call at its new path. Tracking checks and staging of those paths use literal Git pathspecs. Edits to files not moved by this call, including incoming links and neighbour renumbering, stay unstaged, as does queue reordering without a move. A file outside the git index (or with no repository) is moved by a plain rename, with a warning, and is not added to the index.
