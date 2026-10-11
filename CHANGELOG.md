@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.21.0 — 2026-10-12
 
 - **Repository tracker history is English** — translate original journal titles and outcome spellings while preserving task metadata, outcome semantics and historical bodies. The tracked-tree language test rejects unexplained Russian tracker/archive prose and retains only identified verbatim diagnostics and multilingual-input literals alongside supported localization resources.
 
