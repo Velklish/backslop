@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Same-version migration follows a changed CLI command** — recognize complete renders of either language with one valid previous command in every `cli` slot, including pinned npx to `npx --no-install backslop`. Redraw the rules pair, `ROLES.md` and the journal header for the configured command while keeping manual edits and journal entry bytes.
+
 ## v0.21.0 — 2026-10-12
 
 - **Heading entity lookup excludes inherited Object properties** — `&constructor;` and `&CONSTRUCTOR;` retain the unknown-name fallback and yield `constructor`. Link checks accept `#constructor` and reject the former function-derived fragment. Supported table entries, numeric references, code spans and other heading preprocessing keep their existing rules.
