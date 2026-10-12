@@ -46,6 +46,12 @@ Each block quotes a statement of the README or the reference that a code change 
 <details>
 <summary>Quoted statements</summary>
 
+<!-- quote:reference/02-cli.md -->
+```text
+- At the tool version, a complete render of either language with one valid previous `cli` command in every slot is redrawn for the configured `cli`, including a switch from pinned npx to `npx --no-install backslop`. The captured command must satisfy the `cli` field's non-empty, single-line and block-value rules. Differences only in pins of the configured `cli` spec are also accepted. Line endings alone do not cause a redraw; other edits stay and are named. Journal entries are never used to detect the previous command and keep their bytes.
+```
+<!-- /quote -->
+
 <!-- quote:../CHANGELOG.md -->
 ```text
 - **Heading entity lookup excludes inherited Object properties** — `&constructor;` and `&CONSTRUCTOR;` retain the unknown-name fallback and yield `constructor`. Link checks accept `#constructor` and reject the former function-derived fragment. Supported table entries, numeric references, code spans and other heading preprocessing keep their existing rules.
