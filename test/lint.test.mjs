@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { loadProject, parseCli } from '../lib/config.js';
 import { lintProject } from '../lib/lint.js';
 import { livePinFiles } from '../lib/mdwalk.js';
@@ -1428,6 +1429,179 @@ test('lint: a stale pin in history files or quoted as card evidence is not drift
     // A task card quotes the pin as the evidence of the moment — nothing to warn about.
     put(root, 'docs/backlog/queue/BS-1-a.md', `${ruCard('BS-1', 'A', { order: 10, area: AREA })}\nMeasured on \`npx github:me/proj#v0.1.0\`.\n`);
     assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source rejects missing paths and file URLs by field, green after correction', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    setConfig(root, { lang: 'en' });
+    const missing = path.join(root, 'missing-source');
+    for (const source of ['./missing-source', 'missing/source', missing, pathToFileURL(missing).href]) {
+      setConfig(root, { source });
+      const red = cli(root, ['lint']);
+      assert.equal(red.code, 1, `${source}: ${red.out}${red.err}`);
+      assert.match(red.err, /backslop\.json: source .* does not exist/);
+    }
+    run(root, ['init', '-q']);
+    setConfig(root, { source: './' });
+    assert.deepEqual(problems(root), []);
+    const green = cli(root, ['lint']);
+    assert.equal(green.code, 0, green.out + green.err);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source rejects ordinary directories and files inside a parent repository', () => {
+  const root = makeProject();
+  try {
+    seedGreen(root);
+    put(root, 'ordinary/file.txt', 'not a repository\n');
+    run(root, ['remote', 'add', 'ordinary/file.txt', 'https://example.invalid/repo.git']);
+    for (const source of ['./ordinary', './ordinary/file.txt', 'ordinary/file.txt', pathToFileURL(path.join(root, 'ordinary')).href]) {
+      setConfig(root, { source, lang: 'en' });
+      const red = cli(root, ['lint']);
+      assert.equal(red.code, 1, `${source}: ${red.out}${red.err}`);
+      assert.match(red.err, /backslop\.json: source .* is not a Git repository/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source rejects a file URL that cannot name a filesystem path', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    setConfig(root, { source: 'file:///source%2Frepo', lang: 'en' });
+    const red = cli(root, ['lint']);
+    assert.equal(red.code, 1, red.out + red.err);
+    assert.match(red.err, /backslop\.json: source .* is not a local file URL/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source accepts repositories, Git directories, bare repos and linked worktrees without tags', () => {
+  const root = makeProject();
+  try {
+    seedGreen(root);
+    run(root, ['commit', '-q', '--allow-empty', '-m', 'initial']);
+    const bare = path.join(root, 'bare-source');
+    run(root, ['init', '-q', '--bare', bare]);
+    const linked = path.join(root, 'linked-source');
+    run(root, ['worktree', 'add', '-q', '-b', 'linked-source', linked]);
+    const spaced = path.join(root, 'source with spaces');
+    run(root, ['init', '-q', spaced]);
+    for (const source of ['./', './.git', './bare-source', './linked-source', pathToFileURL(spaced).href]) {
+      setConfig(root, { source, lang: 'en' });
+      assert.deepEqual(problems(root), [], source);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source resolves a relative path from the project root when invoked below it', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    run(root, ['init', '-q', 'sources/release']);
+    mkdirSync(path.join(root, 'sub'), { recursive: true });
+    setConfig(root, { source: 'sources/release', lang: 'en' });
+    const green = cli(root, ['lint'], { cwd: path.join(root, 'sub') });
+    assert.equal(green.code, 0, green.out + green.err);
+    setConfig(root, { source: 'sources/missing' });
+    const red = cli(root, ['lint'], { cwd: path.join(root, 'sub') });
+    assert.equal(red.code, 1, red.out + red.err);
+    assert.match(red.err, /backslop\.json: source .* does not exist/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: source leaves remote locators, aliases, helpers and an absent source unchanged', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    run(root, ['init', '-q']);
+    run(root, ['remote', 'add', 'releases/stable', 'https://example.invalid/repo.git']);
+    for (const source of [undefined, 'origin', 'releases/stable', 'https://example.invalid/repo.git', 'ssh://git@example.invalid/repo',
+      'git@example.invalid:org/repo.git', 'helper::repository/path', 'file::repository/path', 'github:owner/repo']) {
+      setConfig(root, { source });
+      assert.deepEqual(problems(root), [], String(source));
+    }
+    for (const command of ['node bin/backslop.js', 'backslop', 'npx --no-install backslop', 'npx backslop@0.1.0']) {
+      setConfig(root, { cli: command });
+      assert.deepEqual(problems(root), [], command);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source keeps the SSH host file distinct from file URLs', () => {
+  const root = makeProject({ git: false });
+  try {
+    seedGreen(root);
+    for (const source of ['file:team/repo.git', 'file:/team/repo.git', 'file::team/repo.git']) {
+      setConfig(root, { source, lang: 'en' });
+      const green = cli(root, ['lint']);
+      assert.equal(green.code, 0, `${source}: ${green.out}${green.err}`);
+    }
+    setConfig(root, { source: pathToFileURL(path.join(root, 'missing-source')).href });
+    const red = cli(root, ['lint']);
+    assert.equal(red.code, 1, red.out + red.err);
+    assert.match(red.err, /backslop\.json: source .* does not exist/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source expands home-relative paths after project-local path precedence', () => {
+  const root = makeProject({ git: false });
+  const repository = path.join(root, 'release-source');
+  const source = `~/${path.relative(os.homedir(), repository).split(path.sep).join('/')}`;
+  try {
+    seedGreen(root);
+    run(root, ['init', '-q', repository]);
+    setConfig(root, { source, lang: 'en' });
+    const green = cli(root, ['lint']);
+    assert.equal(green.code, 0, `${source}: ${green.out}${green.err}`);
+    setConfig(root, { source: `${source}/missing` });
+    const missing = cli(root, ['lint']);
+    assert.equal(missing.code, 1, missing.out + missing.err);
+    assert.match(missing.err, /backslop\.json: source .* does not exist/);
+    put(root, 'ordinary/file.txt', 'not a repository\n');
+    const ordinary = `~/${path.relative(os.homedir(), path.join(root, 'ordinary')).split(path.sep).join('/')}`;
+    setConfig(root, { source: ordinary });
+    const invalid = cli(root, ['lint']);
+    assert.equal(invalid.code, 1, invalid.out + invalid.err);
+    assert.match(invalid.err, /backslop\.json: source .* is not a Git repository/);
+    run(root, ['init', '-q', '~/tool']);
+    setConfig(root, { source: '~/tool' });
+    assert.deepEqual(problems(root), []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test('lint: local source diagnostic follows the project language', () => {
+  const root = makeProject({ git: false });
+  const source = './missing-source';
+  const key = 'source “{source}” does not exist — set source to a local Git repository or a remote locator';
+  try {
+    seedGreen(root);
+    for (const lang of ['en', 'ru']) {
+      setConfig(root, { source, lang });
+      const expected = msg(lang, key, { source });
+      assert.deepEqual(problems(root), [`backslop.json: ${expected}`]);
+      if (lang === 'ru') assert.notEqual(expected, msg('en', key, { source }));
+    }
   } finally {
     cleanup(root);
   }
