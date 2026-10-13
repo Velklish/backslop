@@ -101,6 +101,7 @@ The project command `<cli> upgrade` runs the code of the pinned version and fini
 - **Options.** `--pin-only` changes only the configuration; after a manual `migrate` and `init`, run the full `upgrade` again to rewrite live pins, even without a newer tag. Downgrades are unsupported: an old version does not know a newer file format. `lint` keeps layout-version warnings advisory, but an old pin in a live file is an error.
 - **A global install** (`cli: "backslop"`) has no source derived from GitHub: set `source` in `backslop.json` to the repository URL with release tags, and update the installed package yourself first — `upgrade` refuses while `cli` still runs the old version.
 - **A local devDependency** (`cli: "npx --no-install backslop"`) has no release pin or derived source either: set `source` in `backslop.json`, update the installed package before `upgrade`, and keep its declaration in `package.json`. `upgrade` retains the local command and checks that it reports the target version.
+- **Source validation**: `lint` rejects an explicitly local `source` path or `file://` URL that is missing or does not name a Git repository. Home-relative `~/` paths expand only when no literal project-relative path exists; SCP locators such as `file:team/repo.git` stay with Git. It does not contact remotes or check release tags; `upgrade` resolves remote locators and Git aliases/helpers as before.
 
 After an upgrade:
 

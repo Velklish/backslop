@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Local release sources are checked offline** — `lint` reports an explicitly local `source` path or `file://` URL that is missing, invalid or not a Git repository. Relative paths resolve from the project root, with worktree roots, Git directories and bare repositories accepted. Home-relative `~/` paths expand after literal project-relative path precedence; `file://` URLs stay distinct from SCP locators to the SSH host `file`. Remote locators, Git aliases/helpers, release tags and absent-source defaults retain the existing `upgrade` behavior.
+
 - **Same-version migration follows a changed CLI command** — recognize complete renders of either language with one valid previous command in every `cli` slot, including pinned npx to `npx --no-install backslop`. Redraw the rules pair, `ROLES.md` and the journal header for the configured command while keeping manual edits and journal entry bytes.
 
 ## v0.21.0 — 2026-10-12
