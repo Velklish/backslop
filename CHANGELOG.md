@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.21.1 — 2026-10-14
 
 - **Local release sources are checked offline** — `lint` reports an explicitly local `source` path or `file://` URL that is missing, invalid or not a Git repository. Relative paths resolve from the project root, with worktree roots, Git directories and bare repositories accepted. Home-relative `~/` paths expand after literal project-relative path precedence; `file://` URLs stay distinct from SCP locators to the SSH host `file`. Remote locators, Git aliases/helpers, release tags and absent-source defaults retain the existing `upgrade` behavior.
 
