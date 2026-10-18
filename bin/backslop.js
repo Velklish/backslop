@@ -41,7 +41,7 @@ Commands:
   seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
                                                       “Reference: …” tasks from the reference/ table
   status [--json]                                     show active work, ordered queue, deferred tasks, triage, and minor entries by scope
-  lint                                                fifteen gates: links, numbers, layout, fields, archive,
+  lint [--require-adapters] [--require-adapter <tool>] fifteen gates: links, numbers, layout, fields, archive,
                                                       mentions, CHANGELOG, ADR index, triage review, quotes, release
                                                       versions, template placeholders, closed task journal, non-printable
                                                       bytes, documentation without the tracker; adapter outputs,

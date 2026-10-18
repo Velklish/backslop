@@ -42,7 +42,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 | `brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]` | print a worker brief |
 | `seed --scan [--json]` \| `seed --queue-reference` | list gate and subsystem candidates, or queue reference sections |
 | `status [--json]` | summarise the backlog |
-| `lint` | run the tracker gates |
+| `lint [--require-adapters] [--require-adapter <tool>]` | run the tracker gates; optionally require all or one configured adapter's ignored outputs |
 | `gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]` | run the project's gate commands |
 | `tracks [--json]` | list worktrees and run branches |
 | `links --external [--json]` | request the external links of the documents and classify each |
@@ -58,6 +58,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 Behaviour:
 
 - Lays down the skeleton; the rules of a repeated run are in [01 § Re-run init](01-layout.md#re-run-init). An existing `docs/` file is not touched, nor are the rules pair and `ROLES.md` — `migrate` redraws them. An existing `ROLES.md` that is no render and lacks the "This file belongs to backslop" paragraph is kept, and `init` warns, naming the file and asking to rename it and run `init` again, which lays backslop's file; the block and the backlog README point at that path. The process ADR is `adr-001-process.md`, or the next free number in a project with ADRs of its own.
+- Startup restoration uses the configured `cli` with bare `init`, preserving selection and pins; the [startup contract](01-layout.md#agent-startup-after-clone) explains tracked entry points and blockers.
 - The block in `AGENTS.md` and in `.gitignore` is written with the file's own line endings (CRLF stays CRLF); a new file gets LF. Adapter outputs are always LF, even from a CRLF clone of the tool.
 - `--dir` and the configured `docs` are compared normalized: `docs/`, `./docs` and `docs` are one directory.
 - An unselected adapter whose root is not a directory is skipped without a refusal, as is a removal candidate of it that goes through a symlink or is not a file.
@@ -289,6 +290,8 @@ Refusals: no mode named, or both; `--json` with `--queue-reference`; no `referen
 
 ### lint
 
+- `--require-adapter <tool>` limits adapter checks to the named configured harness (`claude`, `cursor` or `codex`) and requires its ignored outputs. An unselected known harness has no adapter outputs to check; an unknown id is refused. Other lint gates remain active; their failures do not call for init. This selector takes precedence if both options are supplied. Use it for startup so another adapter's diagnostics do not cause needless rebuilds. Bare init still renders all configured adapters when repair is needed.
+- `--require-adapters` is a read-only startup check: absent configured adapter outputs and a missing selected Claude stub are errors even when Git ignores them. Without the flag the ignored-absence exception remains. Selected adapter paths also pass init's safety checks; present outputs keep the ownership, file and link checks; unrelated tracker errors still fail. It never restores or selects adapters.
 - Behaviour: the tracker gates, gate 15 on project documentation included, the adapter checks and template parity — [03. Lint gates](03-lint.md). A status directory, `docs/backlog`, `archive/`, a batch's `minor/` or `adr/` that is a file is an error of gate 3, 5 or 8 with its path, not a crash.
 - Output: on stderr, one `✖` line per error and one `⚠` line per warning; on stdout, a note when gate 15 skips its URL class (no `origin` remote), then the line of what gate 1 read, `gate 1: files N, links N, local N, anchors checked N`. Then the summary with the warning count: `lint: no errors` on stdout, `lint: errors N` on stderr.
 - Refusals: errors found (exit 1); an unknown flag; a directory the walk cannot read (`EACCES`, `EPERM`) — `<path>: the directory is not readable (<code>) — lint cannot walk it; restore read access or move it out of the project`, with the path from the project root instead of a stack. The other commands word an unreadable directory the same way, naming what they cannot do: `tasks cannot be read from it`, `task numbers cannot be read from it` (a status directory of another worktree), `links in it cannot be updated`, `pins cannot be read from it`. A status directory or the archive that cannot be searched is the same refusal, naming the directory that denies it — never an empty backlog. `mv`, `archive` and `fold` run the link walk before the first move or write, so that refusal leaves the tree as it was.

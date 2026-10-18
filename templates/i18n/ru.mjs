@@ -246,6 +246,7 @@ export const messages = {
   'adapter outputs: {outputs}': 'adapter outputs: {outputs}',
   'adapter outputs: none': 'adapter outputs: нет',
   // lib/lint.js
+  '--require-adapter “{tool}”: expected claude, cursor or codex': '--require-adapter «{tool}»: ожидается claude, cursor или codex',
   'cannot be parsed: {message}': 'не разбирается: {message}',
   'no version field — there is nothing to check the stamp, CHANGELOG section, and pins against': 'нет поля version — сверять штамп, секцию CHANGELOG и пины не с чем',
   'package.json version v{version} differs from the {config} stamp v{stamp} — npm run release -- X.Y.Z --bump updates both': 'версия package.json v{version} расходится со штампом {config} v{stamp} — бампит оба npm run release -- X.Y.Z --bump',
@@ -712,7 +713,7 @@ export const help = (version) => `backslop — бэклог для слопа: �
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/
   status [--json]                                     сводка: в работе, очередь по порядку, отложено, triage, minor по областям
-  lint                                                пятнадцать гейтов: ссылки, номера, раскладка бэклога, поля,
+  lint [--require-adapters] [--require-adapter <tool>] пятнадцать гейтов: ссылки, номера, раскладка бэклога, поля,
                                                       архив, упоминания, CHANGELOG, таблица ADR, разбор triage,
                                                       цитаты, версии релиза, плейсхолдеры шаблонов, журнал закрытых,
                                                       непечатаемые байты, документация без трекера;

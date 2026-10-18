@@ -10,7 +10,7 @@ The canonical project documentation. For current work, use `node bin/backslop.js
 | [backlog/](backlog/README.md) | Task tracker: one file per task, status is the directory, summary is `node bin/backslop.js status` | Living |
 | [archive/](archive/README.md) | Closed tasks in two forms: a task directory with `task.md` and `result.md` until it is folded, then a line in `archive/LOG.md` | Living |
 | [adr/adr-039-node-runtime-delivery-release.md](adr/adr-039-node-runtime-delivery-release.md) | Zero-dependency Node runtime, npx delivery and release | Accepted |
-| [adr/adr-040-harness-adapters.md](adr/adr-040-harness-adapters.md) | Harness adapters: selection, ownership and path safety of generated outputs | Accepted |
+| [adr/adr-040-harness-adapters.md](adr/adr-040-harness-adapters.md) | Harness adapters: selection, ownership, startup restoration and path safety | Accepted |
 | [adr/adr-041-probe-command.md](adr/adr-041-probe-command.md) | The mutation-probe command is a project field substituted into the block, the task skill and the brief | Accepted |
 | [adr/adr-042-worker-brief.md](adr/adr-042-worker-brief.md) | The worker brief is rendered by a command from a template | Accepted |
 | [adr/adr-043-changelog-merge.md](adr/adr-043-changelog-merge.md) | merge-changelog merges the unreleased section structurally and refuses rather than guess | Accepted |

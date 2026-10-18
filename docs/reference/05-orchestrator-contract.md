@@ -418,7 +418,7 @@ Stable, within one tagged version and across versions until an ADR changes it:
 | `mv`, `archive`, `archive N.k --into M` | the effect on files and the exit code |
 | `fold`, `show` | the journal line, the draft and the body on stdout, the exit code |
 | `adr` | the file name and the exit code |
-| `lint` | the exit code: 0 without errors, 1 with errors |
+| `lint [--require-adapters] [--require-adapter <tool>]` | the exit code: 0 without errors, 1 with errors; `--require-adapters` requires all configured outputs; `--require-adapter <tool>` limits adapter checks to one configured harness and takes precedence; other gates remain active, neither option writes files |
 | `merge-changelog` | the exit codes: 0 merged; 1 with the result written and a conflict mark left; 1 with nothing written for a refusal |
 | `upgrade` | the effect on the pin, the rules pair, `ROLES.md`, the journal header and the live pins, and the exit code |
 

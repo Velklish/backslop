@@ -2263,3 +2263,44 @@ test('lint: the outputs of a vendored skill that init skipped for a foreign LICE
     cleanup(root);
   }
 });
+
+
+test('lint: require-adapters rejects ignored missing outputs without changing ordinary lint', () => {
+  const root = makeProject();
+  seedGreen(root);
+  try {
+    assert.equal(cli(root, ['init', '--tools', 'codex']).code, 0);
+    rmSync(path.join(root, '.agents/skills'), { recursive: true });
+    assert.equal(cli(root, ['lint']).code, 0);
+    const strict = cli(root, ['lint', '--require-adapters']);
+    assert.equal(strict.code, 1);
+    assert.match(strict.err, ruRe('generated output for adapter {tool} is missing — run {cli} init',
+      { tool: 'codex', cli: JSON.parse(read(root, 'backslop.json')).cli }));
+    assert.equal(cli(root, ['init']).code, 0);
+    assert.equal(cli(root, ['lint', '--require-adapters']).code, 0);
+  } finally { cleanup(root); }
+});
+
+test('lint: require-adapter isolates the current configured harness and retains other gates', () => {
+  const root = makeProject();
+  seedGreen(root);
+  try {
+    assert.equal(cli(root, ['init', '--tools', 'codex,cursor']).code, 0);
+    const config = read(root, 'backslop.json');
+    rmSync(path.join(root, '.cursor/rules'), { recursive: true });
+    assert.equal(cli(root, ['lint', '--require-adapter', 'codex']).code, 0);
+    assert.equal(cli(root, ['lint', '--require-adapters', '--require-adapter', 'codex']).code, 0);
+    assert.equal(cli(root, ['lint', '--require-adapters']).code, 1);
+    assert.equal(cli(root, ['lint', '--require-adapter', 'cursor']).code, 1);
+    put(root, '.cursor/rules/backslop-task.mdc', '# Foreign rule\n');
+    assert.equal(cli(root, ['lint', '--require-adapter', 'codex']).code, 0);
+    assert.equal(cli(root, ['lint', '--require-adapters']).code, 1);
+    assert.equal(cli(root, ['lint', '--require-adapter', 'claude']).code, 0);
+    const unknown = cli(root, ['lint', '--require-adapter', 'unknown']);
+    assert.equal(unknown.code, 1);
+    assert.match(unknown.err, ruRe('--require-adapter “{tool}”: expected claude, cursor or codex', { tool: 'unknown' }));
+    put(root, 'docs/reference/broken.md', '[Broken](missing.md)\n');
+    assert.equal(cli(root, ['lint', '--require-adapter', 'codex']).code, 1, 'tracker errors still fail');
+    assert.equal(read(root, 'backslop.json'), config);
+  } finally { cleanup(root); }
+});

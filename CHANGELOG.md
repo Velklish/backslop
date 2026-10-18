@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Agents restore configured adapters after clone** — the tracked process block checks `lint --require-adapter <tool>` for the current selected harness before task work and uses the project's exact pinned `init` only for missing or invalid configured outputs. Another configured adapter's missing outputs do not rebuild a valid current adapter; `--require-adapters` remains the separate all-adapter diagnostic. Plain lint keeps its fresh-clone exception. The Claude import stub stays versioned; repeated init removes its old managed ignore line and preserves custom instructions and settings. Both template languages name discovery, access and ownership blockers; deterministic fixtures do not replace a live harness startup check.
+
 ## v0.21.1 — 2026-10-14
 
 - **Local release sources are checked offline** — `lint` reports an explicitly local `source` path or `file://` URL that is missing, invalid or not a Git repository. Relative paths resolve from the project root, with worktree roots, Git directories and bare repositories accepted. Home-relative `~/` paths expand after literal project-relative path precedence; `file://` URLs stay distinct from SCP locators to the SSH host `file`. Remote locators, Git aliases/helpers, release tags and absent-source defaults retain the existing `upgrade` behavior.

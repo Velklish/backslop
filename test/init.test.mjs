@@ -1172,7 +1172,7 @@ test('init: the .gitignore block follows the selected adapters; tools none remov
     assert.match(block, /^\.claude\/skills\/backslop-\*$/m);
     assert.match(block, /^\.cursor\/rules\/backslop-\*$/m);
     assert.doesNotMatch(block, /^\.agents\/skills\/backslop-\*$/m);
-    assert.match(block, /^\/CLAUDE\.md$/m);
+    assert.doesNotMatch(block, /^\/CLAUDE\.md$/m);
     assert.match(block, /^# backslop:end$/m);
     assert.equal(block.startsWith('# backslop:start'), true, 'in an empty .gitignore the block is the whole file');
 

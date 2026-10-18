@@ -40,6 +40,7 @@ test('lint worktree: a fresh worktree with ignored outputs absent is green', () 
 test('lint worktree: an absent output that git does not ignore is an error', () => {
   withWorktree(({ wt }) => {
     put(wt, '.gitignore', '');
+    rmSync(path.join(wt, 'CLAUDE.md'));
     const r = cli(wt, ['lint']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err, /generated output for adapter claude is missing — run .* init/);
@@ -49,7 +50,9 @@ test('lint worktree: an absent output that git does not ignore is an error', () 
 
 test('lint worktree: an ignored stub does not hide a missing output that git does not ignore', () => {
   withWorktree(({ wt }) => {
+    run(wt, ['rm', '--cached', 'CLAUDE.md']);
     put(wt, '.gitignore', '/CLAUDE.md\n');
+    rmSync(path.join(wt, 'CLAUDE.md'));
     const r = cli(wt, ['lint']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err, /generated output for adapter claude is missing/);
@@ -100,7 +103,8 @@ test('lint worktree: a copy without git stays red, since no git decides the abse
     const copy = path.join(base, 'archive-copy');
     cpSync(wt, copy, { recursive: true, filter: (src) => path.basename(src) !== '.git' });
     assert.equal(existsSync(path.join(copy, '.git')), false);
-    assert.equal(read(copy, '.gitignore').includes('/CLAUDE.md'), true);
+    assert.equal(read(copy, '.gitignore').includes('/CLAUDE.md'), false);
+    rmSync(path.join(copy, 'CLAUDE.md'));
     const r = cli(copy, ['lint']);
     assert.equal(r.code, 1, r.out);
     assert.match(r.err, /generated output for adapter claude is missing/);
