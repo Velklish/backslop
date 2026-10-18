@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Language-test inventory matches the tracked-file rule** — name Russian template twins, `templates/i18n/ru.mjs`, and single occurrences of exact evidence literals identified by path, entry and source. Tracker and archive prose remains checked; the language test and its exceptions are unchanged.
+
 - **Agents restore configured adapters after clone** — the tracked process block checks `lint --require-adapter <tool>` for the current selected harness before task work and uses the project's exact pinned `init` only for missing or invalid configured outputs. Another configured adapter's missing outputs do not rebuild a valid current adapter; `--require-adapters` remains the separate all-adapter diagnostic. Plain lint keeps its fresh-clone exception. The Claude import stub stays versioned; repeated init removes its old managed ignore line and preserves custom instructions and settings. Both template languages name discovery, access and ownership blockers; deterministic fixtures do not replace a live harness startup check.
 
 ## v0.21.1 — 2026-10-14
