@@ -439,3 +439,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-231"></a>`BS-231-pin-gate-misses-bare-npx-and-source` · 2026-10-13 · completed · — · The pin gate does not catch a bare npx backslop call, and no gate checks the source field
 - <a id="bs-246"></a>`BS-246-agent-bootstrap-after-clone` · 2026-10-18 · completed · — · Restore configured adapters automatically when an agent starts after clone
 - <a id="bs-236.1"></a>`BS-236.1-module-map-language-policy` · 2026-10-18 · completed · — · Module-map inventory still describes superseded directory-wide language exemptions
+- <a id="bs-230.1"></a>`BS-230.1-explain-windows-symlink-skips` · 2026-10-19 · completed · — · Two bulk fold symlink fixtures omit their Windows skip reason

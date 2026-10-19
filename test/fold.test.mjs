@@ -544,6 +544,7 @@ test('fold: bulk dry-run previews link rewrites in the appended journal lines', 
   }
 });
 
+// Windows directory symlinks may require privileges this fixture does not arrange.
 test('fold: bulk dry-run skips rewrites through an alias of a removed directory (symlink)', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
   try {
@@ -564,6 +565,7 @@ test('fold: bulk dry-run skips rewrites through an alias of a removed directory 
   }
 });
 
+// Windows file symlinks may require privileges this fixture does not arrange.
 test('fold: bulk dry-run previews surviving file aliases once, matching the real changed path (symlink)', { skip: process.platform === 'win32' }, () => {
   const root = makeProject();
   try {
