@@ -6,7 +6,7 @@
     "node bin/backslop.js lint",
     "npm test"
   ],
-  "version": "0.21.1",
+  "version": "0.21.2",
   "lang": "en",
   "tools": []
 }

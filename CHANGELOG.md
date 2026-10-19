@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.21.2 — 2026-10-19
 
 - **Bulk fold symlink fixtures explain their Windows skips** — document the privileges that directory and file symlink creation may require. Test behavior is unchanged.
 
