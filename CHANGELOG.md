@@ -2,6 +2,8 @@
 
 ## v0.21.2 — 2026-10-19
 
+- **Long lint help aligns its description** — place the English and Russian description on the next line at column 54.
+
 - **Bulk fold symlink fixtures explain their Windows skips** — document the privileges that directory and file symlink creation may require. Test behavior is unchanged.
 
 - **Language-test inventory matches the tracked-file rule** — name Russian template twins, `templates/i18n/ru.mjs`, and single occurrences of exact evidence literals identified by path, entry and source. Tracker and archive prose remains checked; the language test and its exceptions are unchanged.
