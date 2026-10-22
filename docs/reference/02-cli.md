@@ -102,7 +102,7 @@ Refusals:
 
 - The numbering lock still taken after 10 seconds: the message names the lock file (`backslop-new.lock` in the git common directory) and says to run the command again, or to delete the file when no backslop process is running; nothing is written. A card path that already exists. A lock, claim or temporary file in the git common directory that cannot be created, written or replaced (permissions, a full disk): the message names the file and the cause, at once and without waiting.
 - A git failure while scanning foreign numbers, other than "no repository" and "git is not installed"; a bad slug; a slug that makes the file name `<prefix>-<N[.k]>-<slug>.md` longer than 255 bytes — before any write and before the queue is renumbered; no such parent; `docs/backlog` or the status directory the file goes into is a file.
-- `--top` without `--queue`; `--minor` without `--parent` or with `--queue`; `--hypothesis`/`--evidence` without `--minor`; `--cost` without `--parent` and without `--minor`; `--cost minor` without `--minor`; `--cost` outside the three levels; `--cost major|critical` without `--hypothesis`; `--minor` without `--evidence` or with empty evidence.
+- `--top` without `--queue`; `--minor` without `--parent` or with `--queue`; `--hypothesis`/`--evidence` without `--minor`; `--cost` without `--parent` and without `--minor`; `--cost minor` without `--minor`; `--cost` outside the three levels; `--minor --cost major|critical` without `--hypothesis`; `--minor` without `--evidence` or with empty evidence.
 - A status directory or an archive task directory that is a symlink leading out of the project — the numbers behind it are not seen; before any write.
 
 #### Minor Scope inheritance

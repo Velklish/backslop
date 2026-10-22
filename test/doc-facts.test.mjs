@@ -49,3 +49,11 @@ test('adr reference requires a link and treats its table row as conventional', (
   const adr = readFileSync(path.join(ROOT, 'docs/adr/adr-056-adr-placeholder-gate.md'), 'utf8');
   assert.match(adr, /lint fails without a link from `docs\/README\.md`; a table row is conventional/);
 });
+
+
+test('new reference scopes the major-cost hypothesis refusal to minor mode', () => {
+  const reference = page('02-cli.md');
+  const refusals = reference.split('\n').find((line) => line.startsWith('- `--top` without `--queue`;'));
+  assert.ok(refusals.includes('; `--minor --cost major|critical` without `--hypothesis`;'));
+  assert.match(reference, /`--cost critical\|major` with `--parent` and without `--minor` writes that level into the Cost field/);
+});

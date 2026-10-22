@@ -36,7 +36,7 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.11 - Align stale-lock instructions and refusal text with identity-checked takeover](../minor/BS-247.11-stale-lock-takeover-contract.md) | PQA-011 | minor; minor |
 | [BS-247.12 - Remove the obsolete claim that seed inventory does not distinguish scan and manual reading](../minor/BS-247.12-seed-adr-current-inventory-contract.md) | PQA-012 | minor; minor |
 | [BS-247.13 - Make the init measurement note independent of an unnamed acceptance commit](../minor/BS-247.13-self-contained-init-measurement-note.md) | PQA-013 | minor; minor |
-| [BS-247.14 - Limit the documented major-cost refusal to minor-mode hypotheses](../active/BS-247.14-new-major-refusal-minor-condition.md) | PQA-014 | major; active |
+| [BS-247.14 - Limit the documented major-cost refusal to minor-mode hypotheses](../../archive/LOG.md#bs-247.14) | PQA-014 | completed; native archive outcome |
 | [BS-247.15 - Document the selected language and English default of missing-template-key errors](../minor/BS-247.15-template-error-language-contract.md) | PQA-015 | minor; minor |
 | [BS-247.16 - Align the localization ADR with same-version migration of a previous complete CLI render](../minor/BS-247.16-localization-adr-cli-redraw-contract.md) | PQA-016 | minor; minor |
 | [BS-247.17 - Include ROLES.md in the module map's owned-render contract](../active/BS-247.17-module-map-owned-roles-document.md) | PQA-017 | major; active |

@@ -447,3 +447,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.4"></a>`BS-247.4-replace-node-only-startup-probe` · 2026-10-23 · completed · — · Make the missing-CLI startup test guard the Backslop instruction contract
 - <a id="bs-247.5"></a>`BS-247.5-assert-external-link-url-order` · 2026-10-23 · completed · — · Assert full URL order in the mixed external-links test
 - <a id="bs-247.7"></a>`BS-247.7-correct-adr-index-link-requirement` · 2026-10-23 · completed · — · Say ADR lint requires a link while a table row is a convention
+- <a id="bs-247.14"></a>`BS-247.14-new-major-refusal-minor-condition` · 2026-10-23 · completed · — · Limit the documented major-cost refusal to minor-mode hypotheses

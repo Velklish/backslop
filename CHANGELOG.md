@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Finding-cost reference** — the major/critical hypothesis refusal explicitly applies to `--minor`; confirmed major/critical finding cards retain their existing creation rules.
+
 - **ADR index guidance** — `adr` and its reference require a link from the documentation index and describe a table row as a convention; prose links remain accepted.
 
 - **External-link tests check complete URL and request order** — the mixed-results scenario checks result URLs and observed requests, including redirects, while retaining class, exit, summary and serialization checks.
