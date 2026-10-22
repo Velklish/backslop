@@ -1,10 +1,11 @@
 # BS-251 · Resolve the bounded test and comment audit findings
 
-- **Order:** 160
 - **Scope:** [04. Finding verification protocol](../../reference/04-verification.md)
 - **Created:** 2026-10-23
 - **Dependencies:** none
 - **Cost:** —
+- **Previous order:** 160
+- **Taken:** 2026-10-23
 
 ## Context
 
