@@ -4,6 +4,7 @@
 - **Created:** 2026-10-04
 - **Dependencies:** BS-233, BS-234, BS-235, BS-236, BS-237
 - **Cost:** major
+- **Taken:** 2026-10-23
 
 ## Context
 
