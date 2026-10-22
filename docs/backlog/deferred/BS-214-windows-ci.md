@@ -1,4 +1,4 @@
-# BS-214 · CI on Windows: run the gates on a Windows runner and check the seven Windows and hook hypotheses
+# BS-214 · CI on Windows: run the gates and verify platform and hook hypotheses
 
 - **Scope:** [02. CLI](../../reference/02-cli.md)
 - **Created:** 2026-10-03
@@ -18,8 +18,15 @@ Each entry below is a hypothesis; the check is taken from its Evidence line, and
 - [BS-195.2](../minor/BS-195.2-hook-codex-cursor-stop-not-run.md) — `hook stop` ran live only under one harness; the other two follow the protocols recorded in `docs/reference/01-layout.md` and the tests feed fake stdin only (`test/hook.test.mjs`). Check: a live Codex session and a live Cursor session (the entry says the latter works in an interactive terminal only) with the hook installed by `init --hooks`, each ended once, and the command's exit code, stdout and stderr read from the harness side. A runner cannot do this. The overlapping documentation entry [BS-192.61](../../archive/LOG.md#bs-192.61) is closed into the documentation batch.
 - [BS-195.3](../../archive/LOG.md#bs-195.3) — `sessionStart` in `lib/hook.js` overwrites the record of the same harness and session, so a start event repeated on resume or compaction moves the start point. The entry names no check; this one is derived from its Evidence. Mechanism, runnable anywhere: feed `hook session-start --harness claude` the same `session_id` twice with a change between the calls, then `hook stop`, and see whether the change is in the changed set. Trigger, live only: resume and compact a live session of each harness and read the `source` value of the start payload (only `startup` has been seen).
 
+### Additional hypothesis: harness-root directory symlink fixture
+
+A further static hypothesis was identified at audit baseline `44e74a32ff6a6b6c946321b3614b1881a2ccedfe`: `test/init.test.mjs:1049` declares `init: a symlink at a harness root — a refusal only for the selected adapter, before the first write` without a Windows skip, and lines 1053, 1074 and 1088 create directory symlinks. The adjacent case at line 1103 has an explicit win32 skip; `test/fold.test.mjs:547-548` and `568-569` identify the missing symlink privileges of those fixtures. These citations establish a potential fixture capability gap, not an observed Windows product failure.
+
+On a native Windows runner without the capability to create these links, the fixture could stop in `symlinkSync` before it calls the CLI. With sufficient capabilities it may work. Neither a native Windows run nor an actual EPERM was obtained during the audit. The audit's macOS full-suite result (1240/1240, exit 0 at that SHA) does not decide this hypothesis. Preserve the existing seven merged entries and their closure procedure.
+
 ## Work to do
 
+- On the native Windows runner, record the OS and Node versions and whether directory symlinks can actually be created with its current capabilities. Run `node --test --test-timeout=60000 --test-name-pattern="^init: a symlink at a harness root" test/init.test.mjs` and retain the complete output and direct exit code. This focused native run is not run in the filing pass. If the fixture fails before the CLI, distinguish that result from an incorrect selected-adapter refusal. A demonstrated defect is filed separately; any later explicit platform skip or capability-controlled fixture must be justified by that evidence and preserve Windows refusal coverage. Do not turn arbitrary EPERM into a silent skip.
 - Add a CI configuration with a `windows-latest` job that checks out the repository, sets up Node 20 and the latest LTS, and runs `node bin/backslop.js gates`. Its log gives the "gates N, green N" line and the `npm test` verdicts; any red is a finding on the entries above or a new one, not a skip.
 - In the same job, add steps for the checks above that a runner can run: BS-96.3 (the 247-character slug), BS-127.1 (the two `spawnSync` probes), BS-138.1 (the upgrade test file on its own) and the mechanism half of BS-195.3. Each step prints its exit code and output into the log and does not hide a failure.
 - The manual checks, by a person on a Windows machine: BS-169.1 in four shells (Git Bash, PowerShell 5.1, PowerShell 7, `cmd.exe`); BS-195.1 and BS-195.2 need live Codex and Cursor sessions, and a live session of the third harness for BS-195.1; the trigger half of BS-195.3 needs live sessions as well. Their results go into the entries or into a verification record, with the tool version.
@@ -33,6 +40,7 @@ Each entry below is a hypothesis; the check is taken from its Evidence line, and
 
 ## Verification
 
+- The additional harness-root symlink hypothesis has its own native Windows capability observation and focused-test outcome. Selected/unselected adapter cases, inside/outside targets, refusal before writes and existing-config behaviour remain protected; a passing macOS run is not used as the Windows verdict.
 - The `windows-latest` job exists and its log shows the "gates N, green N" line with N equal to the number of commands in `gates` in `backslop.json`.
 - For each of the seven entries, the log or a written observation names the check run and whether it confirmed or refuted the hypothesis.
 
