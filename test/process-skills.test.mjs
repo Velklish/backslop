@@ -60,6 +60,20 @@ test('skills: the batch skill names the probe only with the probe field, in the 
   }
 });
 
+test('backslop-batch: text merge options choose conflicting hunks and preserve other edits', () => {
+  const en = template(['en'], 'skills', 'backslop-batch', 'SKILL.md').split('\n')
+    .find((line) => line.startsWith('2. You resolve conflicts.'));
+  assert.match(en, /ordinary text merges/);
+  assert.match(en, /choose one side of conflicting hunks while preserving nonconflicting edits from both sides/);
+  assert.match(en, /cannot resolve a semantic conflict/);
+  const ru = ruTwinLine('skills/backslop-batch/SKILL.md', '2. You resolve conflicts.');
+  const nonconflicting = String.fromCodePoint(1085, 1077, 1082, 1086, 1085, 1092, 1083, 1080, 1082, 1090, 1091, 1102, 1097, 1080, 1077);
+  assert.ok(ru.includes(nonconflicting), 'ru: the instruction preserves nonconflicting edits');
+  for (const token of ['`-X theirs`', '`-X ours`', '`git show HEAD:', '`git show <']) {
+    assert.ok(en.includes(token) && ru.includes(token), `both instructions name ${token}`);
+  }
+});
+
 test('seed: the Russian adr-backfill reference puts the survey wording in a parenthesis', () => {
   const line = ruTwinLine('skills/backslop-seed/references/adr-backfill.md', 'Show the owner the complete list of candidates');
   assert.match(line, /\([^()]*AGENTS\.md\)/, 'the pointer to the owner-talk wording is a parenthesis, one voice per sentence');

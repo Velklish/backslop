@@ -92,7 +92,7 @@ Behaviour:
 - A finding in `triage/` gets the Evidence field as a separate line with a placeholder to fill; a minor entry gets the `--evidence` text instead.
 - Without `--minor`, Scope gets a link to `reference/README.md` with the depth from the status directory computed (text, in a project without that file); whoever files the task writes the actual section.
 - The number is the next free one across the current tree, other worktrees and local branches ([01 § Numbers](01-layout.md#numbers)).
-- The whole operation — the scan, the number, the Order renumbering of the neighbours for `--queue`, the card write — runs under a lock file in the git common directory, so calls started together in sibling worktrees get different numbers. A caller waits up to 10 seconds for it; a lock older than 60 seconds is removed. Without git there is no lock.
+- The whole operation — the scan, the number, the Order renumbering of the neighbours for `--queue`, the card write — runs under a lock file in the git common directory, so calls started together in sibling worktrees get different numbers. A caller waits up to 10 seconds for it; a lock older than 60 seconds can be taken over after rechecking its identity, by replacement without freeing the lock path. Without git there is no lock.
 
 Output:
 

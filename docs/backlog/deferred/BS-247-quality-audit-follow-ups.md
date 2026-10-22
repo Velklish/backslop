@@ -30,12 +30,12 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.5 - Assert full URL order in the mixed external-links test](../../archive/LOG.md#bs-247.5) | PQA-005 | completed; native archive outcome |
 | [BS-247.6 - Remove the weaker diverged-quote probe after two deletion proofs](../minor/BS-247.6-remove-subsumed-quote-probe.md) | PQA-006 | minor; minor |
 | [BS-247.7 - Say ADR lint requires a link while a table row is a convention](../../archive/LOG.md#bs-247.7) | PQA-007 | completed; native archive outcome |
-| [BS-247.8 - Describe -X ours and -X theirs as hunk choices in both batch skills](../minor/BS-247.8-correct-batch-merge-option-description.md) | PQA-008 | minor; minor |
+| [BS-247.8 - Describe -X ours and -X theirs as hunk choices in both batch skills](../../archive/LOG.md#bs-247.8) | PQA-008 | completed; batch BS-248 |
 | [BS-247.9 - Update writer skills to acknowledge status Cost output](../minor/BS-247.9-correct-writer-status-cost-description.md) | PQA-009 | minor; minor |
 | [BS-247.10 - Replace obsolete CHANGELOG_ENTRY documentation with entryTitle](../../archive/LOG.md#bs-247.10) | PQA-010 | completed; batch BS-250 |
-| [BS-247.11 - Align stale-lock instructions and refusal text with identity-checked takeover](../minor/BS-247.11-stale-lock-takeover-contract.md) | PQA-011 | minor; minor |
+| [BS-247.11 - Align stale-lock instructions and refusal text with identity-checked takeover](../../archive/LOG.md#bs-247.11) | PQA-011 | completed; batch BS-248 |
 | [BS-247.12 - Remove the obsolete claim that seed inventory does not distinguish scan and manual reading](../minor/BS-247.12-seed-adr-current-inventory-contract.md) | PQA-012 | minor; minor |
-| [BS-247.13 - Make the init measurement note independent of an unnamed acceptance commit](../minor/BS-247.13-self-contained-init-measurement-note.md) | PQA-013 | minor; minor |
+| [BS-247.13 - Make the init measurement note independent of an unnamed acceptance commit](../../archive/LOG.md#bs-247.13) | PQA-013 | completed; batch BS-248 |
 | [BS-247.14 - Limit the documented major-cost refusal to minor-mode hypotheses](../../archive/LOG.md#bs-247.14) | PQA-014 | completed; native archive outcome |
 | [BS-247.15 - Document the selected language and English default of missing-template-key errors](../../archive/LOG.md#bs-247.15) | PQA-015 | completed; batch BS-250 |
 | [BS-247.16 - Align the localization ADR with same-version migration of a previous complete CLI render](../minor/BS-247.16-localization-adr-cli-redraw-contract.md) | PQA-016 | minor; minor |

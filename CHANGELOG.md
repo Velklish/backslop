@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Integration and locking instructions** — batch skills describe `-X` as choosing conflicting text hunks while preserving other edits; numbering-lock guidance and refusals describe identity-checked takeover by replacement; the bounded init measurement no longer points to an unnamed acceptance commit.
+
 - **Module-map accuracy** — the documented changelog helper is `entryTitle`; template errors use the selected language and default to English. Selected documented exports are checked against their source declarations.
 
 - **Owned document recipe** — the module map includes `docs/ROLES.md` among rendered outputs and names the current self-host parity check.

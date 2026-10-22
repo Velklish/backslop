@@ -315,7 +315,7 @@ With an adapter selected, ask an agent to "populate docs using backslop" after t
 
 <!-- quote:reference/01-layout.md -->
 ```text
-An existing `CLAUDE.md` is kept; when it neither imports `@AGENTS.md` nor is a symlink to `AGENTS.md`, `init` prints the warning `CLAUDE.md has no “@AGENTS.md” import line — add it, the backslop block is in AGENTS.md`. Measured on 2026-10-02 with Claude Code 2.1.284, model `claude-sonnet-5-5`, headless `claude -p --setting-sources project` with tools disabled (`--tools ""`), on a fresh project, one run per condition: with `@AGENTS.md` in `CLAUDE.md` the model quoted a marker sentence of `AGENTS.md`, and in a control without that line it found no such sentence. With tools disabled this says nothing about whether an agent with tools reads `AGENTS.md` itself. The record is the Checks paragraph of the message of the commit that accepts this change. Deselecting `claude` removes `CLAUDE.md` only when its content is exactly the stub.
+An existing `CLAUDE.md` is kept; when it neither imports `@AGENTS.md` nor is a symlink to `AGENTS.md`, `init` prints the warning `CLAUDE.md has no “@AGENTS.md” import line — add it, the backslop block is in AGENTS.md`. Measured on 2026-10-02 with Claude Code 2.1.284, model `claude-sonnet-5-5`, headless `claude -p --setting-sources project` with tools disabled (`--tools ""`), on a fresh project, one run per condition: with `@AGENTS.md` in `CLAUDE.md` the model quoted a marker sentence of `AGENTS.md`, and in a control without that line it found no such sentence. With tools disabled this says nothing about whether an agent with tools reads `AGENTS.md` itself. Deselecting `claude` removes `CLAUDE.md` only when its content is exactly the stub.
 ```
 <!-- /quote -->
 

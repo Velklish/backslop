@@ -452,3 +452,7 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-250"></a>`BS-250-module-map-minor-audit-corrections` · 2026-10-23 · completed · — · Correct the module map export and language descriptions
 - <a id="bs-247.10"></a>`BS-247.10-correct-changelog-export-docs` · 2026-10-23 · batch BS-250 · — · Replace obsolete CHANGELOG_ENTRY documentation with entryTitle
 - <a id="bs-247.15"></a>`BS-247.15-template-error-language-contract` · 2026-10-23 · batch BS-250 · — · Document the selected language and English default of missing-template-key errors
+- <a id="bs-248"></a>`BS-248-layout-minor-audit-corrections` · 2026-10-23 · completed · — · Correct the layout and batch-instruction audit findings
+- <a id="bs-247.8"></a>`BS-247.8-correct-batch-merge-option-description` · 2026-10-23 · batch BS-248 · — · Describe -X ours and -X theirs as hunk choices in both batch skills
+- <a id="bs-247.11"></a>`BS-247.11-stale-lock-takeover-contract` · 2026-10-23 · batch BS-248 · — · Align stale-lock instructions and refusal text with identity-checked takeover
+- <a id="bs-247.13"></a>`BS-247.13-self-contained-init-measurement-note` · 2026-10-23 · batch BS-248 · — · Make the init measurement note independent of an unnamed acceptance commit

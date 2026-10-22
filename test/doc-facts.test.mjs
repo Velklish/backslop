@@ -92,3 +92,19 @@ test('06-module-map template errors use the selected language with an English de
   assert.match(rule, /throws an `Error`/);
   assert.match(rule, /the throw is a crash, not a refusal/);
 });
+
+test('numbering-lock instructions describe identity-checked replacement without a free path', () => {
+  const layout = page('01-layout.md').split('\n').find((line) => line.startsWith('- **Simultaneous calls.**'));
+  assert.match(layout, /polls for 10 seconds/);
+  assert.match(layout, /older than 60 seconds is stale/);
+  const cli = page('02-cli.md').split('\n').find((line) => line.startsWith('- The whole operation — the scan'));
+  const backlog = readFileSync(path.join(ROOT, 'templates/en/docs/backlog/README.md'), 'utf8').split('\n')
+    .find((line) => line.startsWith('- **Numbers are sequential**'));
+  for (const text of [layout, cli, backlog]) {
+    assert.match(text, /after rechecking its identity/);
+    assert.match(text, /without freeing the lock path/);
+  }
+  const ru = readFileSync(path.join(ROOT, 'templates/docs/backlog/README.md'), 'utf8').split('\n')[26];
+  const replacement = String.fromCodePoint(1079, 1072, 1084, 1077, 1085, 1080, 1074);
+  assert.ok(ru.includes(replacement), 'ru: takeover replaces the file');
+});

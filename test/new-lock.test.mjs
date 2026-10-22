@@ -12,7 +12,7 @@ import { LOCK_FILE, LOCK_STALE_MS, LOCK_WAIT_MS, lockIo, takeNumberingLock, with
 import { run as runNew } from '../lib/new.js';
 import { CliError, toPosix } from '../lib/util.js';
 
-const REFUSAL = 'another `new` holds the numbering lock {lock} and did not release it in {seconds} s: run the command again; if no backslop process is running, delete the file (a lock older than {stale} s is removed by the next `new` on its own)';
+const REFUSAL = 'another `new` holds the numbering lock {lock} and did not release it in {seconds} s: run the command again; if no backslop process is running, delete the file (the next `new` can take over a lock older than {stale} s after rechecking its identity, without freeing the lock path)';
 const NODE_OPTIONS = `${process.env.NODE_OPTIONS ?? ''} --no-warnings`.trim();
 
 function cliAsync(cwd, args) {
