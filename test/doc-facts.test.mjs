@@ -108,3 +108,18 @@ test('numbering-lock instructions describe identity-checked replacement without 
   const replacement = String.fromCodePoint(1079, 1072, 1084, 1077, 1085, 1080, 1074);
   assert.ok(ru.includes(replacement), 'ru: takeover replaces the file');
 });
+
+test('seed ADR states the current scan and by-eye boundary without closing the unchecked agreement', () => {
+  const adr = readFileSync(path.join(ROOT, 'docs/adr/adr-053-seed.md'), 'utf8');
+  assert.match(adr, /marks scanned sources as “scan” and manual sources as “by eye”/);
+  assert.match(adr, /`seed --scan` reads only the former, and the agent supplements the latter/);
+  assert.match(adr, /Nothing checks the skill reference against the scanner/);
+});
+
+test('localization ADR allows a complete previous-CLI render at the same version', () => {
+  const adr = readFileSync(path.join(ROOT, 'docs/adr/adr-051-localization.md'), 'utf8');
+  assert.match(adr, /at the tool's own version only a complete render of either language qualifies, allowing changed pins or one valid previous `cli` command in every slot/);
+  assert.match(adr, /A CLI change does not require a version bump/);
+  assert.match(adr, /Any other edit is kept with a note until the next version update/);
+  assert.match(adr, /\[owned rules documents and journal header\]\(adr-048-version-pin-upgrade-migrate\.md#decision\)/);
+});

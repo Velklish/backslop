@@ -53,6 +53,6 @@ Work from the frame toward details; every item means editing `[TODO]` locations 
 ## Phase 4. Verify and report
 
 - `{{cli}} status` shows the seeded work. `{{cli}} lint` is not green yet, and that is the expected state. Right after `{{cli}} seed --queue-reference` it is red on the `[TODO]` fields of the seeded tasks and on the links of `reference/README.md` to sections not written yet. After Phase 3 it reports only those broken links, which the seeded describe tasks close when they write the sections; any other error is a defect to fix.
-- Lint looks for `[TODO]` only in the backlog status directories and in an archive `result.md`. Run `grep -rnE '\[(TODO|ASK|\?)' {{docs}}/` and report every hit except the rule text, which names these markers itself: `backlog/README.md` and the explanation line in the `GLOSSARY.md` header.
+- Lint checks `[TODO]` placeholder lines in backlog Markdown outside `triage/`, archive `result.md` files and ADRs. Run `grep -rnE '\[(TODO|ASK|\?)' {{docs}}/` and report every hit except the rule text, which names these markers itself: `backlog/README.md` and the explanation line in the `GLOSSARY.md` header.
 - Report to the owner what was filled, where `[TODO]` and `[ASK]` remain, what entered the queue, which ADRs were recorded, and which candidates were rejected; word the report as *Talking to the owner* in the backslop section of AGENTS.md says. Many `[ASK]` markers with sparse history are a correct outcome, not a defect.
 - A repeated run follows the same order and closes only gaps.

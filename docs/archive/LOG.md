@@ -456,3 +456,8 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.8"></a>`BS-247.8-correct-batch-merge-option-description` · 2026-10-23 · batch BS-248 · — · Describe -X ours and -X theirs as hunk choices in both batch skills
 - <a id="bs-247.11"></a>`BS-247.11-stale-lock-takeover-contract` · 2026-10-23 · batch BS-248 · — · Align stale-lock instructions and refusal text with identity-checked takeover
 - <a id="bs-247.13"></a>`BS-247.13-self-contained-init-measurement-note` · 2026-10-23 · batch BS-248 · — · Make the init measurement note independent of an unnamed acceptance commit
+- <a id="bs-249"></a>`BS-249-cli-minor-audit-corrections` · 2026-10-23 · completed · — · Correct the CLI workflow documentation audit findings
+- <a id="bs-247.9"></a>`BS-247.9-correct-writer-status-cost-description` · 2026-10-23 · batch BS-249 · — · Update writer skills to acknowledge status Cost output
+- <a id="bs-247.12"></a>`BS-247.12-seed-adr-current-inventory-contract` · 2026-10-23 · batch BS-249 · — · Remove the obsolete claim that seed inventory does not distinguish scan and manual reading
+- <a id="bs-247.16"></a>`BS-247.16-localization-adr-cli-redraw-contract` · 2026-10-23 · batch BS-249 · — · Align the localization ADR with same-version migration of a previous complete CLI render
+- <a id="bs-247.18"></a>`BS-247.18-seed-placeholder-lint-scope` · 2026-10-23 · batch BS-249 · — · Describe ADR and non-triage backlog placeholder lint in the seed skills

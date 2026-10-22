@@ -217,6 +217,19 @@ test('renderTemplate: a placeholder without a key is a refusal, not a literal {{
     /adr\.md: placeholder \{\{date\}\} is given no key date/);
 });
 
+test('backslop-seed: placeholder lint includes ADRs and backlog Markdown outside triage', () => {
+  for (const layer of ['en/', '']) {
+    const rel = `${layer}skills/backslop-seed/SKILL.md`;
+    const line = readFileSync(path.join(TEMPLATES_DIR, rel), 'utf8').split('\n')
+      .find((text) => text.includes('`grep -rnE '));
+    for (const token of ['`[TODO]`', 'Markdown', '`triage/`', '`result.md`', 'ADR', '(TODO|ASK|']) {
+      assert.ok(line.includes(token), `${rel}: the placeholder instruction lacks ${token}`);
+    }
+    const outside = layer ? 'outside' : String.fromCodePoint(1074, 1085, 1077);
+    assert.ok(line.includes(`${outside} \`triage/\``), `${rel}: triage is excluded from placeholder lint`);
+  }
+});
+
 // This pair renders into the repo docs/ 1:1 (AGENTS.md): without the check an edit of one side
 // drifts from the other silently, while card quotes and links look at the working copy.
 test('self-host: the rules pair, ROLES.md and the LOG header in docs/ are the render of the template in the project language', () => {

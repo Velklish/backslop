@@ -30,4 +30,4 @@ After installation the `backslop-seed` skill fills a project's documentation in 
 - CI files are read line by line: YAML anchors, job templates and matrices are missed, and Taskfile targets are seen only at a two-space indent, which the format does not require. The output is a list of candidates, not a guarantee.
 - Deduplication reads every task — status directories, the archive and the journal: a closed task for the same reference section blocks re-seeding it, and a new task for that section is created by hand.
 - Nothing checks the skill reference against the scanner; a source named in one and not the other drifts silently.
-- The current skill reference does not separate the two yet: it says the scan walks the sources of both its tables, and those tables also name sources the scan does not read.
+- The inventory reference marks scanned sources as “scan” and manual sources as “by eye”; `seed --scan` reads only the former, and the agent supplements the latter.

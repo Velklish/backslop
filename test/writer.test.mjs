@@ -130,7 +130,7 @@ test('writer templates: both layers carry the audit mode, its report fields and 
     assert.ok(check.includes('<!-- quote:<path> -->'), `${rel}: the regression check names no quote block`);
     assert.ok(check.includes('`--evidence`'), `${rel}: the regression check does not place a minor entry's check`);
     assert.ok(hold.includes('`Shippable: no`'), `${rel}: the release hold names no Shippable: no`);
-    for (const token of ['`{{cli}} archive N.k`', '`{{cli}} archive N.k --into M`', '`Filed as`', '`{{cli}} show N`']) {
+    for (const token of ['`{{cli}} archive N.k`', '`{{cli}} archive N.k --into M`', '`Filed as`', '`{{cli}} show N`', '`{{cli}} status`', '`{{cli}} status --json`', '`Cost`']) {
       assert.ok(hold.includes(token), `${rel}: the release hold lacks ${token}`);
     }
   }

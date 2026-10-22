@@ -118,7 +118,7 @@ A check that also passes on the old text, or that cannot fail, is not a check.
 
 A document whose audit report says `Shippable: no` holds the release pass until every Blocking finding of that report is closed. A finding is closed when its card is archived (`{{cli}} archive N.k`), or, for a hypothesis entry, when a batch closes it (`{{cli}} archive N.k --into M`) after the hypothesis is verified or rejected. While one is open, the release pass names the document and the open records in its result and does not call the documentation ready.
 
-Take the records from the `Filed as` column of the report, in the audit task's result (`{{cli}} show N` prints it once the task is folded). `{{cli}} status` lists open records but does not tell a `critical` one from a `major` one, so it does not find them.
+Take the records from the `Filed as` column of the report, in the audit task's result (`{{cli}} show N` prints it once the task is folded). `{{cli}} status` and `{{cli}} status --json` list open records and their `Cost`; use the report's `Filed as` to identify this document's findings, then check which remain open.
 
 ## Currency Ledger
 

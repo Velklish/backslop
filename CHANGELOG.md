@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Writer and seed guidance** — writer skills explain Cost in text and JSON status while preserving report membership through Filed as; seed documentation distinguishes scan/by-eye inventory, describes ADR and non-triage backlog placeholder lint, and the localization ADR includes same-version complete previous-CLI renders.
+
 - **Integration and locking instructions** — batch skills describe `-X` as choosing conflicting text hunks while preserving other edits; numbering-lock guidance and refusals describe identity-checked takeover by replacement; the bounded init measurement no longer points to an unnamed acceptance commit.
 
 - **Module-map accuracy** — the documented changelog helper is `entryTitle`; template errors use the selected language and default to English. Selected documented exports are checked against their source declarations.
