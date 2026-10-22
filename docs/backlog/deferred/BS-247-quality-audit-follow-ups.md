@@ -23,7 +23,7 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 
 | Follow-up | Audit item | Cost / route |
 |---|---|---|
-| [BS-247.1 - Keep the real lock holder alive until the waiter confirms contention](../active/BS-247.1-lock-test-release-handshake.md) | PQA-001 | major; active |
+| [BS-247.1 - Keep the real lock holder alive until the waiter confirms contention](../../archive/LOG.md#bs-247.1) | PQA-001 | completed; native archive outcome |
 | [BS-247.2 - Make upgrade Git fixtures independent of user signing configuration](../active/BS-247.2-isolate-upgrade-fixture-signing.md) | PQA-002 | major; active |
 | [BS-247.3 - Fail init fixtures immediately when Git preparation fails](../active/BS-247.3-check-init-fixture-git-results.md) | PQA-003 | major; active |
 | [BS-247.4 - Make the missing-CLI startup test guard the Backslop instruction contract](../active/BS-247.4-replace-node-only-startup-probe.md) | PQA-004 | major; active |

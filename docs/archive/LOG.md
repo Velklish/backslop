@@ -441,3 +441,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-236.1"></a>`BS-236.1-module-map-language-policy` · 2026-10-18 · completed · — · Module-map inventory still describes superseded directory-wide language exemptions
 - <a id="bs-230.1"></a>`BS-230.1-explain-windows-symlink-skips` · 2026-10-19 · completed · — · Two bulk fold symlink fixtures omit their Windows skip reason
 - <a id="bs-235"></a>`BS-235-repository-content-boundary` · 2026-10-23 · completed · — · Remove unrelated project internals from tracker records and boundary checks
+- <a id="bs-247.1"></a>`BS-247.1-lock-test-release-handshake` · 2026-10-23 · completed · — · Keep the real lock holder alive until the waiter confirms contention

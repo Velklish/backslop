@@ -91,42 +91,83 @@ test('new: a project in a repository subdirectory gets distinct numbers from sib
   }
 });
 
-// A child process that takes the lock through the helper, tells it did, and holds it for `holdMs`.
-function holder(root, holdMs) {
+// A child process that holds the real lock until the parent sends a byte on stdin.
+function holder(root) {
   const script = `
+    import { once } from 'node:events';
     import { writeSync } from 'node:fs';
-    const { withNumberingLock } = await import(${JSON.stringify(pathToFileURL(path.join(REPO, 'lib', 'lock.js')).href)});
-    withNumberingLock(${JSON.stringify(root)}, 'en', () => {
+    const { takeNumberingLock } = await import(${JSON.stringify(pathToFileURL(path.join(REPO, 'lib', 'lock.js')).href)});
+    const release = takeNumberingLock(${JSON.stringify(root)}, 'en');
+    try {
       writeSync(1, 'held\\n');
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${holdMs});
-    });`;
-  const child = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: ['ignore', 'pipe', 'inherit'] });
-  const held = new Promise((resolve) => child.stdout.once('data', resolve));
+      await once(process.stdin, 'data');
+    } finally {
+      release();
+    }`;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', script], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const held = new Promise((resolve, reject) => {
+    child.stdout.once('data', resolve);
+    child.once('close', (code) => reject(new Error(`holder exited before taking the lock: ${code}`)));
+  });
   const closed = new Promise((resolve) => child.on('close', resolve));
   return { child, held, closed };
 }
 
 test('new: a caller that finds the lock taken waits for its release and then takes the next number', async () => {
   const f = fixture({ siblings: 0 });
+  let h;
+  let waiter;
+  let finished;
   try {
-    const h = holder(f.root, 500);
+    h = holder(f.root);
     await h.held;
     assert.ok(existsSync(f.lockPath), 'the holder owns the lock');
-    const r = await cliAsync(f.dirs[0], ['new', 'waiter']);
+    const script = `
+      import { writeSync } from 'node:fs';
+      const { lockIo } = await import(${JSON.stringify(pathToFileURL(path.join(REPO, 'lib', 'lock.js')).href)});
+      const sleep = lockIo.sleep;
+      lockIo.sleep = (ms) => {
+        writeSync(3, 'contended\\n');
+        lockIo.sleep = sleep;
+        return sleep(ms);
+      };
+      process.argv = [process.execPath, ${JSON.stringify(BIN)}, 'new', 'waiter'];
+      await import(${JSON.stringify(pathToFileURL(BIN).href)});`;
+    waiter = spawn(process.execPath, ['--input-type=module', '-e', script], {
+      cwd: f.dirs[0], env: { ...process.env, NO_COLOR: '1', NODE_OPTIONS },
+      stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+    });
+    let out = '';
+    let err = '';
+    waiter.stdout.on('data', (x) => { out += x; });
+    waiter.stderr.on('data', (x) => { err += x; });
+    finished = new Promise((resolve) => waiter.on('close', (code) => resolve({ code, out, err })));
+    await new Promise((resolve, reject) => {
+      waiter.stdio[3].once('data', resolve);
+      waiter.once('close', (code) => reject(new Error(`waiter exited before contention: ${code}: ${err}`)));
+    });
+    h.child.stdin.end('release');
+    const r = await finished;
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /✔ BS-2: /);
-    await h.closed;
+    assert.equal(await h.closed, 0, 'the holder exits after release');
     assert.equal(existsSync(f.lockPath), false);
   } finally {
+    waiter?.kill('SIGKILL');
+    h?.child.kill('SIGKILL');
+    await finished;
+    await h?.closed;
     f.done();
   }
 });
 
 test('new: a lock left by a killed process is taken over once it is older than a minute', async () => {
   const f = fixture({ siblings: 0 });
+  let h;
   try {
-    const h = holder(f.root, 60_000);
+    h = holder(f.root);
     await h.held;
+    assert.ok(existsSync(f.lockPath), 'the holder owns the lock before SIGKILL');
     h.child.kill('SIGKILL');
     await h.closed;
     assert.ok(existsSync(f.lockPath), 'a killed holder cannot release its lock');
@@ -138,6 +179,8 @@ test('new: a lock left by a killed process is taken over once it is older than a
     assert.equal(existsSync(f.lockPath), false);
     assert.equal(readdirSync(path.join(f.root, '.git')).filter((n) => n.includes('stale')).length, 0, 'no tombstone is left');
   } finally {
+    h?.child.kill('SIGKILL');
+    await h?.closed;
     f.done();
   }
 });
