@@ -69,3 +69,26 @@ test('06-module-map names the owned renders and the current self-host check', ()
   assert.ok(readFileSync(path.join(ROOT, 'test/templates.test.mjs'), 'utf8').includes(`test('${title}',`),
     `06-module-map.md: no self-host test named ${title}`);
 });
+
+test('06-module-map selected key exports exist in their source modules', () => {
+  let checked = 0;
+  for (const [index, row] of page('06-module-map.md').split('\n').entries()) {
+    const cells = row.match(/^\| `(lib\/[^`]+\.js)` \| .+ \| (.+) \|$/);
+    if (!cells) continue;
+    const source = readFileSync(path.join(ROOT, cells[1]), 'utf8');
+    const exported = new Set([...source.matchAll(/^export (?:async )?(?:function|class|const) ([A-Za-z_$][\w$]*)|^export \{ ([A-Za-z_$][\w$]*) \};$/gm)]
+      .map((match) => match[1] ?? match[2]));
+    for (const [, name] of cells[2].matchAll(/`([A-Za-z_$][\w$]*)`/g)) {
+      assert.ok(exported.has(name), `docs/reference/06-module-map.md:${index + 1}: ${cells[1]} documents missing export ${name}`);
+      checked += 1;
+    }
+  }
+  assert.ok(checked > 0, '06-module-map.md: no selected key exports were checked');
+});
+
+test('06-module-map template errors use the selected language with an English default', () => {
+  const rule = page('06-module-map.md').split('\n').find((line) => line.startsWith('2. **The placeholder.**'));
+  assert.match(rule, /in the passed `lang`, defaulting to English; `renderProjectTemplate` passes `cfg\.lang`/);
+  assert.match(rule, /throws an `Error`/);
+  assert.match(rule, /the throw is a crash, not a refusal/);
+});

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Module-map accuracy** — the documented changelog helper is `entryTitle`; template errors use the selected language and default to English. Selected documented exports are checked against their source declarations.
+
 - **Owned document recipe** — the module map includes `docs/ROLES.md` among rendered outputs and names the current self-host parity check.
 
 - **Finding-cost reference** — the major/critical hypothesis refusal explicitly applies to `--minor`; confirmed major/critical finding cards retain their existing creation rules.

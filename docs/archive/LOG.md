@@ -449,3 +449,6 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.7"></a>`BS-247.7-correct-adr-index-link-requirement` · 2026-10-23 · completed · — · Say ADR lint requires a link while a table row is a convention
 - <a id="bs-247.14"></a>`BS-247.14-new-major-refusal-minor-condition` · 2026-10-23 · completed · — · Limit the documented major-cost refusal to minor-mode hypotheses
 - <a id="bs-247.17"></a>`BS-247.17-module-map-owned-roles-document` · 2026-10-23 · completed · — · Include ROLES.md in the module map's owned-render contract
+- <a id="bs-250"></a>`BS-250-module-map-minor-audit-corrections` · 2026-10-23 · completed · — · Correct the module map export and language descriptions
+- <a id="bs-247.10"></a>`BS-247.10-correct-changelog-export-docs` · 2026-10-23 · batch BS-250 · — · Replace obsolete CHANGELOG_ENTRY documentation with entryTitle
+- <a id="bs-247.15"></a>`BS-247.15-template-error-language-contract` · 2026-10-23 · batch BS-250 · — · Document the selected language and English default of missing-template-key errors
