@@ -248,7 +248,7 @@ Refusals: no such task; not folded (the body is in the tree, and the path is nam
 ### adr
 
 - Behaviour: writes `docs/adr/adr-NNN-<slug>.md` from the template with the next number ([01 § ADR](01-layout.md#adr)); an empty or blank `--title` makes the slug the title.
-- Output: the file, and a reminder to add the row to the `docs/README.md` table. `lint` fails until the row is added and the `[TODO]` lines of the template are written (gate 8).
+- Output: the file, and a reminder to link it from `docs/README.md`; a table row is conventional. `lint` fails until the link is added and the `[TODO]` lines of the template are written (gate 8).
 - Refusals: a bad slug; a slug that makes the file name longer than 255 bytes; `docs/adr` is a file, not a directory.
 
 ### brief

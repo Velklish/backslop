@@ -537,7 +537,7 @@ This page is for a contributor or a maintainer who needs the exact layout and fo
 
 <!-- quote:reference/02-cli.md -->
 ```text
-- Output: the file, and a reminder to add the row to the `docs/README.md` table. `lint` fails until the row is added and the `[TODO]` lines of the template are written (gate 8).
+- Output: the file, and a reminder to link it from `docs/README.md`; a table row is conventional. `lint` fails until the link is added and the `[TODO]` lines of the template are written (gate 8).
 ```
 <!-- /quote -->
 

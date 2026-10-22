@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **ADR index guidance** — `adr` and its reference require a link from the documentation index and describe a table row as a convention; prose links remain accepted.
+
 - **External-link tests check complete URL and request order** — the mixed-results scenario checks result URLs and observed requests, including redirects, while retaining class, exit, summary and serialization checks.
 
 - **Startup tests guard the rendered CLI instructions in both languages** — EN/RU guards preserve the configured CLI pin and quoting, require missing-command blocker reporting and forbid unpinned substitution.

@@ -29,7 +29,7 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.4 - Make the missing-CLI startup test guard the Backslop instruction contract](../../archive/LOG.md#bs-247.4) | PQA-004 | completed; native archive outcome |
 | [BS-247.5 - Assert full URL order in the mixed external-links test](../../archive/LOG.md#bs-247.5) | PQA-005 | completed; native archive outcome |
 | [BS-247.6 - Remove the weaker diverged-quote probe after two deletion proofs](../minor/BS-247.6-remove-subsumed-quote-probe.md) | PQA-006 | minor; minor |
-| [BS-247.7 - Say ADR lint requires a link while a table row is a convention](../active/BS-247.7-correct-adr-index-link-requirement.md) | PQA-007 | major; active |
+| [BS-247.7 - Say ADR lint requires a link while a table row is a convention](../../archive/LOG.md#bs-247.7) | PQA-007 | completed; native archive outcome |
 | [BS-247.8 - Describe -X ours and -X theirs as hunk choices in both batch skills](../minor/BS-247.8-correct-batch-merge-option-description.md) | PQA-008 | minor; minor |
 | [BS-247.9 - Update writer skills to acknowledge status Cost output](../minor/BS-247.9-correct-writer-status-cost-description.md) | PQA-009 | minor; minor |
 | [BS-247.10 - Replace obsolete CHANGELOG_ENTRY documentation with entryTitle](../minor/BS-247.10-correct-changelog-export-docs.md) | PQA-010 | minor; minor |

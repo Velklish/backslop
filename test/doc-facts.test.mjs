@@ -40,3 +40,12 @@ test('04-verification states the deletion-probe repeat scope and baseline reuse 
   const repeat = page('04-verification.md').split('\n').find((line) => line.startsWith('   - k.'));
   assert.equal(repeat, '   - k. Repeat sub-steps 6b through 6j with a second, different mutation of the same guarded code. Reuse the baseline from 6a only for the identical committed SHA, the same environment and a clean restored tree; otherwise rerun 6a before repeating 6b through 6j.');
 });
+
+
+test('adr reference requires a link and treats its table row as conventional', () => {
+  const output = page('02-cli.md').split('\n').find((line) => line.startsWith('- Output: the file, and a reminder'));
+  assert.match(output, /link it from `docs\/README\.md`; a table row is conventional/);
+  assert.match(output, /`lint` fails until the link is added/);
+  const adr = readFileSync(path.join(ROOT, 'docs/adr/adr-056-adr-placeholder-gate.md'), 'utf8');
+  assert.match(adr, /lint fails without a link from `docs\/README\.md`; a table row is conventional/);
+});

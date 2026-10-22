@@ -1247,13 +1247,13 @@ test('adr: docs/adr as a file is refused by name, not with a stack', () => {
   }
 });
 
-test('adr: the next number and the reminder about the table', () => {
+test('adr: the next number and the required link with a conventional table row', () => {
   const root = makeProject();
   try {
     let r = cli(root, ['adr', 'first', '--title', 'First decision']);
     assert.equal(r.code, 0, r.err);
     assert.match(read(root, 'docs/adr/adr-001-first.md'), /^# ADR-001: First decision\n/);
-    assert.match(r.out, /docs\/README\.md/);
+    assert.match(r.out, ruRe('link the ADR from {docsReadme} or lint will fail; a table row is conventional', { docsReadme: 'docs/README.md' }));
     r = cli(root, ['adr', 'second']);
     assert.ok(existsSync(path.join(root, 'docs/adr/adr-002-second.md')));
   } finally {

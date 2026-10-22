@@ -6,7 +6,7 @@
 
 ## Context
 
-`adr` writes a template whose Deciders line and four sections are `[TODO…]` lines. `lint` reads placeholder lines in the backlog and in a closing `result.md`, but not in an ADR: an ADR committed with the template text passes every gate once it has a status, a number, a link and a row in the index. The ADR directory holds the current decisions, so an unfinished ADR with the status `Accepted` states a decision that nobody wrote down, and a reader of the directory cannot tell it from a finished one.
+`adr` writes a template whose Deciders line and four sections are `[TODO…]` lines. `lint` reads placeholder lines in the backlog and in a closing `result.md`, but not in an ADR: an ADR committed with the template text passes every gate once it has a status, a number and a link from the index. The ADR directory holds the current decisions, so an unfinished ADR with the status `Accepted` states a decision that nobody wrote down, and a reader of the directory cannot tell it from a finished one.
 
 ## Options
 
@@ -20,7 +20,7 @@
 - **An error under gate 8.** Each placeholder line of a correctly named `adr-NNN-<slug>.md` is reported as `line N: the [TODO] placeholder remains`, the message gate 4 gives for the backlog. A misnamed file gets the name error and is not read.
 - **The line rule is gate 4's** (`isPlaceholderLine` in `lib/tasks.js`): a line that is entirely `[TODO…]` after a list marker, a number, a checkbox or a quote marker, a table cell that is entirely such a placeholder, and a field whose whole value is one (`**Deciders:** [TODO]`). Fenced code blocks are blanked; a `[TODO]` inside a sentence or a code span is text.
 - **Status does not matter.** A `Proposed` ADR is read too: it is a decision in progress, and its text is written before it is committed.
-- **The reminder.** `adr` already says that lint fails until the row is added; the placeholders are the other half of the same sentence, and the reference page for `adr` says so.
+- **The reminder.** `adr` says that lint fails without a link from `docs/README.md`; a table row is conventional. The reference page also requires the template placeholder lines to be written.
 
 ## Consequences
 

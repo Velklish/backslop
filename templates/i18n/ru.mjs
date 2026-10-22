@@ -22,7 +22,7 @@ export const messages = {
   // lib/adr.js
   'slug is required: {cli} adr <slug> [--title "…"]': 'нужен slug: {cli} adr <slug> [--title "…"]',
   'slug “{slug}”: use lowercase Latin letters, digits, and hyphens between words': 'slug «{slug}»: латиница в нижнем регистре, цифры и дефисы между словами',
-  'add a row to the table in {docsReadme} or lint will fail': 'добавь строку в таблицу {docsReadme} — без неё lint красный',
+  'link the ADR from {docsReadme} or lint will fail; a table row is conventional': 'добавь ссылку на ADR из {docsReadme} — без неё lint красный; строка таблицы — соглашение оформления',
   // lib/archive.js
   'task number is required: {cli} archive <N> [--dry-run] [--range <base>..HEAD] | {cli} archive <N.k> --into <M>': 'нужен номер задачи: {cli} archive <N> [--dry-run] [--range <база>..HEAD] | {cli} archive <N.k> --into <M>',
   '--range expects revisions: <base>..HEAD': '--range ждёт ревизии: <база>..HEAD',
