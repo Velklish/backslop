@@ -57,3 +57,15 @@ test('new reference scopes the major-cost hypothesis refusal to minor mode', () 
   assert.ok(refusals.includes('; `--minor --cost major|critical` without `--hypothesis`;'));
   assert.match(reference, /`--cost critical\|major` with `--parent` and without `--minor` writes that level into the Cost field/);
 });
+
+
+test('06-module-map names the owned renders and the current self-host check', () => {
+  const rule = page('06-module-map.md').split('\n').find((line) => line.startsWith('6. **Rendered files in `docs/`.**'));
+  for (const rel of ['docs/backlog/README.md', 'docs/archive/README.md', 'docs/ROLES.md', 'docs/archive/LOG.md']) {
+    assert.ok(rule.includes(`\`${rel}\``), `06-module-map.md: rendered-file rule omits ${rel}`);
+  }
+  const title = rule.match(/fails on "([^"]+)" in `test\/templates\.test\.mjs`/)?.[1];
+  assert.ok(title, '06-module-map.md: the self-host check is not named');
+  assert.ok(readFileSync(path.join(ROOT, 'test/templates.test.mjs'), 'utf8').includes(`test('${title}',`),
+    `06-module-map.md: no self-host test named ${title}`);
+});

@@ -39,7 +39,7 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.14 - Limit the documented major-cost refusal to minor-mode hypotheses](../../archive/LOG.md#bs-247.14) | PQA-014 | completed; native archive outcome |
 | [BS-247.15 - Document the selected language and English default of missing-template-key errors](../minor/BS-247.15-template-error-language-contract.md) | PQA-015 | minor; minor |
 | [BS-247.16 - Align the localization ADR with same-version migration of a previous complete CLI render](../minor/BS-247.16-localization-adr-cli-redraw-contract.md) | PQA-016 | minor; minor |
-| [BS-247.17 - Include ROLES.md in the module map's owned-render contract](../active/BS-247.17-module-map-owned-roles-document.md) | PQA-017 | major; active |
+| [BS-247.17 - Include ROLES.md in the module map's owned-render contract](../../archive/LOG.md#bs-247.17) | PQA-017 | completed; native archive outcome |
 | [BS-247.18 - Describe ADR and non-triage backlog placeholder lint in the seed skills](../minor/BS-247.18-seed-placeholder-lint-scope.md) | PQA-018 | minor; minor |
 | [BS-247.19 - Remove the unsupported pipe-regression explanation from the review test comment](../minor/BS-247.19-review-pipe-timeout-comment.md) | PQA-019 | minor; minor |
 | [BS-247.20 - Add an opt-in mechanical completeness check for generated briefs](../active/BS-247.20-brief-opt-in-completeness-check.md) | PQA-020 | ordinary feature; active |

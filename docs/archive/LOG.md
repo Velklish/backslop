@@ -448,3 +448,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.5"></a>`BS-247.5-assert-external-link-url-order` · 2026-10-23 · completed · — · Assert full URL order in the mixed external-links test
 - <a id="bs-247.7"></a>`BS-247.7-correct-adr-index-link-requirement` · 2026-10-23 · completed · — · Say ADR lint requires a link while a table row is a convention
 - <a id="bs-247.14"></a>`BS-247.14-new-major-refusal-minor-condition` · 2026-10-23 · completed · — · Limit the documented major-cost refusal to minor-mode hypotheses
+- <a id="bs-247.17"></a>`BS-247.17-module-map-owned-roles-document` · 2026-10-23 · completed · — · Include ROLES.md in the module map's owned-render contract
