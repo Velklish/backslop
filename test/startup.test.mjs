@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import os from 'node:os';
@@ -251,20 +250,35 @@ test('startup: strict check refuses linked adapter roots without following or re
 });
 
 
-test('startup: an unavailable pinned CLI fails before restoration without changing project bytes', () => {
-  const root = project(['codex']);
-  try {
-    const missing = path.join(root, 'unavailable pinned cli.js');
-    const config = JSON.parse(read(root, 'backslop.json'));
-    config.cli = `"${process.execPath}" "${missing}"`;
-    put(root, 'backslop.json', JSON.stringify(config) + '\n');
-    rmSync(path.join(root, '.agents/skills'), { recursive: true });
-    const files = ['backslop.json', 'AGENTS.md', 'docs/README.md'];
-    const before = files.map((rel) => read(root, rel));
-    const result = spawnSync(process.execPath, [missing, 'init'], { cwd: root, encoding: 'utf8' });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /MODULE_NOT_FOUND/);
-    assert.deepEqual(files.map((rel) => read(root, rel)), before);
-    assert.equal(existsSync(path.join(root, output.codex)), false);
-  } finally { cleanup(root); }
-});
+for (const lang of ['en', 'ru']) {
+  test(`startup: rendered ${lang} instructions preserve the pinned CLI and block unavailable commands`, () => {
+    const root = project(['codex'], lang);
+    try {
+      const pin = '"node executable" "Backslop CLI.js" --pin "release version"';
+      const config = JSON.parse(read(root, 'backslop.json'));
+      config.cli = pin;
+      put(root, 'backslop.json', JSON.stringify(config) + '\n');
+      const rendered = cli(root, ['init']);
+      assert.equal(rendered.code, 0, rendered.err);
+      assert.equal(JSON.parse(read(root, 'backslop.json')).cli, pin);
+      const agents = read(root, 'AGENTS.md');
+      const check = agents.indexOf(`${pin} lint --require-adapter <tool>`);
+      const restore = agents.indexOf(`${pin} init`);
+      assert.ok(check >= 0, 'startup check preserves the configured CLI pin and quoting');
+      assert.ok(restore > check, 'restoration uses the same CLI after the startup check');
+      assert.ok(restore < agents.indexOf('\n1. '), 'startup restoration precedes task selection');
+      const exactPin = lang === 'en'
+        ? "Use exactly the project's configured CLI, including its pin and quoting."
+        : "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439 \u0440\u043e\u0432\u043d\u043e CLI \u043f\u0440\u043e\u0435\u043a\u0442\u0430, \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u044f pin \u0438 \u043a\u0430\u0432\u044b\u0447\u043a\u0438.";
+      const blocker = lang === 'en'
+        ? /A missing CLI,[^\n]* is a blocker: report the exact command and refusal/
+        : /\u041d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0439 CLI,[^\n]* \u2014 \u0431\u043b\u043e\u043a\u0435\u0440: \u0441\u043e\u043e\u0431\u0449\u0438 \u0442\u043e\u0447\u043d\u0443\u044e \u043a\u043e\u043c\u0430\u043d\u0434\u0443 \u0438 \u043e\u0442\u043a\u0430\u0437/;
+      const noSubstitution = lang === 'en'
+        ? 'do not substitute an unpinned CLI'
+        : "\u043d\u0435 \u043f\u043e\u0434\u043c\u0435\u043d\u044f\u0439 CLI \u043d\u0435\u043f\u0440\u0438\u043a\u0440\u0435\u043f\u043b\u0451\u043d\u043d\u043e\u0439 \u0432\u0435\u0440\u0441\u0438\u0435\u0439";
+      assert.ok(agents.includes(exactPin), 'the instruction requires the exact pin and quoting');
+      assert.match(agents, blocker, 'an unavailable CLI blocks startup and reports the command and refusal');
+      assert.ok(agents.includes(noSubstitution), 'startup forbids substituting an unpinned CLI');
+    } finally { cleanup(root); }
+  });
+}
