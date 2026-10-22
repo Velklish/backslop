@@ -3,10 +3,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { PROBE_WORDS, REPO, cleanup, cli, escapeRe, put, read, ru, ruCard, ruLineRe, ruOutcome, ruRe, ruResult, ruTemplate, ruTemplateLines, ruTextRe, ruTwinLine, toolCli, toolCopy, FIELD } from './helpers.mjs';
+import { PROBE_WORDS, REPO, cleanup, cli, escapeRe, gitAll, put, read, ru, ruCard, ruLineRe, ruOutcome, ruRe, ruResult, ruTemplate, ruTemplateLines, ruTextRe, ruTwinLine, run, toolCli, toolCopy, FIELD } from './helpers.mjs';
 import { RU } from '../lib/i18n.js';
 import { isOwnedAdapterFile } from '../lib/adapter-ownership.js';
 import { TOOL_VERSION } from '../lib/version.js';
@@ -53,9 +52,10 @@ const PROBE_RU = {
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
-  spawnSync('git', ['-C', root, 'init', '-q', '-b', 'main']);
-  spawnSync('git', ['-C', root, 'config', 'user.email', 'test@example.com']);
-  spawnSync('git', ['-C', root, 'config', 'user.name', 'test']);
+  run(root, ['init', '-q', '-b', 'main']);
+  run(root, ['config', 'commit.gpgsign', 'false']);
+  run(root, ['config', 'user.email', 'test@example.com']);
+  run(root, ['config', 'user.name', 'test']);
   return root;
 }
 
@@ -173,8 +173,7 @@ test('init: layout, lint green, an end-to-end task cycle, a repeated init is ide
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['mv', '1', 'active']);
     assert.equal(r.code, 0, r.err);
-    spawnSync('git', ['-C', root, 'add', '-A']);
-    spawnSync('git', ['-C', root, 'commit', '-qm', 'seed']);
+    gitAll(root, 'seed');
     r = cli(root, ['archive', '1']);
     assert.equal(r.code, 0, r.err);
     r = cli(root, ['lint']);
@@ -947,8 +946,7 @@ test('init --lang en: the CLI and the generated tree are English, mixed metadata
     const json = JSON.parse(cli(root, ['status', '--json']).out);
     assert.equal(json.triage[0].created, '2026-09-03');
     assert.match(cli(root, ['status']).out, /^Active/m);
-    spawnSync('git', ['-C', root, 'add', '-A']);
-    spawnSync('git', ['-C', root, 'commit', '-qm', 'seed']);
+    gitAll(root, 'seed');
     r = cli(root, ['archive', '1']);
     assert.equal(r.code, 0, r.err);
     put(root, 'docs/archive/BS-1-english/result.md', '# BS-1 · Result\n\n**Closed 2026-09-03.** Completed.\n');

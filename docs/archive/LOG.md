@@ -443,3 +443,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-235"></a>`BS-235-repository-content-boundary` · 2026-10-23 · completed · — · Remove unrelated project internals from tracker records and boundary checks
 - <a id="bs-247.1"></a>`BS-247.1-lock-test-release-handshake` · 2026-10-23 · completed · — · Keep the real lock holder alive until the waiter confirms contention
 - <a id="bs-247.2"></a>`BS-247.2-isolate-upgrade-fixture-signing` · 2026-10-23 · completed · — · Make upgrade Git fixtures independent of user signing configuration
+- <a id="bs-247.3"></a>`BS-247.3-check-init-fixture-git-results` · 2026-10-23 · completed · — · Fail init fixtures immediately when Git preparation fails

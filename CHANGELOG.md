@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Init fixtures stop on Git preparation failures** — checked bootstrap and snapshot calls keep failed setup from silently becoming no-Git coverage; temporary commits also disable inherited signing.
+
 - **Upgrade Git fixtures isolate signing settings** — local commit and tag signing settings keep the real release-tag and relative-source scenarios independent of the user's configuration, while checked Git calls report preparation failures at their cause.
 
 - **Numbering-lock tests observe real contention before release** — the holder waits for an explicit parent signal, and assertion failures terminate and await both subprocesses before fixture cleanup.
