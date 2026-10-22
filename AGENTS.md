@@ -23,6 +23,7 @@ Original prose in this repository is English, including current tracker cards an
 ## Contributor invariants
 
 - Node >= 20, standard library only: no dependencies.
+- Keep the current tracked tree about backslop. Use self-contained generic reproductions instead of another project's implementation, ownership or run history; retain uncertainty and the underlying issue. Use symbolic checkout paths and public example URLs. Supported integrations, third-party licenses and vendor provenance remain named. Journal anchors, ids, slugs, dates, revisions and row order are historical keys: preserve them while normalizing current outcome and title prose. Historical task bodies stay in Git. The structural guard and its review limits are in [repository content boundary](docs/reference/04-verification.md#repository-content-boundary).
 - Every user-facing message goes through `msg(lang, en, params)` from `lib/i18n.js`, with the project language (`cfg.lang` where a config is loaded). An unknown language gives the English text. The English text is the key, with `{name}` placeholders filled from `params`; its Russian text is an entry of `templates/i18n/ru.mjs`, and `test/i18n.test.mjs` fails on a key without an entry and on an entry no code uses. JSON output is language-neutral.
 - A printed path goes through `toPosix` from `lib/util.js`.
 - Windows is supported. A test that cannot run on win32 carries `skip: process.platform === 'win32'` and says why.

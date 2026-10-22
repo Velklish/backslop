@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Repository content boundary** — current tracker and archive prose uses self-contained generic context; a tracked-tree structural guard checks private locations without a consumer-name dictionary, preserving historical keys, supported integrations, licenses and vendor provenance.
+
 ## v0.21.2 — 2026-10-19
 
 - **Long lint help aligns its description** — place the English and Russian description on the next line at column 54.

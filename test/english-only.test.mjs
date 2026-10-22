@@ -70,7 +70,7 @@ const EVIDENCE = [
     "source": "Verbatim gate diagnostic; templates/i18n/ru.mjs did not start: {error}."
   },
   {
-    "file": "docs/backlog/minor/BS-138.1-windows-npx-launcher-unverified.md",
+    "file": "docs/backlog/deferred/BS-138.1-windows-npx-launcher-unverified.md",
     "marker": "Evidence: No Windows machine in this run.",
     "literals": [
       "` — \u043a\u043e\u0434 3. `"

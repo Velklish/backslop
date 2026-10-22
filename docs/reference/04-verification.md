@@ -45,6 +45,20 @@ The repository's `npm test` runs the full suite with `--test-timeout=60000 --tes
 
 Windows behaviour is verified by reading the code unless a Windows machine runs the reproduction. For git-dependent behaviour, record the installed git version used for verification.
 
+## Repository content boundary
+
+Review the entire current tracked tree for unrelated implementation narratives, consumer ownership and private run history. A report here describes backslop using a self-contained generic reproduction: inputs, observed result, expected contract and what remains unverified. Keep consumer-specific evidence in the consumer or integration project. A report that has not been reproduced remains a report or hypothesis after its context is rewritten.
+
+`test/repository-boundary.test.mjs` scans current tracked files, including code, tests, both template languages, ADRs, current cards, archive prose and released CHANGELOG sections. Its structural indicators are concrete personal home paths and HTTP(S) URLs ending in private-network suffixes (`.internal`, `.intranet`, `.corp`, `.lan`, `.local`). Symbolic paths, example usernames (`me`, `user`, `username`, `example`) and public integration URLs remain allowed. `templates/vendor/` preserves third-party text, licenses and provenance. Journal rows exclude only historical key fields from the structural scan; their outcome and title prose remain checked. No product-name dictionary is used.
+
+Identified Backslop verification receipts retain their original command and stack-trace bytes. `LOCATION_EVIDENCE` identifies each card path, section heading and SHA256 of its private-location lines in order, with CRLF normalized to LF for checkout portability. Only an exact match is exempt: changed or repeated lines, a new private location, or the same evidence in another section or file remains checked. These digests preserve identified evidence; they are not encoded consumer-name bans.
+
+Exceptions depend on their exact current path. A status move that retains a receipt requires the approver to update its exception path while preserving the heading and digest. Acceptance normally archives and folds the card before running gates; the removed card is not read or required by the guard, and its original body remains in Git. Reusing its former path does not exempt new authored prose.
+
+The guard reports file:line, not the private text. It cannot recognize every unrelated product name or decide whether an implementation story belongs to backslop; a clean scan does not replace content review. Negative Git fixtures exercise paths outside README, reference pages and the unreleased CHANGELOG section, and prove that generic replacement clears the same findings.
+
+When normalizing archive prose, preserve anchors, ids, slugs, dates, revisions, row order and outcome semantics. Historical task bodies remain in their original commits. After the approver applies tracker or archive edits, run tracker lint, compare the journal keys against the integration base, and verify representative `show N` retrievals with individual exit codes and body hashes. Keep new raw verification logs and export bundles outside the tracked tree; the identified receipts above remain preserved.
+
 ## Repository language evidence
 
 Original prose in this repository's current tracker and archive is English. This is a contributor rule for the tool repository; consumer projects still support both languages and multilingual parser inputs.

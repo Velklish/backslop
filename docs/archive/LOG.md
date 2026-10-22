@@ -33,7 +33,7 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-24"></a>`BS-24-prose-pin-not-rewritten` · 2026-09-09 · completed · `a4a75180e303dbcadf557da8fcd7fa8052c6f803` · Upgrade changes the pin only in config, not documentation prose, so live instructions keep calling a withdrawn tool version
 - <a id="bs-25"></a>`BS-25-area-field-not-linted` · 2026-09-09 · completed · `2854c3b9f0cb3760724548a71a0f84bdebde9d42` · lint does not check a card's Scope: BL-507 is queued without it, and the placeholder from new is undetected
 - <a id="bs-26"></a>`BS-26-mv-single-id-per-call` · 2026-09-09 · completed · `a4a75180e303dbcadf557da8fcd7fa8052c6f803` · mv accepts one task number per call: taking a five-task track requires five calls and five approvals
-- <a id="bs-27"></a>`BS-27-contributing-prose-version-duplicate` · 2026-09-06 · merged into BS-24 · `0151854c5f08aa6ecdc650f2efec8aba6a72e156` · promptobus contributing.md duplicates the backslop version in prose apart from command pins; the last version bump made them diverge
+- <a id="bs-27"></a>`BS-27-contributing-prose-version-duplicate` · 2026-09-06 · merged into BS-24 · `0151854c5f08aa6ecdc650f2efec8aba6a72e156` · A consumer's contributing.md duplicates the backslop version in prose apart from command pins; a version bump made them diverge
 - <a id="bs-28"></a>`BS-28-gates-command-missing` · 2026-09-06 · merged into BS-14 · `0151854c5f08aa6ecdc650f2efec8aba6a72e156` · gates in backslop.json is a list with no runner command: the agent copies it into prose manually, and contributing.md already diverges
 - <a id="bs-29"></a>`BS-29-release-version-sync-gate` · 2026-09-09 · completed · `fa840d4649576ec00f802732fe26095f6a51f559` · A backslop release neither bumps the version nor gates version drift: README still pins `#v0.2.0` three releases after `0.4.0`
 - <a id="bs-31"></a>`BS-31-brief-command-from-disk` · 2026-09-09 · completed · `e05d6c81742d90739bd4291c123ee96a42cc0147` · The orchestrator writes the worker brief manually, although seven of its eight required items are disk data and fixed text
@@ -327,11 +327,11 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-202.3"></a>`BS-202.3-gate3-status-dir-link-wording` · 2026-10-02 · batch BS-206 · — · Gate 3 calls a status directory symlinked out of the project a file outside a status directory
 - <a id="bs-202.5"></a>`BS-202.5-gate2-reads-status-link-out` · 2026-10-02 · batch BS-206 · — · Gates 2 and 6 still read a status directory symlinked out of the project, and gate 6 now reddens every mention behind it
 - <a id="bs-202.6"></a>`BS-202.6-status-link-wrong-diagnoses` · 2026-10-02 · batch BS-206 · — · Two narrow wrong diagnoses for a status directory link: a locked project directory and a link through a symlinked path prefix
-- <a id="bs-208"></a>`BS-208-product-names-no-other-tool` · 2026-10-02 · completed · — · The product names no other tool: remove the promptobus collision warning and its documentation
+- <a id="bs-208"></a>`BS-208-product-names-no-other-tool` · 2026-10-02 · completed · — · Remove an obsolete inter-tool collision warning and its documentation
 - <a id="bs-192.24"></a>`BS-192.24-cli-v7-promptobus-until` · 2026-10-02 · batch BS-208 · — · 02 CLI: the init output is described with a time-bound clause
-- <a id="bs-192.47"></a>`BS-192.47-readme-promptobus-note-unverified` · 2026-10-02 · batch BS-208 · — · README.md promptobus note: the behaviour of promptobus v0.21.0 is unverified
-- <a id="bs-192.49"></a>`BS-192.49-layout-promptobus-participants-unverified` · 2026-10-02 · batch BS-208 · — · 01-layout.md promptobus participants: the behaviour of promptobus v0.21.0 is unverified
-- <a id="bs-192.52"></a>`BS-192.52-cli-init-promptobus-line-unverified` · 2026-10-02 · batch BS-208 · — · 02-cli.md init line on promptobus: the collision with hook files is unverified
+- <a id="bs-192.47"></a>`BS-192.47-readme-promptobus-note-unverified` · 2026-10-02 · batch BS-208 · — · README.md: an integration behavior claim is unverified
+- <a id="bs-192.49"></a>`BS-192.49-layout-promptobus-participants-unverified` · 2026-10-02 · batch BS-208 · — · 01-layout.md: a participating-session behavior claim is unverified
+- <a id="bs-192.52"></a>`BS-192.52-cli-init-promptobus-line-unverified` · 2026-10-02 · batch BS-208 · — · 02-cli.md init output: a claimed collision with another hook writer is unverified
 - <a id="bs-207"></a>`BS-207-status-deferred-shows-date-line` · 2026-10-02 · completed · — · status prints the Deferred date line where a reader expects the reason
 - <a id="bs-186.3"></a>`BS-186.3-unreleased-section-without-tags` · 2026-10-02 · completed · — · Gate 15 reads a released versioned top CHANGELOG section as unreleased when the clone has no matching tag
 - <a id="bs-197.1"></a>`BS-197.1-no-probe-no-mutation-check` · 2026-10-02 · completed · — · Without a declared probe, backslop-task leads to no mutation check at all
@@ -440,3 +440,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-246"></a>`BS-246-agent-bootstrap-after-clone` · 2026-10-18 · completed · — · Restore configured adapters automatically when an agent starts after clone
 - <a id="bs-236.1"></a>`BS-236.1-module-map-language-policy` · 2026-10-18 · completed · — · Module-map inventory still describes superseded directory-wide language exemptions
 - <a id="bs-230.1"></a>`BS-230.1-explain-windows-symlink-skips` · 2026-10-19 · completed · — · Two bulk fold symlink fixtures omit their Windows skip reason
+- <a id="bs-235"></a>`BS-235-repository-content-boundary` · 2026-10-23 · completed · — · Remove unrelated project internals from tracker records and boundary checks

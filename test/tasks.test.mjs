@@ -281,7 +281,7 @@ test('outcome by position: a leading word beats prose, a merge — only with a n
 test('closing date: the first paragraph beats the result.md heading, the heading — in the form "(<outcome> YYYY-MM-DD)"', () => {
   assert.equal(dateFromResult(ruExpand('# BL-005 — {result} ({rejected.4} 2026-08-13)\n\nThe plan changed.\n')), '2026-08-13');
   assert.equal(dateFromResult(ruExpand('# BL-001 — {result} ({completed.0} 2026-07-30)\n\n**{Outcome}:** {closed.0}.\n')), '2026-07-30');
-  assert.equal(dateFromResult(ruExpand('# BL-001 — {result} ({completed.0} 2026-07-30)\n\n**{Closed.0} 2026-08-30.** Run 0830c, worker sync-doctor; review xhigh.\n')), '2026-08-30');
+  assert.equal(dateFromResult(ruExpand('# BL-001 — {result} ({completed.0} 2026-07-30)\n\n**{Closed.0} 2026-08-30.** Sample run, worker example; review complete.\n')), '2026-08-30');
   assert.equal(dateFromResult('# PB-40 · Result\n\n**Outcome:** completed — closed by PB-37 (ADR-005), item by item.\n'), null);
   assert.equal(dateFromResult(ruExpand('# BS-1 · {Result} 2026-07-30\n\n**{Closed.0}.** {Completed.0}.\n')), null, 'the heading date is read only in brackets');
 });
@@ -290,7 +290,7 @@ test('outcome of old archives: the heading “(<outcome> DATE)”, a bare “clo
   const result = (head, body) => `${ruExpand(head)}\n\n${ruExpand(body)}\n\n**${SECTION.verification}.** Gates are green.\n`;
   assert.equal(outcomeFromResult(result('# BL-005 — {result} ({rejected.4} 2026-08-13)', 'The plan changed.'), 'BL', 'ru'), ruOutcomeWord('rejected'));
   assert.equal(outcomeFromResult(result('# BL-001 — {result} ({completed.0} 2026-07-30)', 'Settled by option (b).'), 'BL', 'en'), 'completed');
-  assert.equal(outcomeFromResult(result('# BL-7 · {Result}', '**{Closed.0} 2026-08-30.** Run 0830c, worker sync-doctor; review xhigh.'), 'BL', 'ru'), COMPLETED);
+  assert.equal(outcomeFromResult(result('# BL-7 · {Result}', '**{Closed.0} 2026-08-30.** Sample run, worker example; review complete.'), 'BL', 'ru'), COMPLETED);
   assert.equal(outcomeFromResult(result('# PB-9 · Result', '**Closed 2026-09-05.** Done.'), 'PB', 'en'), 'completed');
   assert.equal(outcomeFromResult(result('# BL-8 · {Result}', '**{Outcome}:** {closed.0}.'), 'BL', 'ru'), COMPLETED);
   assert.equal(outcomeFromResult(result('# PB-40 · Result', '**Outcome:** completed — closed by PB-37 (ADR-005), item by item.'), 'PB', 'en'), 'completed');
@@ -301,8 +301,8 @@ test('outcome of old archives: the heading “(<outcome> DATE)”, a bare “clo
   assert.equal(outcomeFromResult(result('# BL-001 — {result} ({rejected.0} 2026-07-30)', '**{Closed.0} 2026-07-30.** {Completed.0}.'), 'BL', 'ru'), COMPLETED);
   assert.equal(outcomeFromResult(result('# BL-9 · {Result} ({merged.0} {into} BL-3 2026-08-01)', '{Duplicate}.'), 'BL', 'ru'), ruOutcomeWord('merged', 'BL-3'));
   // A merge and a withdrawal with a date or markup inside the form.
-  assert.equal(outcomeFromResult(result('# BL-472 · {Result}', '**{Merged.0} 2026-09-03 {into} [BL-470](../BL-470-canary-env-hygiene/task.md)** while sorting Triage.'), 'BL', 'ru'), ruOutcomeWord('merged', 'BL-470'));
-  assert.equal(outcomeFromResult(result('# BL-173 · {Result}', '{Closed.0}: 2026-08-27. {Outcome} — **{merged.0}** {into} [BL-172](../BL-172-reviewer-spawn-task-and-name/task.md), the work is there.'), 'BL', 'ru'), ruOutcomeWord('merged', 'BL-172'));
+  assert.equal(outcomeFromResult(result('# BL-472 · {Result}', '**{Merged.0} 2026-09-03 {into} [BL-470](../BL-470-sample-task/task.md)** while sorting Triage.'), 'BL', 'ru'), ruOutcomeWord('merged', 'BL-470'));
+  assert.equal(outcomeFromResult(result('# BL-173 · {Result}', '{Closed.0}: 2026-08-27. {Outcome} — **{merged.0}** {into} [BL-172](../BL-172-sample-task/task.md), the work is there.'), 'BL', 'ru'), ruOutcomeWord('merged', 'BL-172'));
   assert.equal(outcomeFromResult(result('# BL-055 · {Result}', '{Closed.0}: 2026-08-27. {Outcome} — **{rejected.4} by the owner’s decision**, the live Cursor IDE run is not held.'), 'BL', 'ru'), ruOutcomeWord('rejected'));
   assert.equal(outcomeFromResult(result('# BL-107 · {Result}', '{Withdrawn.0}: 2026-08-26. Moot — the gate whose estimate it fixed is removed whole.'), 'BL', 'ru'), ruOutcomeWord('rejected'));
   // A word inside a word is not an outcome; a bare "withdrawn" is an outcome only as the first word
@@ -314,8 +314,8 @@ test('outcome of old archives: the heading “(<outcome> DATE)”, a bare “clo
 test('the Russian and English outcome markers without a dictionary word read as a bare “closed”; the Russian marker word without a colon is not a marker', () => {
   const read = (id, body, lang = 'ru') => outcomeFromResult(ruExpand(`# ${id} · {Result}\n\n${body}\n\n## ${SECTION.verification}\n\n{Rejected.0} below the paragraph — not an outcome.\n`), id.split('-')[0], lang);
   assert.equal(read('BL-641.3', '**{Outcome}: both forms are understood, there are two levers — one per form.**'), COMPLETED);
-  assert.equal(read('BL-642.1', '**{Outcome}: {withdrawnNoun} of the tool leaves no trace, and the right to remove is proved positively.**'), COMPLETED);
-  assert.equal(read('BL-642.2', '**{Outcome}: in a service repository `doctor` answers, not refuses by looking for the root.**'), COMPLETED);
+  assert.equal(read('BL-642.1', '**{Outcome}: {withdrawnNoun} of the sample leaves no trace, and removal is verified.**'), COMPLETED);
+  assert.equal(read('BL-642.2', '**{Outcome}: the sample command returns a result in a nested project.**'), COMPLETED);
   assert.equal(read('PB-1', '**Outcome:** the reviewer keeps the diff.', 'en'), 'completed');
   assert.equal(read('BL-1', '**{Outcome}: {rejected.0}** — the subject is gone.'), ruOutcomeWord('rejected'), 'a dictionary word after the marker decides by itself');
   assert.equal(read('BL-1', '**{Outcome}: {withdrawn.0}** together with the subject.'), COMPLETED, 'a word outside the table or “withdrawn” not as the first word after the marker — as “Refusal: moot”');

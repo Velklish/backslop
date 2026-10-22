@@ -737,26 +737,6 @@ test('hooks: the CHANGELOG no longer says that nothing writes the hook records',
   assert.ok(!read(REPO, 'CHANGELOG.md').includes('Nothing writes the records into the harness files yet.'));
 });
 
-function unreleasedSection(changelog) {
-  const start = changelog.indexOf('## Unreleased');
-  if (start < 0) return '';
-  const end = changelog.indexOf('\n## v', start);
-  return changelog.slice(start, end < 0 ? undefined : end);
-}
-
-test('hooks: the README, the layout and CLI references and the unreleased entries name no promptobus', () => {
-  const unreleased = unreleasedSection(read(REPO, 'CHANGELOG.md'));
-  for (const [file, text] of [['README.md', read(REPO, 'README.md')], ['docs/reference/01-layout.md', read(REPO, 'docs/reference/01-layout.md')], ['docs/reference/02-cli.md', read(REPO, 'docs/reference/02-cli.md')], ['CHANGELOG.md ## Unreleased', unreleased]]) {
-    assert.doesNotMatch(text, /promptobus/i, file);
-  }
-});
-
-test('hooks: the unreleased section of a CHANGELOG is empty after the release heading rename', () => {
-  assert.equal(unreleasedSection('# Changelog\n\n## v9.9.9 — 2026-01-01\n\n- **One** — released text\n'), '');
-  assert.equal(unreleasedSection('## Unreleased\n\n- **One** — new\n\n## v9.9.9 — 2026-01-01\n\n- **Two** — old\n'), '## Unreleased\n\n- **One** — new\n');
-  assert.equal(unreleasedSection('## Unreleased\n\n- **One** — only section\n'), '## Unreleased\n\n- **One** — only section\n');
-});
-
 test('hooks: the config field and the flag refuse an unknown or repeated harness, naming the field', () => {
   const root = emptyRepo();
   try {
@@ -787,7 +767,7 @@ test('hooks: init with cursor and codex prints no collision line about another t
     const r = init(root, '--hooks', 'cursor,codex');
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /agent hooks: /);
-    assert.doesNotMatch(r.out, /collide|promptobus/i);
+    assert.doesNotMatch(r.out, /collide/i);
   } finally {
     cleanup(root);
   }
