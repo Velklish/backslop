@@ -1,10 +1,11 @@
-# BS-248 · Correct the layout and batch-instruction audit findings
+# BS-249 · Correct the CLI workflow documentation audit findings
 
-- **Order:** 130
-- **Scope:** [01. Layout and formats](../../reference/01-layout.md)
+- **Scope:** [02. CLI](../../reference/02-cli.md)
 - **Created:** 2026-10-23
 - **Dependencies:** none
 - **Cost:** —
+- **Previous order:** 140
+- **Taken:** 2026-10-23
 
 ## Context
 
@@ -12,9 +13,10 @@ The owner authorized batching the local audit corrections during this implementa
 
 ## Work to do
 
-- [BS-247.8](../minor/BS-247.8-correct-batch-merge-option-description.md): preserve the child definition, evidence and distinct acceptance outcome.
-- [BS-247.11](../minor/BS-247.11-stale-lock-takeover-contract.md): preserve the child definition, evidence and distinct acceptance outcome.
-- [BS-247.13](../minor/BS-247.13-self-contained-init-measurement-note.md): preserve the child definition, evidence and distinct acceptance outcome.
+- [BS-247.9](../minor/BS-247.9-correct-writer-status-cost-description.md): preserve the child definition, evidence and distinct acceptance outcome.
+- [BS-247.12](../minor/BS-247.12-seed-adr-current-inventory-contract.md): preserve the child definition, evidence and distinct acceptance outcome.
+- [BS-247.16](../minor/BS-247.16-localization-adr-cli-redraw-contract.md): preserve the child definition, evidence and distinct acceptance outcome.
+- [BS-247.18](../minor/BS-247.18-seed-placeholder-lint-scope.md): preserve the child definition, evidence and distinct acceptance outcome.
 
 Use one editor for shared files, keep English/Russian template twins and rendered files consistent, and preserve unrelated changes. Run the child-specific checks before full acceptance. New public behavior is outside this batch.
 

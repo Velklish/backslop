@@ -1,10 +1,11 @@
 # BS-250 · Correct the module map export and language descriptions
 
-- **Order:** 150
 - **Scope:** [06. Module map](../../reference/06-module-map.md)
 - **Created:** 2026-10-23
 - **Dependencies:** none
 - **Cost:** —
+- **Previous order:** 150
+- **Taken:** 2026-10-23
 
 ## Context
 
