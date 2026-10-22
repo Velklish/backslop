@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## v0.21.2 — 2026-10-19
 
 - **Long lint help aligns its description** — place the English and Russian description on the next line at column 54.
