@@ -10,7 +10,7 @@
 
 Open tracker records and the archive retain unrelated project names, private run history and implementation details. The existing boundary test protects only a narrow document set and itself embeds a consumer name.
 
-Evidence: audited commit `fd85b4cb527c875f1172b4517b4a3972a4e33755`, 2026-10-04. See the Context sections of BS-225, BS-226, BS-227, BS-228, BS-231 and BS-232, `docs/archive/LOG.md:330-334`, and `test/hooks-install.test.mjs:599-604,642`. These existing cards describe real defects; their evidence needs an independent reproducer instead of foreign implementation context.
+Historical evidence: audited commit `fd85b4cb527c875f1172b4517b4a3972a4e33755`, 2026-10-04, named the Context sections of BS-225, BS-226, BS-227, BS-228, BS-231 and BS-232. Current-tree triage at `409099a689d496925d4be018394c7353c60fb3f3` locates remaining archive narratives at `docs/archive/LOG.md:330-334` and the narrow consumer-identifier guard at `test/hooks-install.test.mjs:747-750`; the old test line numbers are obsolete. BS-233 and BS-234 are closed (`docs/archive/LOG.md:421,435`). BS-225 is being restated as generic reproduction and contract/design work: its stronger attribution request is not established as a violation of the documented coarse file filter. Preserve each underlying issue's uncertainty when replacing foreign context; do not label every historical report a reproduced product defect.
 
 No open card covers this repository-wide boundary. The closed BS-208 cleanup covered a narrower public surface.
 
