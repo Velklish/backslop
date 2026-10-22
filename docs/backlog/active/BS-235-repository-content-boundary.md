@@ -1,10 +1,11 @@
 # BS-235 · Remove unrelated project internals from tracker records and boundary checks
 
-- **Order:** 30
 - **Scope:** [04. Verification](../../reference/04-verification.md)
 - **Created:** 2026-10-04
 - **Dependencies:** BS-233, BS-234
 - **Cost:** major
+- **Previous order:** 30
+- **Taken:** 2026-10-23
 
 ## Context
 
