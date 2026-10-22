@@ -1,16 +1,19 @@
 # BS-225 · Establish the stop-hook attribution boundary before changing it
 
-- **Order:** 40
 - **Scope:** [02. CLI — hook](../../reference/02-cli.md#hook)
 - **Created:** 2026-10-04
 - **Dependencies:** BS-235
 - **Cost:** —
+- **Previous order:** 40
+- **Taken:** 2026-10-23
 
 ## Context
 
 The desired behavior is to distinguish errors introduced by the current session from pre-existing errors or other sessions' work. The current documented behavior is coarser: it reports lint errors in files changed since the recorded session start, plus relevant untracked files (`docs/reference/02-cli.md:368-369`, ADR-055 at `docs/adr/adr-055-docs-rules-ship-to-projects.md:40`). A file-level match does not establish who introduced each error. This is a contract/design task, not a reproduced violation of that existing filter contract.
 
 The original report described a historical return caused by older errors in a changed README in a shared working tree. Its consumer-specific narrative is retained at `409099a689d496925d4be018394c7353c60fb3f3` in the former triage card; it is not a self-contained current reproduction. No new runtime reproduction was performed during triage at `409099a689d496925d4be018394c7353c60fb3f3`. Establish generic evidence before prescribing a fix. BS-235 remains the repository-wide current-content boundary task.
+
+Owner decision on 2026-10-23: this run delivers the five reproductions, a supported attribution model and a bounded implementation plan. It does not change hook behavior; any implementation receives a separate follow-up definition.
 
 ## Work to do
 

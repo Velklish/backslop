@@ -23,11 +23,11 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 
 | Follow-up | Audit item | Cost / route |
 |---|---|---|
-| [BS-247.1 - Keep the real lock holder alive until the waiter confirms contention](../active/BS-247.1-lock-test-release-handshake.md) | PQA-001 | major; queue |
-| [BS-247.2 - Make upgrade Git fixtures independent of user signing configuration](../active/BS-247.2-isolate-upgrade-fixture-signing.md) | PQA-002 | major; queue |
-| [BS-247.3 - Fail init fixtures immediately when Git preparation fails](../active/BS-247.3-check-init-fixture-git-results.md) | PQA-003 | major; queue |
-| [BS-247.4 - Make the missing-CLI startup test guard the Backslop instruction contract](../active/BS-247.4-replace-node-only-startup-probe.md) | PQA-004 | major; queue |
-| [BS-247.5 - Assert full URL order in the mixed external-links test](../active/BS-247.5-assert-external-link-url-order.md) | PQA-005 | major; queue |
+| [BS-247.1 - Keep the real lock holder alive until the waiter confirms contention](../active/BS-247.1-lock-test-release-handshake.md) | PQA-001 | major; active |
+| [BS-247.2 - Make upgrade Git fixtures independent of user signing configuration](../active/BS-247.2-isolate-upgrade-fixture-signing.md) | PQA-002 | major; active |
+| [BS-247.3 - Fail init fixtures immediately when Git preparation fails](../active/BS-247.3-check-init-fixture-git-results.md) | PQA-003 | major; active |
+| [BS-247.4 - Make the missing-CLI startup test guard the Backslop instruction contract](../active/BS-247.4-replace-node-only-startup-probe.md) | PQA-004 | major; active |
+| [BS-247.5 - Assert full URL order in the mixed external-links test](../active/BS-247.5-assert-external-link-url-order.md) | PQA-005 | major; active |
 | [BS-247.6 - Remove the weaker diverged-quote probe after two deletion proofs](../minor/BS-247.6-remove-subsumed-quote-probe.md) | PQA-006 | minor; minor |
 | [BS-247.7 - Say ADR lint requires a link while a table row is a convention](../queue/BS-247.7-correct-adr-index-link-requirement.md) | PQA-007 | major; queue |
 | [BS-247.8 - Describe -X ours and -X theirs as hunk choices in both batch skills](../minor/BS-247.8-correct-batch-merge-option-description.md) | PQA-008 | minor; minor |
@@ -42,7 +42,7 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.17 - Include ROLES.md in the module map's owned-render contract](../queue/BS-247.17-module-map-owned-roles-document.md) | PQA-017 | major; queue |
 | [BS-247.18 - Describe ADR and non-triage backlog placeholder lint in the seed skills](../minor/BS-247.18-seed-placeholder-lint-scope.md) | PQA-018 | minor; minor |
 | [BS-247.19 - Remove the unsupported pipe-regression explanation from the review test comment](../minor/BS-247.19-review-pipe-timeout-comment.md) | PQA-019 | minor; minor |
-| [BS-247.20 - Decide whether briefs need an opt-in mechanical completeness contract](BS-247.20-brief-opt-in-completeness-check.md) | PQA-020 | ordinary proposal; deferred |
+| [BS-247.20 - Add an opt-in mechanical completeness check for generated briefs](../active/BS-247.20-brief-opt-in-completeness-check.md) | PQA-020 | ordinary feature; active |
 | [BS-247.21 - Verify and bound the local-midnight date race in the fold journal test](../minor/BS-247.21-fold-local-midnight-test-boundary.md) | PQA-021 | minor (hypothesis); minor |
 | [BS-214 - CI on Windows: run the gates and verify platform and hook hypotheses](BS-214-windows-ci.md) | PQA-022 | Hypothesis; existing deferred task |
 
