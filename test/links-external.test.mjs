@@ -119,7 +119,7 @@ test('links --external: a dropped connection is unverified with the error, exit 
 });
 
 test('links --external: the run goes one URL at a time, in document order, and a dead one wins over the rest', async () => {
-  await withServer(async ({ base, state }) => {
+  await withServer(async ({ base, seen, state }) => {
     const closed = `${base}${RESET}`;
     const paths = ['/ok', '/moved', '/missing', '/gone', '/forbidden', '/limited', '/broken'];
     const root = projectWith([...paths.map((p) => `${base}${p}`), closed]);
@@ -129,6 +129,10 @@ test('links --external: the run goes one URL at a time, in document order, and a
       assert.deepEqual(r.out.trimEnd().split('\n').map((l) => l.split(' ')[0]), [
         'ok', 'ok', 'dead', 'dead', 'unverified', 'unverified', 'unverified', 'unverified', 'links:',
       ]);
+      assert.deepEqual(r.out.trimEnd().split('\n').slice(0, -1).map((l) => l.split(' ')[2]),
+        [...paths.map((p) => `${base}${p}`), closed], 'result URLs follow document order');
+      assert.deepEqual(seen.map((request) => request.url), ['/ok', '/moved', '/ok', ...paths.slice(2)],
+        'requests follow document order, including the redirect');
       assert.match(r.out, /\nlinks: 8 urls, 2 dead, 4 unverified\n$/);
       assert.equal(state.maxInFlight, 1, 'requests overlapped');
     } finally { cleanup(root); }

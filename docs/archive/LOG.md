@@ -445,3 +445,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.2"></a>`BS-247.2-isolate-upgrade-fixture-signing` · 2026-10-23 · completed · — · Make upgrade Git fixtures independent of user signing configuration
 - <a id="bs-247.3"></a>`BS-247.3-check-init-fixture-git-results` · 2026-10-23 · completed · — · Fail init fixtures immediately when Git preparation fails
 - <a id="bs-247.4"></a>`BS-247.4-replace-node-only-startup-probe` · 2026-10-23 · completed · — · Make the missing-CLI startup test guard the Backslop instruction contract
+- <a id="bs-247.5"></a>`BS-247.5-assert-external-link-url-order` · 2026-10-23 · completed · — · Assert full URL order in the mixed external-links test

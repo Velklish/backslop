@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **External-link tests check complete URL and request order** — the mixed-results scenario checks result URLs and observed requests, including redirects, while retaining class, exit, summary and serialization checks.
+
 - **Startup tests guard the rendered CLI instructions in both languages** — EN/RU guards preserve the configured CLI pin and quoting, require missing-command blocker reporting and forbid unpinned substitution.
 
 - **Init fixtures stop on Git preparation failures** — checked bootstrap and snapshot calls keep failed setup from silently becoming no-Git coverage; temporary commits also disable inherited signing.
