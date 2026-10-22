@@ -30,15 +30,16 @@ const DOCS_DIR = String.fromCodePoint(0x434, 0x43e, 0x43a, 0x438);
 
 function releasesRepo(tags) {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-src-')));
-  const g = (...a) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8' });
-  g('init', '-q', '-b', 'main');
-  g('config', 'user.email', 'test@example.com');
-  g('config', 'user.name', 'test');
+  run(dir, ['init', '-q', '-b', 'main']);
+  run(dir, ['config', 'commit.gpgsign', 'false']);
+  run(dir, ['config', 'tag.gpgsign', 'false']);
+  run(dir, ['config', 'user.email', 'test@example.com']);
+  run(dir, ['config', 'user.name', 'test']);
   for (const tag of tags) {
     writeFileSync(path.join(dir, 'release.txt'), `${tag}\n`);
-    g('add', '-A');
-    g('commit', '-qm', tag);
-    g('tag', tag);
+    run(dir, ['add', '-A']);
+    run(dir, ['commit', '-qm', tag]);
+    run(dir, ['tag', tag]);
   }
   return dir;
 }
@@ -265,10 +266,11 @@ test('upgrade resolves a relative source from the project root', () => {
     run(mono, ['init', '-q', '-b', 'main']);
     const tool = path.join(mono, 'pkg', 'tool');
     mkdirSync(tool, { recursive: true });
-    const g = (...a) => spawnSync('git', ['-C', tool, '-c', 'user.email=t@e', '-c', 'user.name=t', ...a], { encoding: 'utf8' });
-    g('init', '-q', '-b', 'main');
-    g('commit', '-q', '--allow-empty', '-m', 'r');
-    g('tag', `v${TOOL_VERSION}`);
+    run(tool, ['init', '-q', '-b', 'main']);
+    run(tool, ['config', 'commit.gpgsign', 'false']);
+    run(tool, ['config', 'tag.gpgsign', 'false']);
+    run(tool, ['-c', 'user.email=t@e', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'r']);
+    run(tool, ['tag', `v${TOOL_VERSION}`]);
     const root = path.join(mono, 'pkg', 'a');
     mkdirSync(path.join(root, 'sub'), { recursive: true });
     put(root, 'backslop.json', `${JSON.stringify({ prefix: 'BS', docs: 'docs', cli: 'npx github:me/proj#v0.10.0', gates: [], version: '0.10.0', source: '../tool', lang: 'en', tools: [] }, null, 2)}\n`);
@@ -775,6 +777,7 @@ test('migrate: a file of the pair behind a symlink is not redrawn — a warning,
 function switchedToEn(edit = (root) => root) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-lang-')));
   run(root, ['init', '-q', '-b', 'main']);
+  run(root, ['config', 'commit.gpgsign', 'false']);
   run(root, ['config', 'user.email', 'test@example.com']);
   run(root, ['config', 'user.name', 'test']);
   const r = cli(root, ['init', '--lang', 'ru', '--tools', 'none']);

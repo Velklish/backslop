@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Upgrade Git fixtures isolate signing settings** — local commit and tag signing settings keep the real release-tag and relative-source scenarios independent of the user's configuration, while checked Git calls report preparation failures at their cause.
+
 - **Numbering-lock tests observe real contention before release** — the holder waits for an explicit parent signal, and assertion failures terminate and await both subprocesses before fixture cleanup.
 
 - **Repository content boundary** — current tracker and archive prose uses self-contained generic context; a tracked-tree structural guard checks private locations without a consumer-name dictionary, preserving historical keys, supported integrations, licenses and vendor provenance.
