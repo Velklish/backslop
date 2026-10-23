@@ -52,11 +52,16 @@ const PROBE_RU = {
 
 function emptyRepo() {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-init-')));
-  run(root, ['init', '-q', '-b', 'main']);
-  run(root, ['config', 'commit.gpgsign', 'false']);
-  run(root, ['config', 'user.email', 'test@example.com']);
-  run(root, ['config', 'user.name', 'test']);
-  return root;
+  try {
+    run(root, ['init', '-q', '-b', 'main']);
+    run(root, ['config', 'commit.gpgsign', 'false']);
+    run(root, ['config', 'user.email', 'test@example.com']);
+    run(root, ['config', 'user.name', 'test']);
+    return root;
+  } catch (e) {
+    cleanup(root);
+    throw e;
+  }
 }
 
 const EXPECTED = [

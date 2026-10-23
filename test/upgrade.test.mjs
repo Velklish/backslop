@@ -30,18 +30,23 @@ const DOCS_DIR = String.fromCodePoint(0x434, 0x43e, 0x43a, 0x438);
 
 function releasesRepo(tags) {
   const dir = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-src-')));
-  run(dir, ['init', '-q', '-b', 'main']);
-  run(dir, ['config', 'commit.gpgsign', 'false']);
-  run(dir, ['config', 'tag.gpgsign', 'false']);
-  run(dir, ['config', 'user.email', 'test@example.com']);
-  run(dir, ['config', 'user.name', 'test']);
-  for (const tag of tags) {
-    writeFileSync(path.join(dir, 'release.txt'), `${tag}\n`);
-    run(dir, ['add', '-A']);
-    run(dir, ['commit', '-qm', tag]);
-    run(dir, ['tag', tag]);
+  try {
+    run(dir, ['init', '-q', '-b', 'main']);
+    run(dir, ['config', 'commit.gpgsign', 'false']);
+    run(dir, ['config', 'tag.gpgsign', 'false']);
+    run(dir, ['config', 'user.email', 'test@example.com']);
+    run(dir, ['config', 'user.name', 'test']);
+    for (const tag of tags) {
+      writeFileSync(path.join(dir, 'release.txt'), `${tag}\n`);
+      run(dir, ['add', '-A']);
+      run(dir, ['commit', '-qm', tag]);
+      run(dir, ['tag', tag]);
+    }
+    return dir;
+  } catch (e) {
+    cleanup(dir);
+    throw e;
   }
-  return dir;
 }
 
 function setConfig(root, patch) {
@@ -776,16 +781,21 @@ test('migrate: a file of the pair behind a symlink is not redrawn — a warning,
 // A project laid out by `init` and committed, then switched to `lang: en` by a config edit.
 function switchedToEn(edit = (root) => root) {
   const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'backslop-lang-')));
-  run(root, ['init', '-q', '-b', 'main']);
-  run(root, ['config', 'commit.gpgsign', 'false']);
-  run(root, ['config', 'user.email', 'test@example.com']);
-  run(root, ['config', 'user.name', 'test']);
-  const r = cli(root, ['init', '--lang', 'ru', '--tools', 'none']);
-  assert.equal(r.code, 0, r.err);
-  edit(root);
-  gitAll(root);
-  setConfig(root, { lang: 'en' });
-  return root;
+  try {
+    run(root, ['init', '-q', '-b', 'main']);
+    run(root, ['config', 'commit.gpgsign', 'false']);
+    run(root, ['config', 'user.email', 'test@example.com']);
+    run(root, ['config', 'user.name', 'test']);
+    const r = cli(root, ['init', '--lang', 'ru', '--tools', 'none']);
+    assert.equal(r.code, 0, r.err);
+    edit(root);
+    gitAll(root);
+    setConfig(root, { lang: 'en' });
+    return root;
+  } catch (e) {
+    cleanup(root);
+    throw e;
+  }
 }
 
 test('migrate: a ru project switched to en redraws the untouched rules pair', () => {

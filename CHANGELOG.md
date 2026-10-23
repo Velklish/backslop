@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Failed fixture construction removes its temporary root** — the init repository, release source and language-switch constructors clean their own allocations before rethrowing the original preparation error. Successful fixture contents remain unchanged.
+
 - **Agent hook missing-link baseline** — the first session start observes actual project state in one complete lint pass. Stops subtract pre-existing local missing-link identity counts in eligible files, while ordinary lint stays strict. Repeated starts preserve the first observation or its unavailability. Invalid, incompatible or over-budget baselines retain the changed-file filter and recorded start; other diagnostic families and foreign post-start changes remain reportable.
 
 - **Verification test coverage** — the fold fallback accepts the two bracketing local dates while preserving the journal structure; a weaker quote probe is removed after two full-suite mutation proofs; the pipe timeout comment states its local reason.
