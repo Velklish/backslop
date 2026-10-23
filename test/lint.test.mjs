@@ -1061,7 +1061,6 @@ test('lint: 10. quote:before keeps the snapshot before the edit but does not hid
 });
 
 probe('10. a second marker closes an unclosed block with an error', (root) => put(root, 'docs/quoting.md', `<!-- quote:reference/README.md -->\n\n${ONE}\n\n<!-- quote:reference/README.md -->\n\n${ONE}\n\n<!-- /quote -->\n`), errRe('quoting.md', QUOTE_OPEN));
-probe('10. the quote diverged from the file', (root) => put(root, 'docs/reference/README.md', `# ${SECTION.context}\n\nOne concept, two names.\n`), errRe('quoting.md', QUOTE_DIFF, { href: 'reference/README.md' }));
 probe('10. a quote points at a missing file', (root) => put(root, 'docs/quoting.md', '<!-- quote:reference/none.md -->\n\ntext\n\n<!-- /quote -->\n'), errRe('quoting.md', QUOTE_MISSING, { href: 'reference/none.md' }));
 probe('10. a quote block is not closed', (root) => put(root, 'docs/quoting.md', `<!-- quote:reference/README.md -->\n\n${ONE}\n`), errRe('quoting.md', QUOTE_OPEN));
 probe('10. the message of a diverged fenced quote names its first text line, not the fence', (root) => put(root, 'docs/reference/README.md', `# ${SECTION.context}\n\nOne concept, two names.\n`), exactRe('docs/quoting.md', QUOTE_DIFF, { href: 'reference/README.md', first: ONE }));

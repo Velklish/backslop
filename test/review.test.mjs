@@ -91,8 +91,7 @@ test('duplicate number: mv and new refuse naming both paths', () => {
   }
 });
 
-// Its own limit: a direct `node --test <file>` gets no --test-timeout from npm test, and an
-// "exitCode instead of process.exit" regression (bin/backslop.js) would hang the test, not fail it.
+// Its own limit: a direct `node --test <file>` gets no --test-timeout from npm test.
 test('status --json arrives whole through a pipe that is read late', { timeout: 20000 }, async () => {
   const root = makeProject({ git: false });
   try {

@@ -463,3 +463,7 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.18"></a>`BS-247.18-seed-placeholder-lint-scope` · 2026-10-23 · batch BS-249 · — · Describe ADR and non-triage backlog placeholder lint in the seed skills
 - <a id="bs-247.20"></a>`BS-247.20-brief-opt-in-completeness-check` · 2026-10-23 · completed · — · Add an opt-in mechanical completeness check for generated briefs
 - <a id="bs-225"></a>`BS-225-stop-hook-returns-errors-not-made-by-session` · 2026-10-23 · completed · `c47c4255da71e381e2684061af2fbb874d0d2b7f` · Establish the stop-hook attribution boundary before changing it
+- <a id="bs-251"></a>`BS-251-verification-minor-audit-corrections` · 2026-10-23 · completed · — · Resolve the bounded test and comment audit findings
+- <a id="bs-247.6"></a>`BS-247.6-remove-subsumed-quote-probe` · 2026-10-23 · batch BS-251 · — · Remove the weaker diverged-quote probe after two deletion proofs
+- <a id="bs-247.19"></a>`BS-247.19-review-pipe-timeout-comment` · 2026-10-23 · batch BS-251 · — · Remove the unsupported pipe-regression explanation from the review test comment
+- <a id="bs-247.21"></a>`BS-247.21-fold-local-midnight-test-boundary` · 2026-10-23 · batch BS-251 · — · Verify and bound the local-midnight date race in the fold journal test

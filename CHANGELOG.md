@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Verification test coverage** — the fold fallback accepts the two bracketing local dates while preserving the journal structure; a weaker quote probe is removed after two full-suite mutation proofs; the pipe timeout comment states its local reason.
+
 - **Stop-hook attribution boundary** — changed-path eligibility includes post-start commits and does not prove who introduced an edit or diagnostic; synthetic research and live harness observations remain distinct.
 
 - **Checked worker briefs** — `brief --require-complete` refuses missing or blank decisions and literal `[TODO` markers before printing; complete checked output matches the ordinary render, while default drafts retain their text and exit 0.

@@ -808,9 +808,13 @@ test('fold: without a date in result.md the line takes the date of the body revi
     assert.equal(lines.length, 2);
     for (const line of lines) assert.match(line, new RegExp(` · 2026-02-03 · ${ruOutcomeWord('completed')} · \`[0-9a-f]{10}\` · `));
 
+    const beforeFold = today();
     const rest = cli(root, ['fold']);
+    const afterFold = today();
     assert.equal(rest.code, 0, rest.err);
-    assert.match(logLines(root)[2], new RegExp(`^- <a id="bs-3"></a>\`BS-3-gamma\` · ${today()} · ${ruOutcomeWord('completed')} · — · `), 'without a revision — the fold day');
+    const line = logLines(root)[2];
+    assert.match(line, new RegExp(`^- <a id="bs-3"></a>\`BS-3-gamma\` · \\d{4}-\\d{2}-\\d{2} · ${ruOutcomeWord('completed')} · — · `));
+    assert.ok([beforeFold, afterFold].includes(line.split(' · ')[1]), 'without a revision — the fold day');
   } finally {
     cleanup(root);
   }

@@ -28,7 +28,7 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.3 - Fail init fixtures immediately when Git preparation fails](../../archive/LOG.md#bs-247.3) | PQA-003 | completed; native archive outcome |
 | [BS-247.4 - Make the missing-CLI startup test guard the Backslop instruction contract](../../archive/LOG.md#bs-247.4) | PQA-004 | completed; native archive outcome |
 | [BS-247.5 - Assert full URL order in the mixed external-links test](../../archive/LOG.md#bs-247.5) | PQA-005 | completed; native archive outcome |
-| [BS-247.6 - Remove the weaker diverged-quote probe after two deletion proofs](../minor/BS-247.6-remove-subsumed-quote-probe.md) | PQA-006 | minor; minor |
+| [BS-247.6 - Remove the weaker diverged-quote probe after two deletion proofs](../../archive/LOG.md#bs-247.6) | PQA-006 | completed; batch BS-251 |
 | [BS-247.7 - Say ADR lint requires a link while a table row is a convention](../../archive/LOG.md#bs-247.7) | PQA-007 | completed; native archive outcome |
 | [BS-247.8 - Describe -X ours and -X theirs as hunk choices in both batch skills](../../archive/LOG.md#bs-247.8) | PQA-008 | completed; batch BS-248 |
 | [BS-247.9 - Update writer skills to acknowledge status Cost output](../../archive/LOG.md#bs-247.9) | PQA-009 | completed; batch BS-249 |
@@ -41,9 +41,9 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.16 - Align the localization ADR with same-version migration of a previous complete CLI render](../../archive/LOG.md#bs-247.16) | PQA-016 | completed; batch BS-249 |
 | [BS-247.17 - Include ROLES.md in the module map's owned-render contract](../../archive/LOG.md#bs-247.17) | PQA-017 | completed; native archive outcome |
 | [BS-247.18 - Describe ADR and non-triage backlog placeholder lint in the seed skills](../../archive/LOG.md#bs-247.18) | PQA-018 | completed; batch BS-249 |
-| [BS-247.19 - Remove the unsupported pipe-regression explanation from the review test comment](../minor/BS-247.19-review-pipe-timeout-comment.md) | PQA-019 | minor; minor |
+| [BS-247.19 - Remove the unsupported pipe-regression explanation from the review test comment](../../archive/LOG.md#bs-247.19) | PQA-019 | completed; batch BS-251 |
 | [BS-247.20 - Add an opt-in mechanical completeness check for generated briefs](../../archive/LOG.md#bs-247.20) | PQA-020 | completed; native archive outcome |
-| [BS-247.21 - Verify and bound the local-midnight date race in the fold journal test](../minor/BS-247.21-fold-local-midnight-test-boundary.md) | PQA-021 | minor (hypothesis); minor |
+| [BS-247.21 - Verify and bound the local-midnight date race in the fold journal test](../../archive/LOG.md#bs-247.21) | PQA-021 | completed; batch BS-251 |
 | [BS-214 - CI on Windows: run the gates and verify platform and hook hypotheses](BS-214-windows-ci.md) | PQA-022 | Hypothesis; existing deferred task |
 
 ### Scheduling and shared files
