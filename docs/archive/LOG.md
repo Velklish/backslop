@@ -470,3 +470,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-254"></a>`BS-254-first-start-missing-link-baseline` · 2026-10-23 · completed · — · Suppress pre-existing local missing-link diagnostics with a first-start observation baseline
 - <a id="bs-252"></a>`BS-252-cleanup-checked-fixture-batch` · 2026-10-23 · completed · — · Clean temporary fixture roots on checked construction failure
 - <a id="bs-247.22"></a>`BS-247.22-cleanup-checked-fixture-construction` · 2026-10-23 · batch BS-252 · — · Clean allocated fixture directories when checked Git construction fails
+- <a id="bs-255"></a>`BS-255-refresh-quoted-hook-consequence` · 2026-10-23 · completed · — · Refresh the documentation index quote after the hook baseline decision

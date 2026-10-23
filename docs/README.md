@@ -770,7 +770,7 @@ Where things live in the tool's own code, and the routine changes spelled out st
 
 <!-- quote:adr/adr-055-docs-rules-ship-to-projects.md -->
 ```text
-- Enabling `hooks` writes agent hooks into the project hook files of the harnesses, and its stop record runs `hook stop`, which runs `lint`, so a project turns it on knowingly.
+- Enabling `hooks` writes agent hooks into the project hook files of the harnesses. The first start adds one full lint pass and a bounded identity-count record; a stop with eligible paths still runs at most one lint pass. Repeated starts do not recapture. No project gate, second lint CLI, worktree creation or network service is involved.
 ```
 <!-- /quote -->
 
