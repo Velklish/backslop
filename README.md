@@ -47,7 +47,9 @@ With an adapter selected, ask an agent to "populate docs using backslop" after t
 
 ## Agent hooks
 
-An agent hook is a record that `init` writes into the project hook file of a selected harness, two per harness: the start record runs `hook session-start`, which records the commit the session began from, and the stop record runs `hook stop`, which runs `lint` and reports the errors that sit in a file changed since that commit. An error in any other file is not reported.
+An agent hook is a record that `init` writes into the project hook file of a selected harness, two per harness. The start record runs `hook session-start`: it records the start commit and attempts one complete in-process `lint` observation of actual project state. The stop record runs `hook stop`, which checks files changed since that commit, including later commits and non-ignored untracked files. With a compatible first-start baseline, it subtracts pre-existing local missing-link identities by count; other error families keep the changed-file filter. Ordinary `lint` still reports every error.
+
+The baseline observes staged, unstaged and untracked content, rather than reconstructing the start commit. Repeated starts keep the first observation or its unavailability. Old, malformed, incompatible or oversized baselines fall back to the changed-file filter. A foreign post-start change remains reportable: the hook cannot identify its author. Equal-count replacement of an identical link identity is net zero, without identifying a physical occurrence. The scope, fallback, 1 MiB baseline budget and report protocol are in [hook](docs/reference/02-cli.md#hook).
 
 Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hooks none` removes them); a first `init` selects none. `init` writes the records into `<project>/.claude/settings.json` for `claude`, `<project>/.cursor/hooks.json` for `cursor` and `<project>/.codex/hooks.json` for `codex`, next to the team's own settings and hooks, which `init` keeps; it never writes the files in your home directory. The rules are in [Agent hook records](docs/reference/01-layout.md#agent-hook-records).
 
@@ -75,7 +77,7 @@ Each command links its reference section: behaviour, output and refusals.
 | [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot including non-ignored untracked work regardless of Git's display setting |
 | [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty including non-ignored untracked work |
 | [`links --external [--json]`](docs/reference/02-cli.md#links) | request the http(s) links of the documents and classify each: ok, dead, unverified; outside `gates` and `lint` |
-| [`hook <session-start\|stop> --harness <claude\|cursor\|codex>`](docs/reference/02-cli.md#hook) | agent hook: record where a session started, report the `lint` errors in the files it changed |
+| [`hook <session-start\|stop> --harness <claude\|cursor\|codex>`](docs/reference/02-cli.md#hook) | agent hook: observe first-start missing links, report kept `lint` errors in changed files |
 | [`upgrade [--to X.Y.Z] [--dry-run] [--pin-only]`](docs/reference/02-cli.md#upgrade) | update the pins, then migrate and initialize with the new version |
 | [`migrate [--dry-run]`](docs/reference/02-cli.md#migrate) | migrate file formats, redraw the tracking and archive rules, update the version stamp |
 | [`changelog [--since X.Y.Z] [--to X.Y.Z]`](docs/reference/02-cli.md#changelog) | print backslop CHANGELOG entries between versions |

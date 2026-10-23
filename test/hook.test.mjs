@@ -415,3 +415,299 @@ test('hook: an unknown event is a usage refusal, and the harness id is checked p
     assert.match(r.err, /extra/);
   } finally { cleanup(root); }
 });
+
+test('hook: first-start baseline suppresses an old missing link after harmless same-file prose', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    put(root, BAD_A, `${broken('old.md')}\nHarmless prose.\n`);
+    assertPasses(hook(root, 'claude', 'stop'), 'old missing link after prose');
+  } finally { cleanup(root); }
+});
+
+test('hook: old missing-link identity survives a source line insertion', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    put(root, BAD_A, `\n${broken('old.md')}`);
+    assertPasses(hook(root, 'claude', 'stop'), 'old missing link after line insertion');
+  } finally { cleanup(root); }
+});
+
+test('hook: an already-red file still returns a new missing-link target only', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    put(root, BAD_A, `${broken('old.md')}\n[new](new.md)\n`);
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'new.md', 5)]);
+    const ordinary = spawnSync(process.execPath, [BIN, 'lint'], { cwd: root, encoding: 'utf8' });
+    assert.equal(ordinary.status, 1, ordinary.stderr);
+    assert.ok(ordinary.stderr.includes(errorLine(BAD_A, 'old.md')));
+    assert.ok(ordinary.stderr.includes(errorLine(BAD_A, 'new.md', 5)));
+  } finally { cleanup(root); }
+});
+
+for (const state of ['staged', 'unstaged', 'untracked']) {
+  test(`hook: first-start observation includes pre-existing ${state} missing links`, () => {
+    const root = makeProject();
+    try {
+      if (state !== 'untracked') put(root, BAD_A, '# Page\n');
+      gitAll(root, 'clean base');
+      put(root, BAD_A, broken('old.md'));
+      if (state === 'staged') assert.equal(run(root, ['add', BAD_A]).status, 0);
+      assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+      put(root, BAD_A, `${broken('old.md')}\n[new](new.md)\n`);
+      assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'new.md', 5)]);
+    } finally { cleanup(root); }
+  });
+}
+
+test('hook: a duplicate missing-link identity reports its surplus count in source order', () => {
+  const root = makeProject();
+  const before = `${broken('old.md')}\n[second](old.md)\n`;
+  try {
+    put(root, BAD_A, before);
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    assert.deepEqual(record(root, 'claude').baseline.entries, [
+      { identity: [BAD_A, 'local-link.missing', 'old.md'], count: 2 },
+    ]);
+    put(root, BAD_A, `${before}\n[third](old.md)\n\n[fourth](old.md)\n`);
+    assertReturned('claude', hook(root, 'claude', 'stop'), [
+      errorLine(BAD_A, 'old.md', 7), errorLine(BAD_A, 'old.md', 9),
+    ]);
+  } finally { cleanup(root); }
+});
+
+test('hook: same-identity replacement with equal count is net zero', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    put(root, BAD_A, '# Replaced page\n\n[replacement occurrence](old.md)\n');
+    assertPasses(hook(root, 'claude', 'stop'), 'equal-count identity replacement');
+  } finally { cleanup(root); }
+});
+
+test('hook: a foreign post-start missing-link commit stays reportable', () => {
+  const root = session('claude');
+  try {
+    assertPasses(hook(root, 'claude', 'session-start', { stdin: { session_id: 'other-session' } }), 'other session');
+    put(root, BAD_A, broken('foreign.md'));
+    gitAll(root, 'synthetic other session work');
+    assert.equal(run(root, ['status', '--porcelain']).stdout, '');
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'foreign.md')]);
+  } finally { cleanup(root); }
+});
+
+test('hook: repeated same-session start preserves the first baseline while resetting returns', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    const first = record(root, 'claude');
+    put(root, BAD_A, `${broken('old.md')}\n[new](new.md)\n`);
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'new.md', 5)]);
+    gitAll(root, 'own work after first observation');
+    assertPasses(hook(root, 'claude', 'session-start'), 'repeated start');
+    const repeated = record(root, 'claude');
+    assert.equal(repeated.start, first.start);
+    assert.equal(repeated.time, first.time);
+    assert.deepEqual(repeated.baseline, first.baseline);
+    assert.equal(repeated.returns, undefined);
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'new.md', 5)]);
+  } finally { cleanup(root); }
+});
+
+test('hook: a new session id observes its own untracked baseline', () => {
+  const root = session('claude');
+  try {
+    put(root, BAD_A, broken('old.md'));
+    const stdin = { session_id: 'new-observation' };
+    assertPasses(hook(root, 'claude', 'session-start', { stdin }), 'new observation');
+    put(root, BAD_A, `${broken('old.md')}\nHarmless prose.\n`);
+    assertPasses(hook(root, 'claude', 'stop', { stdin }), 'new id suppresses observed debt');
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'old.md')]);
+  } finally { cleanup(root); }
+});
+
+for (const [variant, alter] of [
+  ['legacy', (rec) => { delete rec.baseline; }],
+  ['unavailable', (rec) => { rec.baseline = null; }],
+  ['unsupported schema', (rec) => { rec.baseline.version = 2; }],
+  ['incompatible fingerprint', (rec) => { rec.baseline.fingerprint = 'another tool or config'; }],
+  ['invalid entries', (rec) => { rec.baseline.entries = [null]; }],
+  ['unsupported identity', (rec) => { rec.baseline.entries[0].identity[1] = 'another-rule'; }],
+  ['invalid count', (rec) => { rec.baseline.entries[0].count = 0; }],
+  ['fractional count', (rec) => { rec.baseline.entries[0].count = 1.5; }],
+  ['duplicate entry', (rec) => { rec.baseline.entries.push(rec.baseline.entries[0]); }],
+]) {
+  test(`hook: ${variant} baseline falls back without losing the valid first start or learning late`, () => {
+    const root = makeProject();
+    try {
+      put(root, BAD_A, broken('old.md'));
+      gitAll(root, 'old missing link');
+      assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+      const first = record(root, 'claude');
+      alter(first);
+      writeFileSync(recordFile(root, 'claude'), JSON.stringify(first));
+      put(root, BAD_A, `${broken('old.md')}\n[new](new.md)\n`);
+      gitAll(root, 'own work after first observation');
+      assertPasses(hook(root, 'claude', 'session-start'), 'resume with unavailable suppression');
+      const resumed = record(root, 'claude');
+      assert.equal(resumed.start, first.start);
+      assert.equal(resumed.time, first.time);
+      assert.deepEqual(resumed.baseline, first.baseline);
+      assertReturned('claude', hook(root, 'claude', 'stop'), [
+        errorLine(BAD_A, 'new.md', 5), errorLine(BAD_A, 'old.md'),
+      ]);
+    } finally { cleanup(root); }
+  });
+}
+
+test('hook: the exact serialized baseline budget works and one byte over falls back', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    const first = record(root, 'claude');
+    const extra = { identity: [BAD_A, 'local-link.missing', 'padding'], count: 1 };
+    first.baseline.entries.push(extra);
+    const remaining = 1024 * 1024 - Buffer.byteLength(JSON.stringify(first.baseline));
+    extra.identity[2] += 'x'.repeat(remaining);
+    assert.equal(Buffer.byteLength(JSON.stringify(first.baseline)), 1024 * 1024);
+    writeFileSync(recordFile(root, 'claude'), JSON.stringify(first));
+    put(root, BAD_A, `${broken('old.md')}\nHarmless prose.\n`);
+    assertPasses(hook(root, 'claude', 'stop'), 'exact budget');
+    extra.identity[2] += 'x';
+    assert.equal(Buffer.byteLength(JSON.stringify(first.baseline)), 1024 * 1024 + 1);
+    writeFileSync(recordFile(root, 'claude'), JSON.stringify(first));
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'old.md')]);
+    assert.equal(record(root, 'claude').start, first.start);
+  } finally { cleanup(root); }
+});
+
+test('hook: oversized capture leaves a usable start and never learns a partial or late baseline', () => {
+  const root = makeProject();
+  try {
+    gitAll(root, 'clean base');
+    const start = head(root);
+    const links = Array.from({ length: 6000 }, (_, i) => `[link](missing-${i}-${'x'.repeat(128)}.md)`);
+    put(root, BAD_A, `# Page\n\n${links.join('\n')}\n`);
+    const note = noteOf('claude', hook(root, 'claude', 'session-start'));
+    assert.ok(note.includes(ru('missing-link baseline exceeds {limit} bytes; using changed-file filtering', { limit: 1024 * 1024 })));
+    const first = record(root, 'claude');
+    assert.equal(first.start, start);
+    assert.equal(first.baseline, null);
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'own committed missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'resume after oversized observation');
+    assert.deepEqual(record(root, 'claude'), first);
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'old.md')]);
+  } finally { cleanup(root); }
+});
+
+test('hook: a failed capture keeps the coarse start and remains unavailable on resume', {
+  skip: process.platform === 'win32' || process.getuid?.() === 0
+    ? 'requires directory permissions that deny reads to the current process' : false,
+}, () => {
+  const root = makeProject();
+  const locked = path.join(root, 'docs', 'reference', 'locked');
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    mkdirSync(locked);
+    chmodSync(locked, 0o000);
+    assert.match(noteOf('claude', hook(root, 'claude', 'session-start')), /locked/);
+    const first = record(root, 'claude');
+    assert.equal(first.start, head(root));
+    assert.equal(first.baseline, null);
+    assertPasses(hook(root, 'claude', 'session-start'), 'resume does not rerun failed capture');
+    assert.deepEqual(record(root, 'claude'), first);
+    chmodSync(locked, 0o755);
+    put(root, BAD_A, `${broken('old.md')}\nHarmless prose.\n`);
+    gitAll(root, 'own committed prose');
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'old.md')]);
+  } finally {
+    chmodSync(locked, 0o755);
+    cleanup(root);
+  }
+});
+
+test('hook: unsupported diagnostics retain the current changed-file filter', () => {
+  const root = makeProject();
+  const target = '../README.md#missing-heading';
+  try {
+    put(root, BAD_A, broken(target));
+    gitAll(root, 'old missing anchor');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    put(root, BAD_A, `${broken(target)}\nHarmless prose.\n`);
+    const message = ru('link {href}: {where} has no anchor “{fragment}” — no heading or id by that name (line {line})', {
+      href: target, where: 'docs/README.md', fragment: 'missing-heading', line: 3,
+    });
+    assertReturned('claude', hook(root, 'claude', 'stop'), [`${BAD_A}: ${message}`]);
+  } finally { cleanup(root); }
+});
+
+test('hook: language changes do not change missing-link identity compatibility', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
+    put(root, BAD_A, `${broken('old.md')}\nHarmless prose.\n`);
+    assertPasses(hook(root, 'claude', 'stop'), 'language-independent identity');
+  } finally { cleanup(root); }
+});
+
+test('hook: semantic config changes disable suppression without changing the first start', () => {
+  const root = makeProject();
+  try {
+    put(root, BAD_A, broken('old.md'));
+    gitAll(root, 'old missing link');
+    assertPasses(hook(root, 'claude', 'session-start'), 'first observation');
+    const first = record(root, 'claude');
+    const cfg = JSON.parse(read(root, 'backslop.json'));
+    cfg.gates.push('node --version');
+    put(root, 'backslop.json', JSON.stringify(cfg));
+    put(root, BAD_A, `${broken('old.md')}\nHarmless prose.\n`);
+    gitAll(root, 'changed config and own prose');
+    assertPasses(hook(root, 'claude', 'session-start'), 'resume keeps incompatible first observation');
+    assert.deepEqual(record(root, 'claude').baseline, first.baseline);
+    assertReturned('claude', hook(root, 'claude', 'stop'), [errorLine(BAD_A, 'old.md')]);
+    assert.equal(record(root, 'claude').start, first.start);
+  } finally { cleanup(root); }
+});
+
+for (const harness of HARNESSES) {
+  test(`hook ${harness}: baseline delta preserves channels ceiling and suppressed-stop reset`, () => {
+    const root = makeProject();
+    try {
+      put(root, BAD_A, broken('old.md'));
+      gitAll(root, 'old missing link');
+      assertPasses(hook(root, harness, 'session-start'), 'first observation');
+      for (let i = 1; i <= 3; i += 1) {
+        put(root, BAD_A, `${broken('old.md')}\n[new](new-${i}.md)\n`);
+        assertReturned(harness, hook(root, harness, 'stop'), [errorLine(BAD_A, `new-${i}.md`, 5)]);
+      }
+      const lines = [errorLine(BAD_A, 'new-3.md', 5)];
+      assert.equal(noteOf(harness, hook(root, harness, 'stop')), `${WARNING(3)}\n${lines[0]}`);
+      put(root, BAD_A, `${broken('old.md')}\nOnly baseline debt remains.\n`);
+      assertPasses(hook(root, harness, 'stop'), 'fully suppressed stop');
+      assert.equal(record(root, harness).returns, null);
+      put(root, BAD_A, `${broken('old.md')}\n[new](new-4.md)\n`);
+      assertReturned(harness, hook(root, harness, 'stop'), [errorLine(BAD_A, 'new-4.md', 5)]);
+      assert.equal(record(root, harness).returns.count, 1);
+    } finally { cleanup(root); }
+  });
+}

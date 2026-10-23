@@ -2303,3 +2303,26 @@ test('lint: require-adapter isolates the current configured harness and retains 
     assert.equal(read(root, 'backslop.json'), config);
   } finally { cleanup(root); }
 });
+
+test('lint: missing-link identities preserve parser href and multiplicity without display coordinates', () => {
+  const root = makeProject();
+  const file = 'docs/reference/identity.md';
+  try {
+    put(root, file, '# Page\n\n[first](missing.md?query#part)\n\n[second](missing.md?query#part)\n\n[anchor](../README.md#missing-heading)\n');
+    const errors = lintProject(loadProject(root)).errors.filter((error) => error.file === file);
+    assert.deepEqual(errors.filter((error) => error.identity).map((error) => error.identity), [
+      [file, 'local-link.missing', 'missing.md?query#part'],
+      [file, 'local-link.missing', 'missing.md?query#part'],
+    ]);
+    assert.equal(errors.length, 3);
+    assert.equal(errors[0].msg, ru(BROKEN, { href: 'missing.md?query#part', line: 3 }));
+    assert.equal(errors[1].msg, ru(BROKEN, { href: 'missing.md?query#part', line: 5 }));
+    assert.equal(errors[2].identity, undefined, 'other link families have no supported identity');
+    put(root, file, `\n${read(root, file).replace('[first]', '[renamed label]')}`);
+    put(root, 'backslop.json', read(root, 'backslop.json').replace('"lang": "ru"', '"lang": "en"'));
+    const moved = lintProject(loadProject(root)).errors.filter((error) => error.file === file);
+    assert.deepEqual(moved.map((error) => error.identity), errors.map((error) => error.identity));
+    assert.equal(moved[0].msg, 'broken link missing.md?query#part (line 4)');
+    assert.equal(moved[1].msg, 'broken link missing.md?query#part (line 6)');
+  } finally { cleanup(root); }
+});

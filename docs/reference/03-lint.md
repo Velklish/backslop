@@ -4,6 +4,8 @@ This page is for a person fixing a red `lint` and for a contributor adding a gat
 
 `lint` lists everything it finds and exits with code 1 when there are errors. Warnings are printed and do not fail it. Messages are in the project language (`lang`), the tool's own template checks included. A directory the walk cannot list is a refusal: `<path>: the directory is not readable (<code>) — lint cannot walk it; restore read access or move it out of the project`.
 
+The [agent stop hook](02-cli.md#hook) may subtract pre-existing local missing-link identities from a compatible first-start observation. That session filter never exempts a diagnostic from ordinary `lint` or changes its printed message. Other diagnostic families keep the hook's changed-file filter.
+
 ## Gates
 
 | No. | Gate | What it catches | How to fix |

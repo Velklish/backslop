@@ -362,8 +362,19 @@ A record has this form:
   "session": "17d92a35-7a8c-4f4a-bfea-07150a742ad5",
   "start": "189fc44…",
   "time": "2026-10-02T08:44:09.000Z",
+  "baseline": {
+    "version": 1,
+    "fingerprint": "<SHA-256 compatibility fingerprint>",
+    "entries": [
+      { "identity": ["docs/reference/page.md", "local-link.missing", "missing.md"], "count": 1 }
+    ]
+  },
   "returns": { "count": 1 }
 }
 ```
 
-`start` is the commit the changed set is measured from: `HEAD` at the first `session-start` for the harness and session id, or the empty tree in a repository without a commit; a repeated start for the same harness and id keeps it. `returns` is written by `hook stop` while it reports errors: `count` is the number of reports in a row, whatever the errors were; a clean stop sets it to `null`, and a new `session-start` for the session drops it. A record that is not JSON or has no 40- to 64-digit `start` is read as missing, and the start is then `HEAD`. Nothing deletes the records: a session leaves a few hundred bytes. The behaviour is in [02 § hook](02-cli.md#hook).
+`start` is the commit the changed set is measured from: `HEAD` at the first `session-start` for the harness and session id, or the empty tree in a repository without a commit. A repeated start for the same harness and id keeps `start`, `time` and the first `baseline`, including its absence or unavailability. `returns` is written by `hook stop` while it reports errors: `count` is the number of reports in a row, whatever the errors were; a stop with no kept error sets it to `null`, and a repeated `session-start` drops it.
+
+`baseline` is optional. Version 1 stores counts of `[project-relative source file, "local-link.missing", parser logical href]` identities from a complete first-start lint observation. Coordinates, rendered messages and link labels do not enter the identity. The fingerprint covers the tool version, canonical project root and loaded configuration except `lang`; a language change alone leaves identity compatibility intact. Source contents, transcripts and author claims are not stored.
+
+The baseline has a 1 MiB budget measured as compact UTF-8 JSON, excluding the surrounding record. A capture failure or an over-budget result writes `baseline: null` with a usable start when possible and emits a note. A legacy record without this field, an unsupported version, an incompatible fingerprint, invalid identities or counts, duplicate entries and an oversized baseline disable suppression without discarding a valid `start`. No partial baseline is usable, and neither stop nor a repeated same-session start captures one later. A record that is not JSON or has no 40- to 64-digit `start` is read as missing, and the stop's start is then `HEAD`. Nothing deletes session records; storage grows with the observed distinct identities within the baseline budget. The behaviour and limitations are in [02 § hook](02-cli.md#hook).

@@ -185,6 +185,7 @@ export const messages = {
   'unknown hook event “{event}”: expected session-start or stop': 'неизвестное событие хука «{event}»: ожидается session-start или stop',
   'harness “{harness}” is not claude, cursor or codex': 'харнесс «{harness}» — не claude, cursor и не codex',
   'hook skipped: {cause}': 'хук пропущен: {cause}',
+  'missing-link baseline exceeds {limit} bytes; using changed-file filtering': 'baseline отсутствующих ссылок превышает {limit} байт. Хук использует фильтр по изменённым файлам',
   'not a git repository': 'не git-репозиторий',
   'the event on stdin cannot be read': 'событие со stdin не прочитать',
   'the event on stdin is not a JSON object with a session_id': 'событие на stdin — не JSON-объект с session_id',

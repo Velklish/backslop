@@ -467,3 +467,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.6"></a>`BS-247.6-remove-subsumed-quote-probe` · 2026-10-23 · batch BS-251 · — · Remove the weaker diverged-quote probe after two deletion proofs
 - <a id="bs-247.19"></a>`BS-247.19-review-pipe-timeout-comment` · 2026-10-23 · batch BS-251 · — · Remove the unsupported pipe-regression explanation from the review test comment
 - <a id="bs-247.21"></a>`BS-247.21-fold-local-midnight-test-boundary` · 2026-10-23 · batch BS-251 · — · Verify and bound the local-midnight date race in the fold journal test
+- <a id="bs-254"></a>`BS-254-first-start-missing-link-baseline` · 2026-10-23 · completed · — · Suppress pre-existing local missing-link diagnostics with a first-start observation baseline
