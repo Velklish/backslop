@@ -476,3 +476,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-195.1"></a>`BS-195.1-hook-note-channel-not-observed` · 2026-10-23 · batch BS-253 · — · hook: the user-visible note channels were never observed on any harness
 - <a id="bs-195.2"></a>`BS-195.2-hook-codex-cursor-stop-not-run` · 2026-10-23 · batch BS-253 · — · hook: stop was not run under Codex or Cursor with this command
 - <a id="bs-238"></a>`BS-238-final-public-history-cleanup` · 2026-10-23 · completed · — · Final cleanup of public history and release artifacts
+- <a id="bs-256"></a>`BS-256-final-documentation-currency` · 2026-10-23 · completed · — · Check documentation currency after the accepted run
