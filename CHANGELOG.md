@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Public history cleanup** — published main and nine historical tags (`v0.10.0`, `v0.10.1`, `v0.11.0`, `v0.11.1`, `v0.12.0`, `v0.20.0`, `v0.21.0`, `v0.21.1`, `v0.21.2`) now use the approved cleaned history. The other ten tags retain their exact ref-object identities. Task bodies, attachments, attribution, dates and historical measurement identities were preserved.
+
 - **Native hook observations** — Codex 0.163.0 and Cursor 2026.10.19 repaired new missing links while preserving pre-existing debt. Codex displayed skipped and ceiling notes; Cursor emitted the documented stderr notes without displaying them in its captured main TUI. Cursor 2026.10.22 passed a repair smoke check; its note presentation and Claude live behaviour were not measured.
 
 - **Failed fixture construction removes its temporary root** — the init repository, release source and language-switch constructors clean their own allocations before rethrowing the original preparation error. Successful fixture contents remain unchanged.
