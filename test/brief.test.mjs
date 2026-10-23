@@ -94,6 +94,77 @@ test('brief: orchestrator slots — a placeholder without the flag, the value wi
   }
 });
 
+for (const lang of ['en', 'ru']) {
+  test(`brief: ${lang} completeness preserves drafts and complete output but refuses each empty decision`, () => {
+    const root = makeProject();
+    try {
+      seed(root);
+      put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }) + '\n');
+      const slots = [
+        ['--track', 'config migration'], ['--neighbour', 'test/=tests'],
+        ['--entry', 'lib/config.js, then its reference'], ['--autonomy', 'wording is yours'],
+        ['--handover', 'report commands, counts and direct exits'],
+      ];
+      const draft = cli(root, ['brief', '3']);
+      assert.equal(draft.code, 0, draft.err);
+      assert.match(draft.out, /\[TODO/);
+      const complete = cli(root, ['brief', '3', ...slots.flat()]);
+      const checked = cli(root, ['brief', '3', ...slots.flat(), '--require-complete']);
+      assert.equal(complete.code, 0, complete.err);
+      assert.equal(checked.code, 0, checked.err);
+      assert.equal(checked.out, complete.out, 'checking adds no header or edits to a complete brief');
+      assert.equal(checked.err, complete.err, 'ordinary notes retain their channel and content');
+      for (const [flag] of slots) {
+        for (const blank of [false, true]) {
+          const args = slots.filter(([key]) => key !== flag).flat();
+          if (blank) args.push(flag, flag === '--neighbour' ? 'test/=   ' : '   ');
+          const result = cli(root, ['brief', '3', ...args, '--require-complete']);
+          assert.equal(result.code, 1, `${flag} ${blank ? 'blank' : 'absent'}: ${result.err}`);
+          assert.equal(result.out, '', `${flag}: an incomplete brief never reaches stdout`);
+          assert.ok(result.err.includes(flag), `${flag}: the refusal identifies the decision`);
+          assert.match(result.err, lang === 'ru'
+            ? ruRe('brief --require-complete refused: {problems}; stdout is empty')
+            : /brief --require-complete refused: .*; stdout is empty/);
+        }
+      }
+      const emptyPath = cli(root, ['brief', '3', ...slots.filter(([key]) => key !== '--neighbour').flat(),
+        '--neighbour', '   =tests', '--require-complete']);
+      assert.equal(emptyPath.code, 1, emptyPath.err);
+      assert.equal(emptyPath.out, '');
+      assert.match(emptyPath.err, /--neighbour/);
+    } finally { cleanup(root); }
+  });
+
+  test(`brief: ${lang} completeness checks literal markers in explicit values and rendered task text`, () => {
+    const root = makeProject();
+    try {
+      seed(root);
+      put(root, 'backslop.json', JSON.stringify({ ...JSON.parse(read(root, 'backslop.json')), lang }) + '\n');
+      const slots = [
+        ['--track', 'config migration'], ['--neighbour', 'test/=tests'],
+        ['--entry', 'lib/config.js'], ['--autonomy', 'wording is yours'], ['--handover', 'record exits'],
+      ];
+      for (const [flag] of slots) {
+        const args = slots.map(([key, value]) => [key, key === flag ? `${value} [TODO: decide]` : value]).flat();
+        const result = cli(root, ['brief', '3', ...args, '--require-complete']);
+        assert.equal(result.code, 1, `${flag}: ${result.err}`);
+        assert.equal(result.out, '');
+        assert.match(result.err, /\[TODO/);
+        assert.match(result.err, /\d/, 'the refusal names rendered line numbers');
+      }
+      const task = 'docs/backlog/queue/BL-3-configs.md';
+      put(root, task, read(root, task).replace('- migrate the keys', '- explain `[TODO]` markers'));
+      const draft = cli(root, ['brief', '3', ...slots.flat()]);
+      assert.equal(draft.code, 0, draft.err);
+      assert.match(draft.out, /explain `\[TODO\]` markers/);
+      const checked = cli(root, ['brief', '3', ...slots.flat(), '--require-complete']);
+      assert.equal(checked.code, 1, checked.err);
+      assert.equal(checked.out, '', 'even a marker quoted as code is refused by the explicit strict mode');
+      assert.match(checked.err, /\[TODO/);
+    } finally { cleanup(root); }
+  });
+}
+
 test('brief: a nonexistent number — a refusal naming it, not an empty render', () => {
   const root = makeProject();
   try {
@@ -105,7 +176,7 @@ test('brief: a nonexistent number — a refusal naming it, not an empty render',
 
     const none = cli(root, ['brief']);
     assert.equal(none.code, 1);
-    assert.match(none.err, ruRe('task numbers are required: {cli} brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]'));
+    assert.match(none.err, ruRe('task numbers are required: {cli} brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]'));
   } finally {
     cleanup(root);
   }

@@ -384,12 +384,13 @@ test('skills: every runnable command is spelled with {{cli}}, none with a bare b
   }
 });
 
-test('backslop-batch: the end of the run reads total of tracks --json, brief stubs are checked for [TODO', () => {
+test('backslop-batch: the end of the run reads total of tracks --json, brief completeness is required before dispatch', () => {
   for (const rel of ['skills/backslop-batch/SKILL.md', 'en/skills/backslop-batch/SKILL.md']) {
     const text = readFileSync(path.join(TEMPLATES_DIR, ...rel.split('/')), 'utf8');
     assert.match(text, /`\{\{cli\}\} tracks --json`/, `${rel}: the end of the run does not use tracks --json`);
     assert.match(text, /`total`/, `${rel}: total is not named`);
-    assert.ok(text.includes('`[TODO`'), `${rel}: the [TODO check of the brief output is not named`);
+    assert.match(text, /`brief --require-complete`/, `${rel}: generated briefs must use the completeness check`);
+    assert.match(text, /exit 1/, `${rel}: incomplete checked output refuses`);
   }
 });
 

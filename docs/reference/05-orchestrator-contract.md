@@ -347,7 +347,8 @@ The two commands report uncommitted work in different shapes, and a caller must 
 - **stdout is the brief alone**: the track heading, the Work to do and Out of scope sections of the named tasks, the project's `gates`, `prefix`, `cli` and `probe`, and the fixed sections of the brief template. Its content goes to the worker as it is.
 - **stderr carries notes** as `⚠` lines: a missing `probe` field, and a `cli` pinned below 0.10.0. A note never changes stdout or the exit code.
 - **Brief slots.** The orchestrator's decisions come as flags: `--track`, `--neighbour` (repeatable, `path=track`), `--entry`, `--autonomy` and `--handover`; `--measurements` adds the measurement rule. A slot without its flag is printed as a bracketed placeholder that opens with `[TODO` (`[TODO: track title in 2–5 words]`). It is a requirement to the brief's author, not a default: the orchestrator passes the flag, or replaces the placeholder before the brief leaves.
-- **Refusals** (exit 1, empty stdout, no partial brief): no task numbers; a number found neither in a status directory nor in the archive; `--neighbour` not in the form `path=track`. A folded task — a journal line in `LOG.md` without a task directory — is refused too, because the brief has no definition to take; its body is read with `show N`. An archived task that is not folded yet still has `task.md` and gets a brief.
+- **Opt-in completeness.** `--require-complete` requires all five decision values and both sides of each neighbour to be nonblank, and no case-sensitive literal `[TODO` anywhere in the fully rendered brief, including code. An incomplete checked render exits 1 with empty stdout; stderr names missing flags and marker line numbers. Complete output and notes match ordinary rendering byte-for-byte. Default drafts still exit 0. The check does not establish semantic readiness or dispatch authorization.
+- **Refusals** (exit 1, empty stdout, no partial brief): incomplete output with `--require-complete`; no task numbers; a number found neither in a status directory nor in the archive; `--neighbour` not in the form `path=track`. A folded task — a journal line in `LOG.md` without a task directory — is refused too, because the brief has no definition to take; its body is read with `show N`. An archived task that is not folded yet still has `task.md` and gets a brief.
 
 ## Mutating commands
 
@@ -413,7 +414,7 @@ Stable, within one tagged version and across versions until an ADR changes it:
 | `tracks --json` | the keys of [`tracks --json`](#tracks---json) and the exit code |
 | `links --external --json` | the keys of [`links --external --json`](#links---external---json), the three classes and the exit codes 0, 1 and 2 |
 | `seed --scan --json` | the keys of [`seed --scan --json`](#seed---scan---json) and the exit code |
-| `brief` | the output on stdout, its brief slots (`--track`, `--neighbour`, `--entry`, `--autonomy`, `--handover`) and their `[TODO` placeholder, and `--measurements` |
+| `brief` | the output on stdout, its brief slots (`--track`, `--neighbour`, `--entry`, `--autonomy`, `--handover`) and their `[TODO` placeholder, `--measurements` and `--require-complete` |
 | `new <slug> --parent N[.M]`, `new … --minor --evidence "…"` | the file it writes, the next free `N.k`, the Parent field, the exit code |
 | `mv`, `archive`, `archive N.k --into M` | the effect on files and the exit code |
 | `fold`, `show` | the journal line, the draft and the body on stdout, the exit code |

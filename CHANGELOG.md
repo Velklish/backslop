@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Checked worker briefs** — `brief --require-complete` refuses missing or blank decisions and literal `[TODO` markers before printing; complete checked output matches the ordinary render, while default drafts retain their text and exit 0.
+
 - **Writer and seed guidance** — writer skills explain Cost in text and JSON status while preserving report membership through Filed as; seed documentation distinguishes scan/by-eye inventory, describes ADR and non-triage backlog placeholder lint, and the localization ADR includes same-version complete previous-CLI renders.
 
 - **Integration and locking instructions** — batch skills describe `-X` as choosing conflicting text hunks while preserving other edits; numbering-lock guidance and refusals describe identity-checked takeover by replacement; the bounded init measurement no longer points to an unnamed acceptance commit.

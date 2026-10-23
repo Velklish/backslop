@@ -36,7 +36,7 @@ Commands:
                                                       line names; header on stderr
   adr <slug> [--title "…"]                            create the next numbered ADR
   brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"]
-        [--autonomy "…"] [--handover "…"] [--measurements]
+        [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]
                                                       print a worker brief for these tasks
   seed --scan [--json] | --queue-reference            gate and subsystem candidates with evidence;
                                                       “Reference: …” tasks from the reference/ table

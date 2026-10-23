@@ -39,7 +39,7 @@ The entry point is [bin/backslop.js](../../bin/backslop.js): the first argument 
 | `fold [--older-than <date>] [--embed-missing] [--dry-run]` | fold the accumulated archive |
 | `show <N>` | print the body of a folded task |
 | `adr <slug> [--title "…"]` | create the next ADR |
-| `brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]` | print a worker brief |
+| `brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]` | print a worker brief |
 | `seed --scan [--json]` \| `seed --queue-reference` | list gate and subsystem candidates, or queue reference sections |
 | `status [--json]` | summarise the backlog |
 | `lint [--require-adapters] [--require-adapter <tool>]` | run the tracker gates; optionally require all or one configured adapter's ignored outputs |
@@ -258,6 +258,8 @@ Behaviour:
 - Prints a worker brief to stdout: the track heading, the task definitions of the named tasks from disk (Work to do and Out of scope), the project's `gates`, `prefix`, `cli` and `probe`, and the fixed sections of [templates/brief.md](../../templates/brief.md). The worker boundary is stated there.
 - The orchestrator's decisions come as text arguments: `--track` — the track title; `--neighbour` (repeatable) — edit boundaries; `--entry` — where the subject lives and what to read first; `--autonomy` — what the participant closes alone and what goes to the orchestrator; `--handover` — the gate protocol and the report header. These are the brief slots; a slot without its flag is a placeholder ([05 § brief](05-orchestrator-contract.md#brief)). `--measurements` adds the measurement rule.
 - The probe bullet and the probe item of the result contents appear only where `probe` is declared, and the bullet names the mutation-probe command with the same `agents-probe.md` template as the managed block.
+- Without `--require-complete`, missing decisions remain draft placeholders and exit 0; the draft text is unchanged.
+- `--require-complete` validates the full render before printing. All five decision slots must be nonblank, with a nonblank path and track in every neighbour. Any case-sensitive literal `[TODO` in the rendered text, including explicit values, task text or code, is refused: exit 1, empty stdout, missing flags and marker line numbers on stderr. A complete checked render is byte-identical to the ordinary brief, with the same notes. This is marker/slot completeness, not semantic readiness or permission to dispatch.
 - The command only prints: where the brief goes is the orchestrator's decision.
 
 Output:
@@ -265,7 +267,7 @@ Output:
 - stdout is the brief, stderr the notes: [05 § brief](05-orchestrator-contract.md#brief). Without `probe`, a note goes to stderr.
 - When `cli` is pinned below 0.10.0, stderr says the pinned version does not support `new --minor --evidence` and suggests `<cli> upgrade`; stdout does not change. An unpinned or floating `cli` gets no such note.
 
-Refusals: no task numbers named; a task found neither in the statuses nor in the archive (no partial brief is printed); `--neighbour` not in the form `path=track`; an archived task without `task.md` — there is no definition; a folded task is read with `show N`.
+Refusals: incomplete output with `--require-complete`; no task numbers named; a task found neither in the statuses nor in the archive (no partial brief is printed); `--neighbour` not in the form `path=track`; an archived task without `task.md` — there is no definition; a folded task is read with `show N`.
 
 ### seed
 

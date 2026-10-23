@@ -42,7 +42,7 @@ The audit baseline was `node bin/backslop.js gates` at that SHA on macOS 27.0.1 
 | [BS-247.17 - Include ROLES.md in the module map's owned-render contract](../../archive/LOG.md#bs-247.17) | PQA-017 | completed; native archive outcome |
 | [BS-247.18 - Describe ADR and non-triage backlog placeholder lint in the seed skills](../../archive/LOG.md#bs-247.18) | PQA-018 | completed; batch BS-249 |
 | [BS-247.19 - Remove the unsupported pipe-regression explanation from the review test comment](../minor/BS-247.19-review-pipe-timeout-comment.md) | PQA-019 | minor; minor |
-| [BS-247.20 - Add an opt-in mechanical completeness check for generated briefs](../active/BS-247.20-brief-opt-in-completeness-check.md) | PQA-020 | ordinary feature; active |
+| [BS-247.20 - Add an opt-in mechanical completeness check for generated briefs](../../archive/LOG.md#bs-247.20) | PQA-020 | completed; native archive outcome |
 | [BS-247.21 - Verify and bound the local-midnight date race in the fold journal test](../minor/BS-247.21-fold-local-midnight-test-boundary.md) | PQA-021 | minor (hypothesis); minor |
 | [BS-214 - CI on Windows: run the gates and verify platform and hook hypotheses](BS-214-windows-ci.md) | PQA-022 | Hypothesis; existing deferred task |
 

@@ -51,7 +51,10 @@ export const messages = {
   '--range {range}: git log: {cause}': '--range {range}: git log: {cause}',
   'commits naming the task were not read: git log: {cause}': 'коммиты с номером задачи не прочитаны: git log: {cause}',
   // lib/brief.js
-  'task numbers are required: {cli} brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]': 'нужны номера задач: {cli} brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]',
+  'missing or blank brief slots: {flags}': 'пропущенные или пустые слоты брифа: {flags}',
+  'unresolved [TODO marker on brief lines: {lines}': 'остался маркер [TODO в строках брифа: {lines}',
+  'brief --require-complete refused: {problems}; stdout is empty': 'brief --require-complete отказал: {problems}; stdout пуст',
+  'task numbers are required: {cli} brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]': 'нужны номера задач: {cli} brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]',
   'task {id} was not found in any status directory or the archive': 'задачи {id} нет ни в одном каталоге статуса и в архиве',
   '{id} is archived without task.md — there is no definition for the brief to take': '{id} в архиве без task.md — постановки нет, брифу нечего взять',
   '[TODO: track title in 2–5 words]': '[TODO: заголовок track’а в 2–5 слов]',
@@ -708,7 +711,7 @@ export const help = (version) => `backslop — бэклог для слопа: �
                                                       её строка журнала; шапка — в stderr
   adr <slug> [--title "…"]                            завести ADR со следующим номером
   brief <N…> [--track "…"] [--neighbour "путь=track"] [--entry "…"]
-        [--autonomy "…"] [--handover "…"] [--measurements]
+        [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]
                                                       напечатать бриф worker'у по этим задачам
   seed --scan [--json] | --queue-reference            кандидаты в gates и подсистемы с уликами;
                                                       задачи «Справочник: …» по таблице reference/

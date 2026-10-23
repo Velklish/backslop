@@ -461,3 +461,4 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.12"></a>`BS-247.12-seed-adr-current-inventory-contract` · 2026-10-23 · batch BS-249 · — · Remove the obsolete claim that seed inventory does not distinguish scan and manual reading
 - <a id="bs-247.16"></a>`BS-247.16-localization-adr-cli-redraw-contract` · 2026-10-23 · batch BS-249 · — · Align the localization ADR with same-version migration of a previous complete CLI render
 - <a id="bs-247.18"></a>`BS-247.18-seed-placeholder-lint-scope` · 2026-10-23 · batch BS-249 · — · Describe ADR and non-triage backlog placeholder lint in the seed skills
+- <a id="bs-247.20"></a>`BS-247.20-brief-opt-in-completeness-check` · 2026-10-23 · completed · — · Add an opt-in mechanical completeness check for generated briefs

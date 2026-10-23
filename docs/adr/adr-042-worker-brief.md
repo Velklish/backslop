@@ -1,12 +1,14 @@
 # ADR-042: The worker brief is rendered by a command from a template
 
 **Status:** Accepted
-**Date:** 2026-09-28
+**Date:** 2026-10-23
 **Deciders:** Velklish
 
 ## Context
 
 An orchestrator hands each parallel worker a self-contained brief: the worker does not see the orchestrator's context, so whatever the brief leaves out, the worker does not know. Most of a brief is on disk (task definitions, the gates list, the project command) or is fixed wording (how to commit, how to report); only a few items are real per-run decisions. Hand-written briefs drop items silently, and nobody notices the gap until a worker reports without it. The brief is often rendered by a newer CLI than the one the project pins, so it can name commands the pinned version lacks. A template placeholder without a value used to reach the reader as a literal `{{name}}`.
+
+The default render is also a useful draft. A successful draft exit does not distinguish unresolved decisions from a mechanically complete brief. The orchestrator needs an explicit check before dispatch without losing that draft workflow.
 
 ## Options
 
@@ -16,9 +18,13 @@ An orchestrator hands each parallel worker a self-contained brief: the worker do
 - **Rendering with the pinned CLI only** — the orchestrator would need that exact version installed.
 - **A per-flag version constant with a template branch for older pins** — one more branch per flag, in both template languages.
 
+- **Make every brief complete by default** — breaks the useful draft output and its exit code.
+- **Keep a manual marker scan** — repeats deterministic work in each orchestrator.
+- **An opt-in completeness check before printing** — preserves drafts and makes an incomplete checked render unambiguous. Chosen.
+
 ## Decision
 
-- **Command and output.** `brief <N…> [--track "…"] [--neighbour "path=track"]… [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements]` (`run` in `lib/brief.js`) renders `templates/brief.md`, or `templates/en/brief.md` for a project with `lang: en` (`renderProjectTemplate` in `lib/templates.js`), and writes the brief to stdout only; how it reaches the worker is the orchestrator's choice. Config inputs: `prefix`, `cli`, `gates` (including `when`), `probe` and `lang`.
+- **Command and output.** `brief <N…> [--track "…"] [--neighbour "path=track"]… [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]` (`run` in `lib/brief.js`) renders `templates/brief.md`, or `templates/en/brief.md` for a project with `lang: en` (`renderProjectTemplate` in `lib/templates.js`), and writes the brief to stdout only; how it reaches the worker is the orchestrator's choice. Config inputs: `prefix`, `cli`, `gates` (including `when`), `probe` and `lang`.
 - **Refusals.** Exit code 1 and nothing on stdout for: no task numbers; a number found in no status directory and not in the archive; an archived task without `task.md`, a task folded into the journal included; a `--neighbour` value not of the form `path=track`.
 - **Task blocks.** Each task block carries the id, the title (the slug when the file has none), the file path, and only the "Work to do" and "Out of scope" sections (`taskBlock`); the worker reads the file itself for the rest.
 - **Five decision slots.** The orchestrator's per-run decisions are slots, each filled by a text flag:
@@ -29,6 +35,7 @@ An orchestrator hands each parallel worker a self-contained brief: the worker do
   - the hand-off form — `--handover`.
 
   An absent flag prints a `[TODO: …]` stub that says what is missing and what the gap costs, never a silent default. The `backslop-batch` skill lists the same five in both template layers.
+- **Opt-in completeness.** Without `--require-complete`, the existing draft text and exit 0 remain. With it, render the whole brief first and require non-whitespace values for all five decision slots, including a nonblank path and track in every neighbour. Refuse exit 1 with empty stdout if a slot is missing/blank or the rendered text contains the case-sensitive literal `[TODO` anywhere, including explicit values, task text and code spans/fences. Stderr identifies missing flags and the rendered line numbers containing markers. A complete checked brief is byte-identical to the ordinary render, with the same notes. This check verifies literal marker/slot completeness only: it does not judge decisions, grant permissions, launch workers or prove readiness.
 - **Measurements.** `--measurements` adds the measurement bullet; without it the slot is empty (`measurements`).
 - **Gates step** (`gatesStep`). An empty `gates` list renders a line telling the worker to ask the orchestrator what checks the task. Otherwise each entry renders as its command; when any entry carries `when`, a note says that skipped entries print as "not run N" and never add to the green count; the step names `<cli> gates` and its "gates N, green N" summary and asks for the exit code of the command, not of a pipe. The step has no branch by pin.
 - **Mutation-probe items.** The brief has two: `{{probeBullet}}` under "How to work" and `{{probeResult}}` in the result contents. `probeSlots` in `lib/templates.js` renders both, the bullet with the probe sentence of `templates/agents-probe.md` and the project's `probe` command, the same sentence `init` uses ([the probe ADR](adr-041-probe-command.md)). Without `probe` both are empty, and `brief` writes a note to stderr so stdout stays a clean brief.
@@ -42,3 +49,5 @@ An orchestrator hands each parallel worker a self-contained brief: the worker do
 - A key passed in the values but used by no placeholder is not caught; the gate checks declared keys, not the object a command builds.
 - Output is two-stream: the brief on stdout, notes on stderr, so `brief > file` keeps notes out of the file.
 - A new command the brief names raises `BRIEF_COMMANDS_SINCE` and rewrites the note, which names the version and the command in both languages; the note replaces a template branch per version.
+
+- Checked output requires explicit boundaries even for a lone track; the orchestrator supplies an honest neighbour value rather than the command inventing ownership. A legitimate discussion of the literal marker is also refused in strict mode; use draft mode and review that exceptional brief manually. No Markdown exemption or inferred semantic approval is part of this check.
