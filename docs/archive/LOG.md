@@ -472,3 +472,6 @@ An `—` outcome means that `result.md` did not name one. An `—` commit means 
 - <a id="bs-247.22"></a>`BS-247.22-cleanup-checked-fixture-construction` · 2026-10-23 · batch BS-252 · — · Clean allocated fixture directories when checked Git construction fails
 - <a id="bs-255"></a>`BS-255-refresh-quoted-hook-consequence` · 2026-10-23 · completed · — · Refresh the documentation index quote after the hook baseline decision
 - <a id="bs-247"></a>`BS-247-quality-audit-follow-ups` · 2026-10-23 · completed · — · Resolve the project quality audit follow-ups
+- <a id="bs-253"></a>`BS-253-live-hook-harness-verification` · 2026-10-23 · completed · — · Observe stop-hook returns and notes in the installed live harnesses
+- <a id="bs-195.1"></a>`BS-195.1-hook-note-channel-not-observed` · 2026-10-23 · batch BS-253 · — · hook: the user-visible note channels were never observed on any harness
+- <a id="bs-195.2"></a>`BS-195.2-hook-codex-cursor-stop-not-run` · 2026-10-23 · batch BS-253 · — · hook: stop was not run under Codex or Cursor with this command

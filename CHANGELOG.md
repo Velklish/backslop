@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Native hook observations** — Codex 0.163.0 and Cursor 2026.10.19 repaired new missing links while preserving pre-existing debt. Codex displayed skipped and ceiling notes; Cursor emitted the documented stderr notes without displaying them in its captured main TUI. Cursor 2026.10.22 passed a repair smoke check; its note presentation and Claude live behaviour were not measured.
+
 - **Failed fixture construction removes its temporary root** — the init repository, release source and language-switch constructors clean their own allocations before rethrowing the original preparation error. Successful fixture contents remain unchanged.
 
 - **Agent hook missing-link baseline** — the first session start observes actual project state in one complete lint pass. Stops subtract pre-existing local missing-link identity counts in eligible files, while ordinary lint stays strict. Repeated starts preserve the first observation or its unavailability. Invalid, incompatible or over-budget baselines retain the changed-file filter and recorded start; other diagnostic families and foreign post-start changes remain reportable.
