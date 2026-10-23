@@ -1,0 +1,28 @@
+{
+  "sourceSha": "1e7b15ce01ab965477e33a685b82cff0f20b8dd3",
+  "operation": "byte-preserving file copies only; no behavior run",
+  "originalLocation": "{{PRIVATE_EVIDENCE_ROOT}}/hook-research/",
+  "files": [
+    {
+      "file": "reproduce.mjs",
+      "bytes": 15066,
+      "originalSha256": "41be29f2031d8a45a7057b8f851ba6c2854892682bf281e4b0305c9599d464b9",
+      "publicCopySha256": "41be29f2031d8a45a7057b8f851ba6c2854892682bf281e4b0305c9599d464b9",
+      "byteEquality": true
+    },
+    {
+      "file": "inspect-lint.mjs",
+      "bytes": 380,
+      "originalSha256": "3adbd6882b28d395414585094b24436f0592fa2fb30686e076b9210b6ad1a41a",
+      "publicCopySha256": "3adbd6882b28d395414585094b24436f0592fa2fb30686e076b9210b6ad1a41a",
+      "byteEquality": true
+    },
+    {
+      "file": "verify-receipts.mjs",
+      "bytes": 5797,
+      "originalSha256": "f13d8edc595910db8a98f4ce3fb6bf5f4cc0706c8c0b0709bd19aff0526f72f4",
+      "publicCopySha256": "f13d8edc595910db8a98f4ce3fb6bf5f4cc0706c8c0b0709bd19aff0526f72f4",
+      "byteEquality": true
+    }
+  ]
+}
