@@ -64,12 +64,6 @@ Each block quotes a statement of the README or the reference that a code change 
 ```
 <!-- /quote -->
 
-<!-- quote:../README.md -->
-```text
-- Heading anchors use the [local heading-anchor contract](docs/reference/03-lint.md#heading-anchor-contract), including a fixed named-entity table; renderer-specific compatibility is not guaranteed. Named entities decode only own entries of the fixed table; unsupported names such as `&constructor;` keep their source text before slug filtering.
-```
-<!-- /quote -->
-
 <!-- quote:reference/02-cli.md -->
 ```text
 - `git mv` between status directories. After all moves, link rewrites and queue renumbering finish, `mv` stages the complete contents of every tracked card moved by this call at its new path. Tracking checks and staging of those paths use literal Git pathspecs. Edits to files not moved by this call, including incoming links and neighbour renumbering, stay unstaged, as does queue reordering without a move. A file outside the git index (or with no repository) is moved by a plain rename, with a warning, and is not added to the index.
@@ -84,7 +78,7 @@ Each block quotes a statement of the README or the reference that a code change 
 
 <!-- quote:../README.md -->
 ```text
-The project command `<cli> upgrade` runs the code of the pinned version and finishes from a pin of 0.11.1 or later. For an older pin, use the untagged form `npx github:Velklish/backslop upgrade`, which always runs fresh backslop and still updates the project to the latest tag; pins earlier than 0.9.0 are unsupported.
+For local or global installations, update the installed package first and configure `source`. For pins older than 0.11.1, use `npx github:Velklish/backslop upgrade`; pins earlier than 0.9.0 are unsupported. See [upgrade details](docs/reference/02-cli.md#upgrade) and [migration rules](docs/reference/01-layout.md#the-rules-pair-belongs-to-the-tool).
 ```
 <!-- /quote -->
 
@@ -266,19 +260,19 @@ How backslop works, as the code shows it. The intent and rationale are in the [A
 
 <!-- quote:../README.md -->
 ```text
-A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command:
+A task tracker and decision log for coding agents, stored in your Git repository as Markdown files.
 ```
 <!-- /quote -->
 
 <!-- quote:../README.md -->
 ```text
-`init` lays down this core in every project:
+`init` creates the documentation skeleton, adds a managed section to `AGENTS.md`, and saves the version-pinned command in `backslop.json`. It preserves existing documentation and instructions outside that section. Review and commit the generated project files; adapter skills are generated locally and ignored by Git.
 ```
 <!-- /quote -->
 
 <!-- quote:../README.md -->
 ```text
-With an adapter selected, ask an agent to "populate docs using backslop" after the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a run with workers closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
+With an adapter installed, ask your agent to **"populate docs using backslop"**. The `backslop-seed` skill inspects the repository, asks about decisions it cannot establish from the code, and fills the glossary and initial ADRs. It builds a reference index and queues tasks for the detailed sections.
 ```
 <!-- /quote -->
 
@@ -507,7 +501,7 @@ This page is for a contributor or a maintainer who needs the exact layout and fo
 
 <!-- quote:../README.md -->
 ```text
-2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word, or a task id or a tracker link in project documentation: README, `docs/` outside `backlog/` and `archive/`, and the unreleased CHANGELOG section ([gate 15](docs/reference/03-lint.md#documentation-without-the-tracker)). Write what the record says instead: the contract, the rationale, or the measurement with its version and date.
+`upgrade` selects the latest release tag, updates version pins, migrates the layout, refreshes generated files, and prints the intervening changelog. Use `--to X.Y.Z` to choose a release. Review the diff and commit it after fixing any errors reported by `lint`.
 ```
 <!-- /quote -->
 

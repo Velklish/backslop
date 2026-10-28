@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **README for new users** — explain the purpose and capabilities first, add a pinned quick start and a first-task example, and link to the reference for detailed CLI behavior. Clarify that initial gates contain only lint, adapters and hooks are opt-in, and agents populate the documentation skeleton.
+
 ## v1.0.0 — 2026-10-23
 
 - **Public history cleanup** — published main and nine historical tags (`v0.10.0`, `v0.10.1`, `v0.11.0`, `v0.11.1`, `v0.12.0`, `v0.20.0`, `v0.21.0`, `v0.21.1`, `v0.21.2`) now use the approved cleaned history. The other ten tags retain their exact ref-object identities. Task bodies, attachments, attribution, dates and historical measurement identities were preserved.

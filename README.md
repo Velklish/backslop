@@ -1,151 +1,188 @@
 # backslop
 
-A backlog for slop: a file-based task tracker and decision log next to the code, plus process skills for agents. Initialise any project with one command:
+A task tracker and decision log for coding agents, stored in your Git repository as Markdown files.
+
+backslop keeps tasks, architectural decisions, and project documentation next to the code. Agents can read and update them with a CLI, so the next session can pick up where the last one left off. You do not need a hosted tracker, a database, or an MCP server.
+
+## What you can do
+
+- **Track work in Git.** Create tasks, prioritize the queue, and record findings. Each task has its own file, so agents working on separate tasks do not have to edit a shared task list.
+- **Give agents a consistent workflow.** Install skills for Claude Code, Cursor, or Codex that cover implementation, verification, review, and acceptance.
+- **Keep decisions and documentation with the code.** Create architectural decision records (ADRs), maintain a glossary and reference, and use skills to populate and check the docs.
+- **Check work before accepting it.** Validate links, task structure, version pins, and other documentation rules. Run your project's tests and checks through one `gates` command.
+- **Prepare parallel work.** Generate worker briefs and inspect branches and worktrees. Your agent harness provides the workers; backslop provides their assignments and workflow.
+- **Keep completed work searchable.** Fold closed tasks into a compact journal and retrieve their full records from Git history.
+
+## Quick start
+
+You need **Node.js 20+ and Git**. backslop has no package dependencies and supports Windows, macOS, and Linux. It is distributed through GitHub tags, not the npm registry.
+
+From the root of the repository you want to manage:
 
 ```bash
-npx github:Velklish/backslop init
+npx github:Velklish/backslop#v1.0.0 init --tools codex
 ```
 
-Without `--lang`, a first `init` writes `"lang": "en"`: new files and messages are English. Use `init --lang ru` for Russian. Repeated `init` and `upgrade` preserve the configured language unless you explicitly change it. Requires Node 20+ and git. The package has no dependencies.
+Replace `codex` with `claude` or `cursor`, or select several with `--tools claude,cursor,codex`. Omit `--tools` to use the CLI and the instructions in `AGENTS.md` without installing agent skills.
 
-## What it is
+By default, a first `init` writes `"lang": "en"` and selects no adapters (`--lang en`, `--tools none`). Add `--lang ru` for Russian templates and CLI messages. Repeated `init` and `upgrade` preserve the configured language unless you explicitly change it; changing the language does not translate your existing project content.
 
-Agents produce a lot of work, and it needs a tracker that lives in the repository, can be read by an agent without external services, and does not create conflicts during parallel branch work. backslop keeps everything as files:
+`init` creates the documentation skeleton, adds a managed section to `AGENTS.md`, and saves the version-pinned command in `backslop.json`. It preserves existing documentation and instructions outside that section. Review and commit the generated project files; adapter skills are generated locally and ignored by Git.
 
-- **a task is a file** `<prefix>-N-<slug>.md` (the default prefix is `BS`); **status is the directory** containing it: `triage/`, `queue/`, `active/`, `deferred/`, or `minor/`;
-- **closing is two steps**: `archive N` moves the task into `docs/archive/<id>-<slug>/` as `task.md` plus a `result.md`, and `fold N` later folds that directory into one line of `docs/archive/LOG.md` — the body stays in git history, and `show N` reads it back;
-- **priority is the Order field** in the file, not a line in a shared list; there is no task list in git — `status` prints the summary;
-- **a finding is a file** numbered `N.k`, created by its finder in their branch without coordination, and its cost label decides the route: `critical` and `major` within the current scope are fixed now, `major` outside it becomes a card, `minor` and hypotheses wait in `minor/` for a batch; `new --minor` inherits usable Scope from the exact parent, keeping empty destinations and pathless fragment and query links aimed at the exact parent file and preserving valid literal reference titles, including declaration-looking lines, while rebasing declaration destinations and excluding invalid title tails, or leaves it empty for the approver to fill ([CLI](docs/reference/02-cli.md#minor-scope-inheritance));
-- **decisions are ADRs**, **terms are a glossary**, and **structure is a subsystem reference**;
-- **the process is skills**: a one-task lifecycle with worker and approver roles, a worker run by tracks with briefs and a review gate, and documentation population after installation.
-
-## What appears in a project
-
-`init` lays down this core in every project:
-
-```
-backslop.json                    config: prefix, docs, cli (with the version pin), gates, probe, writer, version, source, lang, tools, hooks, agents
-AGENTS.md                        procedure section between <!-- backslop:start --> and <!-- backslop:end -->
-docs/…                           documentation skeleton, backlog, archive and its journal, first ADR
-```
-
-The fields, their defaults and their rules — the mutation-probe command `probe` and the step overrides `agents.stepOverrides` included — are in the [config table](docs/reference/01-layout.md#backslopjson). A `backslop.json` without `lang` or `tools` is refused by every command that loads the config, `init` included: add the field by hand.
-
-Adapters are written only when selected — `init --tools claude,cursor,codex`; by default `init` writes `"tools": []`:
-
-| Adapter | Output |
-|---|---|
-| `claude` | `.claude/skills/backslop-*` and a `CLAUDE.md` stub (`@AGENTS.md`) if the file did not exist |
-| `cursor` | `.cursor/rules/backslop-*.mdc` and namespaced references |
-| `codex` | `.agents/skills/backslop-*` |
-
-Each adapter lays out the process skills, the `backslop-writer` release and batch-close pass, and two third-party writing skills, `backslop-humanizer` and `backslop-techdoc`, with their `LICENSE` and `SOURCE.md` (see [Third-party components](#third-party-components)).
-
-`init` flags and the defaults of a first `init`: `--dir docs`, `--prefix BS`, `--cli npx github:Velklish/backslop#v<version>`, `--lang en`, `--tools none`; a repeated `init` without `--lang` or `--tools` keeps the config's values. A repeated `init` does not touch existing `docs/` files; it rewrites the selected adapter outputs and the section in `AGENTS.md`, and removes only backslop-owned files of deselected adapters. Adapter skill outputs are generated and not committed: `init` keeps a block for them in `.gitignore`. Commit the Claude import stub with AGENTS.md and backslop.json. The tracked startup instruction makes a selected agent run the configured `cli` plus `lint --require-adapter <tool>` for its current harness (`claude`, `cursor` or `codex`) before task work, restoring missing or invalid adapters with the same pinned `init` and checking again. Valid outputs need no rebuild; `tools: []` stays empty. CLI/access/conflict failures are reported as blockers. Discovery contracts, custom entry points and live verification limits are in [Agent startup after clone](docs/reference/01-layout.md#agent-startup-after-clone). The full rules are in [What init lays down](docs/reference/01-layout.md#what-init-lays-down).
-
-With an adapter selected, ask an agent to "populate docs using backslop" after the skeleton is ready: the `backslop-seed` skill reads the repository, asks a few questions, and fills the glossary, initial ADRs and the reference without inventing anything without evidence. Before a release or when a run with workers closes, `backslop-writer` checks documentation currency and, in release mode, style. Its audit mode scores a document, says whether it can ship and files every finding with a regression check.
-
-## Agent hooks
-
-An agent hook is a record that `init` writes into the project hook file of a selected harness, two per harness. The start record runs `hook session-start`: it records the start commit and attempts one complete in-process `lint` observation of actual project state. The stop record runs `hook stop`, which checks files changed since that commit, including later commits and non-ignored untracked files. With a compatible first-start baseline, it subtracts pre-existing local missing-link identities by count; other error families keep the changed-file filter. Ordinary `lint` still reports every error.
-
-The baseline observes staged, unstaged and untracked content, rather than reconstructing the start commit. Repeated starts keep the first observation or its unavailability. Old, malformed, incompatible or oversized baselines fall back to the changed-file filter. A foreign post-start change remains reportable: the hook cannot identify its author. Equal-count replacement of an identical link identity is net zero, without identifying a physical occurrence. The scope, fallback, 1 MiB baseline budget and report protocol are in [hook](docs/reference/02-cli.md#hook).
-
-Select the harnesses with `init --hooks claude,cursor,codex` (any subset; `--hooks none` removes them); a first `init` selects none. `init` writes the records into `<project>/.claude/settings.json` for `claude`, `<project>/.cursor/hooks.json` for `cursor` and `<project>/.codex/hooks.json` for `codex`, next to the team's own settings and hooks, which `init` keeps; it never writes the files in your home directory. The rules are in [Agent hook records](docs/reference/01-layout.md#agent-hook-records).
-
-On a first `init --hooks` without `--cli`, a project-root `package.json` that declares `devDependencies.backslop` selects `npx --no-install backslop` for `backslop.json` and every selected hook record. Otherwise the pinned GitHub npx command stays, even if a global `backslop` is on `PATH`. These files are shared: a teammate receives the same command. Run `npm install` before using the local hooks on a fresh checkout; the hook command fails until the dependency is installed. Without the declaration, a fresh checkout has no local backslop installation from `package.json`, so that command fails there too. If the declaration is later removed, a repeated `init` with hooks refuses until it is restored or `cli` is changed in the config. `lint` does not check local installation state. With this local `cli`, `lint` reports bare `npx backslop` invocations in the [live files](docs/reference/03-lint.md#live-pin-files) and configured gate/probe commands, naming the location and the configured `npx --no-install backslop` command to use, including when a closing quote is JSON-escaped.
-
-For local-install diagnostics, `init` checks the project first, then the nearest ancestor with a `node_modules/.bin/backslop` launcher (`backslop.cmd` on Windows). This includes npm workspace installations hoisted above the project. Version warnings use `node_modules/backslop/package.json` at that launcher's level. If no launcher exists, `init` warns to run `npm install` and still checks any package version recorded in the project itself.
-
-## Commands
-
-Each command links its reference section: behaviour, output and refusals.
-
-| Command | What it does |
-|---|---|
-| [`init [--dir docs] [--prefix BS] [--cli <command>] [--lang ru\|en] [--tools <CSV\|none>] [--hooks <CSV\|none>]`](docs/reference/02-cli.md#init) | create docs, adapters, agent hooks, the AGENTS.md block and backslop.json; on repeat, refresh the adapters and the AGENTS.md block |
-| [`new <slug> [--title "…"] [--queue [--top]] [--parent N[.M] [--cost critical\|major] [--minor --evidence "…" [--cost <level>] [--hypothesis]]]`](docs/reference/02-cli.md#new) | create a task (in `triage/`, or the queue), a finding of task N / N.M, or a minor finding with evidence |
-| [`mv <N…> <triage\|queue\|active\|deferred\|minor> [--top \| --after M \| --restore] [--evidence "…"]`](docs/reference/02-cli.md#mv) | change task status or queue order; stage a tracked status move with its card edits; rewrite links with encoded filename characters preserved |
-| [`archive <N> [--dry-run] [--range <base>..HEAD]`, `archive <N.k> --into <M> [--dry-run]`](docs/reference/02-cli.md#archive) | close a task into `archive/` and print the documentation it touched; close a minor entry by batch M |
-| [`fold <N> [--dry-run]`, `fold [--older-than <date>] [--embed-missing] [--dry-run]`](docs/reference/02-cli.md#fold) | fold a closed task, or the accumulated archive, into `archive/LOG.md` lines; `fold N` puts the body into the commit message draft, the bulk form names each body's revision (`--embed-missing` carries bodies that are not in history); bulk `--dry-run` previews journal lines and link rewrites on stderr without writing, matching the real writes across symlinks and hardlinks and showing multiline rewrites as before/after blocks |
-| [`show <N>`](docs/reference/02-cli.md#show) | print the body of a folded task |
-| [`adr <slug> [--title "…"]`](docs/reference/02-cli.md#adr) | create the next numbered ADR |
-| [`brief <N…> [--track "…"] [--neighbour "path=track"] [--entry "…"] [--autonomy "…"] [--handover "…"] [--measurements] [--require-complete]`](docs/reference/02-cli.md#brief) | print a worker brief for these tasks |
-| [`seed --scan [--json] \| --queue-reference`](docs/reference/02-cli.md#seed) | list gate and subsystem candidates with evidence, or queue reference tasks |
-| [`status [--json]`](docs/reference/02-cli.md#status) | active work, the ordered queue, deferred work, triage, and minor entries by scope |
-| [`lint`](docs/reference/02-cli.md#lint) | the tracker gates, project documentation without task ids and tracker links, adapter outputs and, in the tool's own repository, template parity ([gates](docs/reference/03-lint.md)) |
-| [`gates [--keep-going] [--json] [--require-clean] [--dry-run] [--base <ref>]`](docs/reference/02-cli.md#gates) | run the `gates` commands: exit code of each, green count, tree snapshot including non-ignored untracked work regardless of Git's display setting |
-| [`tracks [--json]`](docs/reference/02-cli.md#tracks) | run worktrees and branches: merged or not, what is left, what is dirty including non-ignored untracked work |
-| [`links --external [--json]`](docs/reference/02-cli.md#links) | request the http(s) links of the documents and classify each: ok, dead, unverified; outside `gates` and `lint` |
-| [`hook <session-start\|stop> --harness <claude\|cursor\|codex>`](docs/reference/02-cli.md#hook) | agent hook: observe first-start missing links, report kept `lint` errors in changed files |
-| [`upgrade [--to X.Y.Z] [--dry-run] [--pin-only]`](docs/reference/02-cli.md#upgrade) | update the pins, then migrate and initialize with the new version |
-| [`migrate [--dry-run]`](docs/reference/02-cli.md#migrate) | migrate file formats, redraw the tracking and archive rules, update the version stamp |
-| [`changelog [--since X.Y.Z] [--to X.Y.Z]`](docs/reference/02-cli.md#changelog) | print backslop CHANGELOG entries between versions |
-| [`merge-changelog --ours <ref> --theirs <ref> [--base <ref>] [--out <file>]`](docs/reference/02-cli.md#merge-changelog) | merge two `CHANGELOG.md` revisions while keeping fenced examples intact; refuse an unclosed fence in either file head or unreleased section |
-| [`version \| --version \| -v`, `help \| --help \| -h \| <command> --help`](docs/reference/02-cli.md#version-and-help) | print the version or the help |
-
-The command is long, so a project records it in the `cli` field of `backslop.json`, and skills and the `AGENTS.md` section substitute it from there. With a global install (`npm i -g github:Velklish/backslop#v<version>`), set `cli` to `backslop`.
-
-## Update a project
-
-`init` records the version that created the layout: `version` is its stamp, and `cli` is `npx github:Velklish/backslop#v<version>` unless the selected hooks use the declared local dependency. The untagged form pulls the `main` branch HEAD on every run, so it is unsuitable for a project `cli`: behaviour would change through someone else's commit. Update a project only when you choose to:
+### Create your first task
 
 ```bash
-npx github:Velklish/backslop upgrade
+npx github:Velklish/backslop#v1.0.0 new add-search --title "Add search" --queue
+npx github:Velklish/backslop#v1.0.0 status
 ```
 
-The project command `<cli> upgrade` runs the code of the pinned version and finishes from a pin of 0.11.1 or later. For an older pin, use the untagged form `npx github:Velklish/backslop upgrade`, which always runs fresh backslop and still updates the project to the latest tag; pins earlier than 0.9.0 are unsupported.
+Open the task file printed by `new` and fill in its context, scope, work to do, and verification. Then start it, using the number printed by the command (here, `1`):
 
-- **What it does.** `upgrade` takes the latest tag (or `--to X.Y.Z`), test-runs the new version, moves the pin in `cli` and inside the `gates` and `probe` commands, runs the new version's `migrate` and `init`, moves pins in the [live files](docs/reference/03-lint.md#live-pin-files), and prints the tool's CHANGELOG between the two versions.
-- **Preview.** `--dry-run` prints the plan only; it does not include the output of `migrate`. Preview the format migrations and the rules redraw with `npx github:Velklish/backslop#v<new> migrate --dry-run`.
-- **What is lost.** `docs/backlog/README.md`, `docs/archive/README.md` and `docs/ROLES.md` belong to backslop: `migrate` redraws them from the new version's template, and a committed local edit in them is lost (an uncommitted one makes `migrate` refuse). The header of `docs/archive/LOG.md` is redrawn the same way; its journal lines are kept. Keep project rules of your own elsewhere, for example in `AGENTS.md` outside the backslop section.
-- **At the same version.** After changing `cli` or `lang`, run `<cli> migrate`: it redraws complete renders of either language that carry one valid previous command in every `cli` slot, including pinned npx to `npx --no-install backslop`. Other local edits stay and are named; journal entries keep their bytes.
-- **Options.** `--pin-only` changes only the configuration; after a manual `migrate` and `init`, run the full `upgrade` again to rewrite live pins, even without a newer tag. Downgrades are unsupported: an old version does not know a newer file format. `lint` keeps layout-version warnings advisory, but an old pin in a live file is an error.
-- **A global install** (`cli: "backslop"`) has no source derived from GitHub: set `source` in `backslop.json` to the repository URL with release tags, and update the installed package yourself first — `upgrade` refuses while `cli` still runs the old version.
-- **A local devDependency** (`cli: "npx --no-install backslop"`) has no release pin or derived source either: set `source` in `backslop.json`, update the installed package before `upgrade`, and keep its declaration in `package.json`. `upgrade` retains the local command and checks that it reports the target version.
-- **Source validation**: `lint` rejects an explicitly local `source` path or `file://` URL that is missing or does not name a Git repository. Home-relative `~/` paths expand only when no literal project-relative path exists; SCP locators such as `file:team/repo.git` stay with Git. It does not contact remotes or check release tags; `upgrade` resolves remote locators and Git aliases/helpers as before.
+```bash
+npx github:Velklish/backslop#v1.0.0 mv 1 active
+```
 
-After an upgrade:
+For an existing project, use the command in its `backslop.json` → `cli` field. The examples above use the current release; the saved command keeps everyone on the version chosen for that project.
 
-1. Review and commit the diff: `backslop.json`, the `AGENTS.md` section, the tracking and archive rules, and new files such as `docs/archive/LOG.md`.
-2. Run `<cli> lint` and fix what newer gates report — for example, a `result.md` that names no outcome word, or a task id or a tracker link in project documentation: README, `docs/` outside `backlog/` and `archive/`, and the unreleased CHANGELOG section ([gate 15](docs/reference/03-lint.md#documentation-without-the-tracker)). Write what the record says instead: the contract, the rationale, or the measurement with its version and date.
-3. Optionally, run `<cli> fold` to fold archive directories closed before 0.10.
+## Use it with an agent
+
+With an adapter installed, ask your agent to **"populate docs using backslop"**. The `backslop-seed` skill inspects the repository, asks about decisions it cannot establish from the code, and fills the glossary and initial ADRs. It builds a reference index and queues tasks for the detailed sections.
+
+The adapters install these skills:
+
+| Skill | Use it to |
+|---|---|
+| `backslop-task` | Take one task through implementation, verification, review, and acceptance |
+| `backslop-batch` | Organize work across independent tracks and accept the results by task |
+| `backslop-seed` | Populate the documentation skeleton from repository evidence |
+| `backslop-writer` | Check documentation against the code and audit its style |
+| `backslop-techdoc`, `backslop-humanizer` | Apply technical writing guidance and remove common AI writing patterns |
+
+`backslop-writer` checks documentation before a release or when a run with workers closes. Release mode also checks style; audit mode reports findings for a selected document.
+
+Skills are instructions for your agent. backslop does not run a model or launch workers itself.
+
+After cloning a project, the instructions in `AGENTS.md` tell a selected agent to check its adapter with `<cli> lint --require-adapter codex` (or `claude` / `cursor`) and restore missing files with `<cli> init`. Here and below, `<cli>` means the exact command saved in `backslop.json`, not text to paste literally. See [agent startup after clone](docs/reference/01-layout.md#agent-startup-after-clone) for setup and discovery details.
 
 ## How work proceeds
 
-1. An agent takes the first task from `status` and starts it with `mv N active`.
-2. It changes code, updates documentation in the same pass, runs `<cli> gates` (which includes `lint`), and commits to its branch with the `<prefix>-N:` prefix.
-3. The approver accepts: `archive N`, completes `result.md` (`lint` fails while a `[TODO` placeholder stays outside code), runs `fold N` into a draft outside the working tree, and makes one acceptance commit that carries the draft as its message (two in the attachment branch) — the [fold section](docs/reference/02-cli.md#fold) gives the exact commands, and nothing is committed between `archive N` and `fold N`, except in the attachment branch for a task directory that holds attachments.
-4. The approver then reviews `triage/` so every entry has a next step, in a separate commit.
-5. Tasks in non-overlapping subsystems run through `backslop-batch`: one track per subsystem, a self-contained brief, a reviewer for contract diffs, and acceptance squashed by task. The run's task creation (`new` per task) and track take (`mv N M K active`) form one planning commit containing only those changes. A later take goes into the next planning or acceptance commit, without a separate take commit. Use `brief --require-complete` before sending a generated brief: missing/blank decisions or any literal `[TODO` refuse with exit 1 and empty stdout; ordinary draft mode stays exit 0. This checks completeness, not the meaning of the decisions.
+A task's directory is its status. New tasks enter `triage/` unless you use `--queue`; `status` shows active work, the ordered queue, deferred work, triage, and minor findings.
 
-The role boundary is the same in solo and orchestrated work: a worker changes only its branch, does not declare its own work accepted, and does not move, archive or edit existing task files — the approver edits task-file text, and the worker sends the wording in its result. The worker's only tracker write is a new finding, created as a separate file with `new <slug> --parent N[.M]` (with `--minor --evidence "…"` for minors and hypotheses) on its branch.
+```text
+docs/backlog/
+  triage/     Ideas and findings to review
+  queue/      Tasks ready to take, in priority order
+  active/     Work in progress
+  deferred/   Work waiting for a stated return condition
+  minor/      Small findings and hypotheses to handle together
+```
 
-## For orchestrators
+The workflow separates implementation from acceptance:
 
-An orchestrator on any harness works through the files and the CLI; what it can rely on — output channels, exit codes, the JSON shapes and the stable list — is in [05. Orchestrator contract](docs/reference/05-orchestrator-contract.md).
+1. **Define and start the task.** Fill in the task file, place it in the queue, and move it to `active/` when work begins.
+2. **Implement and verify.** Update the code and documentation, run the configured gates, and commit the work on its branch.
+3. **Review and close.** The approver reviews the changes, runs `archive N`, records the outcome and checks in `result.md`, and runs `fold N`. The fold draft becomes the acceptance commit message, preserving the full record in Git. The approver then reviews any remaining triage entries.
 
-## Limitations
+One agent can perform both roles in order. In parallel work, workers implement and report; the approver manages existing task files and closes tasks. Follow the [acceptance recipe](docs/reference/02-cli.md#fold) when folding: the draft and commit order are what preserve the task body, and attachments require an extra commit. Use `show N` to read a folded task later.
 
-- backslop is not published to npm: install and pin it from GitHub tags (`npx github:Velklish/backslop#vX.Y.Z`).
-- Skills appear only for selected `tools`. Without an adapter, a project gets the `AGENTS.md` section and `docs/`, and no `backslop-seed` skill.
-- A project that never selected an adapter gets no `.gitignore`; deselecting every adapter (`--tools none`) leaves an empty backslop block in it.
-- English and Russian template layers are provided. Changing `lang` does not translate existing docs, except the tracking and archive rules, `ROLES.md` and the journal header: the next `migrate` redraws them in the new language unless they carry local edits.
-- Heading anchors use the [local heading-anchor contract](docs/reference/03-lint.md#heading-anchor-contract), including a fixed named-entity table; renderer-specific compatibility is not guaranteed. Named entities decode only own entries of the fixed table; unsupported names such as `&constructor;` keep their source text before slug filtering.
-- A prefix that matches an ordinary word (`API`, `RFC`) causes false positives in the number-mention gate on lines such as `API-2.0`; choose a prefix absent from project text.
+## What goes into your repository
+
+With the default `docs` directory:
+
+```text
+backslop.json       CLI version, language, adapters, hooks, and verification commands
+AGENTS.md           Managed workflow instructions alongside your own instructions
+docs/
+  README.md         Documentation index
+  GLOSSARY.md       Project terminology
+  ROLES.md          Worker, approver, and owner responsibilities
+  adr/              Architectural decision records
+  reference/        Subsystem documentation
+  backlog/          Open tasks and operating rules
+  archive/          Closed tasks and the LOG.md journal
+```
+
+Adapters add local files for the tools you select:
+
+| Tool | Generated skills |
+|---|---|
+| Claude Code | `.claude/skills/backslop-*` |
+| Cursor | `.cursor/rules/backslop-*.mdc` and supporting files |
+| Codex | `.agents/skills/backslop-*` |
+
+For Claude Code, `init` also creates a `CLAUDE.md` stub that imports `AGENTS.md` if the file does not exist. Commit that stub. If you already have a `CLAUDE.md`, keep it and add the import if needed.
+
+See the [configuration reference](docs/reference/01-layout.md#backslopjson) for custom directories, task prefixes, gates, and workflow overrides.
+
+## Everyday commands
+
+Run these after your project's configured `<cli>`:
+
+| Command | Purpose |
+|---|---|
+| `status` | See current work and the queue |
+| `new <slug> --title "…" --queue` | Create a queued task |
+| `mv N active` | Start a task |
+| `new <slug> --parent N` | File a finding under a task |
+| `adr <slug> --title "…"` | Create an architectural decision record |
+| `lint` | Check the tracker and documentation |
+| `gates` | Run the project's configured verification commands |
+| `archive N`, `fold N`, `show N` | Close, compact, and retrieve task records |
+
+A new project's `gates` list contains only backslop's `lint`. Add your build, tests, and other checks to `backslop.json`; backslop does not discover and enable them automatically. The seed skill can help identify suitable commands.
+
+The [CLI reference](docs/reference/02-cli.md) covers all commands and flags, including worker briefs, worktree status, external-link checks, and changelog merging. For scripts and orchestrators, see the [JSON formats and stable CLI contract](docs/reference/05-orchestrator-contract.md).
+
+## Optional agent hooks
+
+Hooks let an agent check documentation at the end of a session. Enable them separately from skills, using your configured CLI:
+
+```text
+<cli> init --hooks codex
+```
+
+Choose `claude`, `cursor`, or a comma-separated list; use `--hooks none` to remove them. backslop adds session-start and stop records to project settings while preserving other hooks. It does not change settings in your home directory.
+
+The start hook records the initial state. The stop hook reports lint errors in changed files and, when a compatible baseline is available, subtracts pre-existing missing-link counts. It cannot determine who made a change. Ordinary `lint` still checks the full project. See [hook behavior and limits](docs/reference/02-cli.md#hook).
+
+<details>
+<summary>Using a local npm dependency for hooks</summary>
+
+On a first `init` with hooks enabled, a project-root `devDependencies.backslop` declaration selects `npx --no-install backslop` unless you pass `--cli`. Run `npm install` after cloning. Without the declaration, a fresh checkout has no local backslop installation from `package.json`, so `init` keeps the pinned GitHub command.
+
+Installation checks look in the project first, then the nearest ancestor with `node_modules/.bin/backslop`, including hoisted npm workspace installations. Repeated `init` preserves the saved command. If you remove the dependency declaration while using local hooks, restore it or change `cli` in the config before running `init` again. See [local command selection and diagnostics](docs/reference/02-cli.md#init).
+
+</details>
+
+## Update a project
+
+Updates are explicit. Preview and apply one with your configured CLI:
+
+```text
+<cli> upgrade --dry-run
+<cli> upgrade
+<cli> lint
+```
+
+`upgrade` selects the latest release tag, updates version pins, migrates the layout, refreshes generated files, and prints the intervening changelog. Use `--to X.Y.Z` to choose a release. Review the diff and commit it after fixing any errors reported by `lint`.
+
+**Keep custom rules outside generated sections.** An upgrade rewrites the backlog and archive READMEs, `docs/ROLES.md`, and the header of `docs/archive/LOG.md`. Committed edits to those sections are replaced; journal entries are preserved. Put your own rules in `AGENTS.md` outside the backslop block or in a separate document.
+
+For local or global installations, update the installed package first and configure `source`. For pins older than 0.11.1, use `npx github:Velklish/backslop upgrade`; pins earlier than 0.9.0 are unsupported. See [upgrade details](docs/reference/02-cli.md#upgrade) and [migration rules](docs/reference/01-layout.md#the-rules-pair-belongs-to-the-tool).
 
 ## Work on backslop
 
-- Original prose in this repository's tracker and archive is English. The tracked-tree language test permits Russian template twins, CLI localization, and exact identified diagnostic or multilingual-input literals; it rejects unexplained prose beside those literals. Historical task bodies remain unchanged in git. See [repository language evidence](docs/reference/04-verification.md#repository-language-evidence).
-- Keep current content about backslop and use self-contained generic reproductions. The tracked-tree structural guard checks private locations; content review still decides whether a narrative belongs here. Historical journal keys, supported integrations and vendor attribution are preserved. See [repository content boundary](docs/reference/04-verification.md#repository-content-boundary).
+Read [AGENTS.md](AGENTS.md) for contribution rules and the [module map](docs/reference/06-module-map.md) for code entry points. The repository uses backslop to manage its own work.
 
-- The repository rules are in [AGENTS.md](AGENTS.md), and the structure of the tool is in [docs/reference/](docs/reference/README.md).
-- Where each part of `lib/` lives, and how to add a command, a lint gate, a migration or a template placeholder: [06. Module map](docs/reference/06-module-map.md).
-- `templates/` is the source of everything installed into a project; the repository's own `docs/` are managed with the same tool.
-- `node bin/backslop.js gates` runs the repository gates: `lint` and `npm test`. The full test suite runs at most two files concurrently, with a 60-second timeout per test.
-- `npm test` compares this repository's managed `AGENTS.md` block with what `init` renders using its `backslop.json`, including step overrides and probe/hook passages. Text outside the block is not compared.
-- Parser fixtures use synthetic narratives and explicit language metadata; their policy is in [Outcome words](docs/reference/01-layout.md#outcome-words).
-- Windows is supported.
+Run the repository checks from its root:
+
+```bash
+node bin/backslop.js gates
+```
+
+This runs `lint` and `npm test`. The CLI uses only the Node.js standard library. Original repository prose is English; Russian templates and CLI translations are maintained alongside their English sources.
+
+Browse the [reference](docs/reference/README.md) for detailed behavior and the [changelog](CHANGELOG.md) for release history. Report bugs or ask questions in [GitHub Issues](https://github.com/Velklish/backslop/issues).
 
 ## Third-party components
 
@@ -154,4 +191,4 @@ An orchestrator on any harness works through the files and the CLI; what it can 
 - **`backslop-humanizer`** — [humanizer](https://github.com/blader/humanizer) at commit `9862685f575c65a8247f90369951df1b3416e3d6`. MIT License, Copyright (c) 2025 Siqi Chen. Its patterns of AI writing are based on Wikipedia's "Signs of AI writing". Modification: the frontmatter `name` is `backslop-humanizer`.
 - **`backslop-techdoc`** — [technical-documentation](https://github.com/wondelai/skills/tree/c172996495bed0fcd26896a9416b2093fd7073f0/plugins/code-craftsmanship/skills/technical-documentation) from wondelai/skills at commit `c172996495bed0fcd26896a9416b2093fd7073f0`. MIT License, Copyright (c) 2025 Wondel.ai sp. z o.o. Its "About the Source" section is the CC BY 4.0 attribution to Google's developer documentation style guide and is unchanged. Modifications: the frontmatter `name` is `backslop-techdoc`; the affiliate query `?tag=wondelai00-20` is removed from two Further Reading links; in `references/release-notes.md`, an example link to `CHANGELOG.md` outside a code block is inline code, because it resolved to nothing.
 
-License: MIT.
+License: [MIT](LICENSE).
